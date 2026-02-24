@@ -1,17 +1,21 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAdminAccess } from "@/lib/admin-access";
+import { getSettingsItems } from "@/lib/menu-registry";
 
 export default function AdminSettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { isMainAdmin } = useAdminAccess();
 
-  const items = [
-    { href: "/admin/settings/store-master", label: "1. 점포마스터 최신화" },
-    { href: "/admin/settings/inspection-stores", label: "2. 검수점포 최신화" },
-    { href: "/admin/settings/notices", label: "3. 공지사항 등록/작성" },
-  ];
+  const items = useMemo(() => getSettingsItems(), []);
+
+  const canShow = (mainOnly?: boolean) => {
+    if (!mainOnly) return true;
+    return isMainAdmin;
+  };
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
@@ -36,11 +40,11 @@ export default function AdminSettingsLayout({ children }: { children: React.Reac
         <div style={{ fontWeight: 950, color: "#111827", marginBottom: 10 }}>설정</div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {items.map((it) => {
+          {items.filter((it) => canShow(it.mainOnly)).map((it) => {
             const active = isActive(it.href);
             return (
               <Link
-                key={it.href}
+                key={it.key}
                 href={it.href}
                 style={{
                   textDecoration: "none",
