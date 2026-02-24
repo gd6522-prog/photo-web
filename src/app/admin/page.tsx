@@ -14,6 +14,7 @@ type EventRow = {
   updated_at: string;
 };
 
+// ⚠️ 유지: 기존 하드코딩 관리자 (원하면 나중에 profiles/is_admin만으로 통일 가능)
 const ADMIN_EMAIL = "gd6522@naver.com";
 const ADMIN_UID = "bf70f0c0-3c58-444e-b69f-bd5de601deb6";
 
@@ -23,9 +24,7 @@ function pad2(n: number) {
 function kstTodayYYYYMMDD() {
   const now = new Date();
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  return `${kst.getUTCFullYear()}-${pad2(kst.getUTCMonth() + 1)}-${pad2(
-    kst.getUTCDate()
-  )}`;
+  return `${kst.getUTCFullYear()}-${pad2(kst.getUTCMonth() + 1)}-${pad2(kst.getUTCDate())}`;
 }
 function daysInMonth(year: number, month1to12: number) {
   return new Date(year, month1to12, 0).getDate();
@@ -87,6 +86,11 @@ type WeatherAPI = {
   message?: string;
 };
 
+function hardToLogin() {
+  // ✅ 가장 확실: /admin에 남아서 권한없음 화면 그리기 전에 끊어버림
+  window.location.replace("/login");
+}
+
 function Card({
   title,
   subtitle,
@@ -122,13 +126,9 @@ function Card({
         }}
       >
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 950, fontSize: 15, color: "#111827" }}>
-            {title}
-          </div>
+          <div style={{ fontWeight: 950, fontSize: 15, color: "#111827" }}>{title}</div>
           {subtitle ? (
-            <div style={{ marginTop: 3, fontSize: 12, color: "#6B7280" }}>
-              {subtitle}
-            </div>
+            <div style={{ marginTop: 3, fontSize: 12, color: "#6B7280" }}>{subtitle}</div>
           ) : null}
         </div>
         {right ? <div>{right}</div> : null}
@@ -273,7 +273,6 @@ function WeatherIcon({ code, size = 30 }: { code: number | null; size?: number }
     );
   }
 
-  // default: 흐림
   return (
     <svg {...common}>
       <path
@@ -435,7 +434,7 @@ function WeatherCard() {
   }, []);
 
   const fmtMD = (d: string) => {
-    const [y, m, dd] = d.split("-").map(Number);
+    const [, m, dd] = d.split("-").map(Number);
     return `${m}.${pad2(dd)}`;
   };
 
@@ -465,7 +464,6 @@ function WeatherCard() {
         <div style={{ color: "#6B7280", fontSize: 13 }}>불러오는 중…</div>
       ) : (
         <>
-          {/* TODAY */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <WeatherIcon code={w?.today.weatherCode ?? null} size={30} />
@@ -504,7 +502,6 @@ function WeatherCard() {
             {!w?.ok && w?.message ? <div style={{ fontSize: 12, color: "#B91C1C" }}>{w.message}</div> : null}
           </div>
 
-          {/* D+7 (오늘 제외) */}
           <div style={{ marginTop: 12, borderTop: "1px solid #F3F4F6", paddingTop: 10 }}>
             <div style={{ fontWeight: 950, fontSize: 12.5, color: "#111827", marginBottom: 8 }}>주간예보 (D+7, 오늘 제외)</div>
 
@@ -542,7 +539,6 @@ function WeatherCard() {
                   <div style={{ fontWeight: 950, color: d.dow === "일" ? "#EF4444" : "#111827" }}>{d.dow}</div>
                   <div style={{ color: "#6B7280" }}>{fmtMD(d.date)}</div>
 
-                  {/* ✅ 강수확률 바 제거 -> 퍼센트만 표시 */}
                   <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                     <WeatherIcon code={d.weatherCode ?? null} size={18} />
                     <div style={{ fontWeight: 950, color: "#111827" }}>
@@ -647,8 +643,14 @@ export default function AdminHomePage() {
   const loadAdmin = async () => {
     const { data, error } = await supabase.auth.getSession();
     if (error) throw error;
+
     const sess = data.session;
-    if (!sess) return { ok: false as const };
+
+    // ✅ 세션 없으면 바로 /login (권한없음 UI 렌더 금지)
+    if (!sess) {
+      hardToLogin();
+      return { ok: false as const };
+    }
 
     const uid = sess.user.id;
     const email = sess.user.email ?? "";
@@ -660,8 +662,22 @@ export default function AdminHomePage() {
     const hardAdmin = uid === ADMIN_UID || email === ADMIN_EMAIL;
     const admin = hardAdmin || (!!prof && !!(prof as any).is_admin);
     setIsAdmin(admin);
+
+    // ✅ 세션은 있는데 관리자 아니면: 여기서는 화면 표시(원하면 여기서도 /login 보내도 됨)
     return { ok: true as const, admin };
   };
+
+  // ✅ auth 변화(로그아웃/세션만료) 즉시 /login
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) hardToLogin();
+    });
+    return () => {
+      try {
+        sub.subscription.unsubscribe();
+      } catch {}
+    };
+  }, []);
 
   useEffect(() => {
     if (mounted.current) return;
@@ -671,9 +687,11 @@ export default function AdminHomePage() {
       setChecking(true);
       try {
         const r = await loadAdmin();
-        if (!r.ok || !r.admin) setIsAdmin(false);
+        if (!r.ok) return;
+        if (!r.admin) setIsAdmin(false);
       } catch {
-        setIsAdmin(false);
+        // 에러도 로그인으로 보내는게 깔끔 (세션 꼬임 방지)
+        hardToLogin();
       } finally {
         setChecking(false);
       }
@@ -767,6 +785,7 @@ export default function AdminHomePage() {
 
   if (checking || !ready) return <div style={{ padding: 16, color: "#6B7280" }}>로딩...</div>;
 
+  // ✅ 여기서는 "관리자 아닌데 세션은 있는" 케이스만 남음
   if (!isAdmin) {
     return (
       <div style={{ padding: 16, fontFamily: "system-ui" }}>
@@ -774,6 +793,23 @@ export default function AdminHomePage() {
         <div style={{ marginTop: 6, color: "#6B7280", fontSize: 13 }}>관리자 계정으로 로그인해야 접근 가능합니다.</div>
         <div style={{ marginTop: 10, fontSize: 12, color: "#374151" }}>
           현재 로그인: {sessionEmail || "-"} / UID: {sessionUid || "-"}
+        </div>
+
+        <div style={{ marginTop: 12 }}>
+          <button
+            onClick={() => hardToLogin()}
+            style={{
+              height: 34,
+              padding: "0 14px",
+              borderRadius: 999,
+              border: "1px solid #111827",
+              background: "white",
+              fontWeight: 950,
+              cursor: "pointer",
+            }}
+          >
+            로그인 화면으로
+          </button>
         </div>
       </div>
     );

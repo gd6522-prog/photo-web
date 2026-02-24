@@ -28,6 +28,48 @@ function isInvalidCreds(err: any) {
   return msg.includes("invalid login credentials") || msg.includes("invalid credentials");
 }
 
+async function ensureSessionReady(retry = 6, delayMs = 120) {
+  for (let i = 0; i < retry; i++) {
+    const { data } = await supabase.auth.getSession();
+    if (data?.session?.user?.id) return data.session;
+    await new Promise((r) => setTimeout(r, delayMs));
+  }
+  return null;
+}
+
+// ✅ 에러 메시지 한국어 변환
+function toKoreanErrorMessage(e: any): string {
+  const raw = String(e?.message ?? e ?? "");
+  const lower = raw.toLowerCase();
+
+  if (lower.includes("infinite recursion detected in policy") && lower.includes('"profiles"')) {
+    return "서버 권한정책(RLS) 설정 오류로 로그인 처리가 막혔습니다. (profiles 정책 무한 재귀) 관리자에게 정책 수정이 필요합니다.";
+  }
+  if (lower.includes("invalid login credentials") || lower.includes("invalid credentials")) {
+    return "전화번호 또는 비밀번호가 올바르지 않습니다.";
+  }
+  if (lower.includes("email not confirmed")) {
+    return "이메일 인증이 필요합니다.";
+  }
+  if (lower.includes("phone not confirmed") || lower.includes("sms") || lower.includes("otp")) {
+    return "전화번호 인증 상태를 확인해 주세요.";
+  }
+  if (lower.includes("rate limit") || lower.includes("too many")) {
+    return "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.";
+  }
+  if (lower.includes("network") || lower.includes("failed to fetch")) {
+    return "네트워크 오류입니다. 인터넷 연결을 확인해 주세요.";
+  }
+
+  // DB/RLS 흔한 메시지 완화
+  if (lower.includes("row-level security") || lower.includes("rls")) {
+    return "권한 정책(RLS) 때문에 접근이 거부되었습니다. 관리자에게 문의해 주세요.";
+  }
+
+  // 기본: 원문 숨기고 요약
+  return "로그인 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+}
+
 export default function LoginPage() {
   const router = useRouter();
 
@@ -39,6 +81,7 @@ export default function LoginPage() {
   const e164 = useMemo(() => toE164KR(phone.trim()), [phone]);
 
   const onLogin = async () => {
+    if (busy) return;
     setMsg("");
     setBusy(true);
 
@@ -47,7 +90,7 @@ export default function LoginPage() {
       const pw = password.trim();
       if (pw.length < 6) throw new Error("비밀번호는 6자리 이상이어야 합니다.");
 
-      // 1) ✅ phone 로그인 먼저
+      // 1) phone 로그인
       let data: any = null;
       let err: any = null;
 
@@ -58,7 +101,7 @@ export default function LoginPage() {
       data = r1.data;
       err = r1.error;
 
-      // 2) ✅ 구버전 email fallback
+      // 2) 구버전 email fallback
       if (err && isInvalidCreds(err)) {
         const email = phoneToEmail(e164);
         const r2 = await supabase.auth.signInWithPassword({
@@ -71,7 +114,8 @@ export default function LoginPage() {
 
       if (err) throw err;
 
-      const uid = data?.session?.user?.id ?? data?.user?.id;
+      const session = (await ensureSessionReady()) ?? data?.session ?? null;
+      const uid = session?.user?.id ?? data?.user?.id;
       if (!uid) throw new Error("로그인 세션 생성 실패");
 
       // ✅ 프로필 체크: 승인 + 관리자(메인 or 일반)
@@ -92,7 +136,6 @@ export default function LoginPage() {
       const isMainAdmin = !!prof?.is_admin;
       const isAdminWorkPart = String(prof?.work_part ?? "").trim() === "관리자";
 
-      // ✅ 여기만 바뀐 핵심 로직
       if (!isMainAdmin && !isAdminWorkPart) {
         await supabase.auth.signOut();
         setMsg("관리자만 로그인 가능합니다.");
@@ -100,8 +143,10 @@ export default function LoginPage() {
       }
 
       router.replace("/admin");
+      router.refresh();
     } catch (e: any) {
-      setMsg(e?.message ?? String(e));
+      // ✅ 한국어로 변환해서 표시
+      setMsg(toKoreanErrorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -122,6 +167,9 @@ export default function LoginPage() {
             inputMode="tel"
             autoCapitalize="none"
             autoCorrect="off"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onLogin();
+            }}
           />
           <input
             className="w-full rounded-xl border px-3 py-3 outline-none focus:ring"
@@ -129,6 +177,9 @@ export default function LoginPage() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onLogin();
+            }}
           />
 
           <button
