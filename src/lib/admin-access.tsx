@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 
 /**
  * ✅ 기존 DB/코드 호환 유지:
@@ -10,9 +11,6 @@ import { supabase } from "@/lib/supabase";
  */
 export type AccessLevel = "hidden" | "full" | "view" | "edit";
 export type MenuAccessMap = Record<string, AccessLevel>;
-
-const ADMIN_EMAIL = "gd6522@naver.com";
-const ADMIN_UID = "bf70f0c0-3c58-444e-b69f-bd5de601deb6";
 
 type AdminAccessState = {
   loading: boolean;
@@ -39,10 +37,6 @@ const DEFAULT_STATE: AdminAccessState = {
 };
 
 const Ctx = createContext<AdminAccessState>(DEFAULT_STATE);
-
-function norm(v: any) {
-  return String(v ?? "").trim();
-}
 
 export function AdminAccessProvider({
   children,
@@ -111,11 +105,11 @@ export function AdminAccessProvider({
           .eq("id", uid)
           .maybeSingle();
 
-        const hardMain = uid === ADMIN_UID || email === ADMIN_EMAIL;
+        const hardMain = isMainAdminIdentity(uid, email);
         const dbMain = !!(prof as any)?.is_admin;
         const main = hardMain || dbMain;
 
-        const general = norm((prof as any)?.work_part) === "관리자";
+        const general = isGeneralAdminWorkPart((prof as any)?.work_part);
 
         if (!alive) return;
         setState((prev) => ({

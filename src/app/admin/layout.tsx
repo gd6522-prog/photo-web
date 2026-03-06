@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { AdminAccessProvider, AccessLevel, MenuAccessMap } from "@/lib/admin-access";
 import { getSettingsItems, findMenuKeyByPath, getAllItems } from "@/lib/menu-registry";
+import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 
 const MAX_W = 1700;
 
@@ -232,8 +233,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           return;
         }
 
-        const main = !!p?.is_admin;
-        const general = normWorkPart(p?.work_part) === "관리자";
+        const hardMain = isMainAdminIdentity(uid, session.user.email ?? "");
+        const main = hardMain || !!p?.is_admin;
+        const general = isGeneralAdminWorkPart(p?.work_part);
 
         if (!main && !general) {
           try {

@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 
 export const runtime = "nodejs";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const ADMIN_EMAIL = "gd6522@naver.com";
-const ADMIN_UID = "bf70f0c0-3c58-444e-b69f-bd5de601deb6";
 
 function norm(v: any) {
   return String(v ?? "").trim();
@@ -51,11 +49,11 @@ export async function requireAdmin(req: NextRequest): Promise<
     return { ok: false, res: json(false, "Not approved", null, 403) };
   }
 
-  const hardMain = uid === ADMIN_UID || email === ADMIN_EMAIL;
+  const hardMain = isMainAdminIdentity(uid, email);
   const dbMain = !!(prof as any)?.is_admin;
   const main = hardMain || dbMain;
 
-  const general = norm((prof as any)?.work_part) === "관리자";
+  const general = isGeneralAdminWorkPart((prof as any)?.work_part);
   const isAdmin = main || general;
 
   if (!isAdmin) return { ok: false, res: json(false, "Forbidden", null, 403) };

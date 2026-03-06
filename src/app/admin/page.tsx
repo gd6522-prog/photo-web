@@ -1,4 +1,4 @@
-// src/app/admin/page.tsx
+﻿// src/app/admin/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -15,18 +15,24 @@ type EventRow = {
   updated_at: string;
 };
 
+type HolidayRow = {
+  date: string; // YYYY-MM-DD
+  name: string;
+  source: string | null;
+};
+
 // ⚠️ 유지: 기존 하드코딩 관리자
 const ADMIN_EMAIL = "gd6522@naver.com";
 const ADMIN_UID = "bf70f0c0-3c58-444e-b69f-bd5de601deb6";
 
 const CARD_MIN_H = 520;
-const WEATHER_MIN_H = 560;
+const WEATHER_MIN_H = 520;
 
-// ✅ 사용자 요청: 왼쪽 달력 폭 250 고정
-const LEFT_COL_W = 250;
+// ✅ 달력 크기는 유지하고, 공지 영역을 좌측으로 더 붙이기 위해 컬럼 폭 조정
+const LEFT_COL_W = 290;
 
 // ✅ 왼쪽 달력 ↔ 가운데 공지사항 간격 1cm 고정
-const COL_GAP = "1cm";
+const COL_GAP = "8px";
 const ROW_GAP = "8px";
 
 function pad2(n: number) {
@@ -60,7 +66,19 @@ function normWorkPart(v: any) {
   return String(v ?? "").trim();
 }
 
-type Cell = { day: number | null; weekday: number; ymd: string | null };
+function holidayDisplayName(ymd: string, holidaysByDate: Record<string, HolidayRow>) {
+  const h = holidaysByDate[ymd];
+  if (!h) return null;
+  if (h.name === "대체공휴일") {
+    for (let i = 1; i <= 3; i++) {
+      const prev = holidaysByDate[addDaysYMD(ymd, -i)];
+      if (prev && prev.name !== "대체공휴일") return `${prev.name}(대체공휴일)`;
+    }
+  }
+  return h.name;
+}
+
+type Cell = { day: number; weekday: number; ymd: string; inCurrentMonth: boolean };
 
 type Notice = {
   id: string;
@@ -81,6 +99,7 @@ type WeatherAPI = {
   today: {
     date: string;
     currentTemp: number | null;
+    feelsLike: number | null;
     weatherCode: number | null;
     weatherText: string;
     precipProbNow: number | null;
@@ -130,6 +149,7 @@ function Card({
         background: "white",
         overflow: "hidden",
         boxShadow: "0 1px 0 rgba(0,0,0,0.02)",
+        width: "100%",
         minHeight: minHeight ?? undefined,
         height: "100%",
         display: "flex",
@@ -578,6 +598,24 @@ function NoticeMainCard() {
 }
 
 /** -------- 날씨 -------- */
+type DustLevel = { label: string; color: string; bg: string };
+
+function dustLevelPm10(v: number | null): DustLevel {
+  if (v == null) return { label: "-", color: "#6B7280", bg: "#F3F4F6" };
+  if (v <= 30) return { label: "좋음", color: "#166534", bg: "#DCFCE7" };
+  if (v <= 80) return { label: "보통", color: "#1D4ED8", bg: "#DBEAFE" };
+  if (v <= 150) return { label: "나쁨", color: "#B45309", bg: "#FEF3C7" };
+  return { label: "매우나쁨", color: "#B91C1C", bg: "#FEE2E2" };
+}
+
+function dustLevelPm25(v: number | null): DustLevel {
+  if (v == null) return { label: "-", color: "#6B7280", bg: "#F3F4F6" };
+  if (v <= 15) return { label: "좋음", color: "#166534", bg: "#DCFCE7" };
+  if (v <= 35) return { label: "보통", color: "#1D4ED8", bg: "#DBEAFE" };
+  if (v <= 75) return { label: "나쁨", color: "#B45309", bg: "#FEF3C7" };
+  return { label: "매우나쁨", color: "#B91C1C", bg: "#FEE2E2" };
+}
+
 function WeatherCard() {
   const [loading, setLoading] = useState(true);
   const [w, setW] = useState<WeatherAPI | null>(null);
@@ -596,6 +634,7 @@ function WeatherCard() {
         today: {
           date: "",
           currentTemp: null,
+          feelsLike: null,
           weatherCode: null,
           weatherText: "불러오기 실패",
           precipProbNow: null,
@@ -620,6 +659,8 @@ function WeatherCard() {
     const [, m, dd] = d.split("-").map(Number);
     return `${m}.${pad2(dd)}`;
   };
+  const pm10Level = dustLevelPm10(w?.today.pm10 ?? null);
+  const pm25Level = dustLevelPm25(w?.today.pm25 ?? null);
 
   return (
     <Card
@@ -627,21 +668,26 @@ function WeatherCard() {
       subtitle="경기도 화성시 양감면"
       minHeight={WEATHER_MIN_H}
       right={
-        <button
-          onClick={load}
-          style={{
-            height: 30,
-            padding: "0 12px",
-            borderRadius: 999,
-            border: "1px solid #E5E7EB",
-            background: "white",
-            cursor: "pointer",
-            fontWeight: 950,
-            fontSize: 12,
-          }}
-        >
-          새로고침
-        </button>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginTop: -2, gap: 4 }}>
+          <button
+            onClick={load}
+            style={{
+              height: 30,
+              padding: "0 12px",
+              borderRadius: 999,
+              border: "1px solid #E5E7EB",
+              background: "white",
+              cursor: "pointer",
+              fontWeight: 950,
+              fontSize: 12,
+            }}
+          >
+            새로고침
+          </button>
+          <div style={{ fontSize: 11.5, color: "#6B7280", lineHeight: 1.1 }}>
+            업데이트: {w?.updatedAt ? new Date(w.updatedAt).toLocaleString("ko-KR") : "-"}
+          </div>
+        </div>
       }
     >
       <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
@@ -650,13 +696,30 @@ function WeatherCard() {
         ) : (
           <>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <WeatherIcon code={w?.today.weatherCode ?? null} size={30} />
-                <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-                  <div style={{ fontSize: 28, fontWeight: 950, color: "#111827" }}>
-                    {w?.today.currentTemp == null ? "-" : `${Math.round(w.today.currentTemp)}°`}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <WeatherIcon code={w?.today.weatherCode ?? null} size={30} />
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                    <div style={{ fontSize: 28, fontWeight: 950, color: "#111827" }}>
+                      {w?.today.currentTemp == null ? "-" : `${Math.round(w.today.currentTemp)}°`}
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 950, color: "#111827" }}>{w?.today.weatherText ?? "-"}</div>
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 950, color: "#111827" }}>{w?.today.weatherText ?? "-"}</div>
+                </div>
+                <div
+                  style={{
+                    minWidth: 108,
+                    borderRadius: 12,
+                    border: "1px solid #FCA5A5",
+                    background: "linear-gradient(135deg,#fff1f2 0%,#ffe4e6 100%)",
+                    padding: "7px 10px",
+                    textAlign: "right",
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 900, color: "#BE123C", letterSpacing: 0.2 }}>체감온도</div>
+                  <div style={{ marginTop: 2, fontSize: 24, lineHeight: 1, fontWeight: 950, color: "#9F1239" }}>
+                    {w?.today.feelsLike == null ? "-" : `${Math.round(w.today.feelsLike)}°`}
+                  </div>
                 </div>
               </div>
 
@@ -676,26 +739,11 @@ function WeatherCard() {
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <div style={{ fontSize: 12.5, color: "#374151" }}>
-                  PM10:{" "}
-                  <b style={{ color: "#111827" }}>{w?.today.pm10 == null ? "-" : `${Math.round(w.today.pm10)}㎍/m³`}</b>
-                </div>
-                <div style={{ fontSize: 12.5, color: "#374151" }}>
-                  PM2.5:{" "}
-                  <b style={{ color: "#111827" }}>{w?.today.pm25 == null ? "-" : `${Math.round(w.today.pm25)}㎍/m³`}</b>
-                </div>
-              </div>
-
-              <div style={{ fontSize: 11.5, color: "#6B7280" }}>
-                업데이트: {w?.updatedAt ? new Date(w.updatedAt).toLocaleString("ko-KR") : "-"}
-              </div>
-
               {!w?.ok && w?.message ? <div style={{ fontSize: 12, color: "#B91C1C" }}>{w.message}</div> : null}
             </div>
 
             {/* ✅ 주간예보 "한 칸 내려간" 버전 */}
-            <div style={{ marginTop: 24, borderTop: "1px solid #F3F4F6", paddingTop: 16 }}>
+            <div style={{ marginTop: 14, borderTop: "1px solid #F3F4F6", paddingTop: 12 }}>
               <div style={{ fontWeight: 950, fontSize: 12.5, color: "#111827", marginBottom: 8 }}>
                 주간예보 (D+7, 오늘 제외)
               </div>
@@ -758,6 +806,49 @@ function WeatherCard() {
                 ) : null}
               </div>
             </div>
+
+            <div style={{ marginTop: 14, borderTop: "1px solid #F3F4F6", paddingTop: 12 }}>
+              <div style={{ fontWeight: 950, fontSize: 12.5, color: "#111827", marginBottom: 8 }}>대기질</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <div style={{ border: "1px solid #E5E7EB", borderRadius: 10, padding: "8px 10px" }}>
+                  <div style={{ fontSize: 11.5, color: "#6B7280" }}>미세먼지 (PM10)</div>
+                  <div style={{ marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                    <b style={{ color: "#111827", fontSize: 13 }}>{w?.today.pm10 == null ? "-" : `${Math.round(w.today.pm10)} ㎍/m³`}</b>
+                    <span
+                      style={{
+                        padding: "2px 8px",
+                        borderRadius: 999,
+                        fontSize: 11,
+                        fontWeight: 900,
+                        color: pm10Level.color,
+                        background: pm10Level.bg,
+                      }}
+                    >
+                      {pm10Level.label}
+                    </span>
+                  </div>
+                </div>
+                <div style={{ border: "1px solid #E5E7EB", borderRadius: 10, padding: "8px 10px" }}>
+                  <div style={{ fontSize: 11.5, color: "#6B7280" }}>초미세먼지 (PM2.5)</div>
+                  <div style={{ marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                    <b style={{ color: "#111827", fontSize: 13 }}>{w?.today.pm25 == null ? "-" : `${Math.round(w.today.pm25)} ㎍/m³`}</b>
+                    <span
+                      style={{
+                        padding: "2px 8px",
+                        borderRadius: 999,
+                        fontSize: 11,
+                        fontWeight: 900,
+                        color: pm25Level.color,
+                        background: pm25Level.bg,
+                      }}
+                    >
+                      {pm25Level.label}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </>
         )}
       </div>
@@ -766,7 +857,15 @@ function WeatherCard() {
 }
 
 /** -------- 달력 밑 3일 미리보기 (제목만) -------- */
-function ThreeDayPreview({ baseYMD, events }: { baseYMD: string; events: EventRow[] }) {
+function ThreeDayPreview({
+  baseYMD,
+  events,
+  holidaysByDate,
+}: {
+  baseYMD: string;
+  events: EventRow[];
+  holidaysByDate: Record<string, HolidayRow>;
+}) {
   const days = [0, 1, 2].map((d) => addDaysYMD(baseYMD, d));
 
   const grouped = useMemo(() => {
@@ -780,12 +879,13 @@ function ThreeDayPreview({ baseYMD, events }: { baseYMD: string; events: EventRo
   }, [events, days]);
 
   return (
-    <div style={{ marginTop: 10 }}>
-      <div style={{ fontWeight: 950, fontSize: 13, color: "#111827", marginBottom: 8 }}>3일 미리보기</div>
+    <div style={{ marginTop: 2 }}>
+      <div style={{ fontWeight: 950, fontSize: 13, color: "#111827", marginBottom: 6 }}>3일 미리보기</div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {days.map((ymd) => {
           const list = grouped[ymd] ?? [];
+          const holidayName = holidayDisplayName(ymd, holidaysByDate);
           return (
             <div
               key={ymd}
@@ -800,6 +900,9 @@ function ThreeDayPreview({ baseYMD, events }: { baseYMD: string; events: EventRo
               <div style={{ fontWeight: 950, fontSize: 13, color: "#111827" }}>
                 {ymd} ({dowKo(ymd)}) · <span style={{ color: "#6B7280" }}>{list.length}건</span>
               </div>
+              {holidayName ? (
+                <div style={{ marginTop: 4, fontSize: 12, fontWeight: 900, color: "#EF4444" }}>{holidayName}</div>
+              ) : null}
 
               {list.length === 0 ? (
                 <div style={{ marginTop: 6, color: "#6B7280", fontSize: 12 }}>등록된 일정 없음</div>
@@ -850,7 +953,10 @@ export default function AdminHomePage() {
   const [selectedYMD, setSelectedYMD] = useState("1970-01-01");
 
   const [events, setEvents] = useState<EventRow[]>([]);
+  const [holidays, setHolidays] = useState<HolidayRow[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
+  const [pendingRedeliveryCount, setPendingRedeliveryCount] = useState(0);
+  const [pendingHazardCount, setPendingHazardCount] = useState(0);
 
   const mounted = useRef(false);
 
@@ -944,18 +1050,26 @@ export default function AdminHomePage() {
   const grid = useMemo<Cell[]>(() => {
     const start = startWeekdayOfMonth(ym.y, ym.m);
     const dim = daysInMonth(ym.y, ym.m);
+    const usedWeeks = Math.ceil((start + dim) / 7);
+    const spareWeeks = Math.max(0, 6 - usedWeeks);
+    // 남는 주가 홀수일 때는 앞쪽에 1주를 더 배치해 달이 중앙에 가깝게 보이게 한다.
+    const frontExtraWeeks = Math.ceil(spareWeeks / 2);
+
+    const firstOfMonth = `${ym.y}-${pad2(ym.m)}-01`;
+    const firstVisible = addDaysYMD(firstOfMonth, -(start + frontExtraWeeks * 7));
+    const monthPrefix = `${ym.y}-${pad2(ym.m)}-`;
 
     const cells: Cell[] = [];
-    for (let i = 0; i < start; i++) cells.push({ day: null, weekday: i, ymd: null });
-
-    for (let d = 1; d <= dim; d++) {
-      const ymd = `${ym.y}-${pad2(ym.m)}-${pad2(d)}`;
-      const w = new Date(`${ymd}T00:00:00+09:00`).getDay();
-      cells.push({ day: d, weekday: w, ymd });
-    }
-    while (cells.length % 7 !== 0) {
-      const idx = cells.length % 7;
-      cells.push({ day: null, weekday: idx, ymd: null });
+    for (let i = 0; i < 42; i++) {
+      const ymd = addDaysYMD(firstVisible, i);
+      const day = Number(ymd.slice(8, 10));
+      const weekday = new Date(`${ymd}T00:00:00+09:00`).getDay();
+      cells.push({
+        day,
+        weekday,
+        ymd,
+        inCurrentMonth: ymd.startsWith(monthPrefix),
+      });
     }
     return cells;
   }, [ym.y, ym.m]);
@@ -965,18 +1079,62 @@ export default function AdminHomePage() {
     try {
       const start = `${ym.y}-${pad2(ym.m)}-01`;
       const end = `${ym.y}-${pad2(ym.m)}-${pad2(daysInMonth(ym.y, ym.m))}`;
+      const {
+        data: { session },
+        error: sessionErr,
+      } = await supabase.auth.getSession();
+      if (sessionErr) throw sessionErr;
+      const token = session?.access_token;
+      if (!token) throw new Error("세션이 없습니다. 다시 로그인해 주세요.");
 
-      const { data, error } = await supabase
-        .from("calendar_events")
-        .select("id, date, title, memo, created_by, created_at, updated_at")
-        .gte("date", start)
-        .lte("date", end);
+      const res = await fetch(`/api/admin/calendar-month?from=${start}&to=${end}`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      const payload = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        message?: string;
+        events?: EventRow[];
+        holidays?: HolidayRow[];
+      };
+      if (!res.ok || !payload.ok) {
+        throw new Error(payload.message || "달력 데이터를 불러오지 못했습니다.");
+      }
 
-      if (error) throw error;
-      setEvents((data ?? []) as EventRow[]);
+      setEvents((payload.events ?? []) as EventRow[]);
+      setHolidays((payload.holidays ?? []) as HolidayRow[]);
+    } catch {
+      setEvents([]);
+      setHolidays([]);
     } finally {
       setLoadingEvents(false);
     }
+  };
+
+  const fetchPendingSummary = async () => {
+    const {
+      data: { session },
+      error: sessionErr,
+    } = await supabase.auth.getSession();
+    if (sessionErr) return;
+    const token = session?.access_token;
+    if (!token) return;
+
+    const res = await fetch("/api/admin/pending-summary", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    const payload = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      pendingHazardCount?: number;
+      pendingRedeliveryCount?: number;
+    };
+    if (!res.ok || !payload.ok) return;
+
+    setPendingHazardCount(payload.pendingHazardCount ?? 0);
+    setPendingRedeliveryCount(payload.pendingRedeliveryCount ?? 0);
   };
 
   useEffect(() => {
@@ -984,6 +1142,7 @@ export default function AdminHomePage() {
     if (checking) return;
     if (!isAdmin) return;
     fetchMonthEvents();
+    fetchPendingSummary();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, checking, isAdmin, ym.y, ym.m]);
 
@@ -992,6 +1151,12 @@ export default function AdminHomePage() {
     for (const e of events) map[e.date] = (map[e.date] ?? 0) + 1;
     return map;
   }, [events]);
+
+  const holidaysByDate = useMemo(() => {
+    const map: Record<string, HolidayRow> = {};
+    for (const h of holidays) map[h.date] = h;
+    return map;
+  }, [holidays]);
 
   const countFor = (ymd: string) => eventsByDate[ymd] ?? 0;
 
@@ -1028,79 +1193,80 @@ export default function AdminHomePage() {
 
   return (
     <div style={{ padding: "12px 8px", fontFamily: "system-ui" }}>
-      <div style={{ maxWidth: 1700, margin: "0 auto" }}>
-        <div
-          className="homeGrid"
-          style={
-            {
-              ["--leftColW" as any]: `${LEFT_COL_W}px`,
-              ["--colGap" as any]: COL_GAP,
-              ["--rowGap" as any]: ROW_GAP,
-            } as React.CSSProperties
-          }
-        >
+      <div
+        style={
+          {
+            maxWidth: 1700,
+            margin: "0 auto",
+            ["--leftColW" as any]: `${LEFT_COL_W}px`,
+            ["--colGap" as any]: COL_GAP,
+            ["--rowGap" as any]: ROW_GAP,
+          } as React.CSSProperties
+        }
+      >
+        <div className="homeGrid">
           <div className="leftCol">
             <Card
               title={monthLabel}
               minHeight={CARD_MIN_H}
               bodyPadding={8}
               right={
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <button
-                    onClick={goPrev}
-                    style={{
-                      width: 26,
-                      height: 26,
-                      borderRadius: 8,
-                      border: "1px solid #E5E7EB",
-                      background: "white",
-                      cursor: "pointer",
-                      fontWeight: 900,
-                      lineHeight: 1,
-                    }}
-                  >
-                    {"<"}
-                  </button>
-                  <button
-                    onClick={goNext}
-                    style={{
-                      width: 26,
-                      height: 26,
-                      borderRadius: 8,
-                      border: "1px solid #E5E7EB",
-                      background: "white",
-                      cursor: "pointer",
-                      fontWeight: 900,
-                      lineHeight: 1,
-                    }}
-                  >
-                    {">"}
-                  </button>
-                  <button
-                    onClick={goToday}
-                    style={{
-                      height: 26,
-                      padding: "0 10px",
-                      borderRadius: 8,
-                      border: "1px solid #E5E7EB",
-                      background: "white",
-                      cursor: "pointer",
-                      fontWeight: 900,
-                      fontSize: 12,
-                    }}
-                  >
-                    오늘
-                  </button>
-                </div>
-              }
-            >
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <button
+                      onClick={goPrev}
+                      style={{
+                        width: 26,
+                        height: 26,
+                        borderRadius: 8,
+                        border: "1px solid #E5E7EB",
+                        background: "white",
+                        cursor: "pointer",
+                        fontWeight: 900,
+                        lineHeight: 1,
+                      }}
+                    >
+                      {"<"}
+                    </button>
+                    <button
+                      onClick={goNext}
+                      style={{
+                        width: 26,
+                        height: 26,
+                        borderRadius: 8,
+                        border: "1px solid #E5E7EB",
+                        background: "white",
+                        cursor: "pointer",
+                        fontWeight: 900,
+                        lineHeight: 1,
+                      }}
+                    >
+                      {">"}
+                    </button>
+                    <button
+                      onClick={goToday}
+                      style={{
+                        height: 26,
+                        padding: "0 10px",
+                        borderRadius: 8,
+                        border: "1px solid #E5E7EB",
+                        background: "white",
+                        cursor: "pointer",
+                        fontWeight: 900,
+                        fontSize: 12,
+                      }}
+                    >
+                      오늘
+                    </button>
+                  </div>
+                }
+              >
               <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", padding: "4px 0" }}>
                 {["일", "월", "화", "수", "목", "금", "토"].map((w) => (
                   <div
                     key={w}
                     style={{
                       textAlign: "center",
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: 950,
                       color: w === "일" ? "#EF4444" : "#374151",
                     }}
@@ -1111,23 +1277,33 @@ export default function AdminHomePage() {
               </div>
 
               <div style={{ padding: "6px 0 8px" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", rowGap: 8 }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(7, 1fr)",
+                    gridTemplateRows: "repeat(6, minmax(0, 1fr))",
+                    rowGap: 8,
+                    height: 276,
+                  }}
+                >
                   {grid.map((c, idx) => {
-                    const isSelected = c.ymd != null && c.ymd === selectedYMD;
+                    const isSelected = c.ymd === selectedYMD;
                     const isSun = c.weekday === 0;
-                    const count = c.ymd ? countFor(c.ymd) : 0;
+                    const holiday = holidaysByDate[c.ymd];
+                    const isHoliday = !!holiday;
+                    const holidayName = holidayDisplayName(c.ymd, holidaysByDate);
+                    const count = countFor(c.ymd);
                     const badgeText = count > 99 ? "99+" : String(count);
 
                     return (
                       <button
                         key={idx}
-                        disabled={c.day == null}
-                        onClick={() => c.ymd && setSelectedYMD(c.ymd)}
+                        onClick={() => setSelectedYMD(c.ymd)}
                         style={{
-                          height: 34,
+                          height: "100%",
                           border: "none",
                           background: "transparent",
-                          cursor: c.day != null ? "pointer" : "default",
+                          cursor: "pointer",
                           padding: 0,
                           display: "flex",
                           alignItems: "center",
@@ -1136,23 +1312,23 @@ export default function AdminHomePage() {
                       >
                         <div
                           style={{
-                            width: 30,
-                            height: 30,
+                            width: 38,
+                            height: 38,
                             borderRadius: 999,
                             background: isSelected ? "#111827" : "transparent",
-                            color: isSelected ? "white" : isSun ? "#EF4444" : "#111827",
+                            color: isSelected ? "white" : !c.inCurrentMonth ? "#C3CAD5" : isSun || isHoliday ? "#EF4444" : "#111827",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
                             fontWeight: 950,
-                            fontSize: 13,
+                            fontSize: 15,
                             position: "relative",
                           }}
-                          title={c.ymd ?? ""}
+                          title={holidayName ? `${c.ymd} / ${holidayName}` : c.ymd}
                         >
-                          {c.day ?? ""}
+                          {c.day}
 
-                          {count > 0 && (
+                          {count > 0 && !isHoliday && (
                             <span
                               style={{
                                 position: "absolute",
@@ -1183,8 +1359,10 @@ export default function AdminHomePage() {
                 </div>
               </div>
 
-              <div style={{ marginTop: "auto" }}>
-                <ThreeDayPreview baseYMD={selectedYMD} events={events} />
+              <div style={{ marginTop: 0, minHeight: 0 }}>
+                <div style={{ maxHeight: 250, overflowY: "auto", paddingRight: 2 }}>
+                  <ThreeDayPreview baseYMD={selectedYMD} events={events} holidaysByDate={holidaysByDate} />
+                </div>
               </div>
             </Card>
           </div>
@@ -1195,6 +1373,120 @@ export default function AdminHomePage() {
 
           <div className="rightCol">
             <WeatherCard />
+          </div>
+        </div>
+
+        <div className="leftBottomCards">
+          <div
+            style={{
+              border: "1px solid #E5E7EB",
+              borderRadius: 14,
+              background: "white",
+              padding: 8,
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                border: "1px solid #F3F4F6",
+                  borderRadius: 10,
+                  padding: "6px 8px",
+                  color: "#111827",
+                  fontSize: 12,
+                  fontWeight: 900,
+                }}
+              >
+              <span
+                style={{
+                    width: 9,
+                    height: 9,
+                  borderRadius: 999,
+                  background: pendingRedeliveryCount > 0 ? "#DC2626" : "#16A34A",
+                  boxShadow:
+                    pendingRedeliveryCount > 0 ? "0 0 0 3px rgba(220,38,38,0.15)" : "0 0 0 3px rgba(22,163,74,0.15)",
+                  flex: "0 0 auto",
+                }}
+              />
+              <span style={{ flex: 1, color: "#111827" }}>
+                재배송 미처리 {pendingRedeliveryCount}건
+              </span>
+              <Link
+                href="/admin/photos/delivery"
+                style={{
+                    width: 20,
+                    height: 20,
+                  borderRadius: 999,
+                  border: "1px solid #D1D5DB",
+                  color: "#111827",
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                    fontSize: 11,
+                  lineHeight: 1,
+                  fontWeight: 900,
+                  background: "white",
+                }}
+                title="배송사진 페이지로 이동"
+              >
+                &gt;
+              </Link>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                border: "1px solid #F3F4F6",
+                  borderRadius: 10,
+                  padding: "6px 8px",
+                  color: "#111827",
+                  fontSize: 12,
+                  fontWeight: 900,
+                }}
+              >
+              <span
+                style={{
+                    width: 9,
+                    height: 9,
+                  borderRadius: 999,
+                  background: pendingHazardCount > 0 ? "#DC2626" : "#16A34A",
+                  boxShadow:
+                    pendingHazardCount > 0 ? "0 0 0 3px rgba(220,38,38,0.15)" : "0 0 0 3px rgba(22,163,74,0.15)",
+                  flex: "0 0 auto",
+                }}
+              />
+              <span style={{ flex: 1, color: "#111827" }}>
+                위험요인 미처리 {pendingHazardCount}건
+              </span>
+              <Link
+                href="/admin/hazards"
+                style={{
+                    width: 20,
+                    height: 20,
+                  borderRadius: 999,
+                  border: "1px solid #D1D5DB",
+                  color: "#111827",
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                    fontSize: 11,
+                  lineHeight: 1,
+                  fontWeight: 900,
+                  background: "white",
+                }}
+                title="위험요인 페이지로 이동"
+              >
+                &gt;
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -1212,6 +1504,12 @@ export default function AdminHomePage() {
             min-width: var(--leftColW);
             max-width: var(--leftColW);
           }
+          .leftBottomCards {
+            margin-top: 8px;
+            width: var(--leftColW);
+            min-width: var(--leftColW);
+            max-width: var(--leftColW);
+          }
           .midCol,
           .rightCol {
             display: flex;
@@ -1224,6 +1522,11 @@ export default function AdminHomePage() {
               row-gap: 12px;
             }
             .leftCol {
+              width: 100%;
+              min-width: 0;
+              max-width: none;
+            }
+            .leftBottomCards {
               width: 100%;
               min-width: 0;
               max-width: none;

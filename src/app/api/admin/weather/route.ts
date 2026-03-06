@@ -40,7 +40,7 @@ export async function GET() {
       `?latitude=${LAT}` +
       `&longitude=${LON}` +
       `&timezone=Asia%2FSeoul` +
-      `&current=temperature_2m,weather_code` +
+      `&current=temperature_2m,apparent_temperature,weather_code` +
       `&hourly=precipitation_probability` +
       `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code`;
 
@@ -54,6 +54,7 @@ export async function GET() {
           today: {
             date: "",
             currentTemp: null,
+            feelsLike: null,
             weatherCode: null,
             weatherText: "불러오기 실패",
             precipProbNow: null,
@@ -99,6 +100,7 @@ export async function GET() {
 
     // current
     const currentTemp = toNum(w?.current?.temperature_2m);
+    const feelsLike = toNum(w?.current?.apparent_temperature);
     const currentCode = toNum(w?.current?.weather_code);
 
     // precip prob "now" from hourly
@@ -153,6 +155,7 @@ export async function GET() {
         today: {
           date: todayDate,
           currentTemp,
+          feelsLike,
           weatherCode: currentCode ?? todayDailyCode,
           weatherText: weatherTextFromCode(currentCode ?? todayDailyCode),
           precipProbNow,
@@ -174,6 +177,7 @@ export async function GET() {
         today: {
           date: "",
           currentTemp: null,
+          feelsLike: null,
           weatherCode: null,
           weatherText: "불러오기 실패",
           precipProbNow: null,

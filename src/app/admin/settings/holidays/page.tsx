@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 type SyncResult = {
   ok?: boolean;
@@ -27,10 +28,18 @@ export default function HolidaySyncPage() {
 
     try {
       const year = new Date().getFullYear();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+      if (!accessToken) throw new Error("로그인 세션이 없습니다. 다시 로그인해 주세요.");
 
       const res = await fetch("/api/admin/sync-holidays", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
         cache: "no-store",
         body: JSON.stringify({
           yearFrom: year,

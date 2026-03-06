@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/sync-holidays",
+      "schedule": "5 15 31 12 *"
+    }
+  ]
+}

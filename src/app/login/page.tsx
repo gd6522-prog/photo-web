@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 
-// 한국 전화번호 -> E.164 (+82...)
 function toE164KR(raw: string): string | null {
   const s = raw.replace(/[^\d+]/g, "");
   if (s.startsWith("+")) {
@@ -17,14 +17,13 @@ function toE164KR(raw: string): string | null {
   return `+82${digits.slice(1)}`;
 }
 
-// (구버전 호환) p_82...@phone.local
 function phoneToEmail(e164: string) {
   const digits = e164.replace(/\D/g, "");
   return `p_${digits}@phone.local`;
 }
 
-function isInvalidCreds(err: any) {
-  const msg = String(err?.message ?? "").toLowerCase();
+function isInvalidCreds(err: unknown) {
+  const msg = String((err as { message?: string } | null)?.message ?? "").toLowerCase();
   return msg.includes("invalid login credentials") || msg.includes("invalid credentials");
 }
 
@@ -37,13 +36,12 @@ async function ensureSessionReady(retry = 6, delayMs = 120) {
   return null;
 }
 
-// ✅ 에러 메시지 한국어 변환
-function toKoreanErrorMessage(e: any): string {
-  const raw = String(e?.message ?? e ?? "");
+function toKoreanErrorMessage(e: unknown): string {
+  const raw = String((e as { message?: string } | null)?.message ?? e ?? "");
   const lower = raw.toLowerCase();
 
   if (lower.includes("infinite recursion detected in policy") && lower.includes('"profiles"')) {
-    return "서버 권한정책(RLS) 설정 오류로 로그인 처리가 막혔습니다. (profiles 정책 무한 재귀) 관리자에게 정책 수정이 필요합니다.";
+    return "서버 권한정책(RLS) 설정 오류로 로그인 처리가 막혔습니다. 관리자에게 정책 수정이 필요합니다.";
   }
   if (lower.includes("invalid login credentials") || lower.includes("invalid credentials")) {
     return "전화번호 또는 비밀번호가 올바르지 않습니다.";
@@ -60,13 +58,9 @@ function toKoreanErrorMessage(e: any): string {
   if (lower.includes("network") || lower.includes("failed to fetch")) {
     return "네트워크 오류입니다. 인터넷 연결을 확인해 주세요.";
   }
-
-  // DB/RLS 흔한 메시지 완화
   if (lower.includes("row-level security") || lower.includes("rls")) {
     return "권한 정책(RLS) 때문에 접근이 거부되었습니다. 관리자에게 문의해 주세요.";
   }
-
-  // 기본: 원문 숨기고 요약
   return "로그인 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
 }
 
@@ -90,41 +84,31 @@ export default function LoginPage() {
       const pw = password.trim();
       if (pw.length < 6) throw new Error("비밀번호는 6자리 이상이어야 합니다.");
 
-      // 1) phone 로그인
-      let data: any = null;
-      let err: any = null;
+      let data: { session: unknown; user: { id?: string } | null } | null = null;
+      let err: unknown = null;
 
-      const r1 = await supabase.auth.signInWithPassword({
-        phone: e164,
-        password: pw,
-      });
-      data = r1.data;
+      const r1 = await supabase.auth.signInWithPassword({ phone: e164, password: pw });
+      data = r1.data as { session: unknown; user: { id?: string } | null } | null;
       err = r1.error;
 
-      // 2) 구버전 email fallback
       if (err && isInvalidCreds(err)) {
         const email = phoneToEmail(e164);
-        const r2 = await supabase.auth.signInWithPassword({
-          email,
-          password: pw,
-        });
-        data = r2.data;
+        const r2 = await supabase.auth.signInWithPassword({ email, password: pw });
+        data = r2.data as { session: unknown; user: { id?: string } | null } | null;
         err = r2.error;
       }
 
       if (err) throw err;
 
-      const session = (await ensureSessionReady()) ?? data?.session ?? null;
-      const uid = session?.user?.id ?? data?.user?.id;
+      const session = (await ensureSessionReady()) ?? (data as { session?: unknown } | null)?.session ?? null;
+      const uid = (session as { user?: { id?: string } } | null)?.user?.id ?? data?.user?.id;
       if (!uid) throw new Error("로그인 세션 생성 실패");
 
-      // ✅ 프로필 체크: 승인 + 관리자(메인 or 일반)
       const { data: prof, error: pErr } = await supabase
         .from("profiles")
         .select("approval_status,is_admin,work_part")
         .eq("id", uid)
         .single();
-
       if (pErr) throw pErr;
 
       if (prof?.approval_status !== "approved") {
@@ -133,19 +117,19 @@ export default function LoginPage() {
         return;
       }
 
-      const isMainAdmin = !!prof?.is_admin;
-      const isAdminWorkPart = String(prof?.work_part ?? "").trim() === "관리자";
+      const email = (session as { user?: { email?: string | null } } | null)?.user?.email ?? "";
+      const isMainAdmin = isMainAdminIdentity(uid, email) || !!prof?.is_admin;
+      const isAdminWorkPart = isGeneralAdminWorkPart(prof?.work_part);
 
       if (!isMainAdmin && !isAdminWorkPart) {
         await supabase.auth.signOut();
-        setMsg("관리자만 로그인 가능합니다.");
+        setMsg(`관리자만 로그인 가능합니다. (작업파트: ${String(prof?.work_part ?? "-")})`);
         return;
       }
 
       router.replace("/admin");
       router.refresh();
-    } catch (e: any) {
-      // ✅ 한국어로 변환해서 표시
+    } catch (e: unknown) {
       setMsg(toKoreanErrorMessage(e));
     } finally {
       setBusy(false);
@@ -171,6 +155,7 @@ export default function LoginPage() {
               if (e.key === "Enter") onLogin();
             }}
           />
+
           <input
             className="w-full rounded-xl border px-3 py-3 outline-none focus:ring"
             placeholder="비밀번호"
