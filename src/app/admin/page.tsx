@@ -1,3 +1,4 @@
+// src/app/admin/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -14,9 +15,19 @@ type EventRow = {
   updated_at: string;
 };
 
-// ⚠️ 유지: 기존 하드코딩 관리자 (원하면 나중에 profiles/is_admin만으로 통일 가능)
+// ⚠️ 유지: 기존 하드코딩 관리자
 const ADMIN_EMAIL = "gd6522@naver.com";
 const ADMIN_UID = "bf70f0c0-3c58-444e-b69f-bd5de601deb6";
+
+const CARD_MIN_H = 520;
+const WEATHER_MIN_H = 560;
+
+// ✅ 사용자 요청: 왼쪽 달력 폭 250 고정
+const LEFT_COL_W = 250;
+
+// ✅ 왼쪽 달력 ↔ 가운데 공지사항 간격 1cm 고정
+const COL_GAP = "1cm";
+const ROW_GAP = "8px";
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -45,6 +56,9 @@ function dowKo(dateYMD: string) {
   const map = ["일", "월", "화", "수", "목", "금", "토"];
   return map[d.getDay()] ?? "";
 }
+function normWorkPart(v: any) {
+  return String(v ?? "").trim();
+}
 
 type Cell = { day: number | null; weekday: number; ymd: string | null };
 
@@ -54,6 +68,9 @@ type Notice = {
   body: string;
   is_pinned: boolean;
   updated_at: string;
+
+  // ✅ 작성자 표시용 (API에서 내려줌)
+  author_name: string | null;
 };
 
 type WeatherAPI = {
@@ -87,7 +104,6 @@ type WeatherAPI = {
 };
 
 function hardToLogin() {
-  // ✅ 가장 확실: /admin에 남아서 권한없음 화면 그리기 전에 끊어버림
   window.location.replace("/login");
 }
 
@@ -97,12 +113,14 @@ function Card({
   right,
   children,
   minHeight,
+  bodyPadding,
 }: {
   title: string;
   subtitle?: string;
   right?: React.ReactNode;
   children: React.ReactNode;
   minHeight?: number;
+  bodyPadding?: number;
 }) {
   return (
     <div
@@ -113,6 +131,9 @@ function Card({
         overflow: "hidden",
         boxShadow: "0 1px 0 rgba(0,0,0,0.02)",
         minHeight: minHeight ?? undefined,
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
       <div
@@ -127,13 +148,14 @@ function Card({
       >
         <div style={{ minWidth: 0 }}>
           <div style={{ fontWeight: 950, fontSize: 15, color: "#111827" }}>{title}</div>
-          {subtitle ? (
-            <div style={{ marginTop: 3, fontSize: 12, color: "#6B7280" }}>{subtitle}</div>
-          ) : null}
+          {subtitle ? <div style={{ marginTop: 3, fontSize: 12, color: "#6B7280" }}>{subtitle}</div> : null}
         </div>
         {right ? <div>{right}</div> : null}
       </div>
-      <div style={{ padding: 14 }}>{children}</div>
+
+      <div style={{ padding: bodyPadding ?? 10, flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+        {children}
+      </div>
     </div>
   );
 }
@@ -147,6 +169,7 @@ function WeatherIcon({ code, size = 30 }: { code: number | null; size?: number }
     viewBox: "0 0 64 64",
     fill: "none" as const,
     xmlns: "http://www.w3.org/2000/svg",
+    style: { display: "block" as const },
   };
 
   const c = code ?? -1;
@@ -172,16 +195,7 @@ function WeatherIcon({ code, size = 30 }: { code: number | null; size?: number }
           const x2 = 32 + Math.cos(a) * 26;
           const y2 = 32 + Math.sin(a) * 26;
           return (
-            <line
-              key={i}
-              x1={x1}
-              y1={y1}
-              x2={x2}
-              y2={y2}
-              stroke={stroke}
-              strokeWidth="3"
-              strokeLinecap="round"
-            />
+            <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={stroke} strokeWidth="3" strokeLinecap="round" />
           );
         })}
       </svg>
@@ -285,20 +299,35 @@ function WeatherIcon({ code, size = 30 }: { code: number | null; size?: number }
   );
 }
 
-/** -------- 공지(메인) -------- */
+/** -------- 공지(메인) : 리스트형 (✅ 6개/페이지) -------- */
 function NoticeMainCard() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<Notice[]>([]);
   const [err, setErr] = useState("");
 
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 6;
+
   const load = async () => {
     setErr("");
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/notices/list", { cache: "no-store" });
+      const { data: sessData, error: sessErr } = await supabase.auth.getSession();
+      if (sessErr) throw sessErr;
+      const token = sessData.session?.access_token;
+      if (!token) throw new Error("Missing Authorization Bearer token");
+
+      const res = await fetch("/api/admin/notices/list", {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
       const json = await res.json();
       if (!json.ok) throw new Error(json.message || "공지 불러오기 실패");
-      setItems((json.items ?? []) as Notice[]);
+
+      const list = (json.items ?? []) as Notice[];
+      setItems(list);
+      setPage(1);
     } catch (e: any) {
       setErr(e?.message ?? String(e));
       setItems([]);
@@ -311,18 +340,73 @@ function NoticeMainCard() {
     load();
   }, []);
 
+  const total = items.length;
+  const maxPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const safePage = Math.min(page, maxPage);
+  const canPrev = safePage > 1;
+  const canNext = safePage < maxPage;
+
+  useEffect(() => {
+    if (page !== safePage) setPage(safePage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [maxPage]);
+
+  const pageItems = useMemo(() => {
+    const from = (safePage - 1) * PAGE_SIZE;
+    return items.slice(from, from + PAGE_SIZE);
+  }, [items, safePage]);
+
+  const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("ko-KR");
+
   return (
     <Card
       title="공지사항"
       subtitle="중요한 내용은 여기서 바로 확인"
-      minHeight={520}
+      minHeight={CARD_MIN_H}
       right={
-        <div style={{ display: "flex", gap: 8 }}>
-          <Link
-            href="/admin/settings/notices"
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            onClick={() => canPrev && setPage((p) => p - 1)}
+            disabled={!canPrev}
             style={{
-              height: 34,
-              padding: "0 14px",
+              width: 32,
+              height: 32,
+              borderRadius: 10,
+              border: "1px solid #E5E7EB",
+              background: !canPrev ? "#F9FAFB" : "white",
+              cursor: !canPrev ? "not-allowed" : "pointer",
+              fontWeight: 950,
+              lineHeight: 1,
+            }}
+            aria-label="prev"
+            title="이전"
+          >
+            {"<"}
+          </button>
+          <button
+            onClick={() => canNext && setPage((p) => p + 1)}
+            disabled={!canNext}
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 10,
+              border: "1px solid #E5E7EB",
+              background: !canNext ? "#F9FAFB" : "white",
+              cursor: !canNext ? "not-allowed" : "pointer",
+              fontWeight: 950,
+              lineHeight: 1,
+            }}
+            aria-label="next"
+            title="다음"
+          >
+            {">"}
+          </button>
+
+          <Link
+            href="/admin/notice/notices"
+            style={{
+              height: 32,
+              padding: "0 12px",
               borderRadius: 999,
               border: "1px solid #E5E7EB",
               background: "white",
@@ -333,15 +417,18 @@ function NoticeMainCard() {
               fontWeight: 950,
               fontSize: 13,
               color: "#111827",
+              marginLeft: 4,
             }}
+            title="전체보기/등록"
           >
             등록/수정
           </Link>
+
           <button
             onClick={load}
             style={{
-              height: 34,
-              padding: "0 14px",
+              height: 32,
+              padding: "0 12px",
               borderRadius: 999,
               border: "1px solid #E5E7EB",
               background: "white",
@@ -349,6 +436,7 @@ function NoticeMainCard() {
               fontWeight: 950,
               fontSize: 13,
             }}
+            title="새로고침"
           >
             새로고침
           </button>
@@ -359,42 +447,137 @@ function NoticeMainCard() {
         <div style={{ color: "#6B7280", fontSize: 14 }}>불러오는 중…</div>
       ) : err ? (
         <div style={{ color: "#B91C1C", fontSize: 14 }}>{err}</div>
-      ) : items.length === 0 ? (
+      ) : total === 0 ? (
         <div style={{ color: "#6B7280", fontSize: 14 }}>등록된 공지사항이 없습니다.</div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {items.slice(0, 10).map((n) => (
+        <>
+          <div
+            style={{
+              border: "1px solid #F3F4F6",
+              borderRadius: 14,
+              overflow: "hidden",
+              background: "white",
+            }}
+          >
+            {pageItems.map((n, idx) => (
+              <Link
+                key={n.id}
+                href={`/admin/notice/notices?focus=${n.id}`}
+                style={{
+                  display: "block",
+                  textDecoration: "none",
+                  color: "inherit",
+                  borderTop: idx === 0 ? "none" : "1px solid #F3F4F6",
+                }}
+              >
+                <div style={{ padding: "12px 12px", display: "flex", gap: 10, alignItems: "center" }}>
+                  <div style={{ width: 22, textAlign: "center" }}>{n.is_pinned ? "📌" : "•"}</div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontWeight: 950,
+                        fontSize: 14,
+                        color: "#111827",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                      title={n.title}
+                    >
+                      {n.title}
+                    </div>
+
+                    {/* ✅ 날짜(왼쪽) + 작성자(오른쪽 끝 정렬) */}
+                    <div
+                      style={{
+                        marginTop: 4,
+                        fontSize: 12,
+                        color: "#6B7280",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        minWidth: 0,
+                      }}
+                    >
+                      <span style={{ whiteSpace: "nowrap" }}>{fmtDate(n.updated_at)}</span>
+                      <span
+                        style={{
+                          marginLeft: "auto",
+                          whiteSpace: "nowrap",
+                          fontWeight: 900,
+                          color: "#374151",
+                        }}
+                        title={n.author_name ?? ""}
+                      >
+                        {n.author_name ?? "-"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ opacity: 0.35, fontSize: 18 }}>›</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          <div style={{ marginTop: "auto" }}>
             <div
-              key={n.id}
               style={{
-                border: "1px solid #F3F4F6",
-                borderRadius: 14,
-                padding: 12,
-                background: n.is_pinned ? "#FFF7ED" : "#FAFAFB",
+                marginTop: 10,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                fontSize: 12,
+                color: "#6B7280",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                <div style={{ fontWeight: 950, color: "#111827", fontSize: 15, minWidth: 0 }}>
-                  {n.is_pinned ? "📌 " : ""}
-                  {n.title}
-                </div>
-                <div style={{ fontSize: 12, color: "#6B7280", whiteSpace: "nowrap" }}>
-                  {new Date(n.updated_at).toLocaleDateString("ko-KR")}
-                </div>
+              <div>
+                {total}건 · {safePage}/{maxPage} 페이지 (페이지당 {PAGE_SIZE}개)
               </div>
-              <div style={{ marginTop: 8, fontSize: 14, color: "#374151", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
-                {n.body}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => setPage(1)}
+                  disabled={safePage === 1}
+                  style={{
+                    height: 28,
+                    padding: "0 10px",
+                    borderRadius: 10,
+                    border: "1px solid #E5E7EB",
+                    background: safePage === 1 ? "#F9FAFB" : "white",
+                    cursor: safePage === 1 ? "not-allowed" : "pointer",
+                    fontWeight: 950,
+                    fontSize: 12,
+                  }}
+                >
+                  처음
+                </button>
+                <button
+                  onClick={() => setPage(maxPage)}
+                  disabled={safePage === maxPage}
+                  style={{
+                    height: 28,
+                    padding: "0 10px",
+                    borderRadius: 10,
+                    border: "1px solid #E5E7EB",
+                    background: safePage === maxPage ? "#F9FAFB" : "white",
+                    cursor: safePage === maxPage ? "not-allowed" : "pointer",
+                    fontWeight: 950,
+                    fontSize: 12,
+                  }}
+                >
+                  끝
+                </button>
               </div>
             </div>
-          ))}
-          {items.length > 10 ? <div style={{ fontSize: 12, color: "#6B7280" }}>외 {items.length - 10}건…</div> : null}
-        </div>
+          </div>
+        </>
       )}
     </Card>
   );
 }
 
-/** -------- 날씨(얇게) -------- */
+/** -------- 날씨 -------- */
 function WeatherCard() {
   const [loading, setLoading] = useState(true);
   const [w, setW] = useState<WeatherAPI | null>(null);
@@ -442,6 +625,7 @@ function WeatherCard() {
     <Card
       title="오늘의 날씨"
       subtitle="경기도 화성시 양감면"
+      minHeight={WEATHER_MIN_H}
       right={
         <button
           onClick={load}
@@ -460,122 +644,135 @@ function WeatherCard() {
         </button>
       }
     >
-      {loading ? (
-        <div style={{ color: "#6B7280", fontSize: 13 }}>불러오는 중…</div>
-      ) : (
-        <>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <WeatherIcon code={w?.today.weatherCode ?? null} size={30} />
-              <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-                <div style={{ fontSize: 28, fontWeight: 950, color: "#111827" }}>
-                  {w?.today.currentTemp == null ? "-" : `${Math.round(w.today.currentTemp)}°`}
+      <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
+        {loading ? (
+          <div style={{ color: "#6B7280", fontSize: 13 }}>불러오는 중…</div>
+        ) : (
+          <>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <WeatherIcon code={w?.today.weatherCode ?? null} size={30} />
+                <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                  <div style={{ fontSize: 28, fontWeight: 950, color: "#111827" }}>
+                    {w?.today.currentTemp == null ? "-" : `${Math.round(w.today.currentTemp)}°`}
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 950, color: "#111827" }}>{w?.today.weatherText ?? "-"}</div>
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 950, color: "#111827" }}>{w?.today.weatherText ?? "-"}</div>
               </div>
+
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <div style={{ fontSize: 12.5, color: "#374151" }}>
+                  강수확률:{" "}
+                  <b style={{ color: "#111827" }}>
+                    {w?.today.precipProbNow == null ? "-" : `${w.today.precipProbNow}%`}
+                  </b>
+                </div>
+                <div style={{ fontSize: 12.5, color: "#374151" }}>
+                  최고/최저:{" "}
+                  <b style={{ color: "#111827" }}>
+                    {w?.today.max == null ? "-" : `${Math.round(w.today.max)}°`} /{" "}
+                    {w?.today.min == null ? "-" : `${Math.round(w.today.min)}°`}
+                  </b>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <div style={{ fontSize: 12.5, color: "#374151" }}>
+                  PM10:{" "}
+                  <b style={{ color: "#111827" }}>{w?.today.pm10 == null ? "-" : `${Math.round(w.today.pm10)}㎍/m³`}</b>
+                </div>
+                <div style={{ fontSize: 12.5, color: "#374151" }}>
+                  PM2.5:{" "}
+                  <b style={{ color: "#111827" }}>{w?.today.pm25 == null ? "-" : `${Math.round(w.today.pm25)}㎍/m³`}</b>
+                </div>
+              </div>
+
+              <div style={{ fontSize: 11.5, color: "#6B7280" }}>
+                업데이트: {w?.updatedAt ? new Date(w.updatedAt).toLocaleString("ko-KR") : "-"}
+              </div>
+
+              {!w?.ok && w?.message ? <div style={{ fontSize: 12, color: "#B91C1C" }}>{w.message}</div> : null}
             </div>
 
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ fontSize: 12.5, color: "#374151" }}>
-                강수확률: <b style={{ color: "#111827" }}>{w?.today.precipProbNow == null ? "-" : `${w.today.precipProbNow}%`}</b>
-              </div>
-              <div style={{ fontSize: 12.5, color: "#374151" }}>
-                최고/최저:{" "}
-                <b style={{ color: "#111827" }}>
-                  {w?.today.max == null ? "-" : `${Math.round(w.today.max)}°`} / {w?.today.min == null ? "-" : `${Math.round(w.today.min)}°`}
-                </b>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ fontSize: 12.5, color: "#374151" }}>
-                PM10: <b style={{ color: "#111827" }}>{w?.today.pm10 == null ? "-" : `${Math.round(w.today.pm10)}㎍/m³`}</b>
-              </div>
-              <div style={{ fontSize: 12.5, color: "#374151" }}>
-                PM2.5: <b style={{ color: "#111827" }}>{w?.today.pm25 == null ? "-" : `${Math.round(w.today.pm25)}㎍/m³`}</b>
-              </div>
-            </div>
-
-            <div style={{ fontSize: 11.5, color: "#6B7280" }}>
-              업데이트: {w?.updatedAt ? new Date(w.updatedAt).toLocaleString("ko-KR") : "-"}
-            </div>
-            {!w?.ok && w?.message ? <div style={{ fontSize: 12, color: "#B91C1C" }}>{w.message}</div> : null}
-          </div>
-
-          <div style={{ marginTop: 12, borderTop: "1px solid #F3F4F6", paddingTop: 10 }}>
-            <div style={{ fontWeight: 950, fontSize: 12.5, color: "#111827", marginBottom: 8 }}>주간예보 (D+7, 오늘 제외)</div>
-
-            <div style={{ overflow: "hidden", borderRadius: 12, border: "1px solid #F3F4F6" }}>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "46px 66px 1fr 56px 56px",
-                  background: "#F9FAFB",
-                  padding: "9px 10px",
-                  fontSize: 11.5,
-                  fontWeight: 950,
-                  color: "#374151",
-                }}
-              >
-                <div>요일</div>
-                <div>날짜</div>
-                <div>강수확률</div>
-                <div style={{ textAlign: "right" }}>최저</div>
-                <div style={{ textAlign: "right" }}>최고</div>
+            {/* ✅ 주간예보 "한 칸 내려간" 버전 */}
+            <div style={{ marginTop: 24, borderTop: "1px solid #F3F4F6", paddingTop: 16 }}>
+              <div style={{ fontWeight: 950, fontSize: 12.5, color: "#111827", marginBottom: 8 }}>
+                주간예보 (D+7, 오늘 제외)
               </div>
 
-              {(w?.next7 ?? []).map((d) => (
+              <div style={{ overflow: "hidden", borderRadius: 12, border: "1px solid #F3F4F6", background: "white" }}>
                 <div
-                  key={d.date}
                   style={{
                     display: "grid",
                     gridTemplateColumns: "46px 66px 1fr 56px 56px",
-                    padding: "8px 10px",
-                    borderTop: "1px solid #F3F4F6",
-                    fontSize: 12.5,
+                    background: "#F9FAFB",
+                    padding: "9px 10px",
+                    fontSize: 11.5,
+                    fontWeight: 950,
+                    color: "#374151",
                     alignItems: "center",
+                    minHeight: 34,
                   }}
                 >
-                  <div style={{ fontWeight: 950, color: d.dow === "일" ? "#EF4444" : "#111827" }}>{d.dow}</div>
-                  <div style={{ color: "#6B7280" }}>{fmtMD(d.date)}</div>
+                  <div>요일</div>
+                  <div>날짜</div>
+                  <div>강수</div>
+                  <div style={{ textAlign: "right" }}>최저</div>
+                  <div style={{ textAlign: "right" }}>최고</div>
+                </div>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                    <WeatherIcon code={d.weatherCode ?? null} size={18} />
-                    <div style={{ fontWeight: 950, color: "#111827" }}>
-                      {d.precipProbMax == null ? "-" : `${d.precipProbMax}%`}
+                {(w?.next7 ?? []).map((d) => (
+                  <div
+                    key={d.date}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "46px 66px 1fr 56px 56px",
+                      padding: "8px 10px",
+                      borderTop: "1px solid #F3F4F6",
+                      fontSize: 12.5,
+                      alignItems: "center",
+                      minHeight: 34,
+                    }}
+                  >
+                    <div style={{ fontWeight: 950, color: d.dow === "일" ? "#EF4444" : "#111827" }}>{d.dow}</div>
+                    <div style={{ color: "#6B7280" }}>{fmtMD(d.date)}</div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                      <WeatherIcon code={d.weatherCode ?? null} size={18} />
+                      <div style={{ fontWeight: 950, color: "#111827" }}>
+                        {d.precipProbMax == null ? "-" : `${d.precipProbMax}%`}
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: "right", color: "#2563EB", fontWeight: 950 }}>
+                      {d.min == null ? "-" : `${Math.round(d.min)}°`}
+                    </div>
+                    <div style={{ textAlign: "right", color: "#DC2626", fontWeight: 950 }}>
+                      {d.max == null ? "-" : `${Math.round(d.max)}°`}
                     </div>
                   </div>
+                ))}
 
-                  <div style={{ textAlign: "right", color: "#2563EB", fontWeight: 950 }}>
-                    {d.min == null ? "-" : `${Math.round(d.min)}°`}
-                  </div>
-                  <div style={{ textAlign: "right", color: "#DC2626", fontWeight: 950 }}>
-                    {d.max == null ? "-" : `${Math.round(d.max)}°`}
-                  </div>
-                </div>
-              ))}
-
-              {(w?.next7 ?? []).length === 0 ? (
-                <div style={{ padding: 12, color: "#6B7280", fontSize: 13 }}>예보 데이터를 불러오지 못했습니다.</div>
-              ) : null}
+                {(w?.next7 ?? []).length === 0 ? (
+                  <div style={{ padding: 12, color: "#6B7280", fontSize: 13 }}>예보 데이터를 불러오지 못했습니다.</div>
+                ) : null}
+              </div>
             </div>
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </div>
     </Card>
   );
 }
 
-/** -------- 달력 밑 3일 미리보기 -------- */
+/** -------- 달력 밑 3일 미리보기 (제목만) -------- */
 function ThreeDayPreview({ baseYMD, events }: { baseYMD: string; events: EventRow[] }) {
   const days = [0, 1, 2].map((d) => addDaysYMD(baseYMD, d));
 
   const grouped = useMemo(() => {
     const map: Record<string, EventRow[]> = {};
     for (const ymd of days) map[ymd] = [];
-    for (const e of events) {
-      if (map[e.date]) map[e.date].push(e);
-    }
+    for (const e of events) if (map[e.date]) map[e.date].push(e);
     for (const k of Object.keys(map)) {
       map[k].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
     }
@@ -597,6 +794,7 @@ function ThreeDayPreview({ baseYMD, events }: { baseYMD: string; events: EventRo
                 borderRadius: 14,
                 padding: 10,
                 background: "#FAFAFB",
+                overflow: "hidden",
               }}
             >
               <div style={{ fontWeight: 950, fontSize: 13, color: "#111827" }}>
@@ -608,9 +806,25 @@ function ThreeDayPreview({ baseYMD, events }: { baseYMD: string; events: EventRo
               ) : (
                 <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 6 }}>
                   {list.slice(0, 3).map((e) => (
-                    <div key={e.id} style={{ fontSize: 13, color: "#374151" }}>
-                      • <b style={{ color: "#111827" }}>{e.title}</b>
-                      {e.memo ? <span style={{ color: "#6B7280" }}> — {e.memo}</span> : null}
+                    <div
+                      key={e.id}
+                      style={{ fontSize: 13, color: "#374151", display: "flex", gap: 6, minWidth: 0 }}
+                      title={e.title}
+                    >
+                      <span>•</span>
+                      <span
+                        style={{
+                          fontWeight: 950,
+                          color: "#111827",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          minWidth: 0,
+                          flex: 1,
+                        }}
+                      >
+                        {e.title}
+                      </span>
                     </div>
                   ))}
                   {list.length > 3 ? <div style={{ fontSize: 12, color: "#6B7280" }}>외 {list.length - 3}건…</div> : null}
@@ -645,8 +859,6 @@ export default function AdminHomePage() {
     if (error) throw error;
 
     const sess = data.session;
-
-    // ✅ 세션 없으면 바로 /login (권한없음 UI 렌더 금지)
     if (!sess) {
       hardToLogin();
       return { ok: false as const };
@@ -657,17 +869,18 @@ export default function AdminHomePage() {
     setSessionUid(uid);
     setSessionEmail(email);
 
-    const { data: prof } = await supabase.from("profiles").select("id, is_admin").eq("id", uid).maybeSingle();
+    const { data: prof } = await supabase.from("profiles").select("id, is_admin, work_part").eq("id", uid).maybeSingle();
 
     const hardAdmin = uid === ADMIN_UID || email === ADMIN_EMAIL;
-    const admin = hardAdmin || (!!prof && !!(prof as any).is_admin);
+    const main = hardAdmin || (!!prof && !!(prof as any).is_admin);
+    const general = normWorkPart((prof as any)?.work_part) === "관리자";
+
+    const admin = main || general;
     setIsAdmin(admin);
 
-    // ✅ 세션은 있는데 관리자 아니면: 여기서는 화면 표시(원하면 여기서도 /login 보내도 됨)
     return { ok: true as const, admin };
   };
 
-  // ✅ auth 변화(로그아웃/세션만료) 즉시 /login
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) hardToLogin();
@@ -690,7 +903,6 @@ export default function AdminHomePage() {
         if (!r.ok) return;
         if (!r.admin) setIsAdmin(false);
       } catch {
-        // 에러도 로그인으로 보내는게 깔끔 (세션 꼬임 방지)
         hardToLogin();
       } finally {
         setChecking(false);
@@ -785,7 +997,6 @@ export default function AdminHomePage() {
 
   if (checking || !ready) return <div style={{ padding: 16, color: "#6B7280" }}>로딩...</div>;
 
-  // ✅ 여기서는 "관리자 아닌데 세션은 있는" 케이스만 남음
   if (!isAdmin) {
     return (
       <div style={{ padding: 16, fontFamily: "system-ui" }}>
@@ -818,21 +1029,23 @@ export default function AdminHomePage() {
   return (
     <div style={{ padding: "12px 8px", fontFamily: "system-ui" }}>
       <div style={{ maxWidth: 1700, margin: "0 auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "300px 1fr 360px", gap: 12, alignItems: "start" }}>
-          {/* LEFT: 미니 달력 + 3일 미리보기 */}
-          <div>
-            <div style={{ border: "1px solid #E5E7EB", borderRadius: 16, background: "white", overflow: "hidden" }}>
-              <div
-                style={{
-                  padding: "10px 12px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  borderBottom: "1px solid #E5E7EB",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ fontWeight: 950, fontSize: 14 }}>{monthLabel}</div>
+        <div
+          className="homeGrid"
+          style={
+            {
+              ["--leftColW" as any]: `${LEFT_COL_W}px`,
+              ["--colGap" as any]: COL_GAP,
+              ["--rowGap" as any]: ROW_GAP,
+            } as React.CSSProperties
+          }
+        >
+          <div className="leftCol">
+            <Card
+              title={monthLabel}
+              minHeight={CARD_MIN_H}
+              bodyPadding={8}
+              right={
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   <button
                     onClick={goPrev}
                     style={{
@@ -863,26 +1076,25 @@ export default function AdminHomePage() {
                   >
                     {">"}
                   </button>
+                  <button
+                    onClick={goToday}
+                    style={{
+                      height: 26,
+                      padding: "0 10px",
+                      borderRadius: 8,
+                      border: "1px solid #E5E7EB",
+                      background: "white",
+                      cursor: "pointer",
+                      fontWeight: 900,
+                      fontSize: 12,
+                    }}
+                  >
+                    오늘
+                  </button>
                 </div>
-
-                <button
-                  onClick={goToday}
-                  style={{
-                    height: 26,
-                    padding: "0 10px",
-                    borderRadius: 8,
-                    border: "1px solid #E5E7EB",
-                    background: "white",
-                    cursor: "pointer",
-                    fontWeight: 900,
-                    fontSize: 12,
-                  }}
-                >
-                  오늘
-                </button>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", padding: "6px 8px" }}>
+              }
+            >
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", padding: "4px 0" }}>
                 {["일", "월", "화", "수", "목", "금", "토"].map((w) => (
                   <div
                     key={w}
@@ -898,8 +1110,8 @@ export default function AdminHomePage() {
                 ))}
               </div>
 
-              <div style={{ padding: "8px 8px 10px" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", rowGap: 6 }}>
+              <div style={{ padding: "6px 0 8px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", rowGap: 8 }}>
                   {grid.map((c, idx) => {
                     const isSelected = c.ymd != null && c.ymd === selectedYMD;
                     const isSun = c.weekday === 0;
@@ -912,7 +1124,7 @@ export default function AdminHomePage() {
                         disabled={c.day == null}
                         onClick={() => c.ymd && setSelectedYMD(c.ymd)}
                         style={{
-                          height: 30,
+                          height: 34,
                           border: "none",
                           background: "transparent",
                           cursor: c.day != null ? "pointer" : "default",
@@ -924,8 +1136,8 @@ export default function AdminHomePage() {
                       >
                         <div
                           style={{
-                            width: 26,
-                            height: 26,
+                            width: 30,
+                            height: 30,
                             borderRadius: 999,
                             background: isSelected ? "#111827" : "transparent",
                             color: isSelected ? "white" : isSun ? "#EF4444" : "#111827",
@@ -933,7 +1145,7 @@ export default function AdminHomePage() {
                             alignItems: "center",
                             justifyContent: "center",
                             fontWeight: 950,
-                            fontSize: 12,
+                            fontSize: 13,
                             position: "relative",
                           }}
                           title={c.ymd ?? ""}
@@ -944,11 +1156,11 @@ export default function AdminHomePage() {
                             <span
                               style={{
                                 position: "absolute",
-                                top: -5,
-                                right: -6,
-                                minWidth: 16,
-                                height: 16,
-                                padding: "0 4px",
+                                top: -6,
+                                right: -7,
+                                minWidth: 18,
+                                height: 18,
+                                padding: "0 5px",
                                 borderRadius: 999,
                                 background: isSelected ? "white" : "#111827",
                                 color: isSelected ? "#111827" : "white",
@@ -971,31 +1183,50 @@ export default function AdminHomePage() {
                 </div>
               </div>
 
-              <div style={{ borderTop: "1px solid #F3F4F6", padding: "10px 12px", fontSize: 12, color: "#6B7280" }}>
-                {loadingEvents ? "일정 불러오는 중…" : "날짜를 눌러 3일 미리보기를 확인하세요."}
-              </div>
-
-              <div style={{ padding: "0 12px 12px" }}>
+              <div style={{ marginTop: "auto" }}>
                 <ThreeDayPreview baseYMD={selectedYMD} events={events} />
               </div>
-            </div>
+            </Card>
           </div>
 
-          {/* CENTER: 공지 */}
-          <div>
+          <div className="midCol">
             <NoticeMainCard />
           </div>
 
-          {/* RIGHT: 날씨 */}
-          <div>
+          <div className="rightCol">
             <WeatherCard />
           </div>
         </div>
 
         <style jsx>{`
+          .homeGrid {
+            display: grid;
+            grid-template-columns: var(--leftColW) 1fr 360px;
+            column-gap: var(--colGap);
+            row-gap: var(--rowGap);
+            align-items: stretch;
+          }
+          .leftCol {
+            display: flex;
+            width: var(--leftColW);
+            min-width: var(--leftColW);
+            max-width: var(--leftColW);
+          }
+          .midCol,
+          .rightCol {
+            display: flex;
+            height: 100%;
+          }
           @media (max-width: 1250px) {
-            div[style*="grid-template-columns: 300px 1fr 360px"] {
+            .homeGrid {
               grid-template-columns: 1fr;
+              column-gap: 0;
+              row-gap: 12px;
+            }
+            .leftCol {
+              width: 100%;
+              min-width: 0;
+              max-width: none;
             }
           }
         `}</style>

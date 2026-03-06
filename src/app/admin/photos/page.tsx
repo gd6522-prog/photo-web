@@ -30,18 +30,20 @@ type ProfileRow = {
 const ADMIN_EMAIL = "gd6522@naver.com";
 const ADMIN_UID = "bf70f0c0-3c58-444e-b69f-bd5de601deb6";
 
+function normWorkPart(v: any) {
+  return String(v ?? "").trim();
+}
+
 function pad2(n: number) {
   return String(n).padStart(2, "0");
 }
 
-// KST(UTC+9) 기준 오늘 YYYY-MM-DD
 function kstTodayYYYYMMDD() {
   const now = new Date();
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   return `${kst.getUTCFullYear()}-${pad2(kst.getUTCMonth() + 1)}-${pad2(kst.getUTCDate())}`;
 }
 
-// 입력 YYYY-MM-DD에 대해, KST 하루 범위를 UTC ISO로 변환
 function kstDayToUtcRange(dateYYYYMMDD: string) {
   const start = new Date(`${dateYYYYMMDD}T00:00:00+09:00`);
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
@@ -60,7 +62,7 @@ function formatKST(ts: string) {
   return `${yyyy}-${mm}-${dd} ${HH}:${MI}:${SS}`;
 }
 
-// ✅ 강제 다운로드(새 탭/미리보기 방지)
+// ✅ 강제 다운로드
 async function forceDownload(url: string, fileName: string) {
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`다운로드 실패: ${res.status}`);
@@ -78,12 +80,61 @@ async function forceDownload(url: string, fileName: string) {
   }
 }
 
+/**
+ * ✅ 이미지 클립보드 복사(1장)
+ * - Teams/카톡 호환을 위해 "image/png"로 강제 변환해서 복사
+ * - (주의) https + 사용자 제스처(버튼 클릭) 필요
+ */
+async function copyImageToClipboard(url: string) {
+  const hasClipboardWrite = !!(navigator.clipboard as any)?.write;
+  const hasClipboardItem = typeof (window as any).ClipboardItem !== "undefined";
+
+  if (!hasClipboardWrite || !hasClipboardItem) {
+    throw new Error("이 브라우저는 이미지 복사를 지원하지 않습니다. (Chrome/Edge 최신 권장)");
+  }
+
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`이미지 가져오기 실패: ${res.status}`);
+
+  const blob = await res.blob();
+
+  // ✅ PNG로 변환
+  const pngBlob = await (async () => {
+    if (typeof createImageBitmap === "undefined") return blob;
+    try {
+      const bmp = await createImageBitmap(blob);
+      const canvas = document.createElement("canvas");
+      canvas.width = bmp.width;
+      canvas.height = bmp.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return blob;
+      ctx.drawImage(bmp, 0, 0);
+      const out: Blob = await new Promise((resolve) => canvas.toBlob((b) => resolve(b || blob), "image/png"));
+      return out;
+    } catch {
+      return blob;
+    }
+  })();
+
+  const item = new (window as any).ClipboardItem({ "image/png": pngBlob });
+  await (navigator.clipboard as any).write([item]);
+}
+
 export default function AdminPhotosPage() {
   // ---------- auth ----------
   const [checking, setChecking] = useState(true);
   const [sessionEmail, setSessionEmail] = useState<string>("");
   const [sessionUid, setSessionUid] = useState<string>("");
   const [isAdmin, setIsAdmin] = useState(false);
+
+  // ✅ toast
+  const [toastMsg, setToastMsg] = useState<string>("");
+  const toastTimer = useRef<any>(null);
+  const toast = (m: string) => {
+    setToastMsg(m);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToastMsg(""), 1600);
+  };
 
   // ---------- filters ----------
   const [dateStr, setDateStr] = useState<string>(kstTodayYYYYMMDD());
@@ -114,6 +165,12 @@ export default function AdminPhotosPage() {
 
   const mounted = useRef(false);
 
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, []);
+
   // ---------- derive ----------
   const carOptions = useMemo(() => {
     const set = new Set<string>();
@@ -131,6 +188,7 @@ export default function AdminPhotosPage() {
       { label: "경량존", value: "경량존" },
       { label: "이형존", value: "이형존" },
       { label: "담배존", value: "담배존" },
+      // ⚠️ 현장사진에서는 '배송' 필터가 있어도 기사 업로드는 무조건 숨김
       { label: "배송", value: "배송" },
     ];
   }, []);
@@ -159,7 +217,9 @@ export default function AdminPhotosPage() {
 
   const selectedStoreSubTitle = useMemo(() => {
     if (!selectedStore) return "점포를 선택하세요";
-    return `[${selectedStore.store_code}] ${selectedStore.store_name} (호차 ${selectedStore.car_no ?? "-"} / 순번 ${selectedStore.seq_no ?? "-"})`;
+    return `[${selectedStore.store_code}] ${selectedStore.store_name} (호차 ${selectedStore.car_no ?? "-"} / 순번 ${
+      selectedStore.seq_no ?? "-"
+    })`;
   }, [selectedStore]);
 
   // ---------- auth check ----------
@@ -181,9 +241,13 @@ export default function AdminPhotosPage() {
       .maybeSingle();
 
     const hardAdmin = uid === ADMIN_UID || email === ADMIN_EMAIL;
-    const admin = hardAdmin || (!!prof && !!(prof as any).is_admin);
+    const main = hardAdmin || (!!prof && !!(prof as any).is_admin);
+    const general = normWorkPart((prof as any)?.work_part) === "관리자";
+    const general2 = normWorkPart((prof as any)?.work_part) === "일반관리자";
 
+    const admin = main || general || general2;
     setIsAdmin(admin);
+
     return { ok: true as const, admin };
   };
 
@@ -237,6 +301,7 @@ export default function AdminPhotosPage() {
 
       const rows = (photoRows ?? []) as PhotoRow[];
 
+      // ✅ uploader profiles
       const userIds = Array.from(new Set(rows.map((r) => r.user_id))).filter(Boolean);
       let profMap: Record<string, ProfileRow> = {};
       if (userIds.length > 0) {
@@ -258,9 +323,14 @@ export default function AdminPhotosPage() {
       }
       setProfilesById(profMap);
 
-      let filteredPhotos = rows;
+      // ✅ 핵심: 기사(배송 work_part) 업로드는 현장사진에서 무조건 제외
+      const nonDriverRows = rows.filter((r) => normWorkPart(profMap[r.user_id]?.work_part) !== "배송");
+
+      let filteredPhotos = nonDriverRows;
+
+      // 기존 workPart 필터 적용(단, 배송 선택해도 기사 사진은 원천적으로 안 섞임)
       if (workPart !== "ALL") {
-        filteredPhotos = rows.filter((r) => (profMap[r.user_id]?.work_part ?? "") === workPart);
+        filteredPhotos = filteredPhotos.filter((r) => (profMap[r.user_id]?.work_part ?? "") === workPart);
       }
 
       const storeCodes = Array.from(new Set(filteredPhotos.map((p) => p.store_code))).filter(Boolean);
@@ -268,7 +338,6 @@ export default function AdminPhotosPage() {
       let storeList: StoreMapRow[] = [];
       if (storeCodes.length > 0) {
         const st = searchText.trim();
-
         let sq = supabase.from("store_map").select("store_code, store_name, car_no, seq_no").in("store_code", storeCodes);
 
         if (st) {
@@ -278,7 +347,6 @@ export default function AdminPhotosPage() {
 
         const { data: sm, error: smErr } = await sq.limit(2000);
         if (smErr) throw smErr;
-
         storeList = (sm ?? []) as StoreMapRow[];
       }
 
@@ -322,6 +390,15 @@ export default function AdminPhotosPage() {
   const onDownloadPhoto = async (p: PhotoRow) => {
     const name = `${p.store_code}_${p.id}.jpg`;
     await forceDownload(p.original_url, name);
+  };
+
+  const onCopyPhoto = async (p: PhotoRow) => {
+    try {
+      await copyImageToClipboard(p.original_url);
+      toast("이미지 복사됨");
+    } catch (e: any) {
+      alert(e?.message ?? String(e));
+    }
   };
 
   const onDeletePhoto = async (p: PhotoRow) => {
@@ -371,29 +448,19 @@ export default function AdminPhotosPage() {
   const onBulkDelete = async () => {
     const ids = Array.from(selectedPhotoIds);
     if (ids.length === 0) return;
-
     if (!confirm(`선택된 ${ids.length}개를 삭제할까요? (DB + Storage 삭제)`)) return;
 
     const { data, error } = await supabase.from("photos").select("id, original_path").in("id", ids);
-    if (error) {
-      alert(error.message);
-      return;
-    }
+    if (error) return alert(error.message);
 
     const paths = (data ?? []).map((r: any) => r.original_path).filter(Boolean);
     if (paths.length > 0) {
       const { error: rmErr } = await supabase.storage.from("photos").remove(paths);
-      if (rmErr) {
-        alert(`Storage 삭제 오류: ${rmErr.message}`);
-        return;
-      }
+      if (rmErr) return alert(`Storage 삭제 오류: ${rmErr.message}`);
     }
 
     const { error: delErr } = await supabase.from("photos").delete().in("id", ids);
-    if (delErr) {
-      alert(`DB 삭제 오류: ${delErr.message}`);
-      return;
-    }
+    if (delErr) return alert(`DB 삭제 오류: ${delErr.message}`);
 
     onClearSelect();
     await fetchData();
@@ -426,6 +493,11 @@ export default function AdminPhotosPage() {
     return prof?.name?.trim() ? prof.name.trim() : "-";
   }, [previewPhoto, profilesById]);
 
+  const onCopyPreview = async () => {
+    if (!previewPhoto) return;
+    await onCopyPhoto(previewPhoto);
+  };
+
   // ---------- initial fetch ----------
   useEffect(() => {
     if (checking) return;
@@ -434,7 +506,6 @@ export default function AdminPhotosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checking, isAdmin]);
 
-  // ---------- UI ----------
   if (checking) {
     return (
       <div style={{ padding: 24, fontFamily: "system-ui" }}>
@@ -477,22 +548,34 @@ export default function AdminPhotosPage() {
   }
 
   return (
-    <div style={{ fontFamily: "system-ui", width: "100%" }}>
-      {/* ✅ 중요: 레이아웃이 이미 maxWidth+padding 잡고 있으니, 여기선 좌우 padding 주면 끝단이 안 맞음 */}
-      {/* ✅ 그래서 여기서는 좌우 padding 제거하고, 간격은 카드/그리드 내부 gap으로 유지 */}
-      <div style={{ width: "100%" }}>
+    <div style={{ fontFamily: "system-ui", width: "100%", position: "relative" }}>
+      {toastMsg && (
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "360px minmax(0, 1fr)",
-            gap: 14,
-            alignItems: "start",
+            position: "fixed",
+            right: 18,
+            bottom: 18,
+            zIndex: 80,
+            background: "#111827",
+            color: "white",
+            padding: "10px 12px",
+            borderRadius: 12,
+            fontWeight: 900,
+            fontSize: 13,
+            boxShadow: "0 10px 25px rgba(0,0,0,0.18)",
           }}
         >
+          {toastMsg}
+        </div>
+      )}
+
+      <div style={{ width: "100%" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "360px minmax(0, 1fr)", gap: 14, alignItems: "start" }}>
           {/* LEFT */}
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {/* filters */}
             <div style={{ border: "1px solid #E5E7EB", borderRadius: 16, padding: 14, background: "white" }}>
+              {/* ✅ 여기서 TopModeButtons 제거 */}
               <div style={{ fontWeight: 900, marginBottom: 10 }}>조회 조건</div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -863,7 +946,7 @@ export default function AdminPhotosPage() {
 
                         <div style={{ height: 8 }} />
 
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                           <button
                             onClick={async (e) => {
                               e.stopPropagation();
@@ -880,6 +963,25 @@ export default function AdminPhotosPage() {
                             }}
                           >
                             다운로드
+                          </button>
+
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await onCopyPhoto(p);
+                            }}
+                            style={{
+                              height: 36,
+                              borderRadius: 12,
+                              border: "1px solid #E5E7EB",
+                              background: "white",
+                              fontWeight: 900,
+                              cursor: "pointer",
+                              whiteSpace: "nowrap",
+                            }}
+                            title="이미지를 클립보드에 복사"
+                          >
+                            복사
                           </button>
 
                           <button
@@ -1038,6 +1140,23 @@ export default function AdminPhotosPage() {
                 }}
               >
                 다운로드
+              </button>
+
+              <button
+                onClick={onCopyPreview}
+                style={{
+                  height: 40,
+                  padding: "0 14px",
+                  borderRadius: 12,
+                  border: "1px solid #E5E7EB",
+                  background: "white",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+                title="이미지를 클립보드에 복사"
+              >
+                이미지 복사
               </button>
 
               <button

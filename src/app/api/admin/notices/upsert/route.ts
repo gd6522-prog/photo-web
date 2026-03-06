@@ -1,67 +1,42 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { NextRequest } from "next/server";
+import { json, requireAdmin } from "../_shared";
 
-export const dynamic = "force-dynamic";
-
-function supabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error("ENV 누락: NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY");
-  return createClient(url, key, { auth: { persistSession: false } });
-}
-
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const sb = supabaseAdmin();
-    const payload = await req.json().catch(() => ({} as any));
+    const r = await requireAdmin(req);
+    if (!r.ok) return r.res;
 
-    const id = payload.id ? String(payload.id) : null;
-    const title = String(payload.title ?? "").trim();
-    const body = String(payload.body ?? "").trim();
-    const is_pinned = Boolean(payload.is_pinned);
+    if (!r.isMainAdmin) return json(false, "Forbidden (main admin only)", null, 403);
 
-    if (!title) return NextResponse.json({ ok: false, message: "제목이 비었습니다." }, { status: 400 });
-    if (!body) return NextResponse.json({ ok: false, message: "내용이 비었습니다." }, { status: 400 });
+    const body = await req.json().catch(() => null);
 
-    // ✅ 신규
-    if (!id) {
-      const { data, error } = await sb
+    const id = body?.id ? String(body.id).trim() : "";
+    const title = String(body?.title ?? "").trim();
+    const noticeBody = String(body?.body ?? "").trim();
+    const is_pinned = !!body?.is_pinned;
+
+    if (!title) return json(false, "Missing title", null, 400);
+    if (!noticeBody) return json(false, "Missing body", null, 400);
+
+    if (id) {
+      const { error } = await r.sbAdmin
         .from("notices")
-        .insert({
-          title,
-          body,
-          is_pinned,
-          updated_at: new Date().toISOString(),
-        })
-        .select("id,title,body,is_pinned,updated_at")
-        .single();
+        .update({ title, body: noticeBody, is_pinned })
+        .eq("id", id);
 
-      if (error) throw error;
-
-      return NextResponse.json({ ok: true, item: data });
+      if (error) return json(false, error.message, null, 500);
+      return json(true);
     }
 
-    // ✅ 수정
-    const { data, error } = await sb
-      .from("notices")
-      .update({
-        title,
-        body,
-        is_pinned,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id)
-      .select("id,title,body,is_pinned,updated_at")
-      .single();
+    const { error } = await r.sbAdmin.from("notices").insert({
+      title,
+      body: noticeBody,
+      is_pinned,
+    });
 
-    if (error) throw error;
-
-    return NextResponse.json({ ok: true, item: data });
+    if (error) return json(false, error.message, null, 500);
+    return json(true);
   } catch (e: any) {
-    // ✅ 여기서도 무조건 JSON 내려줌 (프론트가 res.json() 하다가 안죽게)
-    return NextResponse.json(
-      { ok: false, message: e?.message ?? String(e) },
-      { status: 500 }
-    );
+    return json(false, e?.message ?? String(e), null, 500);
   }
 }

@@ -12,31 +12,23 @@ type ProfileRow = {
   birthdate: string | null;
   work_part: string | null;
 
-  company_name: string | null;
-  work_table: string | null;
+  // ✅ 기사 전용
+  car_no: string | null; // "1" or "1,2"
+  delivery_type: string | null; // 당일/전일/익일
+  vehicle_type: string | null; // 1.5T/2.5T/3.5T
+  carrier: string | null; // 운수사
+  garage: string | null; // 차고지
+  hipass: string | null; // 하이패스
+
+  company_name: string | null; // 운수사와 별개로 유지(필요 없으면 나중에 제거 가능)
   join_date: string | null;
   leave_date: string | null;
 
-  is_admin?: boolean | null;
   created_at?: string | null;
 };
 
-const COMPANY_OPTIONS = ["한익스프레스", "경산씨스템", "더블에스잡", "비상GLS"] as const;
-
-const COMPANY_ORDER: Record<string, number> = {
-  한익스프레스: 10,
-  경산씨스템: 20,
-  더블에스잡: 30,
-  비상GLS: 40,
-};
-
-const WORK_TABLE_OPTIONS = [
-  "조출A 06시00분~15시00분",
-  "조출B 07시00분~16시00분",
-  "사무 08시30분~17시30분",
-  "현장A 09시30분~18시30분",
-  "현장B 10시30분~19시30분",
-] as const;
+const DELIVERY_OPTIONS = ["당일", "전일", "익일"] as const;
+const VEHICLE_OPTIONS = ["1.5T", "2.5T", "3.5T"] as const;
 
 function kstTodayYMD(): string {
   const now = new Date();
@@ -117,17 +109,6 @@ function formatKRPhone(raw: string | null): string {
   return digits;
 }
 
-function workTableShort(v: string | null): string {
-  const s = String(v ?? "").trim();
-  if (!s) return "-";
-  return s.split(" ")[0] || "-";
-}
-
-function workTableTimeOnly(v: string): string {
-  const parts = v.split(" ");
-  return parts.slice(1).join(" ").trim() || v;
-}
-
 function inputStyle(disabled?: boolean): React.CSSProperties {
   return {
     width: "100%",
@@ -153,18 +134,6 @@ function buttonStyle(disabled?: boolean, dark?: boolean): React.CSSProperties {
   };
 }
 
-function uniq(arr: string[]) {
-  return Array.from(new Set(arr.map((x) => x.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "ko"));
-}
-
-type ShiftTodayRow = {
-  user_id: string;
-  clock_in_at: string | null;
-  clock_out_at: string | null;
-};
-
-type TodayShiftMap = Record<string, { inAt: string | null; outAt: string | null }>;
-
 function normalizeApproval(v: string | null): "pending" | "approved" | "rejected" {
   const s = String(v ?? "").toLowerCase();
   if (s === "approved") return "approved";
@@ -172,43 +141,94 @@ function normalizeApproval(v: string | null): "pending" | "approved" | "rejected
   return "pending";
 }
 
-function isWorkingNow(today: { inAt: string | null; outAt: string | null } | undefined): boolean {
-  if (!today) return false;
-  return !!today.inAt && !today.outAt;
+function isDriverPart(part: string | null | undefined): boolean {
+  const s = String(part ?? "").trim();
+  if (!s) return false;
+  return s === "기사" || s.includes("기사");
 }
 
-export default function UserMasterPage() {
+// ✅ 호차 정규화: 숫자만, 1~2개, 중복 제거, 오름차순 => "1" or "1,2" or null
+function normalizeCarNoInput(aRaw: string, bRaw: string): string | null {
+  const cleanOne = (v: string) => String(v ?? "").replace(/[^\d]/g, "").trim();
+  const a = cleanOne(aRaw);
+  const b = cleanOne(bRaw);
+
+  const nums = [a, b]
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .map((x) => String(parseInt(x, 10)))
+    .filter((x) => x !== "NaN");
+
+  if (nums.length === 0) return null;
+
+  const unique = Array.from(new Set(nums));
+  unique.sort((x, y) => Number(x) - Number(y));
+
+  return unique.slice(0, 2).join(",");
+}
+
+function splitCarNo(carNo: string | null): { a: string; b: string } {
+  const raw = String(carNo ?? "").trim();
+  if (!raw) return { a: "", b: "" };
+  const parts = raw.split(",").map((x) => x.trim()).filter(Boolean);
+  return { a: parts[0] ?? "", b: parts[1] ?? "" };
+}
+
+function displayCarNo(carNo: string | null): string {
+  const raw = String(carNo ?? "").trim();
+  if (!raw) return "-";
+  const parts = raw.split(",").map((x) => x.trim()).filter(Boolean);
+  if (parts.length === 0) return "-";
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} / ${parts[1]}`;
+}
+
+function normalizePick(v: string): string | null {
+  const s = String(v ?? "").trim();
+  return s ? s : null;
+}
+
+export default function DriverMasterPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [bulkSaving, setBulkSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  // filters
   const [qName, setQName] = useState("");
-  const [qPart, setQPart] = useState("");
-  const [qCompany, setQCompany] = useState<string>("");
-  const [qWorkTable, setQWorkTable] = useState<string>("");
+  const [qCarNo, setQCarNo] = useState("");
+  const [qDelivery, setQDelivery] = useState<string>("");
+  const [qVehicle, setQVehicle] = useState<string>("");
+  const [qCarrier, setQCarrier] = useState("");
 
+  // list & selection
   const [rows, setRows] = useState<ProfileRow[]>([]);
   const [selected, setSelected] = useState<ProfileRow | null>(null);
-
-  const [todayShiftMap, setTodayShiftMap] = useState<TodayShiftMap>({});
-
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const [bulkCompany, setBulkCompany] = useState<string>("");
-  const [bulkWorkTable, setBulkWorkTable] = useState<string>("");
+  // bulk
+  const [bulkCarrier, setBulkCarrier] = useState<string>("");
+  const [bulkVehicle, setBulkVehicle] = useState<string>("");
+  const [bulkDelivery, setBulkDelivery] = useState<string>("");
 
+  // form
   const [f, setF] = useState({
     name: "",
     phone: "",
     birthdate: "",
-    work_part: "",
-    company_name: "",
-    work_table: "",
+    work_part: "기사",
+
+    car_no_1: "",
+    car_no_2: "",
+
+    delivery_type: "",
+    vehicle_type: "",
+    carrier: "",
     join_date: "",
     leave_date: "",
-    is_admin: false,
-    is_general_admin: false,
+    garage: "",
+    hipass: "",
+
     approval_status: "pending" as "pending" | "approved" | "rejected",
   });
 
@@ -216,105 +236,7 @@ export default function UserMasterPage() {
   const tenureDays = useMemo(() => calcTenureDays(f.join_date || null, f.leave_date || null), [f.join_date, f.leave_date]);
   const tenureText = useMemo(() => tenurePretty(tenureDays), [tenureDays]);
 
-  const openEdit = (r: ProfileRow) => {
-    const general = String(r.work_part ?? "").trim() === "관리자";
-    const ap = normalizeApproval(r.approval_status);
-
-    setSelected(r);
-    setF({
-      name: r.name ?? "",
-      phone: toKRLocalDigits(r.phone ?? ""),
-      birthdate: r.birthdate ?? "",
-      work_part: r.work_part ?? "",
-      company_name: r.company_name ?? "",
-      work_table: r.work_table ?? "",
-      join_date: r.join_date ?? "",
-      leave_date: r.leave_date ?? "",
-      is_admin: !!r.is_admin,
-      is_general_admin: !r.is_admin && general,
-      approval_status: ap,
-    });
-  };
-
-  const closeEdit = () => setSelected(null);
-
-  const sortByCompanyOrder = (list: ProfileRow[]) => {
-    return [...list].sort((a, b) => {
-      const ao = COMPANY_ORDER[String(a.company_name ?? "").trim()] ?? 9999;
-      const bo = COMPANY_ORDER[String(b.company_name ?? "").trim()] ?? 9999;
-      if (ao !== bo) return ao - bo;
-
-      const an = String(a.name ?? "").trim();
-      const bn = String(b.name ?? "").trim();
-      const c1 = an.localeCompare(bn, "ko");
-      if (c1 !== 0) return c1;
-
-      return String(a.id).localeCompare(String(b.id));
-    });
-  };
-
-  const load = async () => {
-    setLoading(true);
-    setErr(null);
-
-    try {
-      let q = supabase
-        .from("profiles")
-        .select("id,approval_status,name,phone,birthdate,work_part,company_name,work_table,join_date,leave_date,is_admin,created_at")
-        // ✅ 기사 제외: work_part에 "기사" 포함된 행은 운영/현장 마스터에서 숨김
-        .not("work_part", "ilike", "%기사%");
-
-      const name = qName.trim();
-      const part = qPart.trim();
-      const company = qCompany.trim();
-      const wt = qWorkTable.trim();
-
-      if (name) q = q.ilike("name", `%${name}%`);
-      if (part) q = q.eq("work_part", part);
-      if (company) q = q.eq("company_name", company);
-      if (wt) q = q.eq("work_table", wt);
-
-      const { data, error } = await q;
-      if (error) throw error;
-
-      const list = sortByCompanyOrder((data ?? []) as ProfileRow[]);
-      setRows(list);
-
-      const ids = list.map((r) => r.id);
-      if (ids.length > 0) {
-        const today = kstTodayYMD();
-        const { data: shifts, error: sErr } = await supabase
-          .from("work_shifts")
-          .select("user_id, clock_in_at, clock_out_at")
-          .eq("work_date", today)
-          .in("user_id", ids);
-
-        if (sErr) throw sErr;
-
-        const map: TodayShiftMap = {};
-        for (const r of (shifts ?? []) as ShiftTodayRow[]) {
-          map[r.user_id] = { inAt: r.clock_in_at, outAt: r.clock_out_at };
-        }
-        setTodayShiftMap(map);
-      } else {
-        setTodayShiftMap({});
-      }
-    } catch (e: any) {
-      setErr(String(e?.message ?? e ?? "불러오기 실패"));
-      setRows([]);
-      setTodayShiftMap({});
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const partOptions = useMemo(() => uniq(rows.map((r) => String(r.work_part ?? ""))), [rows]);
-
+  const selectedCount = selectedIds.size;
   const allChecked = useMemo(() => rows.length > 0 && rows.every((r) => selectedIds.has(r.id)), [rows, selectedIds]);
 
   const toggleAll = () => {
@@ -337,6 +259,102 @@ export default function UserMasterPage() {
 
   const clearSelection = () => setSelectedIds(new Set());
 
+  const openEdit = (r: ProfileRow) => {
+    const ap = normalizeApproval(r.approval_status);
+    const car = splitCarNo(r.car_no);
+
+    setSelected(r);
+    setF({
+      name: r.name ?? "",
+      phone: toKRLocalDigits(r.phone ?? ""),
+      birthdate: r.birthdate ?? "",
+      work_part: r.work_part ?? "기사",
+
+      car_no_1: car.a,
+      car_no_2: car.b,
+
+      delivery_type: r.delivery_type ?? "",
+      vehicle_type: r.vehicle_type ?? "",
+      carrier: r.carrier ?? "",
+      join_date: r.join_date ?? "",
+      leave_date: r.leave_date ?? "",
+      garage: r.garage ?? "",
+      hipass: r.hipass ?? "",
+
+      approval_status: ap,
+    });
+  };
+
+  const closeEdit = () => setSelected(null);
+
+  const load = async () => {
+    setLoading(true);
+    setErr(null);
+
+    try {
+      // ✅ 기사만
+      let q = supabase
+        .from("profiles")
+        .select(
+          "id,approval_status,name,phone,birthdate,work_part,car_no,delivery_type,vehicle_type,carrier,join_date,leave_date,garage,hipass,created_at"
+        )
+        .ilike("work_part", "%기사%");
+
+      const name = qName.trim();
+      const car = qCarNo.trim().replace(/[^\d]/g, "");
+      const carrier = qCarrier.trim();
+      const delivery = qDelivery.trim();
+      const vehicle = qVehicle.trim();
+
+      if (name) q = q.ilike("name", `%${name}%`);
+      if (carrier) q = q.ilike("carrier", `%${carrier}%`);
+      if (delivery) q = q.eq("delivery_type", delivery);
+      if (vehicle) q = q.eq("vehicle_type", vehicle);
+
+      const { data, error } = await q;
+      if (error) throw error;
+
+      let list = (data ?? []) as ProfileRow[];
+      if (car) {
+        list = list.filter((r) => String(r.car_no ?? "").split(",").map((x) => x.trim()).includes(car));
+      }
+
+      // 정렬: 운수사 → 차종 → 호차 → 이름
+      list.sort((a, b) => {
+        const ac = String(a.carrier ?? "").trim();
+        const bc = String(b.carrier ?? "").trim();
+        const c1 = ac.localeCompare(bc, "ko");
+        if (c1 !== 0) return c1;
+
+        const av = String(a.vehicle_type ?? "").trim();
+        const bv = String(b.vehicle_type ?? "").trim();
+        const c2 = av.localeCompare(bv, "ko");
+        if (c2 !== 0) return c2;
+
+        const ah = String(a.car_no ?? "").trim();
+        const bh = String(b.car_no ?? "").trim();
+        const c3 = ah.localeCompare(bh, "ko");
+        if (c3 !== 0) return c3;
+
+        const an = String(a.name ?? "").trim();
+        const bn = String(b.name ?? "").trim();
+        return an.localeCompare(bn, "ko");
+      });
+
+      setRows(list);
+    } catch (e: any) {
+      setErr(String(e?.message ?? e ?? "불러오기 실패"));
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const save = async () => {
     if (!selected) return;
     setSaving(true);
@@ -346,18 +364,25 @@ export default function UserMasterPage() {
       const phoneDigits = toKRLocalDigits(f.phone);
       const phoneToSave = phoneDigits ? phoneDigits : null;
 
-      const workPartToSave = f.is_general_admin && !f.is_admin ? "관리자" : (f.work_part.trim() || null);
+      // 기사 마스터이므로 기사로 보정
+      const workPartToSave = isDriverPart(f.work_part) ? f.work_part.trim() : "기사";
+      const carNoToSave = normalizeCarNoInput(f.car_no_1, f.car_no_2);
 
       const payload: any = {
         name: f.name.trim() || null,
         phone: phoneToSave,
         birthdate: f.birthdate || null,
         work_part: workPartToSave,
-        company_name: f.company_name.trim() || null,
-        work_table: f.work_table.trim() || null,
+
+        car_no: carNoToSave,
+        delivery_type: normalizePick(f.delivery_type),
+        vehicle_type: normalizePick(f.vehicle_type),
+        carrier: normalizePick(f.carrier),
         join_date: f.join_date || null,
         leave_date: f.leave_date || null,
-        is_admin: !!f.is_admin,
+        garage: normalizePick(f.garage),
+        hipass: normalizePick(f.hipass),
+
         approval_status: f.approval_status || "pending",
       };
 
@@ -377,8 +402,8 @@ export default function UserMasterPage() {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
 
-    if (!bulkCompany.trim() && !bulkWorkTable.trim()) {
-      setErr("일괄 적용할 값(회사명 또는 근무테이블)을 선택해 주세요.");
+    if (!bulkCarrier.trim() && !bulkVehicle.trim() && !bulkDelivery.trim()) {
+      setErr("일괄 적용할 값(운수사/차종/배송구분) 중 최소 1개를 선택해 주세요.");
       return;
     }
 
@@ -387,16 +412,18 @@ export default function UserMasterPage() {
 
     try {
       const payload: any = {};
-      if (bulkCompany.trim()) payload.company_name = bulkCompany.trim();
-      if (bulkWorkTable.trim()) payload.work_table = bulkWorkTable.trim();
+      if (bulkCarrier.trim()) payload.carrier = bulkCarrier.trim();
+      if (bulkVehicle.trim()) payload.vehicle_type = bulkVehicle.trim();
+      if (bulkDelivery.trim()) payload.delivery_type = bulkDelivery.trim();
 
       const { error } = await supabase.from("profiles").update(payload).in("id", ids);
       if (error) throw error;
 
       await load();
       clearSelection();
-      setBulkCompany("");
-      setBulkWorkTable("");
+      setBulkCarrier("");
+      setBulkVehicle("");
+      setBulkDelivery("");
     } catch (e: any) {
       setErr(String(e?.message ?? e ?? "일괄 적용 실패"));
     } finally {
@@ -415,12 +442,10 @@ export default function UserMasterPage() {
     }
   };
 
-  const selectedCount = selectedIds.size;
-
   return (
-    <div style={{ padding: 16, maxWidth: 1500, margin: "0 auto", fontFamily: "system-ui" }}>
+    <div style={{ padding: 16, maxWidth: 1600, margin: "0 auto", fontFamily: "system-ui" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 950, margin: 0 }}>운영/현장 사용자 마스터</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 950, margin: 0 }}>기사 사용자 마스터</h1>
         <button onClick={load} disabled={loading} style={buttonStyle(loading)}>
           {loading ? "불러오는 중..." : "새로고침"}
         </button>
@@ -440,42 +465,40 @@ export default function UserMasterPage() {
           alignItems: "center",
         }}
       >
-        <label style={{ display: "flex", gap: 8, alignItems: "center", flex: 1, minWidth: 200 }}>
-          <span style={{ width: 70, fontSize: 13, opacity: 0.8 }}>이름</span>
-          <input value={qName} onChange={(e) => setQName(e.target.value)} placeholder="이름 검색" style={inputStyle()} />
+        <label style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 240, flex: 1 }}>
+          <span style={{ width: 60, fontSize: 13, opacity: 0.8 }}>이름</span>
+          <input value={qName} onChange={(e) => setQName(e.target.value)} placeholder="기사 이름 검색" style={inputStyle()} />
         </label>
 
-        <label style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 220 }}>
-          <span style={{ width: 70, fontSize: 13, opacity: 0.8 }}>작업파트</span>
-          <select value={qPart} onChange={(e) => setQPart(e.target.value)} style={inputStyle()}>
-            <option value="">전체</option>
-            {partOptions.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
+        <label style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 200 }}>
+          <span style={{ width: 60, fontSize: 13, opacity: 0.8 }}>호차</span>
+          <input value={qCarNo} onChange={(e) => setQCarNo(e.target.value)} placeholder="예: 1" style={inputStyle()} inputMode="numeric" />
         </label>
 
         <label style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 260 }}>
-          <span style={{ width: 70, fontSize: 13, opacity: 0.8 }}>회사명</span>
-          <select value={qCompany} onChange={(e) => setQCompany(e.target.value)} style={inputStyle()}>
+          <span style={{ width: 60, fontSize: 13, opacity: 0.8 }}>운수사</span>
+          <input value={qCarrier} onChange={(e) => setQCarrier(e.target.value)} placeholder="운수사 검색" style={inputStyle()} />
+        </label>
+
+        <label style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 240 }}>
+          <span style={{ width: 80, fontSize: 13, opacity: 0.8 }}>배송구분</span>
+          <select value={qDelivery} onChange={(e) => setQDelivery(e.target.value)} style={inputStyle()}>
             <option value="">전체</option>
-            {COMPANY_OPTIONS.map((c) => (
-              <option key={c} value={c}>
-                {c}
+            {DELIVERY_OPTIONS.map((x) => (
+              <option key={x} value={x}>
+                {x}
               </option>
             ))}
           </select>
         </label>
 
-        <label style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 330 }}>
-          <span style={{ width: 70, fontSize: 13, opacity: 0.8 }}>근무테이블</span>
-          <select value={qWorkTable} onChange={(e) => setQWorkTable(e.target.value)} style={inputStyle()}>
+        <label style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 220 }}>
+          <span style={{ width: 60, fontSize: 13, opacity: 0.8 }}>차종</span>
+          <select value={qVehicle} onChange={(e) => setQVehicle(e.target.value)} style={inputStyle()}>
             <option value="">전체</option>
-            {WORK_TABLE_OPTIONS.map((t) => (
-              <option key={t} value={t}>
-                {t}
+            {VEHICLE_OPTIONS.map((x) => (
+              <option key={x} value={x}>
+                {x}
               </option>
             ))}
           </select>
@@ -507,24 +530,29 @@ export default function UserMasterPage() {
         <div style={{ width: 1, height: 22, background: "rgba(0,0,0,0.08)" }} />
 
         <label style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 260 }}>
-          <span style={{ width: 70, fontSize: 13, opacity: 0.8 }}>회사명</span>
-          <select value={bulkCompany} onChange={(e) => setBulkCompany(e.target.value)} style={inputStyle(selectedCount === 0)}>
+          <span style={{ width: 60, fontSize: 13, opacity: 0.8 }}>운수사</span>
+          <input value={bulkCarrier} onChange={(e) => setBulkCarrier(e.target.value)} placeholder="(변경안함)" style={inputStyle(selectedCount === 0)} />
+        </label>
+
+        <label style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 240 }}>
+          <span style={{ width: 60, fontSize: 13, opacity: 0.8 }}>차종</span>
+          <select value={bulkVehicle} onChange={(e) => setBulkVehicle(e.target.value)} style={inputStyle(selectedCount === 0)}>
             <option value="">(변경안함)</option>
-            {COMPANY_OPTIONS.map((c) => (
-              <option key={c} value={c}>
-                {c}
+            {VEHICLE_OPTIONS.map((x) => (
+              <option key={x} value={x}>
+                {x}
               </option>
             ))}
           </select>
         </label>
 
-        <label style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 320 }}>
-          <span style={{ width: 70, fontSize: 13, opacity: 0.8 }}>근무테이블</span>
-          <select value={bulkWorkTable} onChange={(e) => setBulkWorkTable(e.target.value)} style={inputStyle(selectedCount === 0)}>
+        <label style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 240 }}>
+          <span style={{ width: 80, fontSize: 13, opacity: 0.8 }}>배송구분</span>
+          <select value={bulkDelivery} onChange={(e) => setBulkDelivery(e.target.value)} style={inputStyle(selectedCount === 0)}>
             <option value="">(변경안함)</option>
-            {WORK_TABLE_OPTIONS.map((t) => (
-              <option key={t} value={t}>
-                {workTableTimeOnly(t)}
+            {DELIVERY_OPTIONS.map((x) => (
+              <option key={x} value={x}>
+                {x}
               </option>
             ))}
           </select>
@@ -553,8 +581,38 @@ export default function UserMasterPage() {
               <th style={{ position: "sticky", top: 0, background: "white", padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.08)", width: 44 }}>
                 <input type="checkbox" checked={allChecked} onChange={toggleAll} />
               </th>
-              {["이름", "전화번호", "생년월일", "나이", "작업파트", "회사명", "근무테이블", "입사일", "퇴사일", "근속", "상태", "관리"].map((h) => (
-                <th key={h} style={{ position: "sticky", top: 0, background: "white", textAlign: "left", fontSize: 12, opacity: 0.85, padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.08)", whiteSpace: "nowrap" }}>
+
+              {[
+                "호차",
+                "이름",
+                "생년월일",
+                "나이",
+                "배송구분",
+                "전화번호",
+                "차종",
+                "운수사",
+                "입사일",
+                "퇴사일",
+                "차고지",
+                "하이패스",
+                "근속",
+                "상태",
+                "관리",
+              ].map((h) => (
+                <th
+                  key={h}
+                  style={{
+                    position: "sticky",
+                    top: 0,
+                    background: "white",
+                    textAlign: "left",
+                    fontSize: 12,
+                    opacity: 0.85,
+                    padding: "10px 10px",
+                    borderBottom: "1px solid rgba(0,0,0,0.08)",
+                    whiteSpace: "nowrap",
+                  }}
+                >
                   {h}
                 </th>
               ))}
@@ -564,7 +622,7 @@ export default function UserMasterPage() {
           <tbody>
             {rows.length === 0 && !loading ? (
               <tr>
-                <td colSpan={12} style={{ padding: 16, opacity: 0.7 }}>
+                <td colSpan={15} style={{ padding: 16, opacity: 0.7 }}>
                   데이터 없음
                 </td>
               </tr>
@@ -572,10 +630,7 @@ export default function UserMasterPage() {
               rows.map((r) => {
                 const ageV = calcAge(r.birthdate);
                 const tenDays = calcTenureDays(r.join_date, r.leave_date);
-
                 const ap = normalizeApproval(r.approval_status);
-                const approved = ap === "approved";
-                const working = approved ? isWorkingNow(todayShiftMap[r.id]) : false;
 
                 return (
                   <tr key={r.id}>
@@ -583,48 +638,47 @@ export default function UserMasterPage() {
                       <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleOne(r.id)} />
                     </td>
 
+                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)", fontWeight: 950 }}>{displayCarNo(r.car_no)}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)", fontWeight: 950 }}>{r.name ?? "-"}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{formatKRPhone(r.phone)}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.birthdate ?? "-"}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{ageV == null ? "-" : `${ageV}세`}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.work_part ?? "-"}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.company_name ?? "-"}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{workTableShort(r.work_table)}</td>
+                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.delivery_type ?? "-"}</td>
+                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{formatKRPhone(r.phone)}</td>
+                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.vehicle_type ?? "-"}</td>
+                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.carrier ?? "-"}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.join_date ?? "-"}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.leave_date ?? "-"}</td>
+                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.garage ?? "-"}</td>
+                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.hipass ?? "-"}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{tenurePretty(tenDays)}</td>
 
+                    {/* 상태 */}
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-                      {!approved ? (
-                        <select
-                          value={ap}
-                          onChange={(e) => updateApprovalInline(r.id, e.target.value as any)}
-                          style={{
-                            height: 34,
-                            padding: "0 10px",
-                            borderRadius: 10,
-                            border: "1px solid rgba(0,0,0,0.15)",
-                            background: ap === "pending" ? "rgba(255,170,0,0.08)" : ap === "rejected" ? "rgba(255,0,0,0.06)" : "white",
-                            fontWeight: 950,
-                            cursor: "pointer",
-                          }}
-                          title="상태를 눌러 승인/거절 선택"
-                        >
-                          <option value="pending">승인대기</option>
-                          <option value="approved">승인</option>
-                          <option value="rejected">거절</option>
-                        </select>
-                      ) : working ? (
-                        <span style={{ padding: "4px 10px", borderRadius: 999, fontWeight: 950, fontSize: 12, border: "1px solid rgba(255,140,0,0.35)", background: "rgba(255,140,0,0.10)" }}>
-                          근무중
-                        </span>
-                      ) : (
-                        "-"
-                      )}
+                      <select
+                        value={ap}
+                        onChange={(e) => updateApprovalInline(r.id, e.target.value as any)}
+                        style={{
+                          height: 34,
+                          padding: "0 10px",
+                          borderRadius: 10,
+                          border: "1px solid rgba(0,0,0,0.15)",
+                          background: ap === "pending" ? "rgba(255,170,0,0.08)" : ap === "rejected" ? "rgba(255,0,0,0.06)" : "white",
+                          fontWeight: 950,
+                          cursor: "pointer",
+                        }}
+                        title="상태를 눌러 승인/거절 선택"
+                      >
+                        <option value="pending">승인대기</option>
+                        <option value="approved">승인</option>
+                        <option value="rejected">거절</option>
+                      </select>
                     </td>
 
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-                      <button onClick={() => openEdit(r)} style={{ height: 32, padding: "0 12px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)", background: "white", fontWeight: 950, cursor: "pointer" }}>
+                      <button
+                        onClick={() => openEdit(r)}
+                        style={{ height: 32, padding: "0 12px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)", background: "white", fontWeight: 950, cursor: "pointer" }}
+                      >
                         수정
                       </button>
                     </td>
@@ -636,6 +690,7 @@ export default function UserMasterPage() {
         </table>
       </div>
 
+      {/* Edit Modal */}
       {selected && (
         <div
           onMouseDown={(e) => {
@@ -643,9 +698,9 @@ export default function UserMasterPage() {
           }}
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 9999 }}
         >
-          <div style={{ width: "100%", maxWidth: 760, background: "white", borderRadius: 18, overflow: "hidden" }}>
+          <div style={{ width: "100%", maxWidth: 860, background: "white", borderRadius: 18, overflow: "hidden" }}>
             <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(0,0,0,0.08)", display: "flex", justifyContent: "space-between" }}>
-              <div style={{ fontWeight: 950, fontSize: 16 }}>사용자 수정</div>
+              <div style={{ fontWeight: 950, fontSize: 16 }}>기사 사용자 수정</div>
               <button onClick={closeEdit} style={{ border: "none", background: "transparent", fontSize: 18, cursor: "pointer", opacity: 0.7 }}>
                 ✕
               </button>
@@ -670,35 +725,64 @@ export default function UserMasterPage() {
                 </div>
 
                 <div>
-                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>작업파트</div>
-                  <input value={f.work_part} onChange={(e) => setF((p) => ({ ...p, work_part: e.target.value }))} style={inputStyle()} />
+                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>작업파트(기사)</div>
+                  <input value={f.work_part} onChange={(e) => setF((p) => ({ ...p, work_part: e.target.value }))} style={inputStyle()} placeholder="기사" />
+                  <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>* 저장 시 기사로 보정됩니다.</div>
                 </div>
 
+                {/* 호차 */}
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>호차 (1개 또는 2개)</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <input value={f.car_no_1} onChange={(e) => setF((p) => ({ ...p, car_no_1: e.target.value }))} style={inputStyle()} placeholder="호차1 (예: 1)" inputMode="numeric" />
+                    <input value={f.car_no_2} onChange={(e) => setF((p) => ({ ...p, car_no_2: e.target.value }))} style={inputStyle()} placeholder="호차2 (선택, 예: 2)" inputMode="numeric" />
+                  </div>
+                  <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>
+                    저장값: <b>{displayCarNo(normalizeCarNoInput(f.car_no_1, f.car_no_2))}</b>
+                  </div>
+                </div>
+
+                {/* 배송구분 / 차종 / 운수사 */}
                 <div>
-                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>회사명</div>
-                  <select value={f.company_name} onChange={(e) => setF((p) => ({ ...p, company_name: e.target.value }))} style={inputStyle()}>
+                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>배송구분</div>
+                  <select value={f.delivery_type} onChange={(e) => setF((p) => ({ ...p, delivery_type: e.target.value }))} style={inputStyle()}>
                     <option value="">-</option>
-                    {COMPANY_OPTIONS.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
+                    {DELIVERY_OPTIONS.map((x) => (
+                      <option key={x} value={x}>
+                        {x}
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div>
-                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>근무테이블</div>
-                  <select value={f.work_table} onChange={(e) => setF((p) => ({ ...p, work_table: e.target.value }))} style={inputStyle()}>
+                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>차종</div>
+                  <select value={f.vehicle_type} onChange={(e) => setF((p) => ({ ...p, vehicle_type: e.target.value }))} style={inputStyle()}>
                     <option value="">-</option>
-                    {WORK_TABLE_OPTIONS.map((t) => (
-                      <option key={t} value={t}>
-                        {workTableTimeOnly(t)}
+                    {VEHICLE_OPTIONS.map((x) => (
+                      <option key={x} value={x}>
+                        {x}
                       </option>
                     ))}
                   </select>
-                  <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>표시명: {workTableShort(f.work_table)}</div>
                 </div>
 
+                <div>
+                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>운수사</div>
+                  <input value={f.carrier} onChange={(e) => setF((p) => ({ ...p, carrier: e.target.value }))} style={inputStyle()} placeholder="예: 한익/경산 등" />
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>차고지</div>
+                  <input value={f.garage} onChange={(e) => setF((p) => ({ ...p, garage: e.target.value }))} style={inputStyle()} placeholder="예: 화성센터" />
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>하이패스</div>
+                  <input value={f.hipass} onChange={(e) => setF((p) => ({ ...p, hipass: e.target.value }))} style={inputStyle()} placeholder="예: O / 카드번호 / 비고" />
+                </div>
+
+                {/* 입/퇴사 */}
                 <div>
                   <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>입사일</div>
                   <input value={f.join_date} onChange={(e) => setF((p) => ({ ...p, join_date: e.target.value }))} style={inputStyle()} type="date" />
@@ -720,6 +804,7 @@ export default function UserMasterPage() {
                   </div>
                 </div>
 
+                {/* 승인 */}
                 <div style={{ gridColumn: "1 / -1", marginTop: 6, paddingTop: 10, borderTop: "1px solid rgba(0,0,0,0.08)" }}>
                   <div style={{ fontWeight: 950, fontSize: 13, marginBottom: 8 }}>가입 승인</div>
                   <select value={f.approval_status} onChange={(e) => setF((p) => ({ ...p, approval_status: e.target.value as any }))} style={inputStyle()}>
@@ -728,42 +813,18 @@ export default function UserMasterPage() {
                     <option value="rejected">거절</option>
                   </select>
                 </div>
-
-                <div style={{ gridColumn: "1 / -1", marginTop: 6, paddingTop: 10, borderTop: "1px solid rgba(0,0,0,0.08)" }}>
-                  <div style={{ fontWeight: 950, fontSize: 13, marginBottom: 8 }}>관리자 권한(선택)</div>
-                  <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
-                    <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <input
-                        type="checkbox"
-                        checked={f.is_admin}
-                        onChange={(e) => setF((p) => ({ ...p, is_admin: e.target.checked, is_general_admin: e.target.checked ? false : p.is_general_admin }))}
-                      />
-                      <span style={{ fontSize: 13 }}>메인관리자(is_admin)</span>
-                    </label>
-
-                    <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <input
-                        type="checkbox"
-                        checked={f.is_general_admin}
-                        onChange={(e) => setF((p) => ({ ...p, is_general_admin: e.target.checked, is_admin: e.target.checked ? false : p.is_admin }))}
-                      />
-                      <span style={{ fontSize: 13 }}>일반관리자(작업파트=관리자)</span>
-                    </label>
-                  </div>
-                </div>
               </div>
 
               <div style={{ marginTop: 14, display: "flex", justifyContent: "flex-end", gap: 8 }}>
                 <button onClick={closeEdit} style={buttonStyle(false)}>
                   취소
                 </button>
-
                 <button onClick={save} disabled={saving} style={buttonStyle(saving, true)}>
                   {saving ? "저장 중..." : "저장"}
                 </button>
               </div>
 
-              <div style={{ marginTop: 10, fontSize: 12, opacity: 0.65 }}>* 승인된 사용자 상태는 근무중 / - 로만 표시됩니다.</div>
+              <div style={{ marginTop: 10, fontSize: 12, opacity: 0.65 }}>* 이 페이지는 work_part에 “기사”가 포함된 사용자만 표시됩니다.</div>
             </div>
           </div>
         </div>

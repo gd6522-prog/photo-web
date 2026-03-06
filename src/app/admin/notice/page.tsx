@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
-export default function AdminCalendarRedirectPage() {
+export default function NoticeIndexPage() {
   redirect("/admin/notice/calendar");
 }
