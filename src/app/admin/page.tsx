@@ -713,7 +713,7 @@ function WeatherCard() {
                   style={{
                     display: "grid",
                     gridTemplateColumns: "46px 66px 1fr 56px 56px",
-                    background: "linear-gradient(180deg, #f6fbff 0%, #edf5fb 100%)",
+                    background: "#fff",
                     padding: "9px 10px",
                     fontSize: 11.5,
                     fontWeight: 950,
@@ -770,7 +770,7 @@ function WeatherCard() {
             <div style={{ marginTop: 14, borderTop: "1px solid #d9e6ef", paddingTop: 12 }}>
               <div style={{ fontWeight: 950, fontSize: 12.5, color: "#103b53", marginBottom: 8 }}>대기질</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                <div style={{ border: "1px solid #d3e1eb", borderRadius: 12, padding: "9px 10px", background: "#f9fcff" }}>
+                <div style={{ border: "1px solid #d3e1eb", borderRadius: 12, padding: "9px 10px", background: "#fff" }}>
                   <div style={{ fontSize: 11.5, color: "#567284", fontWeight: 700 }}>미세먼지 (PM10)</div>
                   <div style={{ marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                     <b style={{ color: "#113247", fontSize: 13 }}>{w?.today.pm10 == null ? "-" : `${Math.round(w.today.pm10)} ㎍/m³`}</b>
@@ -788,7 +788,7 @@ function WeatherCard() {
                     </span>
                   </div>
                 </div>
-                <div style={{ border: "1px solid #d3e1eb", borderRadius: 12, padding: "9px 10px", background: "#f9fcff" }}>
+                <div style={{ border: "1px solid #d3e1eb", borderRadius: 12, padding: "9px 10px", background: "#fff" }}>
                   <div style={{ fontSize: 11.5, color: "#567284", fontWeight: 700 }}>초미세먼지 (PM2.5)</div>
                   <div style={{ marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                     <b style={{ color: "#113247", fontSize: 13 }}>{w?.today.pm25 == null ? "-" : `${Math.round(w.today.pm25)} ㎍/m³`}</b>
@@ -853,7 +853,7 @@ function ThreeDayPreview({
                 border: "1px solid #d9e6ef",
                 borderRadius: 14,
                 padding: 10,
-                background: "linear-gradient(180deg,#f7fbff 0%,#f2f8fd 100%)",
+                background: "#fff",
                 overflow: "hidden",
                 boxShadow: "0 6px 14px rgba(2,32,46,0.06)",
               }}
