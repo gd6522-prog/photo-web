@@ -566,13 +566,13 @@ export default function AdminPhotosPage() {
             right: 18,
             bottom: 18,
             zIndex: 80,
-            background: "#111827",
+            background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
             color: "white",
             padding: "10px 12px",
             borderRadius: 12,
             fontWeight: 900,
             fontSize: 13,
-            boxShadow: "0 10px 25px rgba(0,0,0,0.18)",
+            boxShadow: "0 12px 26px rgba(16,59,83,0.30)",
           }}
         >
           {toastMsg}
@@ -584,7 +584,7 @@ export default function AdminPhotosPage() {
           {/* LEFT */}
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {/* filters */}
-            <div style={{ border: "1px solid #DDE3EA", borderRadius: 18, padding: 14, background: "white", boxShadow: "0 8px 24px rgba(15,23,42,0.05)" }}>
+            <div style={{ border: "1px solid #bdd0de", borderRadius: 18, padding: 14, background: "rgba(255,255,255,0.94)", boxShadow: "0 14px 30px rgba(2,32,46,0.10)" }}>
               {/* ✅ 여기서 TopModeButtons 제거 */}
               <div style={{ fontWeight: 900, marginBottom: 10 }}>조회 조건</div>
 
@@ -707,11 +707,12 @@ export default function AdminPhotosPage() {
                   style={{
                     height: 44,
                     borderRadius: 12,
-                    border: "1px solid #111827",
-                    background: loading ? "#CBD5E1" : "#111827",
+                    border: "1px solid #0e7490",
+                    background: loading ? "#9fb8c9" : "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
                     color: "white",
                     fontWeight: 900,
                     cursor: loading ? "not-allowed" : "pointer",
+                    boxShadow: loading ? "none" : "0 10px 22px rgba(16,59,83,0.22)",
                   }}
                 >
                   {loading ? "조회중" : "조회"}
@@ -730,8 +731,8 @@ export default function AdminPhotosPage() {
                   style={{
                     height: 44,
                     borderRadius: 12,
-                    border: "1px solid #E5E7EB",
-                    background: "white",
+                    border: "1px solid #c4d5e3",
+                    background: "rgba(255,255,255,0.92)",
                     fontWeight: 900,
                     cursor: loading ? "not-allowed" : "pointer",
                   }}
@@ -746,7 +747,7 @@ export default function AdminPhotosPage() {
             </div>
 
             {/* store list */}
-            <div style={{ border: "1px solid #DDE3EA", borderRadius: 18, background: "white", overflow: "hidden", boxShadow: "0 8px 24px rgba(15,23,42,0.05)" }}>
+            <div style={{ border: "1px solid #bdd0de", borderRadius: 18, background: "rgba(255,255,255,0.94)", overflow: "hidden", boxShadow: "0 14px 30px rgba(2,32,46,0.10)" }}>
               <div style={{ padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ fontWeight: 900 }}>점포 목록</div>
                 <div style={{ fontSize: 12, color: "#6B7280" }}>총 {storeCount}개</div>
@@ -772,7 +773,7 @@ export default function AdminPhotosPage() {
                             padding: 12,
                             border: "none",
                             borderBottom: "1px solid #F3F4F6",
-                            background: active ? "#EEF2FF" : "white",
+                            background: active ? "linear-gradient(135deg,#e8f3f8 0%,#e0f2f1 100%)" : "transparent",
                             cursor: "pointer",
                           }}
                         >
@@ -792,10 +793,10 @@ export default function AdminPhotosPage() {
           </div>
 
           {/* RIGHT */}
-          <div style={{ border: "1px solid #DDE3EA", borderRadius: 18, background: "white", padding: 14, boxShadow: "0 8px 24px rgba(15,23,42,0.06)" }}>
+          <div style={{ border: "1px solid #bdd0de", borderRadius: 18, background: "rgba(255,255,255,0.94)", padding: 14, boxShadow: "0 14px 30px rgba(2,32,46,0.10)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
               <div>
-                <div style={{ fontWeight: 900, fontSize: 16 }}>{selectedStoreTitle}</div>
+                <div style={{ fontWeight: 950, fontSize: 16, color: "#103b53" }}>{selectedStoreTitle}</div>
                 <div style={{ marginTop: 4, fontSize: 13, color: "#6B7280" }}>{selectedStoreSubTitle}</div>
               </div>
 
@@ -807,8 +808,8 @@ export default function AdminPhotosPage() {
                     height: 36,
                     padding: "0 12px",
                     borderRadius: 12,
-                    border: "1px solid #E5E7EB",
-                    background: "white",
+                    border: "1px solid #c4d5e3",
+                    background: "rgba(255,255,255,0.92)",
                     fontWeight: 900,
                     cursor: "pointer",
                   }}
@@ -823,8 +824,8 @@ export default function AdminPhotosPage() {
                     height: 36,
                     padding: "0 12px",
                     borderRadius: 12,
-                    border: "1px solid #E5E7EB",
-                    background: "white",
+                    border: "1px solid #c4d5e3",
+                    background: "rgba(255,255,255,0.92)",
                     fontWeight: 900,
                     cursor: "pointer",
                   }}
@@ -839,8 +840,8 @@ export default function AdminPhotosPage() {
                     height: 36,
                     padding: "0 12px",
                     borderRadius: 12,
-                    border: "1px solid #E5E7EB",
-                    background: selectMode ? "#EEF2FF" : "white",
+                    border: "1px solid #c4d5e3",
+                    background: selectMode ? "linear-gradient(135deg,#e8f3f8 0%,#e0f2f1 100%)" : "rgba(255,255,255,0.92)",
                     fontWeight: 900,
                     cursor: "pointer",
                   }}
@@ -855,8 +856,8 @@ export default function AdminPhotosPage() {
                     height: 36,
                     padding: "0 12px",
                     borderRadius: 12,
-                    border: "1px solid #E5E7EB",
-                    background: selectedPhotoIds.size === 0 ? "#F3F4F6" : "white",
+                    border: "1px solid #c4d5e3",
+                    background: selectedPhotoIds.size === 0 ? "#e9eef3" : "rgba(255,255,255,0.92)",
                     fontWeight: 900,
                     cursor: selectedPhotoIds.size === 0 ? "not-allowed" : "pointer",
                     whiteSpace: "nowrap",
@@ -873,7 +874,7 @@ export default function AdminPhotosPage() {
                     padding: "0 12px",
                     borderRadius: 12,
                     border: "1px solid #EF4444",
-                    background: selectedPhotoIds.size === 0 ? "#FEE2E2" : "white",
+                    background: selectedPhotoIds.size === 0 ? "#fee2e2" : "#fff5f5",
                     color: "#EF4444",
                     fontWeight: 900,
                     cursor: selectedPhotoIds.size === 0 ? "not-allowed" : "pointer",
@@ -892,11 +893,11 @@ export default function AdminPhotosPage() {
             <div style={{ height: 12 }} />
 
             {!selectedStoreCode ? (
-              <div style={{ border: "1px solid #E5E7EB", borderRadius: 14, padding: 14, color: "#6B7280" }}>
+              <div style={{ border: "1px solid #d3e1eb", borderRadius: 14, padding: 14, color: "#5b7386", background: "#f8fcff" }}>
                 왼쪽 점포 목록에서 점포를 선택하세요.
               </div>
             ) : selectedStorePhotos.length === 0 ? (
-              <div style={{ border: "1px solid #E5E7EB", borderRadius: 14, padding: 14, color: "#6B7280" }}>
+              <div style={{ border: "1px solid #d3e1eb", borderRadius: 14, padding: 14, color: "#5b7386", background: "#f8fcff" }}>
                 선택 점포의 사진이 없습니다.
               </div>
             ) : (
@@ -910,11 +911,11 @@ export default function AdminPhotosPage() {
                     <div
                       key={p.id}
                       style={{
-                        border: selected ? "1px solid #94A3B8" : "1px solid #E2E8F0",
+                        border: selected ? "1px solid #0f766e" : "1px solid #d9e6ef",
                         borderRadius: 16,
                         overflow: "hidden",
-                        background: selected ? "#EEF2FF" : "white",
-                        boxShadow: "0 4px 14px rgba(15,23,42,0.06)",
+                        background: selected ? "linear-gradient(135deg,#e8f3f8 0%,#e0f2f1 100%)" : "rgba(255,255,255,0.94)",
+                        boxShadow: "0 10px 22px rgba(2,32,46,0.10)",
                       }}
                     >
                       <button

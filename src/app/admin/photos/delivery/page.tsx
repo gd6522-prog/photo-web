@@ -717,9 +717,9 @@ export default function AdminDeliveryPhotosPage() {
     <div
       style={{
         fontFamily: "Pretendard, system-ui, -apple-system, Segoe UI, sans-serif",
-        background: "#F3F5F8",
-        minHeight: "100vh",
-        padding: "10px 10px 14px",
+        background: "transparent",
+        minHeight: 0,
+        padding: "0 6px 8px",
       }}
     >
       {toastMsg && (
@@ -729,13 +729,13 @@ export default function AdminDeliveryPhotosPage() {
             right: 18,
             bottom: 18,
             zIndex: 80,
-            background: "#111827",
+            background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
             color: "white",
             padding: "10px 12px",
             borderRadius: 12,
             fontWeight: 900,
             fontSize: 13,
-            boxShadow: "0 10px 25px rgba(0,0,0,0.18)",
+            boxShadow: "0 12px 26px rgba(16,59,83,0.30)",
           }}
         >
           {toastMsg}
@@ -755,7 +755,7 @@ export default function AdminDeliveryPhotosPage() {
             overflow: "auto",
           }}
         >
-          <div style={{ border: "1px solid #DDE3EA", borderRadius: 18, padding: 14, background: "white", boxShadow: "0 8px 24px rgba(15,23,42,0.05)" }}>
+          <div style={{ border: "1px solid #bdd0de", borderRadius: 18, padding: 14, background: "rgba(255,255,255,0.94)", boxShadow: "0 14px 30px rgba(2,32,46,0.10)" }}>
             <div style={{ fontWeight: 900, color: "#111827" }}>조회</div>
             <div style={{ marginTop: 4, fontSize: 12, color: "#6B7280" }}>
               기본: <span style={{ fontWeight: 900, color: "#111827" }}>미오출</span> · 결과 {photos.length}장
@@ -927,11 +927,12 @@ export default function AdminDeliveryPhotosPage() {
                     flex: 1,
                     height: 44,
                     borderRadius: 12,
-                    border: "1px solid #111827",
-                    background: loading ? "#CBD5E1" : "#111827",
+                    border: "1px solid #0e7490",
+                    background: loading ? "#9fb8c9" : "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
                     color: "white",
                     fontWeight: 900,
                     cursor: loading ? "not-allowed" : "pointer",
+                    boxShadow: loading ? "none" : "0 10px 22px rgba(16,59,83,0.22)",
                   }}
                 >
                   {loading ? "조회중" : "조회"}
@@ -951,8 +952,8 @@ export default function AdminDeliveryPhotosPage() {
                     flex: 1,
                     height: 44,
                     borderRadius: 12,
-                    border: "1px solid #E5E7EB",
-                    background: "white",
+                    border: "1px solid #c4d5e3",
+                    background: "rgba(255,255,255,0.92)",
                     fontWeight: 900,
                     cursor: loading ? "not-allowed" : "pointer",
                   }}
@@ -968,7 +969,7 @@ export default function AdminDeliveryPhotosPage() {
 
         {/* RIGHT */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ border: "1px solid #DDE3EA", borderRadius: 18, background: "white", overflow: "hidden", boxShadow: "0 8px 24px rgba(15,23,42,0.06)" }}>
+          <div style={{ border: "1px solid #bdd0de", borderRadius: 18, background: "rgba(255,255,255,0.94)", overflow: "hidden", boxShadow: "0 14px 30px rgba(2,32,46,0.10)" }}>
             <div
               style={{
                 padding: 12,
@@ -981,7 +982,7 @@ export default function AdminDeliveryPhotosPage() {
               }}
             >
               <div style={{ minWidth: 220 }}>
-                <div style={{ fontWeight: 900, color: "#111827" }}>
+                <div style={{ fontWeight: 950, color: "#103b53" }}>
                   {dateFrom} ~ {dateTo} · {categoryLabel(driverCategory)} · 총 {photos.length}장
                 </div>
                 <div style={{ fontSize: 12, color: "#6B7280", marginTop: 4 }}>
@@ -1007,7 +1008,7 @@ export default function AdminDeliveryPhotosPage() {
                     const doneByName = doneRow ? profilesById[doneRow.done_by]?.name?.trim() || doneRow.done_by : "";
 
                     return (
-                      <div key={p.id} style={{ border: "1px solid #E2E8F0", borderRadius: 16, overflow: "hidden", background: "white", boxShadow: "0 4px 14px rgba(15,23,42,0.06)" }}>
+                      <div key={p.id} style={{ border: "1px solid #d9e6ef", borderRadius: 16, overflow: "hidden", background: "rgba(255,255,255,0.94)", boxShadow: "0 10px 22px rgba(2,32,46,0.10)" }}>
                         <div style={{ position: "relative", background: "#0B1220" }}>
                           <button
                             onClick={() => openPreview(idx)}
