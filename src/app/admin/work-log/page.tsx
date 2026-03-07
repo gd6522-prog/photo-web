@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
-import { isCompanyAdminWorkPart } from "@/lib/admin-role";
 
 type Profile = {
   id: string;
@@ -32,7 +31,6 @@ type Shift = {
 type TabKey = "basic" | "detail";
 type BasicRow = { profile: Profile; shift: Shift | null };
 type OTs = { ot: number | null; nightOt: number | null; holidayExt: number | null };
-type ProfileOptionsRow = { company_name?: string | null; work_part?: string | null; work_table?: string | null };
 
 const COMPANY_ORDER: Record<string, number> = {
   "한익스프레스": 10,
@@ -313,27 +311,38 @@ export default function WorkLogPage() {
   const [holidaySet, setHolidaySet] = useState<Set<string>>(new Set());
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
 
+  const getAccessToken = useCallback(async () => {
+    const { data: authData } = await supabase.auth.getSession();
+    const token = authData.session?.access_token;
+    if (!token) throw new Error("로그인 세션이 없습니다.");
+    return token;
+  }, []);
+
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const { data: authData } = await supabase.auth.getSession();
-        const uid = authData.session?.user?.id ?? "";
-        let companyAdmin = false;
-        if (uid) {
-          const { data: myProf } = await supabase.from("profiles").select("work_part").eq("id", uid).maybeSingle();
-          companyAdmin = isCompanyAdminWorkPart((myProf as { work_part?: string | null } | null)?.work_part);
-        }
+        const token = await getAccessToken();
+        const res = await fetch("/api/admin/work-log/options", {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        const payload = (await res.json()) as {
+          ok?: boolean;
+          message?: string;
+          isCompanyAdminRole?: boolean;
+          companyOptions?: string[];
+          workPartOptions?: string[];
+          workTableOptions?: string[];
+        };
+        if (!res.ok || !payload?.ok) throw new Error(payload?.message || "옵션을 불러오지 못했습니다.");
 
-        const { data, error } = await supabase.from("profiles").select("company_name,work_part,work_table");
-        if (error) throw error;
         if (!alive) return;
-        setIsCompanyAdminRole(companyAdmin);
-        const rows = (data ?? []) as ProfileOptionsRow[];
-        const companies = uniq(rows.map((r) => String(r.company_name ?? ""))).filter((c) => !(companyAdmin && c === BLOCKED_COMPANY));
-        setCompanyOptions(companies);
-        setWorkPartOptions(uniq(rows.map((r) => String(r.work_part ?? ""))));
-        setWorkTableOptions(uniq(rows.map((r) => String(r.work_table ?? ""))));
+        setIsCompanyAdminRole(!!payload.isCompanyAdminRole);
+        setCompanyOptions(payload.companyOptions ?? []);
+        setWorkPartOptions(payload.workPartOptions ?? []);
+        setWorkTableOptions(payload.workTableOptions ?? []);
       } catch {
         if (!alive) return;
         setIsCompanyAdminRole(false);
@@ -345,7 +354,7 @@ export default function WorkLogPage() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [getAccessToken]);
 
   useEffect(() => {
     if (isCompanyAdminRole && company === BLOCKED_COMPANY) setCompany("");
@@ -369,23 +378,28 @@ export default function WorkLogPage() {
   }, [monthShifts]);
 
   const getProfiles = useCallback(async () => {
-    const companyFilter = company.trim();
-    const effectiveCompanyFilter = isCompanyAdminRole && companyFilter === BLOCKED_COMPANY ? "" : companyFilter;
+    const token = await getAccessToken();
+    const params = new URLSearchParams();
+    if (nameQ.trim()) params.set("nameQ", nameQ.trim());
+    if (company.trim()) params.set("company", company.trim());
+    if (workPart.trim()) params.set("workPart", workPart.trim());
+    if (workTable.trim()) params.set("workTable", workTable.trim());
 
-    let q = supabase
-      .from("profiles")
-      .select("id,name,work_part,company_name,work_table,join_date")
-      .not("work_part", "ilike", "%기사%")
-      .order("name", { ascending: true });
-    if (nameQ.trim()) q = q.ilike("name", `%${nameQ.trim()}%`);
-    if (isCompanyAdminRole) q = q.neq("company_name", BLOCKED_COMPANY);
-    if (effectiveCompanyFilter) q = q.eq("company_name", effectiveCompanyFilter);
-    if (workPart.trim()) q = q.eq("work_part", workPart.trim());
-    if (workTable.trim()) q = q.eq("work_table", workTable.trim());
-    const { data, error } = await q;
-    if (error) throw error;
-    return (data ?? []) as Profile[];
-  }, [nameQ, company, workPart, workTable, isCompanyAdminRole]);
+    const res = await fetch(`/api/admin/work-log/profiles?${params.toString()}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    const payload = (await res.json()) as {
+      ok?: boolean;
+      message?: string;
+      isCompanyAdminRole?: boolean;
+      rows?: Profile[];
+    };
+    if (!res.ok || !payload?.ok) throw new Error(payload?.message || "사용자 목록을 불러오지 못했습니다.");
+    setIsCompanyAdminRole(!!payload.isCompanyAdminRole);
+    return payload.rows ?? [];
+  }, [nameQ, company, workPart, workTable, getAccessToken]);
 
   const loadBasic = useCallback(async () => {
     const ps = sortProfilesLikeUserMaster(await getProfiles());
