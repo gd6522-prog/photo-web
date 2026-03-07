@@ -567,7 +567,33 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ color: "#334155", fontSize: 13, fontWeight: 800, whiteSpace: "nowrap" }}>{loginUserName || "User"}</span>
+              <div
+                style={{
+                  height: 36,
+                  padding: "0 12px",
+                  borderRadius: 999,
+                  border: "1px solid #c7d6e3",
+                  background: "#f8fbff",
+                  color: "#113247",
+                  fontSize: 13,
+                  fontWeight: 900,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "999px",
+                    background: "linear-gradient(135deg,#0f766e 0%,#14b8a6 100%)",
+                    boxShadow: "0 0 0 2px rgba(20,184,166,0.16)",
+                  }}
+                />
+                {loginUserName || "User"}
+              </div>
               <button
                 onClick={onLogout}
                 disabled={checking}
@@ -575,10 +601,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   height: 36,
                   padding: "0 15px",
                   borderRadius: 999,
-                  border: "1px solid #CBD5E1",
-                  background: "white",
-                  color: "#111827",
+                  border: "1px solid #0e7490",
+                  background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
+                  color: "#ffffff",
                   fontWeight: 900,
+                  boxShadow: "0 8px 18px rgba(16,59,83,0.24)",
                   cursor: checking ? "not-allowed" : "pointer",
                   opacity: checking ? 0.6 : 1,
                 }}
