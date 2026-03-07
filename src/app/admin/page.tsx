@@ -740,21 +740,21 @@ function WeatherCard() {
             </div>
 
             {/* ✅ 주간예보 "한 칸 내려간" 버전 */}
-            <div style={{ marginTop: 14, borderTop: "1px solid #F3F4F6", paddingTop: 12 }}>
-              <div style={{ fontWeight: 950, fontSize: 12.5, color: "#111827", marginBottom: 8 }}>
+            <div style={{ marginTop: 14, borderTop: "1px solid #d9e6ef", paddingTop: 12 }}>
+              <div style={{ fontWeight: 950, fontSize: 12.5, color: "#103b53", marginBottom: 8 }}>
                 주간예보 (D+7, 오늘 제외)
               </div>
 
-              <div style={{ overflow: "hidden", borderRadius: 12, border: "1px solid #F3F4F6", background: "white" }}>
+              <div style={{ overflow: "hidden", borderRadius: 14, border: "1px solid #d9e6ef", background: "rgba(255,255,255,0.92)" }}>
                 <div
                   style={{
                     display: "grid",
                     gridTemplateColumns: "46px 66px 1fr 56px 56px",
-                    background: "#F9FAFB",
+                    background: "linear-gradient(180deg, #f6fbff 0%, #edf5fb 100%)",
                     padding: "9px 10px",
                     fontSize: 11.5,
                     fontWeight: 950,
-                    color: "#374151",
+                    color: "#35556b",
                     alignItems: "center",
                     minHeight: 34,
                   }}
@@ -773,18 +773,18 @@ function WeatherCard() {
                       display: "grid",
                       gridTemplateColumns: "46px 66px 1fr 56px 56px",
                       padding: "8px 10px",
-                      borderTop: "1px solid #F3F4F6",
+                      borderTop: "1px solid #e2edf5",
                       fontSize: 12.5,
                       alignItems: "center",
                       minHeight: 34,
                     }}
                   >
-                    <div style={{ fontWeight: 950, color: d.dow === "일" ? "#EF4444" : "#111827" }}>{d.dow}</div>
-                    <div style={{ color: "#6B7280" }}>{fmtMD(d.date)}</div>
+                    <div style={{ fontWeight: 950, color: d.dow === "일" ? "#EF4444" : "#113247" }}>{d.dow}</div>
+                    <div style={{ color: "#587387" }}>{fmtMD(d.date)}</div>
 
                     <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                       <WeatherIcon code={d.weatherCode ?? null} size={18} />
-                      <div style={{ fontWeight: 950, color: "#111827" }}>
+                      <div style={{ fontWeight: 950, color: "#113247" }}>
                         {d.precipProbMax == null ? "-" : `${d.precipProbMax}%`}
                       </div>
                     </div>
@@ -799,21 +799,21 @@ function WeatherCard() {
                 ))}
 
                 {(w?.next7 ?? []).length === 0 ? (
-                  <div style={{ padding: 12, color: "#6B7280", fontSize: 13 }}>예보 데이터를 불러오지 못했습니다.</div>
+                  <div style={{ padding: 12, color: "#587387", fontSize: 13 }}>예보 데이터를 불러오지 못했습니다.</div>
                 ) : null}
               </div>
             </div>
 
-            <div style={{ marginTop: 14, borderTop: "1px solid #F3F4F6", paddingTop: 12 }}>
-              <div style={{ fontWeight: 950, fontSize: 12.5, color: "#111827", marginBottom: 8 }}>대기질</div>
+            <div style={{ marginTop: 14, borderTop: "1px solid #d9e6ef", paddingTop: 12 }}>
+              <div style={{ fontWeight: 950, fontSize: 12.5, color: "#103b53", marginBottom: 8 }}>대기질</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                <div style={{ border: "1px solid #E5E7EB", borderRadius: 10, padding: "8px 10px" }}>
-                  <div style={{ fontSize: 11.5, color: "#6B7280" }}>미세먼지 (PM10)</div>
+                <div style={{ border: "1px solid #d3e1eb", borderRadius: 12, padding: "9px 10px", background: "#f9fcff" }}>
+                  <div style={{ fontSize: 11.5, color: "#567284", fontWeight: 700 }}>미세먼지 (PM10)</div>
                   <div style={{ marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                    <b style={{ color: "#111827", fontSize: 13 }}>{w?.today.pm10 == null ? "-" : `${Math.round(w.today.pm10)} ㎍/m³`}</b>
+                    <b style={{ color: "#113247", fontSize: 13 }}>{w?.today.pm10 == null ? "-" : `${Math.round(w.today.pm10)} ㎍/m³`}</b>
                     <span
                       style={{
-                        padding: "2px 8px",
+                        padding: "3px 9px",
                         borderRadius: 999,
                         fontSize: 11,
                         fontWeight: 900,
@@ -825,13 +825,13 @@ function WeatherCard() {
                     </span>
                   </div>
                 </div>
-                <div style={{ border: "1px solid #E5E7EB", borderRadius: 10, padding: "8px 10px" }}>
-                  <div style={{ fontSize: 11.5, color: "#6B7280" }}>초미세먼지 (PM2.5)</div>
+                <div style={{ border: "1px solid #d3e1eb", borderRadius: 12, padding: "9px 10px", background: "#f9fcff" }}>
+                  <div style={{ fontSize: 11.5, color: "#567284", fontWeight: 700 }}>초미세먼지 (PM2.5)</div>
                   <div style={{ marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                    <b style={{ color: "#111827", fontSize: 13 }}>{w?.today.pm25 == null ? "-" : `${Math.round(w.today.pm25)} ㎍/m³`}</b>
+                    <b style={{ color: "#113247", fontSize: 13 }}>{w?.today.pm25 == null ? "-" : `${Math.round(w.today.pm25)} ㎍/m³`}</b>
                     <span
                       style={{
-                        padding: "2px 8px",
+                        padding: "3px 9px",
                         borderRadius: 999,
                         fontSize: 11,
                         fontWeight: 900,
@@ -877,7 +877,7 @@ function ThreeDayPreview({
 
   return (
     <div style={{ marginTop: 2 }}>
-      <div style={{ fontWeight: 950, fontSize: 13, color: "#111827", marginBottom: 6 }}>3일 미리보기</div>
+      <div style={{ fontWeight: 950, fontSize: 13, color: "#103b53", marginBottom: 7 }}>3일 미리보기</div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {days.map((ymd) => {
@@ -887,35 +887,36 @@ function ThreeDayPreview({
             <div
               key={ymd}
               style={{
-                border: "1px solid #F3F4F6",
+                border: "1px solid #d9e6ef",
                 borderRadius: 14,
                 padding: 10,
-                background: "#FAFAFB",
+                background: "linear-gradient(180deg,#f7fbff 0%,#f2f8fd 100%)",
                 overflow: "hidden",
+                boxShadow: "0 6px 14px rgba(2,32,46,0.06)",
               }}
             >
-              <div style={{ fontWeight: 950, fontSize: 13, color: "#111827" }}>
-                {ymd} ({dowKo(ymd)}) · <span style={{ color: "#6B7280" }}>{list.length}건</span>
+              <div style={{ fontWeight: 950, fontSize: 13, color: "#113247" }}>
+                {ymd} ({dowKo(ymd)}) · <span style={{ color: "#5a7588" }}>{list.length}건</span>
               </div>
               {holidayName ? (
                 <div style={{ marginTop: 4, fontSize: 12, fontWeight: 900, color: "#EF4444" }}>{holidayName}</div>
               ) : null}
 
               {list.length === 0 ? (
-                <div style={{ marginTop: 6, color: "#6B7280", fontSize: 12 }}>등록된 일정 없음</div>
+                <div style={{ marginTop: 6, color: "#5a7588", fontSize: 12 }}>등록된 일정 없음</div>
               ) : (
                 <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 6 }}>
                   {list.slice(0, 3).map((e) => (
                     <div
                       key={e.id}
-                      style={{ fontSize: 13, color: "#374151", display: "flex", gap: 6, minWidth: 0 }}
+                      style={{ fontSize: 13, color: "#35556b", display: "flex", gap: 6, minWidth: 0 }}
                       title={e.title}
                     >
                       <span>•</span>
                       <span
                         style={{
                           fontWeight: 950,
-                          color: "#111827",
+                          color: "#113247",
                           whiteSpace: "nowrap",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
@@ -927,7 +928,7 @@ function ThreeDayPreview({
                       </span>
                     </div>
                   ))}
-                  {list.length > 3 ? <div style={{ fontSize: 12, color: "#6B7280" }}>외 {list.length - 3}건…</div> : null}
+                  {list.length > 3 ? <div style={{ fontSize: 12, color: "#5a7588" }}>외 {list.length - 3}건…</div> : null}
                 </div>
               )}
             </div>
