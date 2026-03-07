@@ -137,11 +137,11 @@ function Card({
   return (
     <div
       style={{
-        border: "1px solid #E5E7EB",
-        borderRadius: 16,
-        background: "white",
+        border: "1px solid #bdd0de",
+        borderRadius: 18,
+        background: "rgba(255,255,255,0.94)",
         overflow: "hidden",
-        boxShadow: "0 1px 0 rgba(0,0,0,0.02)",
+        boxShadow: "0 16px 34px rgba(2,32,46,0.10)",
         width: "100%",
         minHeight: minHeight ?? undefined,
         height: "100%",
@@ -152,16 +152,17 @@ function Card({
       <div
         style={{
           padding: "12px 14px",
-          borderBottom: "1px solid #F3F4F6",
+          borderBottom: "1px solid #d9e6ef",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           gap: 10,
+          background: "linear-gradient(180deg, rgba(249,252,255,0.95) 0%, rgba(255,255,255,0.92) 100%)",
         }}
       >
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 950, fontSize: 15, color: "#111827" }}>{title}</div>
-          {subtitle ? <div style={{ marginTop: 3, fontSize: 12, color: "#6B7280" }}>{subtitle}</div> : null}
+          <div style={{ fontWeight: 950, fontSize: 15, color: "#103b53", letterSpacing: 0.1 }}>{title}</div>
+          {subtitle ? <div style={{ marginTop: 3, fontSize: 12, color: "#557186" }}>{subtitle}</div> : null}
         </div>
         {right ? <div>{right}</div> : null}
       </div>
@@ -1196,6 +1197,30 @@ export default function AdminHomePage() {
           } as React.CSSProperties
         }
       >
+        <div
+          style={{
+            marginBottom: 10,
+            border: "1px solid #bcd0de",
+            borderRadius: 18,
+            background: "linear-gradient(135deg, rgba(16,59,83,0.10) 0%, rgba(15,118,110,0.10) 100%)",
+            boxShadow: "0 14px 28px rgba(2,32,46,0.08)",
+            padding: "12px 14px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 24, fontWeight: 950, color: "#0b2536", letterSpacing: -0.2 }}>관리자 메인 대시보드</div>
+            <div style={{ marginTop: 2, fontSize: 13, color: "#36576d", fontWeight: 700 }}>오늘 기준 운영 현황과 공지/날씨를 한눈에 확인합니다.</div>
+          </div>
+          <div style={{ border: "1px solid #a8c0d1", background: "rgba(255,255,255,0.8)", borderRadius: 999, padding: "7px 12px", fontSize: 12, fontWeight: 900, color: "#103b53" }}>
+            선택일: {selectedYMD}
+          </div>
+        </div>
+
         <div className="homeGrid">
           <div className="leftCol">
             <Card
@@ -1371,13 +1396,14 @@ export default function AdminHomePage() {
         <div className="leftBottomCards">
           <div
             style={{
-              border: "1px solid #E5E7EB",
-              borderRadius: 14,
-              background: "white",
+              border: "1px solid #bdd0de",
+              borderRadius: 16,
+              background: "rgba(255,255,255,0.92)",
               padding: 8,
               display: "flex",
               flexDirection: "column",
               gap: 6,
+              boxShadow: "0 10px 24px rgba(2,32,46,0.08)",
             }}
           >
             <div
@@ -1385,12 +1411,13 @@ export default function AdminHomePage() {
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                border: "1px solid #F3F4F6",
+                border: "1px solid #d9e6ef",
                   borderRadius: 10,
                   padding: "6px 8px",
-                  color: "#111827",
+                  color: "#113247",
                   fontSize: 12,
                   fontWeight: 900,
+                  background: "rgba(248,252,255,0.92)",
                 }}
               >
               <span
@@ -1404,7 +1431,7 @@ export default function AdminHomePage() {
                   flex: "0 0 auto",
                 }}
               />
-              <span style={{ flex: 1, color: "#111827" }}>
+              <span style={{ flex: 1, color: "#113247" }}>
                 재배송 미처리 {pendingRedeliveryCount}건
               </span>
               <Link
@@ -1413,8 +1440,8 @@ export default function AdminHomePage() {
                     width: 20,
                     height: 20,
                   borderRadius: 999,
-                  border: "1px solid #D1D5DB",
-                  color: "#111827",
+                  border: "1px solid #c4d5e3",
+                  color: "#113247",
                   textDecoration: "none",
                   display: "inline-flex",
                   alignItems: "center",
@@ -1422,7 +1449,7 @@ export default function AdminHomePage() {
                     fontSize: 11,
                   lineHeight: 1,
                   fontWeight: 900,
-                  background: "white",
+                  background: "rgba(255,255,255,0.92)",
                 }}
                 title="배송사진 페이지로 이동"
               >
@@ -1435,12 +1462,13 @@ export default function AdminHomePage() {
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                border: "1px solid #F3F4F6",
+                border: "1px solid #d9e6ef",
                   borderRadius: 10,
                   padding: "6px 8px",
-                  color: "#111827",
+                  color: "#113247",
                   fontSize: 12,
                   fontWeight: 900,
+                  background: "rgba(248,252,255,0.92)",
                 }}
               >
               <span
@@ -1454,7 +1482,7 @@ export default function AdminHomePage() {
                   flex: "0 0 auto",
                 }}
               />
-              <span style={{ flex: 1, color: "#111827" }}>
+              <span style={{ flex: 1, color: "#113247" }}>
                 위험요인 미처리 {pendingHazardCount}건
               </span>
               <Link
@@ -1463,8 +1491,8 @@ export default function AdminHomePage() {
                     width: 20,
                     height: 20,
                   borderRadius: 999,
-                  border: "1px solid #D1D5DB",
-                  color: "#111827",
+                  border: "1px solid #c4d5e3",
+                  color: "#113247",
                   textDecoration: "none",
                   display: "inline-flex",
                   alignItems: "center",
@@ -1472,7 +1500,7 @@ export default function AdminHomePage() {
                     fontSize: 11,
                   lineHeight: 1,
                   fontWeight: 900,
-                  background: "white",
+                  background: "rgba(255,255,255,0.92)",
                 }}
                 title="위험요인 페이지로 이동"
               >
