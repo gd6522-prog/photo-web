@@ -335,8 +335,9 @@ export default function UserMasterPage() {
       if (isCompanyAdminRole && f.company_name.trim() === BLOCKED_COMPANY) {
         throw new Error("업체관리자는 한익스프레스 데이터를 볼 수 없습니다.");
       }
+      const lockedIsAdmin = isCompanyAdminRole ? !!selected.is_admin : !!f.is_admin;
       const phoneToSave = toKRLocalDigits(f.phone) || null;
-      const workPartToSave = f.is_admin
+      const workPartToSave = lockedIsAdmin
         ? f.work_part.trim() || null
         : f.is_company_admin
           ? "업체관리자"
@@ -352,7 +353,7 @@ export default function UserMasterPage() {
         work_table: f.work_table.trim() || null,
         join_date: f.join_date || null,
         leave_date: f.leave_date || null,
-        is_admin: !!f.is_admin,
+        is_admin: lockedIsAdmin,
         approval_status: f.approval_status,
       };
       const { error } = await supabase.from("profiles").update(payload).eq("id", selected.id);
@@ -728,6 +729,7 @@ export default function UserMasterPage() {
                       <input
                         type="checkbox"
                         checked={f.is_admin}
+                        disabled={isCompanyAdminRole}
                         onChange={(e) =>
                           setF((p) => ({
                             ...p,
