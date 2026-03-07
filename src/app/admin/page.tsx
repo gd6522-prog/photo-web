@@ -676,7 +676,7 @@ function WeatherCard() {
                     textAlign: "center",
                   }}
                 >
-                  <div style={{ fontSize: 11, fontWeight: 900, color: "rgba(255,255,255,0.88)", letterSpacing: 0.2 }}>체감온도</div>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: "rgba(255,255,255,0.9)", letterSpacing: 0.2 }}>체감온도</div>
                   <div style={{ marginTop: 2, fontSize: 26, lineHeight: 1, fontWeight: 950, color: "#ffffff", textShadow: "0 1px 2px rgba(0,0,0,0.22)" }}>
                     {w?.today.feelsLike == null ? "-" : `${Math.round(w.today.feelsLike)}°`}
                   </div>
