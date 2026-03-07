@@ -9,7 +9,7 @@ type ProfileLite = {
   name?: string | null;
   work_part?: string | null;
   company_name?: string | null;
-  work_table?: string | null; // 전체 문자열
+  work_table?: string | null;
 };
 
 type JoinedProfiles = ProfileLite | ProfileLite[] | null;
@@ -17,31 +17,27 @@ type JoinedProfiles = ProfileLite | ProfileLite[] | null;
 type ShiftRow = {
   id: string;
   user_id: string;
-  work_date: string; // yyyy-mm-dd
+  work_date: string;
   status: "open" | "closed" | "void";
   clock_in_at: string | null;
   clock_out_at: string | null;
-
   clock_in_lat: number | null;
   clock_in_lng: number | null;
-
   clock_out_lat: number | null;
   clock_out_lng: number | null;
-
   created_at: string;
   updated_at: string;
-
   profiles?: JoinedProfiles;
 };
 
 const COMPANY_OPTIONS = ["한익스프레스", "경산씨스템", "더블에스잡", "비상GLS"] as const;
 
 const WORK_TABLE_OPTIONS = [
-  "조출A 06시00분~15시00분",
-  "조출B 07시00분~16시00분",
-  "사무 08시30분~17시30분",
-  "현장A 09시30분~18시30분",
-  "현장B 10시30분~19시30분",
+  "조출A 06:00~15:00",
+  "조출B 07:00~16:00",
+  "주간 08:00~17:00",
+  "후반A 09:00~18:00",
+  "후반B 10:00~19:00",
 ] as const;
 
 function kstNow() {
@@ -55,8 +51,7 @@ function defaultDay(): string {
 
 function fmtKSTTime(ts: string | null): string {
   if (!ts) return "-";
-  const d = new Date(ts);
-  return d.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+  return new Date(ts).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
 }
 
 function minutesDiff(a: string | null, b: string | null): number | null {
@@ -94,27 +89,31 @@ function uniq(arr: string[]) {
   return Array.from(new Set(arr.map((x) => x.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "ko"));
 }
 
-function toKoreanErrorMessage(e: any): string {
-  const raw = String(e?.message ?? e ?? "");
+function toKoreanErrorMessage(e: unknown): string {
+  const raw = String((e as Error)?.message ?? e ?? "");
   const lower = raw.toLowerCase();
 
   if (lower.includes("row-level security") || lower.includes("rls")) {
-    return "권한 정책(RLS) 때문에 접근이 거부되었습니다. 관리자 정책을 확인해 주세요.";
+    return "권한 정책(RLS) 때문에 조회가 거부되었습니다. 관리자 권한을 확인해 주세요.";
   }
   if (lower.includes("relationship") && lower.includes("could not find")) {
-    return "조인 관계(work_shifts.user_id ↔ profiles.id)가 Supabase에 설정되어 있지 않습니다. (FK/관계 설정 필요)";
+    return "조인 관계(work_shifts.user_id ↔ profiles.id)가 Supabase에 설정되어 있지 않습니다.";
   }
   return raw || "불러오기 실패";
 }
+
+const cardStyle: React.CSSProperties = {
+  border: "1px solid #DDE3EA",
+  borderRadius: 16,
+  background: "white",
+  boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
+};
 
 export default function WorkLogPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // ✅ 일 단위
   const [day, setDay] = useState<string>(() => defaultDay());
-
-  // ✅ 필터(순서: 날짜, 회사명, 작업파트, 이름, 근무테이블)
   const [company, setCompany] = useState<string>("");
   const [workPart, setWorkPart] = useState<string>("");
   const [nameQ, setNameQ] = useState<string>("");
@@ -125,19 +124,17 @@ export default function WorkLogPage() {
 
   const [rows, setRows] = useState<ShiftRow[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
-
   const [workPartOptions, setWorkPartOptions] = useState<string[]>([]);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(totalCount / pageSize)), [totalCount]);
 
-  // 작업파트 옵션(기존처럼 profiles에서 추출)
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
         const { data, error } = await supabase.from("profiles").select("work_part").not("work_part", "is", null);
         if (error) throw error;
-        const parts = uniq((data ?? []).map((r: any) => String(r.work_part ?? "")));
+        const parts = uniq((data ?? []).map((r) => String((r as { work_part?: string | null }).work_part ?? "")));
         if (alive) setWorkPartOptions(parts);
       } catch {
         if (alive) setWorkPartOptions([]);
@@ -148,7 +145,6 @@ export default function WorkLogPage() {
     };
   }, []);
 
-  // 필터 바뀌면 1페이지로
   useEffect(() => {
     setPage(1);
   }, [day, company, workPart, nameQ, workTable]);
@@ -156,14 +152,11 @@ export default function WorkLogPage() {
   async function fetchData(p: number) {
     setLoading(true);
     setErr(null);
-
     try {
       const rangeFrom = (p - 1) * pageSize;
       const rangeTo = rangeFrom + pageSize - 1;
 
-      // 1) profiles에서 user_id 후보 추출 (필터가 하나라도 있으면)
       let allowedUserIds: string[] | null = null;
-
       const qName = nameQ.trim();
       const qPart = workPart.trim();
       const qCompany = company.trim();
@@ -171,7 +164,6 @@ export default function WorkLogPage() {
 
       if (qName || qPart || qCompany || qWT) {
         let pq = supabase.from("profiles").select("id, name, work_part, company_name, work_table");
-
         if (qName) pq = pq.ilike("name", `%${qName}%`);
         if (qPart) pq = pq.eq("work_part", qPart);
         if (qCompany) pq = pq.eq("company_name", qCompany);
@@ -180,8 +172,7 @@ export default function WorkLogPage() {
         const { data: pRows, error: pErr } = await pq;
         if (pErr) throw pErr;
 
-        allowedUserIds = (pRows ?? []).map((r: any) => String(r.id)).filter(Boolean);
-
+        allowedUserIds = (pRows ?? []).map((r) => String((r as { id: string }).id)).filter(Boolean);
         if (allowedUserIds.length === 0) {
           setRows([]);
           setTotalCount(0);
@@ -189,7 +180,6 @@ export default function WorkLogPage() {
         }
       }
 
-      // 2) work_shifts 조회 (일 단위 + user_id in)
       let sq = supabase
         .from("work_shifts")
         .select(
@@ -221,7 +211,7 @@ export default function WorkLogPage() {
 
       setRows((data ?? []) as ShiftRow[]);
       setTotalCount(count ?? 0);
-    } catch (e: any) {
+    } catch (e: unknown) {
       setErr(toKoreanErrorMessage(e));
       setRows([]);
       setTotalCount(0);
@@ -236,45 +226,33 @@ export default function WorkLogPage() {
   }, [page, day, company, workPart, nameQ, workTable]);
 
   return (
-    <div style={{ padding: 16, maxWidth: 1400, margin: "0 auto", fontFamily: "system-ui" }}>
+    <div style={{ padding: 16, maxWidth: 1480, margin: "0 auto", fontFamily: "Pretendard, system-ui, -apple-system, Segoe UI, sans-serif", background: "#F3F5F8", minHeight: "100vh" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 900, margin: 0 }}>출퇴근 이력관리</h1>
-        <div style={{ opacity: 0.8, fontSize: 13 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 900, margin: 0 }}>출퇴근 이력관리</h1>
+        <div style={{ color: "#64748B", fontSize: 13, fontWeight: 700 }}>
           총 {totalCount.toLocaleString()}건 / 페이지 {page} / {totalPages}
         </div>
       </div>
 
-      {/* Filters: 날짜 → 회사명 → 작업파트 → 이름 → 근무테이블 → 조회 */}
       <div
         style={{
+          ...cardStyle,
           marginTop: 12,
           padding: 12,
-          border: "1px solid rgba(0,0,0,0.08)",
-          borderRadius: 14,
-          background: "white",
-          display: "flex",
-          flexWrap: "wrap",
+          display: "grid",
+          gridTemplateColumns: "180px 220px 220px 1fr 280px auto",
           gap: 10,
-          alignItems: "center",
+          alignItems: "end",
         }}
       >
-        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <span style={{ width: 54, fontSize: 13, opacity: 0.8 }}>날짜</span>
-          <input
-            type="date"
-            value={day}
-            onChange={(e) => setDay(e.target.value)}
-            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)" }}
-          />
+        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <span style={{ fontSize: 12, color: "#64748B", fontWeight: 700 }}>날짜</span>
+          <input type="date" value={day} onChange={(e) => setDay(e.target.value)} style={{ height: 40, borderRadius: 10, border: "1px solid #D1D5DB", padding: "0 10px" }} />
         </label>
 
-        <label style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 240 }}>
-          <span style={{ width: 54, fontSize: 13, opacity: 0.8 }}>회사명</span>
-          <select
-            value={company}
-            onChange={(e) => setCompany(e.target.value)}
-            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)", background: "white", minWidth: 170 }}
-          >
+        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <span style={{ fontSize: 12, color: "#64748B", fontWeight: 700 }}>회사명</span>
+          <select value={company} onChange={(e) => setCompany(e.target.value)} style={{ height: 40, borderRadius: 10, border: "1px solid #D1D5DB", padding: "0 10px", background: "white" }}>
             <option value="">전체</option>
             {COMPANY_OPTIONS.map((c) => (
               <option key={c} value={c}>
@@ -284,13 +262,9 @@ export default function WorkLogPage() {
           </select>
         </label>
 
-        <label style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 240 }}>
-          <span style={{ width: 54, fontSize: 13, opacity: 0.8 }}>작업파트</span>
-          <select
-            value={workPart}
-            onChange={(e) => setWorkPart(e.target.value)}
-            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)", background: "white", minWidth: 170 }}
-          >
+        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <span style={{ fontSize: 12, color: "#64748B", fontWeight: 700 }}>작업파트</span>
+          <select value={workPart} onChange={(e) => setWorkPart(e.target.value)} style={{ height: 40, borderRadius: 10, border: "1px solid #D1D5DB", padding: "0 10px", background: "white" }}>
             <option value="">전체</option>
             {workPartOptions.map((p) => (
               <option key={p} value={p}>
@@ -300,23 +274,14 @@ export default function WorkLogPage() {
           </select>
         </label>
 
-        <label style={{ display: "flex", gap: 8, alignItems: "center", flex: 1, minWidth: 220 }}>
-          <span style={{ width: 54, fontSize: 13, opacity: 0.8 }}>이름</span>
-          <input
-            value={nameQ}
-            onChange={(e) => setNameQ(e.target.value)}
-            placeholder="이름"
-            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)", width: "100%" }}
-          />
+        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <span style={{ fontSize: 12, color: "#64748B", fontWeight: 700 }}>이름</span>
+          <input value={nameQ} onChange={(e) => setNameQ(e.target.value)} placeholder="이름 검색" style={{ height: 40, borderRadius: 10, border: "1px solid #D1D5DB", padding: "0 10px" }} />
         </label>
 
-        <label style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 340 }}>
-          <span style={{ width: 54, fontSize: 13, opacity: 0.8 }}>근무</span>
-          <select
-            value={workTable}
-            onChange={(e) => setWorkTable(e.target.value)}
-            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)", background: "white", minWidth: 260 }}
-          >
+        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <span style={{ fontSize: 12, color: "#64748B", fontWeight: 700 }}>근무테이블</span>
+          <select value={workTable} onChange={(e) => setWorkTable(e.target.value)} style={{ height: 40, borderRadius: 10, border: "1px solid #D1D5DB", padding: "0 10px", background: "white" }}>
             <option value="">전체</option>
             {WORK_TABLE_OPTIONS.map((t) => (
               <option key={t} value={t}>
@@ -330,10 +295,12 @@ export default function WorkLogPage() {
           onClick={() => fetchData(page)}
           disabled={loading}
           style={{
-            padding: "9px 12px",
-            borderRadius: 12,
-            border: "1px solid rgba(0,0,0,0.15)",
-            background: loading ? "rgba(0,0,0,0.04)" : "white",
+            height: 40,
+            padding: "0 14px",
+            borderRadius: 10,
+            border: "1px solid #111827",
+            background: loading ? "#CBD5E1" : "#111827",
+            color: "white",
             cursor: loading ? "not-allowed" : "pointer",
             fontWeight: 900,
           }}
@@ -343,102 +310,75 @@ export default function WorkLogPage() {
       </div>
 
       {err && (
-        <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.18)", color: "rgba(120,0,0,0.9)", fontSize: 13 }}>
+        <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: 13, fontWeight: 700 }}>
           {err}
         </div>
       )}
 
-      {/* Table */}
-      <div style={{ marginTop: 12, overflowX: "auto" }}>
+      <div style={{ ...cardStyle, marginTop: 12, overflowX: "auto", padding: 0 }}>
         <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, background: "white" }}>
           <thead>
             <tr>
               {["날짜", "회사", "근무", "작업파트", "이름", "상태", "출근", "퇴근", "근무시간", "출근위치", "퇴근위치", "상세"].map((h) => (
-                <th
-                  key={h}
-                  style={{
-                    position: "sticky",
-                    top: 0,
-                    background: "white",
-                    textAlign: "left",
-                    fontSize: 12,
-                    opacity: 0.85,
-                    padding: "10px 10px",
-                    borderBottom: "1px solid rgba(0,0,0,0.08)",
-                    whiteSpace: "nowrap",
-                  }}
-                >
+                <th key={h} style={{ textAlign: "left", fontSize: 12, color: "#64748B", fontWeight: 800, padding: "12px 10px", borderBottom: "1px solid #E2E8F0", background: "#F8FAFC", whiteSpace: "nowrap" }}>
                   {h}
                 </th>
               ))}
             </tr>
           </thead>
-
           <tbody>
             {rows.length === 0 && !loading ? (
               <tr>
-                <td colSpan={12} style={{ padding: 16, opacity: 0.7 }}>
-                  데이터 없음
+                <td colSpan={12} style={{ padding: 16, color: "#64748B" }}>
+                  데이터가 없습니다.
                 </td>
               </tr>
             ) : (
-              rows.map((s) => {
+              rows.map((s, idx) => {
                 const p = normalizeProfile(s.profiles);
                 const mins = minutesDiff(s.clock_in_at, s.clock_out_at);
                 const inLink = gmLink(s.clock_in_lat, s.clock_in_lng);
                 const outLink = gmLink(s.clock_out_lat, s.clock_out_lng);
-
-                // 상태: 출근 찍었고 퇴근 전이면 근무중, 아니면 "-"
-                const statusLabel = s.clock_in_at && !s.clock_out_at ? "근무중" : "-";
+                const isWorking = !!s.clock_in_at && !s.clock_out_at;
+                const rowBg = idx % 2 === 0 ? "white" : "#FCFDFE";
 
                 return (
                   <tr key={s.id}>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)", fontWeight: 900 }}>{s.work_date}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{p?.company_name || "-"}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{workTableShort(p?.work_table)}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{p?.work_part || "-"}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)", fontWeight: 900 }}>{p?.name || "(이름없음)"}</td>
-
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-                      {statusLabel === "근무중" ? (
-                        <span style={{ padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 950, border: "1px solid rgba(255,140,0,0.35)", background: "rgba(255,140,0,0.10)" }}>
-                          근무중
-                        </span>
+                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg, fontWeight: 800 }}>{s.work_date}</td>
+                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>{p?.company_name || "-"}</td>
+                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>{workTableShort(p?.work_table)}</td>
+                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>{p?.work_part || "-"}</td>
+                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg, fontWeight: 800 }}>{p?.name || "(이름없음)"}</td>
+                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>
+                      {isWorking ? (
+                        <span style={{ padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 900, border: "1px solid rgba(255,140,0,0.35)", background: "rgba(255,140,0,0.10)", color: "#9A3412" }}>근무중</span>
                       ) : (
                         "-"
                       )}
                     </td>
-
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{fmtKSTTime(s.clock_in_at)}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{fmtKSTTime(s.clock_out_at)}</td>
-
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{mins == null ? "-" : hhmmFromMinutes(mins)}</td>
-
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>{fmtKSTTime(s.clock_in_at)}</td>
+                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>{fmtKSTTime(s.clock_out_at)}</td>
+                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>{mins == null ? "-" : hhmmFromMinutes(mins)}</td>
+                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>
                       {inLink ? (
-                        <a href={inLink} target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>
+                        <a href={inLink} target="_blank" rel="noreferrer" style={{ textDecoration: "underline", color: "#0F172A", fontWeight: 700 }}>
                           지도
                         </a>
                       ) : (
                         "-"
                       )}
                     </td>
-
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>
                       {outLink ? (
-                        <a href={outLink} target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>
+                        <a href={outLink} target="_blank" rel="noreferrer" style={{ textDecoration: "underline", color: "#0F172A", fontWeight: 700 }}>
                           지도
                         </a>
                       ) : (
                         "-"
                       )}
                     </td>
-
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-                      <Link
-                        href={`/admin/work-log/${s.id}`}
-                        style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)", display: "inline-block", fontWeight: 900 }}
-                      >
+                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>
+                      <Link href={`/admin/work-log/${s.id}`} style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid #CBD5E1", display: "inline-block", fontWeight: 800, color: "#0F172A", textDecoration: "none" }}>
                         보기
                       </Link>
                     </td>
@@ -450,15 +390,14 @@ export default function WorkLogPage() {
         </table>
       </div>
 
-      {/* Pagination */}
       <div style={{ marginTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-        <div style={{ fontSize: 13, opacity: 0.75 }}>표시: {rows.length.toLocaleString()}건 (페이지 기준)</div>
+        <div style={{ fontSize: 13, color: "#64748B" }}>표시: {rows.length.toLocaleString()}건 (현재 페이지)</div>
 
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button
             onClick={() => setPage((x) => Math.max(1, x - 1))}
             disabled={loading || page <= 1}
-            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)", background: "white", cursor: loading || page <= 1 ? "not-allowed" : "pointer", fontWeight: 900 }}
+            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #D1D5DB", background: "white", cursor: loading || page <= 1 ? "not-allowed" : "pointer", fontWeight: 900 }}
           >
             이전
           </button>
@@ -470,7 +409,7 @@ export default function WorkLogPage() {
           <button
             onClick={() => setPage((x) => Math.min(totalPages, x + 1))}
             disabled={loading || page >= totalPages}
-            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)", background: "white", cursor: loading || page >= totalPages ? "not-allowed" : "pointer", fontWeight: 900 }}
+            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #D1D5DB", background: "white", cursor: loading || page >= totalPages ? "not-allowed" : "pointer", fontWeight: 900 }}
           >
             다음
           </button>

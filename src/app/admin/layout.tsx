@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -11,6 +11,7 @@ import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 const MAX_W = 1700;
 
 type Profile = {
+  name: string | null;
   approval_status: string | null;
   is_admin: boolean | null;
   work_part: string | null;
@@ -21,11 +22,7 @@ type PermRow = {
   general_access: AccessLevel;
 };
 
-function normWorkPart(v: any) {
-  return String(v ?? "").trim();
-}
-
-// ✅ 섹션(active) 판정 유틸
+// 섹션(active) 판정 유틸
 function isExact(pathname: string, href: string) {
   return pathname === href;
 }
@@ -43,11 +40,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isMainAdmin, setIsMainAdmin] = useState(false);
   const [isGeneralAdmin, setIsGeneralAdmin] = useState(false);
   const [menuAccess, setMenuAccess] = useState<MenuAccessMap>({});
+  const [loginUserName, setLoginUserName] = useState("");
 
   const [photosOpen, setPhotosOpen] = useState(false);
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const closeTimer = useRef<any>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loggingOutRef = useRef(false);
 
@@ -63,7 +61,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     []
   );
 
-  // ✅ 공지 섹션: 달력/공지사항은 /admin/notice/* 로 통일
+  // 공지 섹션: 달력/공지사항을 /admin/notice/* 로 통일
   const NOTICE_ITEMS = useMemo(
     () => [
       { label: "1. 일정작성(달력)", href: "/admin/notice/calendar" },
@@ -164,13 +162,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return pathname === href || pathname.startsWith(href + "/");
   };
 
-  // ✅ 상단 “사진” pill은 섹션 단위로만 active
+  // 상단 사진 pill은 섹션 단위로만 active
   const isPhotosActive =
     isSection(pathname, "/admin/photos") ||
     isSection(pathname, "/admin/delivery-photos") ||
     isSection(pathname, "/admin/hazards");
 
-  // ✅ 공지 루트 포함
+  // ??怨듭? 猷⑦듃 ?ы븿
   const isNoticeActive = pathname.startsWith("/admin/notice");
   const isSettingsActive = pathname.startsWith("/admin/settings");
 
@@ -217,7 +215,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         const { data: prof, error: pErr } = await supabase
           .from("profiles")
-          .select("approval_status,is_admin,work_part")
+          .select("name,approval_status,is_admin,work_part")
           .eq("id", uid)
           .single();
 
@@ -249,6 +247,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         setIsMainAdmin(main);
         setIsGeneralAdmin(!main && general);
+        setLoginUserName(String(p?.name ?? "").trim());
 
         if (main) {
           try {
@@ -352,8 +351,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <AdminAccessProvider isMainAdmin={isMainAdmin} isGeneralAdmin={isGeneralAdmin} menuAccess={menuAccess}>
-      <div style={{ minHeight: "100vh", background: "#F8FAFC", fontFamily: "system-ui" }}>
-        <div style={{ position: "sticky", top: 0, zIndex: 50, background: "white", borderBottom: "1px solid #E5E7EB" }}>
+      <div style={{ minHeight: "100vh", background: "#F3F5F8", fontFamily: "Pretendard, system-ui, -apple-system, Segoe UI, sans-serif" }}>
+        <div
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 50,
+            background: "linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)",
+            borderBottom: "1px solid #DDE3EA",
+            boxShadow: "0 8px 20px rgba(15,23,42,0.06)",
+          }}
+        >
           <div
             style={{
               maxWidth: MAX_W,
@@ -365,7 +373,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               gap: 12,
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", minWidth: 0, gap: 10 }}>
               <Link href="/admin" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
                 <img src="/logo.png" alt="logo" style={{ height: 26, width: "auto", display: "block" }} />
               </Link>
@@ -373,7 +381,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
             <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
               <nav style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <Link href="/admin" style={pillStyle(isActive("/admin"))}>
+                  <Link href="/admin" style={pillStyle(isActive("/admin"))}>
                   메인
                 </Link>
 
@@ -395,10 +403,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       onClick={(e) => e.stopPropagation()}
                     >
                       {PHOTO_ITEMS.map((it) => {
-                        // ✅✅ 핵심 수정:
-                        // - “현장사진(/admin/photos)”은 exact만 active
-                        // - “배송사진(/admin/photos/delivery)”은 섹션(active) 허용
-                        // - “위험요인(/admin/hazards)”은 섹션(active) 허용
+                        // 활성 드롭다운 판정:
+                        // - 현장사진(/admin/photos)은 exact만 active
+                        // - 배송사진(/admin/photos/delivery)은 섹션(active) 허용
+                        // - 위험요인(/admin/hazards)은 섹션(active) 허용
                         let active = false;
                         if (it.href === "/admin/photos") {
                           active = isExact(pathname, "/admin/photos");
@@ -449,9 +457,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   )}
                 </div>
 
-                <Link href="/admin/work-log" style={pillStyle(isActive("/admin/work-log"))}>
-                  근태
-                </Link>
+                {canShow("admin_work_log") ? (
+                  <Link href="/admin/work-log" style={pillStyle(isActive("/admin/work-log"))}>
+                    근태
+                  </Link>
+                ) : null}
 
                 {/* 설정 */}
                 <div
@@ -485,16 +495,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ color: "#334155", fontSize: 13, fontWeight: 800, whiteSpace: "nowrap" }}>{loginUserName || "User"}</span>
               <button
                 onClick={onLogout}
                 disabled={checking}
                 style={{
-                  height: 34,
-                  padding: "0 14px",
+                  height: 36,
+                  padding: "0 15px",
                   borderRadius: 999,
-                  border: "1px solid #111827",
+                  border: "1px solid #CBD5E1",
                   background: "white",
-                  fontWeight: 950,
+                  color: "#111827",
+                  fontWeight: 900,
                   cursor: checking ? "not-allowed" : "pointer",
                   opacity: checking ? 0.6 : 1,
                 }}
@@ -510,3 +522,4 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     </AdminAccessProvider>
   );
 }
+

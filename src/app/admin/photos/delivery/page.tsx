@@ -721,7 +721,14 @@ export default function AdminDeliveryPhotosPage() {
   const doneByNameForPreview = doneRowForPreview ? profilesById[doneRowForPreview.done_by]?.name?.trim() || doneRowForPreview.done_by : "";
 
   return (
-    <div style={{ fontFamily: "system-ui", background: "#F7F7F8", minHeight: "100vh" }}>
+    <div
+      style={{
+        fontFamily: "Pretendard, system-ui, -apple-system, Segoe UI, sans-serif",
+        background: "#F3F5F8",
+        minHeight: "100vh",
+        padding: "10px 10px 14px",
+      }}
+    >
       {toastMsg && (
         <div
           style={{
@@ -742,20 +749,20 @@ export default function AdminDeliveryPhotosPage() {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 14, padding: 14, alignItems: "flex-start", maxWidth: 1900, margin: "0 auto" }}>
+      <div style={{ display: "flex", gap: 14, padding: 0, alignItems: "flex-start", maxWidth: 1900, margin: "0 auto" }}>
         {/* LEFT */}
         <div
           style={{
-            width: 360,
-            minWidth: 360,
-            maxWidth: 360,
+            width: 376,
+            minWidth: 376,
+            maxWidth: 376,
             position: "sticky",
             top: 14,
             maxHeight: "calc(100vh - 28px)",
             overflow: "auto",
           }}
         >
-          <div style={{ border: "1px solid #E5E7EB", borderRadius: 16, padding: 14, background: "white" }}>
+          <div style={{ border: "1px solid #DDE3EA", borderRadius: 18, padding: 14, background: "white", boxShadow: "0 8px 24px rgba(15,23,42,0.05)" }}>
             <div style={{ fontWeight: 900, color: "#111827" }}>조회</div>
             <div style={{ marginTop: 4, fontSize: 12, color: "#6B7280" }}>
               기본: <span style={{ fontWeight: 900, color: "#111827" }}>미오출</span> · 결과 {photos.length}장
@@ -968,7 +975,7 @@ export default function AdminDeliveryPhotosPage() {
 
         {/* RIGHT */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ border: "1px solid #E5E7EB", borderRadius: 16, background: "white", overflow: "hidden" }}>
+          <div style={{ border: "1px solid #DDE3EA", borderRadius: 18, background: "white", overflow: "hidden", boxShadow: "0 8px 24px rgba(15,23,42,0.06)" }}>
             <div
               style={{
                 padding: 12,
@@ -1007,7 +1014,7 @@ export default function AdminDeliveryPhotosPage() {
                     const doneByName = doneRow ? profilesById[doneRow.done_by]?.name?.trim() || doneRow.done_by : "";
 
                     return (
-                      <div key={p.id} style={{ border: "1px solid #E5E7EB", borderRadius: 14, overflow: "hidden", background: "white" }}>
+                      <div key={p.id} style={{ border: "1px solid #E2E8F0", borderRadius: 16, overflow: "hidden", background: "white", boxShadow: "0 4px 14px rgba(15,23,42,0.06)" }}>
                         <div style={{ position: "relative", background: "#0B1220" }}>
                           <button
                             onClick={() => openPreview(idx)}

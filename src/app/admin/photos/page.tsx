@@ -548,7 +548,16 @@ export default function AdminPhotosPage() {
   }
 
   return (
-    <div style={{ fontFamily: "system-ui", width: "100%", position: "relative" }}>
+    <div
+      style={{
+        fontFamily: "Pretendard, system-ui, -apple-system, Segoe UI, sans-serif",
+        width: "100%",
+        position: "relative",
+        background: "#F3F5F8",
+        minHeight: "100vh",
+        padding: "10px 10px 14px",
+      }}
+    >
       {toastMsg && (
         <div
           style={{
@@ -569,12 +578,12 @@ export default function AdminPhotosPage() {
         </div>
       )}
 
-      <div style={{ width: "100%" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "360px minmax(0, 1fr)", gap: 14, alignItems: "start" }}>
+      <div style={{ width: "100%", maxWidth: 1880, margin: "0 auto" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "380px minmax(0, 1fr)", gap: 14, alignItems: "start" }}>
           {/* LEFT */}
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {/* filters */}
-            <div style={{ border: "1px solid #E5E7EB", borderRadius: 16, padding: 14, background: "white" }}>
+            <div style={{ border: "1px solid #DDE3EA", borderRadius: 18, padding: 14, background: "white", boxShadow: "0 8px 24px rgba(15,23,42,0.05)" }}>
               {/* ✅ 여기서 TopModeButtons 제거 */}
               <div style={{ fontWeight: 900, marginBottom: 10 }}>조회 조건</div>
 
@@ -736,7 +745,7 @@ export default function AdminPhotosPage() {
             </div>
 
             {/* store list */}
-            <div style={{ border: "1px solid #E5E7EB", borderRadius: 16, background: "white", overflow: "hidden" }}>
+            <div style={{ border: "1px solid #DDE3EA", borderRadius: 18, background: "white", overflow: "hidden", boxShadow: "0 8px 24px rgba(15,23,42,0.05)" }}>
               <div style={{ padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ fontWeight: 900 }}>점포 목록</div>
                 <div style={{ fontSize: 12, color: "#6B7280" }}>총 {storeCount}개</div>
@@ -782,7 +791,7 @@ export default function AdminPhotosPage() {
           </div>
 
           {/* RIGHT */}
-          <div style={{ border: "1px solid #E5E7EB", borderRadius: 16, background: "white", padding: 14 }}>
+          <div style={{ border: "1px solid #DDE3EA", borderRadius: 18, background: "white", padding: 14, boxShadow: "0 8px 24px rgba(15,23,42,0.06)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
               <div>
                 <div style={{ fontWeight: 900, fontSize: 16 }}>{selectedStoreTitle}</div>
@@ -900,10 +909,11 @@ export default function AdminPhotosPage() {
                     <div
                       key={p.id}
                       style={{
-                        border: "1px solid #E5E7EB",
-                        borderRadius: 14,
+                        border: selected ? "1px solid #94A3B8" : "1px solid #E2E8F0",
+                        borderRadius: 16,
                         overflow: "hidden",
                         background: selected ? "#EEF2FF" : "white",
+                        boxShadow: "0 4px 14px rgba(15,23,42,0.06)",
                       }}
                     >
                       <button
