@@ -47,20 +47,20 @@ export const MENU_REGISTRY: MenuItem[] = [
   { key: "admin_work_log", label: "근태", href: "/admin/work-log", group: "nav", order: 40 },
 
   // ===== 설정(좌측 + 드롭다운) =====
-  { key: "settings_store_master", label: "1. 점포마스터 최신화", href: "/admin/settings/store-master", group: "settings", order: 110 },
-  { key: "settings_inspection_stores", label: "2. 검수점포 최신화", href: "/admin/settings/inspection-stores", group: "settings", order: 120 },
+  { key: "settings_store_master", label: "점포마스터 최신화", href: "/admin/settings/store-master", group: "settings", order: 110 },
+  { key: "settings_inspection_stores", label: "검수점포 최신화", href: "/admin/settings/inspection-stores", group: "settings", order: 120 },
 
   // ✅ 사용자 마스터(운영/현장)
-  { key: "settings_user_master", label: "4. 운영/현장 사용자마스터", href: "/admin/settings/user-master", group: "settings", order: 140 },
+  { key: "settings_user_master", label: "운영/현장 사용자마스터", href: "/admin/settings/user-master", group: "settings", order: 140 },
 
   // ✅ 기사 사용자 마스터(신규)
-  { key: "settings_driver_master", label: "5. 기사 사용자마스터", href: "/admin/settings/driver-master", group: "settings", order: 145 },
+  { key: "settings_driver_master", label: "기사 사용자마스터", href: "/admin/settings/driver-master", group: "settings", order: 145 },
 
   // 메인관리자만 접근/노출
-  { key: "settings_permissions", label: "6. 권한 설정", href: "/admin/settings/permissions", group: "settings", order: 150, mainOnly: true },
+  { key: "settings_permissions", label: "권한 설정", href: "/admin/settings/permissions", group: "settings", order: 150, mainOnly: true },
 
   // ✅ 공휴일 자동 동기화(공공데이터포털)
-  { key: "settings_holidays", label: "7. 공휴일 동기화", href: "/admin/settings/holidays", group: "settings", order: 160, mainOnly: true },
+  { key: "settings_holidays", label: "공휴일 동기화", href: "/admin/settings/holidays", group: "settings", order: 160, mainOnly: true },
 ];
 
 export function getNavItems() {
