@@ -206,8 +206,20 @@ function nightMin(inAt: Date, outAt: Date) {
   return b <= a ? 0 : Math.round((b - a) / 60000);
 }
 
-function calcOT(p: { month: string; day: number; inIso: string | null; outIso: string | null; baseEnd: string; holiday: boolean }): OTs {
-  const { month, day, inIso, outIso, baseEnd, holiday } = p;
+function scheduleMinutes(startHHmm: string, endHHmm: string) {
+  const start = toMin(startHHmm);
+  const end = toMin(endHHmm);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return 0;
+  if (end > start) return end - start;
+  return 24 * 60 - start + end;
+}
+
+function minusLunch(minutes: number) {
+  return Math.max(0, minutes - 60);
+}
+
+function calcOT(p: { month: string; day: number; inIso: string | null; outIso: string | null; baseStart: string; baseEnd: string; holiday: boolean }): OTs {
+  const { month, day, inIso, outIso, baseStart, baseEnd, holiday } = p;
   if (!inIso || !outIso) return { ot: null, nightOt: null, holidayExt: null };
 
   const inAt = new Date(inIso);
@@ -215,7 +227,13 @@ function calcOT(p: { month: string; day: number; inIso: string | null; outIso: s
   if (!(inAt < outAt)) return { ot: null, nightOt: null, holidayExt: null };
 
   const total = Math.round((outAt.getTime() - inAt.getTime()) / 60000);
-  if (holiday) return { ot: 0, nightOt: nightMin(inAt, outAt) / 60, holidayExt: total / 60 };
+  if (holiday) {
+    const netTotal = minusLunch(total);
+    const base = minusLunch(Math.max(0, scheduleMinutes(baseStart, baseEnd)));
+    const otMin = Math.min(netTotal, base);
+    const holMin = Math.max(0, netTotal - base);
+    return { ot: otMin / 60, nightOt: nightMin(inAt, outAt) / 60, holidayExt: holMin / 60 };
+  }
 
   const [y, m] = month.split("-").map(Number);
   const em = toMin(baseEnd);
@@ -478,7 +496,7 @@ export default function WorkLogPage() {
         const valid = isDayInMonth(month, dayN);
         const holiday = valid && (isWeekend(month, dayN) || holidaySet.has(`${month}-${key}`));
         const late = isLateClockIn({ month, day: dayN, clockInIso: s?.clock_in_at ?? null, startHHmm: schedule.start, holiday });
-        const ot = calcOT({ month, day: dayN, inIso: s?.clock_in_at ?? null, outIso: s?.clock_out_at ?? null, baseEnd: schedule.end, holiday });
+        const ot = calcOT({ month, day: dayN, inIso: s?.clock_in_at ?? null, outIso: s?.clock_out_at ?? null, baseStart: schedule.start, baseEnd: schedule.end, holiday });
 
         rowIn[key] = !valid ? "-" : s?.clock_in_at ? (late ? decHour(s.clock_in_at) : displayFromHHmm(schedule.start)) : holiday ? "휴무" : "-";
         rowOut[key] = !valid ? "-" : s?.clock_out_at ? decHour(s.clock_out_at) : holiday ? "휴무" : "-";
@@ -709,7 +727,7 @@ export default function WorkLogPage() {
                   const valid = isDayInMonth(month, d);
                   const isHol = valid && (isWeekend(month, d) || holidaySet.has(`${month}-${String(d).padStart(2, "0")}`));
                   const late = isLateClockIn({ month, day: d, clockInIso: s?.clock_in_at ?? null, startHHmm: schedule.start, holiday: isHol });
-                  const ot = calcOT({ month, day: d, inIso: s?.clock_in_at ?? null, outIso: s?.clock_out_at ?? null, baseEnd: schedule.end, holiday: isHol });
+                  const ot = calcOT({ month, day: d, inIso: s?.clock_in_at ?? null, outIso: s?.clock_out_at ?? null, baseStart: schedule.start, baseEnd: schedule.end, holiday: isHol });
 
                   inVals.push(!valid ? "-" : s?.clock_in_at ? (late ? decHour(s.clock_in_at) : displayFromHHmm(schedule.start)) : isHol ? "휴무" : "-");
                   outVals.push(!valid ? "-" : s?.clock_out_at ? decHour(s.clock_out_at) : isHol ? "휴무" : "-");
