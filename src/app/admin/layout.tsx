@@ -397,15 +397,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <AdminAccessProvider isMainAdmin={isMainAdmin} isGeneralAdmin={isGeneralAdmin} isCompanyAdmin={isCompanyAdmin} menuAccess={menuAccess}>
       <div className="ha-surface ha-admin" style={{ minHeight: "100vh", fontFamily: "Pretendard, system-ui, -apple-system, Segoe UI, sans-serif", position: "relative", overflow: "hidden" }}>
-        <div style={{ pointerEvents: "none", position: "absolute", top: -120, left: -90, width: 360, height: 360, borderRadius: "999px", background: "rgba(15,118,110,0.18)", filter: "blur(54px)" }} />
-        <div style={{ pointerEvents: "none", position: "absolute", right: -120, top: -120, width: 420, height: 420, borderRadius: "999px", background: "rgba(22,78,99,0.16)", filter: "blur(60px)" }} />
         <div
           style={{
             position: "sticky",
             top: 0,
             zIndex: 50,
-            background: "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(246,251,255,0.94) 100%)",
-            backdropFilter: "saturate(1.2) blur(8px)",
+            background: "#fff",
             borderBottom: "1px solid #c7d6e3",
             boxShadow: "0 10px 24px rgba(2,32,46,0.08)",
           }}
