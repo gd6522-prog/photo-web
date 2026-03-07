@@ -142,11 +142,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const pillStyle = (active: boolean) => ({
     textDecoration: "none",
-    padding: "8px 12px",
+    padding: "8px 14px",
     borderRadius: 999,
-    border: "1px solid #E5E7EB",
-    background: active ? "#111827" : "white",
-    color: active ? "white" : "#111827",
+    border: active ? "1px solid #0e7490" : "1px solid #c7d6e3",
+    background: active ? "linear-gradient(135deg,#103b53 0%,#0f766e 100%)" : "rgba(255,255,255,0.86)",
+    color: active ? "white" : "#113247",
     fontWeight: 950 as const,
     fontSize: 13,
     lineHeight: 1,
@@ -154,19 +154,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     alignItems: "center",
     justifyContent: "center",
     whiteSpace: "nowrap" as const,
+    boxShadow: active ? "0 8px 18px rgba(16,59,83,0.24)" : "0 1px 0 rgba(255,255,255,0.9) inset",
   });
 
   const dropdownBoxStyle: React.CSSProperties = {
     position: "absolute",
-    top: 40,
+    top: 44,
     left: "50%",
     transform: "translateX(-50%)",
     width: "max-content",
     maxWidth: 360,
-    background: "white",
-    border: "1px solid #E5E7EB",
-    borderRadius: 14,
-    boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
+    background: "rgba(255,255,255,0.98)",
+    border: "1px solid #bcd0de",
+    borderRadius: 16,
+    boxShadow: "0 16px 36px rgba(2,32,46,0.16)",
     padding: 8,
     overflow: "hidden",
     zIndex: 60,
@@ -177,10 +178,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     textDecoration: "none",
     padding: "10px 12px",
     borderRadius: 10,
-    color: "#111827",
+    color: "#113247",
     fontWeight: 950,
     fontSize: 13,
-    background: active ? "#F3F4F6" : "white",
+    background: active ? "#e6f3f2" : "transparent",
     whiteSpace: "nowrap",
   });
 
@@ -403,9 +404,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             position: "sticky",
             top: 0,
             zIndex: 50,
-            background: "linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)",
-            borderBottom: "1px solid #DDE3EA",
-            boxShadow: "0 8px 20px rgba(15,23,42,0.06)",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(246,251,255,0.94) 100%)",
+            backdropFilter: "saturate(1.2) blur(8px)",
+            borderBottom: "1px solid #c7d6e3",
+            boxShadow: "0 10px 24px rgba(2,32,46,0.08)",
           }}
         >
           <div

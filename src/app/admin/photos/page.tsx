@@ -554,9 +554,9 @@ export default function AdminPhotosPage() {
         fontFamily: "Pretendard, system-ui, -apple-system, Segoe UI, sans-serif",
         width: "100%",
         position: "relative",
-        background: "#F3F5F8",
-        minHeight: "100vh",
-        padding: "10px 10px 14px",
+        background: "transparent",
+        minHeight: 0,
+        padding: "0 6px 8px",
       }}
     >
       {toastMsg && (
