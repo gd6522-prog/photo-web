@@ -223,50 +223,52 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 p-6 flex items-center justify-center">
-      <div className="w-full max-w-lg rounded-2xl border bg-white p-6 shadow-sm">
-        <div className="text-xl font-black text-zinc-900">회원가입</div>
-        <div className="mt-1 text-sm text-zinc-500">
+    <div className="min-h-screen relative overflow-hidden bg-[#ecf2f7] p-6 flex items-center justify-center">
+      <div className="pointer-events-none absolute -top-28 -left-24 h-80 w-80 rounded-full bg-[#0f766e]/20 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-32 -right-20 h-96 w-96 rounded-full bg-[#164e63]/20 blur-3xl" />
+      <div className="w-full max-w-lg rounded-3xl border border-[#b6c8d7] bg-white/95 p-6 shadow-[0_24px_60px_rgba(2,32,46,0.18)]">
+        <div className="text-xl font-black text-[#0b2536]">회원가입</div>
+        <div className="mt-1 text-sm text-[#557186]">
           가입 시 1회 문자 인증 후, 전화번호+비밀번호로 로그인합니다.
         </div>
 
         <div className="mt-5 grid gap-3">
-          <input className="w-full rounded-xl border px-3 py-3 outline-none focus:ring" placeholder="이름"
+          <input className="w-full rounded-xl border border-[#b7c8d7] px-3 py-3 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20" placeholder="이름"
             value={name} onChange={(e) => setName(e.target.value)} disabled={loading || otpSent} />
 
           <div className="flex gap-2">
-            <input className="flex-1 rounded-xl border px-3 py-3 outline-none focus:ring" placeholder="전화번호 (01012345678)"
+            <input className="flex-1 rounded-xl border border-[#b7c8d7] px-3 py-3 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20" placeholder="전화번호 (01012345678)"
               value={phone} onChange={(e) => setPhone(e.target.value)} disabled={loading || otpSent || checkingPhone} />
-            <button className="rounded-xl bg-black px-4 text-white font-bold disabled:opacity-60"
+            <button className="rounded-xl bg-[#103b53] px-4 text-white font-bold transition hover:bg-[#0c2f43] disabled:opacity-60"
               onClick={onCheckPhone} disabled={!canCheckPhone}>
               {checkingPhone ? "확인중..." : "확인"}
             </button>
           </div>
 
-          <input className="w-full rounded-xl border px-3 py-3 outline-none focus:ring" placeholder="생년월일 8자리 (YYYYMMDD)"
+          <input className="w-full rounded-xl border border-[#b7c8d7] px-3 py-3 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20" placeholder="생년월일 8자리 (YYYYMMDD)"
             value={birth8} onChange={(e) => setBirth8(e.target.value)} disabled={loading || otpSent} />
 
-          <input className="w-full rounded-xl border px-3 py-3 outline-none focus:ring" placeholder="국적 (예: KR)"
+          <input className="w-full rounded-xl border border-[#b7c8d7] px-3 py-3 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20" placeholder="국적 (예: KR)"
             value={nationality} onChange={(e) => setNationality(e.target.value)} disabled={loading || otpSent} />
 
-          <input className="w-full rounded-xl border px-3 py-3 outline-none focus:ring" placeholder="작업파트"
+          <input className="w-full rounded-xl border border-[#b7c8d7] px-3 py-3 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20" placeholder="작업파트"
             value={workPart} onChange={(e) => setWorkPart(e.target.value)} disabled={loading || otpSent} />
 
-          <input className="w-full rounded-xl border px-3 py-3 outline-none focus:ring" placeholder="비밀번호(6자리 이상)"
+          <input className="w-full rounded-xl border border-[#b7c8d7] px-3 py-3 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20" placeholder="비밀번호(6자리 이상)"
             type="password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading || otpSent} />
-          <input className="w-full rounded-xl border px-3 py-3 outline-none focus:ring" placeholder="비밀번호 확인"
+          <input className="w-full rounded-xl border border-[#b7c8d7] px-3 py-3 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20" placeholder="비밀번호 확인"
             type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} disabled={loading || otpSent} />
 
           {!otpSent ? (
-            <button className="w-full rounded-xl bg-black py-3 font-bold text-white disabled:opacity-60"
+            <button className="w-full rounded-xl bg-[#103b53] py-3 font-bold text-white transition hover:bg-[#0c2f43] disabled:opacity-60"
               onClick={onSendOtp} disabled={!canSendOtp}>
               {loading ? "전송중..." : "인증번호 발송"}
             </button>
           ) : (
             <>
-              <input className="w-full rounded-xl border px-3 py-3 outline-none focus:ring" placeholder="인증번호"
+              <input className="w-full rounded-xl border border-[#b7c8d7] px-3 py-3 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20" placeholder="인증번호"
                 value={otp} onChange={(e) => setOtp(e.target.value)} disabled={loading} />
-              <button className="w-full rounded-xl bg-black py-3 font-bold text-white disabled:opacity-60"
+              <button className="w-full rounded-xl bg-[#103b53] py-3 font-bold text-white transition hover:bg-[#0c2f43] disabled:opacity-60"
                 onClick={onVerify} disabled={!canVerify}>
                 {loading ? "확인중..." : "인증 완료"}
               </button>

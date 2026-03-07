@@ -1,8 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #ecf2f7;
+  --foreground: #0b2536;
+  --brand-deep: #103b53;
+  --brand-mid: #0f766e;
+  --line-soft: #c7d6e3;
+  --card-bg: rgba(255, 255, 255, 0.92);
+  --card-shadow: 0 20px 46px rgba(2, 32, 46, 0.12);
 }
 
 @theme inline {
@@ -12,15 +17,22 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.ha-surface {
+  background:
+    radial-gradient(32rem 32rem at -10% -10%, rgba(15, 118, 110, 0.18), transparent 60%),
+    radial-gradient(34rem 34rem at 110% 0%, rgba(22, 78, 99, 0.18), transparent 62%),
+    linear-gradient(180deg, #eef4f9 0%, #e8f0f6 100%);
+}
+
+.ha-card {
+  border: 1px solid var(--line-soft);
+  background: var(--card-bg);
+  box-shadow: var(--card-shadow);
+  border-radius: 18px;
 }

@@ -385,7 +385,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (checking) {
     return (
-      <div style={{ minHeight: "100vh", background: "#F8FAFC", fontFamily: "system-ui" }}>
+      <div className="ha-surface" style={{ minHeight: "100vh", fontFamily: "Pretendard, system-ui, -apple-system, Segoe UI, sans-serif" }}>
         <div style={{ maxWidth: MAX_W, margin: "0 auto", padding: "24px 12px" }}>
           <div style={{ color: "#6B7280", fontWeight: 800, fontSize: 14 }}>권한 확인 중...</div>
         </div>
@@ -395,7 +395,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <AdminAccessProvider isMainAdmin={isMainAdmin} isGeneralAdmin={isGeneralAdmin} isCompanyAdmin={isCompanyAdmin} menuAccess={menuAccess}>
-      <div style={{ minHeight: "100vh", background: "#F3F5F8", fontFamily: "Pretendard, system-ui, -apple-system, Segoe UI, sans-serif" }}>
+      <div className="ha-surface" style={{ minHeight: "100vh", fontFamily: "Pretendard, system-ui, -apple-system, Segoe UI, sans-serif", position: "relative", overflow: "hidden" }}>
+        <div style={{ pointerEvents: "none", position: "absolute", top: -120, left: -90, width: 360, height: 360, borderRadius: "999px", background: "rgba(15,118,110,0.18)", filter: "blur(54px)" }} />
+        <div style={{ pointerEvents: "none", position: "absolute", right: -120, top: -120, width: 420, height: 420, borderRadius: "999px", background: "rgba(22,78,99,0.16)", filter: "blur(60px)" }} />
         <div
           style={{
             position: "sticky",
