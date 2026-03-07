@@ -75,10 +75,6 @@ function isDayInMonth(month: string, day: number) {
   return day >= 1 && day <= monthRange(month).lastDay;
 }
 
-function uniq(arr: string[]) {
-  return Array.from(new Set(arr.map((x) => x.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "ko"));
-}
-
 function fmt(ts: string | null) {
   return ts ? new Date(ts).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" }) : "-";
 }
@@ -377,15 +373,16 @@ export default function WorkLogPage() {
     return m;
   }, [monthShifts]);
 
-  const getProfiles = useCallback(async () => {
+  const loadBasic = useCallback(async () => {
     const token = await getAccessToken();
     const params = new URLSearchParams();
+    params.set("day", day);
     if (nameQ.trim()) params.set("nameQ", nameQ.trim());
     if (company.trim()) params.set("company", company.trim());
     if (workPart.trim()) params.set("workPart", workPart.trim());
     if (workTable.trim()) params.set("workTable", workTable.trim());
 
-    const res = await fetch(`/api/admin/work-log/profiles?${params.toString()}`, {
+    const res = await fetch(`/api/admin/work-log/basic?${params.toString()}`, {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
@@ -394,67 +391,55 @@ export default function WorkLogPage() {
       ok?: boolean;
       message?: string;
       isCompanyAdminRole?: boolean;
-      rows?: Profile[];
+      profiles?: Profile[];
+      shifts?: Shift[];
     };
-    if (!res.ok || !payload?.ok) throw new Error(payload?.message || "사용자 목록을 불러오지 못했습니다.");
+    if (!res.ok || !payload?.ok) throw new Error(payload?.message || "기본근태를 불러오지 못했습니다.");
+
     setIsCompanyAdminRole(!!payload.isCompanyAdminRole);
-    return payload.rows ?? [];
-  }, [nameQ, company, workPart, workTable, getAccessToken]);
-
-  const loadBasic = useCallback(async () => {
-    const ps = sortProfilesLikeUserMaster(await getProfiles());
-    if (!ps.length) {
-      setBasicRows([]);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("work_shifts")
-      .select("id,user_id,work_date,clock_in_at,clock_out_at,clock_in_lat,clock_in_lng,clock_out_lat,clock_out_lng,created_at")
-      .eq("work_date", day)
-      .in("user_id", ps.map((p) => p.id))
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-
+    const ps = sortProfilesLikeUserMaster(payload.profiles ?? []);
     const map = new Map<string, Shift>();
-    for (const s of (data ?? []) as Shift[]) {
+    for (const s of payload.shifts ?? []) {
       if (!map.has(s.user_id)) map.set(s.user_id, s);
     }
     setBasicRows(ps.map((p) => ({ profile: p, shift: map.get(p.id) ?? null })));
-  }, [getProfiles, day]);
+  }, [getAccessToken, day, nameQ, company, workPart, workTable]);
 
   const loadDetail = useCallback(async () => {
-    const ps = sortProfilesLikeUserMaster(await getProfiles());
+    const token = await getAccessToken();
+    const params = new URLSearchParams();
+    params.set("month", month);
+    if (nameQ.trim()) params.set("nameQ", nameQ.trim());
+    if (company.trim()) params.set("company", company.trim());
+    if (workPart.trim()) params.set("workPart", workPart.trim());
+    if (workTable.trim()) params.set("workTable", workTable.trim());
+
+    const res = await fetch(`/api/admin/work-log/detail?${params.toString()}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    const payload = (await res.json()) as {
+      ok?: boolean;
+      message?: string;
+      isCompanyAdminRole?: boolean;
+      profiles?: Profile[];
+      monthShifts?: Shift[];
+      holidayDates?: string[];
+    };
+    if (!res.ok || !payload?.ok) throw new Error(payload?.message || "상세근태를 불러오지 못했습니다.");
+
+    setIsCompanyAdminRole(!!payload.isCompanyAdminRole);
+    const ps = sortProfilesLikeUserMaster(payload.profiles ?? []);
     setProfiles(ps);
     if (!ps.length) {
       setMonthShifts([]);
       setHolidaySet(new Set());
       return;
     }
-
-    const r = monthRange(month);
-    const [ss, hs] = await Promise.all([
-      supabase
-        .from("work_shifts")
-        .select("id,user_id,work_date,clock_in_at,clock_out_at,clock_in_lat,clock_in_lng,clock_out_lat,clock_out_lng,created_at")
-        .gte("work_date", r.from)
-        .lte("work_date", r.to)
-        .in("user_id", ps.map((p) => p.id))
-        .order("created_at", { ascending: false }),
-      supabase.from("holidays").select("date").gte("date", r.from).lte("date", r.to),
-    ]);
-
-    if (ss.error) throw ss.error;
-    if (hs.error) throw hs.error;
-
-    setMonthShifts((ss.data ?? []) as Shift[]);
-    const set = new Set<string>();
-    for (const h of (hs.data ?? []) as Array<{ date?: string | null }>) {
-      if (h.date) set.add(h.date);
-    }
-    setHolidaySet(set);
-  }, [getProfiles, month]);
+    setMonthShifts(payload.monthShifts ?? []);
+    setHolidaySet(new Set(payload.holidayDates ?? []));
+  }, [getAccessToken, month, nameQ, company, workPart, workTable]);
 
   const load = useCallback(async () => {
     setLoading(true);
