@@ -386,8 +386,8 @@ function NoticeMainCard() {
               width: 32,
               height: 32,
               borderRadius: 10,
-              border: "1px solid #E5E7EB",
-              background: !canPrev ? "#F9FAFB" : "white",
+              border: "1px solid #c4d5e3",
+              background: !canPrev ? "#e9eef3" : "rgba(255,255,255,0.92)",
               cursor: !canPrev ? "not-allowed" : "pointer",
               fontWeight: 950,
               lineHeight: 1,
@@ -404,8 +404,8 @@ function NoticeMainCard() {
               width: 32,
               height: 32,
               borderRadius: 10,
-              border: "1px solid #E5E7EB",
-              background: !canNext ? "#F9FAFB" : "white",
+              border: "1px solid #c4d5e3",
+              background: !canNext ? "#e9eef3" : "rgba(255,255,255,0.92)",
               cursor: !canNext ? "not-allowed" : "pointer",
               fontWeight: 950,
               lineHeight: 1,
@@ -422,16 +422,17 @@ function NoticeMainCard() {
               height: 32,
               padding: "0 12px",
               borderRadius: 999,
-              border: "1px solid #E5E7EB",
-              background: "white",
+              border: "1px solid #0e7490",
+              background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
               textDecoration: "none",
               fontWeight: 950,
               fontSize: 13,
-              color: "#111827",
+              color: "white",
               marginLeft: 4,
+              boxShadow: "0 8px 18px rgba(16,59,83,0.20)",
             }}
             title="전체보기/등록"
           >
@@ -444,8 +445,8 @@ function NoticeMainCard() {
               height: 32,
               padding: "0 12px",
               borderRadius: 999,
-              border: "1px solid #E5E7EB",
-              background: "white",
+              border: "1px solid #c4d5e3",
+              background: "rgba(255,255,255,0.92)",
               cursor: "pointer",
               fontWeight: 950,
               fontSize: 13,
@@ -467,10 +468,10 @@ function NoticeMainCard() {
         <>
           <div
             style={{
-              border: "1px solid #F3F4F6",
+              border: "1px solid #d9e6ef",
               borderRadius: 14,
               overflow: "hidden",
-              background: "white",
+              background: "rgba(255,255,255,0.92)",
             }}
           >
             {pageItems.map((n, idx) => (
@@ -492,7 +493,7 @@ function NoticeMainCard() {
                       style={{
                         fontWeight: 950,
                         fontSize: 14,
-                        color: "#111827",
+                        color: "#113247",
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
@@ -557,8 +558,8 @@ function NoticeMainCard() {
                     height: 28,
                     padding: "0 10px",
                     borderRadius: 10,
-                    border: "1px solid #E5E7EB",
-                    background: safePage === 1 ? "#F9FAFB" : "white",
+                    border: "1px solid #c4d5e3",
+                    background: safePage === 1 ? "#e9eef3" : "rgba(255,255,255,0.92)",
                     cursor: safePage === 1 ? "not-allowed" : "pointer",
                     fontWeight: 950,
                     fontSize: 12,
@@ -573,8 +574,8 @@ function NoticeMainCard() {
                     height: 28,
                     padding: "0 10px",
                     borderRadius: 10,
-                    border: "1px solid #E5E7EB",
-                    background: safePage === maxPage ? "#F9FAFB" : "white",
+                    border: "1px solid #c4d5e3",
+                    background: safePage === maxPage ? "#e9eef3" : "rgba(255,255,255,0.92)",
                     cursor: safePage === maxPage ? "not-allowed" : "pointer",
                     fontWeight: 950,
                     fontSize: 12,
@@ -669,16 +670,18 @@ function WeatherCard() {
               height: 30,
               padding: "0 12px",
               borderRadius: 999,
-              border: "1px solid #E5E7EB",
-              background: "white",
+              border: "1px solid #0e7490",
+              background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
+              color: "white",
               cursor: "pointer",
               fontWeight: 950,
               fontSize: 12,
+              boxShadow: "0 8px 18px rgba(16,59,83,0.20)",
             }}
           >
             새로고침
           </button>
-          <div style={{ fontSize: 11.5, color: "#6B7280", lineHeight: 1.1 }}>
+          <div style={{ fontSize: 11.5, color: "#4f6b80", lineHeight: 1.1 }}>
             업데이트: {w?.updatedAt ? new Date(w.updatedAt).toLocaleString("ko-KR") : "-"}
           </div>
         </div>
@@ -1197,30 +1200,6 @@ export default function AdminHomePage() {
           } as React.CSSProperties
         }
       >
-        <div
-          style={{
-            marginBottom: 10,
-            border: "1px solid #bcd0de",
-            borderRadius: 18,
-            background: "linear-gradient(135deg, rgba(16,59,83,0.10) 0%, rgba(15,118,110,0.10) 100%)",
-            boxShadow: "0 14px 28px rgba(2,32,46,0.08)",
-            padding: "12px 14px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 10,
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 24, fontWeight: 950, color: "#0b2536", letterSpacing: -0.2 }}>관리자 메인 대시보드</div>
-            <div style={{ marginTop: 2, fontSize: 13, color: "#36576d", fontWeight: 700 }}>오늘 기준 운영 현황과 공지/날씨를 한눈에 확인합니다.</div>
-          </div>
-          <div style={{ border: "1px solid #a8c0d1", background: "rgba(255,255,255,0.8)", borderRadius: 999, padding: "7px 12px", fontSize: 12, fontWeight: 900, color: "#103b53" }}>
-            선택일: {selectedYMD}
-          </div>
-        </div>
-
         <div className="homeGrid">
           <div className="leftCol">
             <Card
@@ -1235,8 +1214,8 @@ export default function AdminHomePage() {
                         width: 26,
                         height: 26,
                         borderRadius: 8,
-                        border: "1px solid #E5E7EB",
-                        background: "white",
+                        border: "1px solid #c4d5e3",
+                        background: "rgba(255,255,255,0.92)",
                         cursor: "pointer",
                         fontWeight: 900,
                         lineHeight: 1,
@@ -1250,8 +1229,8 @@ export default function AdminHomePage() {
                         width: 26,
                         height: 26,
                         borderRadius: 8,
-                        border: "1px solid #E5E7EB",
-                        background: "white",
+                        border: "1px solid #c4d5e3",
+                        background: "rgba(255,255,255,0.92)",
                         cursor: "pointer",
                         fontWeight: 900,
                         lineHeight: 1,
@@ -1265,11 +1244,13 @@ export default function AdminHomePage() {
                         height: 26,
                         padding: "0 10px",
                         borderRadius: 8,
-                        border: "1px solid #E5E7EB",
-                        background: "white",
+                        border: "1px solid #0e7490",
+                        background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
                         cursor: "pointer",
                         fontWeight: 900,
                         fontSize: 12,
+                        color: "white",
+                        boxShadow: "0 8px 18px rgba(16,59,83,0.22)",
                       }}
                     >
                       오늘
@@ -1332,8 +1313,8 @@ export default function AdminHomePage() {
                             width: 38,
                             height: 38,
                             borderRadius: 999,
-                            background: isSelected ? "#111827" : "transparent",
-                            color: isSelected ? "white" : !c.inCurrentMonth ? "#C3CAD5" : isSun || isHoliday ? "#EF4444" : "#111827",
+                            background: isSelected ? "linear-gradient(135deg,#103b53 0%,#0f766e 100%)" : "transparent",
+                            color: isSelected ? "white" : !c.inCurrentMonth ? "#C3CAD5" : isSun || isHoliday ? "#EF4444" : "#113247",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -1355,9 +1336,9 @@ export default function AdminHomePage() {
                                 height: 18,
                                 padding: "0 5px",
                                 borderRadius: 999,
-                                background: isSelected ? "white" : "#111827",
-                                color: isSelected ? "#111827" : "white",
-                                border: "1px solid #111827",
+                                background: isSelected ? "white" : "#103b53",
+                                color: isSelected ? "#103b53" : "white",
+                                border: "1px solid #103b53",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
