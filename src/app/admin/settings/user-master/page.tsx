@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { isCompanyAdminWorkPart } from "@/lib/admin-role";
 
 type ProfileRow = {
   id: string;
@@ -16,12 +15,6 @@ type ProfileRow = {
   join_date: string | null;
   leave_date: string | null;
   is_admin?: boolean | null;
-};
-
-type ShiftTodayRow = {
-  user_id: string;
-  clock_in_at: string | null;
-  clock_out_at: string | null;
 };
 
 type TodayShiftMap = Record<string, { inAt: string | null; outAt: string | null }>;
@@ -262,52 +255,33 @@ export default function UserMasterPage() {
     setErr(null);
     try {
       const { data: authData } = await supabase.auth.getSession();
-      const uid = authData.session?.user?.id ?? "";
-      let companyAdmin = false;
-      if (uid) {
-        const { data: myProf } = await supabase.from("profiles").select("work_part").eq("id", uid).maybeSingle();
-        companyAdmin = isCompanyAdminWorkPart((myProf as { work_part?: string | null } | null)?.work_part);
-      }
-      setIsCompanyAdminRole(companyAdmin);
+      const token = authData.session?.access_token;
+      if (!token) throw new Error("로그인 세션이 없습니다.");
 
-      const companyFilter = qCompany.trim();
-      const effectiveCompanyFilter = companyAdmin && companyFilter === BLOCKED_COMPANY ? "" : companyFilter;
+      const params = new URLSearchParams();
+      if (qName.trim()) params.set("qName", qName.trim());
+      if (qPart.trim()) params.set("qPart", qPart.trim());
+      if (qCompany.trim()) params.set("qCompany", qCompany.trim());
+      if (qWorkTable.trim()) params.set("qWorkTable", qWorkTable.trim());
 
-      let q = supabase
-        .from("profiles")
-        .select("id,approval_status,name,phone,birthdate,work_part,company_name,work_table,join_date,leave_date,is_admin")
-        .not("work_part", "ilike", "%기사%");
+      const res = await fetch(`/api/admin/user-master/list?${params.toString()}`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
 
-      if (qName.trim()) q = q.ilike("name", `%${qName.trim()}%`);
-      if (qPart.trim()) q = q.eq("work_part", qPart.trim());
-      if (companyAdmin) q = q.neq("company_name", BLOCKED_COMPANY);
-      if (effectiveCompanyFilter) q = q.eq("company_name", effectiveCompanyFilter);
-      if (qWorkTable.trim()) q = q.eq("work_table", qWorkTable.trim());
+      const payload = (await res.json()) as {
+        ok?: boolean;
+        message?: string;
+        rows?: ProfileRow[];
+        todayShiftMap?: TodayShiftMap;
+        isCompanyAdminRole?: boolean;
+      };
+      if (!res.ok || !payload?.ok) throw new Error(payload?.message || "데이터를 불러오지 못했습니다.");
 
-      const { data, error } = await q;
-      if (error) throw error;
-
-      const list = sortRows((data ?? []) as ProfileRow[]);
-      setRows(list);
-
-      const ids = list.map((r) => r.id);
-      if (ids.length === 0) {
-        setTodayShiftMap({});
-        return;
-      }
-
-      const { data: shifts, error: sErr } = await supabase
-        .from("work_shifts")
-        .select("user_id, clock_in_at, clock_out_at")
-        .eq("work_date", kstTodayYMD())
-        .in("user_id", ids);
-      if (sErr) throw sErr;
-
-      const map: TodayShiftMap = {};
-      for (const r of (shifts ?? []) as ShiftTodayRow[]) {
-        map[r.user_id] = { inAt: r.clock_in_at, outAt: r.clock_out_at };
-      }
-      setTodayShiftMap(map);
+      setIsCompanyAdminRole(!!payload.isCompanyAdminRole);
+      setRows(sortRows(payload.rows ?? []));
+      setTodayShiftMap(payload.todayShiftMap ?? {});
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "데이터를 불러오지 못했습니다.");
       setRows([]);

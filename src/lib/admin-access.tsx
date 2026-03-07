@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
+import { isCompanyAdminWorkPart, isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 
 /**
  * ✅ 기존 DB/코드 호환 유지:
@@ -19,6 +19,7 @@ type AdminAccessState = {
 
   isMainAdmin: boolean;
   isGeneralAdmin: boolean;
+  isCompanyAdmin: boolean;
 
   // 편의 플래그
   isAdmin: boolean;
@@ -32,6 +33,7 @@ const DEFAULT_STATE: AdminAccessState = {
   email: "",
   isMainAdmin: false,
   isGeneralAdmin: false,
+  isCompanyAdmin: false,
   isAdmin: false,
   menuAccess: {},
 };
@@ -43,6 +45,7 @@ export function AdminAccessProvider({
   menuAccess,
   isMainAdmin,
   isGeneralAdmin,
+  isCompanyAdmin,
 }: {
   children: React.ReactNode;
 
@@ -50,13 +53,15 @@ export function AdminAccessProvider({
   menuAccess?: MenuAccessMap;
   isMainAdmin?: boolean;
   isGeneralAdmin?: boolean;
+  isCompanyAdmin?: boolean;
 }) {
   const [state, setState] = useState<AdminAccessState>(() => ({
     ...DEFAULT_STATE,
     menuAccess: menuAccess ?? {},
     isMainAdmin: !!isMainAdmin,
     isGeneralAdmin: !!isGeneralAdmin,
-    isAdmin: !!isMainAdmin || !!isGeneralAdmin,
+    isCompanyAdmin: !!isCompanyAdmin,
+    isAdmin: !!isMainAdmin || !!isGeneralAdmin || !!isCompanyAdmin,
   }));
 
   // ✅ layout에서 내려주는 값이 바뀌면 반영(훅 규칙 준수)
@@ -64,15 +69,17 @@ export function AdminAccessProvider({
     setState((prev) => {
       const main = !!isMainAdmin;
       const general = !!isGeneralAdmin;
+      const company = !!isCompanyAdmin;
       return {
         ...prev,
         menuAccess: menuAccess ?? {},
         isMainAdmin: main,
         isGeneralAdmin: general,
-        isAdmin: main || general,
+        isCompanyAdmin: company,
+        isAdmin: main || general || company,
       };
     });
-  }, [menuAccess, isMainAdmin, isGeneralAdmin]);
+  }, [menuAccess, isMainAdmin, isGeneralAdmin, isCompanyAdmin]);
 
   // ✅ 세션 정보는 Provider가 자체로도 유지(혹시 다른 곳에서 직접 쓸 때)
   useEffect(() => {
@@ -110,6 +117,7 @@ export function AdminAccessProvider({
         const main = hardMain || dbMain;
 
         const general = isGeneralAdminWorkPart((prof as any)?.work_part);
+        const company = isCompanyAdminWorkPart((prof as any)?.work_part);
 
         if (!alive) return;
         setState((prev) => ({
@@ -120,7 +128,8 @@ export function AdminAccessProvider({
           // layout에서 주는 값이 우선이지만, 최소한 true 유지
           isMainAdmin: prev.isMainAdmin || main,
           isGeneralAdmin: prev.isGeneralAdmin || (!main && general),
-          isAdmin: prev.isAdmin || main || general,
+          isCompanyAdmin: prev.isCompanyAdmin || (!main && company),
+          isAdmin: prev.isAdmin || main || general || company,
         }));
       } catch {
         if (!alive) return;

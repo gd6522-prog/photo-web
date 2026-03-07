@@ -203,6 +203,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const canShow = (menuKey: string, mainOnly?: boolean) => {
     if (isMainAdmin) return true;
     if (mainOnly) return false;
+    if (isCompanyAdmin && menuKey === "settings_driver_master") return false;
     if (isCompanyAdmin && (menuKey === "admin_work_log" || menuKey === "settings_user_master")) return true;
     const access = (menuAccess?.[menuKey] ?? "full") as AccessLevel;
     return access !== "hidden";
@@ -300,6 +301,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           const menuKey = findMenuKeyByPath(pathname);
           if (menuKey) {
+            if (companyAdmin && menuKey === "settings_driver_master") {
+              router.replace("/admin");
+              router.refresh();
+              return;
+            }
             const access = (map?.[menuKey] ?? "full") as AccessLevel;
             const vendorOverride = companyAdmin && (menuKey === "admin_work_log" || menuKey === "settings_user_master");
             if (access === "hidden" && !vendorOverride) {
@@ -350,6 +356,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     const menuKey = findMenuKeyByPath(pathname);
     if (!menuKey) return;
+    if (isCompanyAdmin && menuKey === "settings_driver_master") {
+      router.replace("/admin");
+      router.refresh();
+      return;
+    }
 
     const access = (menuAccess?.[menuKey] ?? "full") as AccessLevel;
     const vendorOverride = isCompanyAdmin && (menuKey === "admin_work_log" || menuKey === "settings_user_master");
@@ -383,7 +394,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <AdminAccessProvider isMainAdmin={isMainAdmin} isGeneralAdmin={isGeneralAdmin} menuAccess={menuAccess}>
+    <AdminAccessProvider isMainAdmin={isMainAdmin} isGeneralAdmin={isGeneralAdmin} isCompanyAdmin={isCompanyAdmin} menuAccess={menuAccess}>
       <div style={{ minHeight: "100vh", background: "#F3F5F8", fontFamily: "Pretendard, system-ui, -apple-system, Segoe UI, sans-serif" }}>
         <div
           style={{

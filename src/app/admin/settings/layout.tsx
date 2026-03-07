@@ -8,13 +8,14 @@ import { getSettingsItems } from "@/lib/menu-registry";
 
 export default function AdminSettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { isMainAdmin } = useAdminAccess();
+  const { isMainAdmin, isCompanyAdmin } = useAdminAccess();
 
   const items = useMemo(() => getSettingsItems(), []);
 
-  const canShow = (mainOnly?: boolean) => {
-    if (!mainOnly) return true;
-    return isMainAdmin;
+  const canShow = (item: { mainOnly?: boolean; key: string }) => {
+    if (item.mainOnly && !isMainAdmin) return false;
+    if (isCompanyAdmin && item.key === "settings_driver_master") return false;
+    return true;
   };
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
@@ -40,7 +41,7 @@ export default function AdminSettingsLayout({ children }: { children: React.Reac
         <div style={{ fontWeight: 950, color: "#111827", marginBottom: 10 }}>설정</div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {items.filter((it) => canShow(it.mainOnly)).map((it) => {
+          {items.filter((it) => canShow(it)).map((it) => {
             const active = isActive(it.href);
             return (
               <Link
