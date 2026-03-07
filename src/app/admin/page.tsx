@@ -176,12 +176,10 @@ function Card({
 
 /** -------- 날씨 아이콘(SVG) -------- */
 function WeatherIcon({ code, size = 30 }: { code: number | null; size?: number }) {
-  const s = size;
   const common = {
-    width: s,
-    height: s,
+    width: size,
+    height: size,
     viewBox: "0 0 64 64",
-    fill: "none" as const,
     xmlns: "http://www.w3.org/2000/svg",
     style: { display: "block" as const },
   };
@@ -195,43 +193,37 @@ function WeatherIcon({ code, size = 30 }: { code: number | null; size?: number }
   const isSnow = (c >= 71 && c <= 77) || (c >= 85 && c <= 86);
   const isThunder = c >= 95;
 
-  const stroke = "#111827";
-  const stroke2 = "#6B7280";
+  const sun = (
+    <>
+      <circle cx="32" cy="32" r="11" fill="#FCD34D" stroke="#F59E0B" strokeWidth="2.5" />
+      {[...Array(8)].map((_, i) => {
+        const a = (Math.PI * 2 * i) / 8;
+        const x1 = 32 + Math.cos(a) * 18;
+        const y1 = 32 + Math.sin(a) * 18;
+        const x2 = 32 + Math.cos(a) * 25;
+        const y2 = 32 + Math.sin(a) * 25;
+        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#F59E0B" strokeWidth="3" strokeLinecap="round" />;
+      })}
+    </>
+  );
 
-  if (isClear) {
-    return (
-      <svg {...common}>
-        <circle cx="32" cy="32" r="11" stroke={stroke} strokeWidth="3" />
-        {[...Array(8)].map((_, i) => {
-          const a = (Math.PI * 2 * i) / 8;
-          const x1 = 32 + Math.cos(a) * 18;
-          const y1 = 32 + Math.sin(a) * 18;
-          const x2 = 32 + Math.cos(a) * 26;
-          const y2 = 32 + Math.sin(a) * 26;
-          return (
-            <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={stroke} strokeWidth="3" strokeLinecap="round" />
-          );
-        })}
-      </svg>
-    );
-  }
+  const cloud = (
+    <path
+      d="M16 40c0-5 4-9 9-9 2 0 3 0 5 1 2-4 6-7 11-7 7 0 13 6 13 13 6 0 10 4 10 9s-5 9-10 9H24c-5 0-8-4-8-8 0-3 0-5 0-8z"
+      fill="#DCE3EC"
+      stroke="#AAB8C8"
+      strokeWidth="2.2"
+      strokeLinejoin="round"
+    />
+  );
+
+  if (isClear) return <svg {...common}>{sun}</svg>;
 
   if (isPartly) {
     return (
       <svg {...common}>
-        <circle cx="24" cy="26" r="9" stroke={stroke} strokeWidth="3" />
-        <path
-          d="M24 17 L24 12 M24 40 L24 45 M15 26 L10 26 M38 26 L43 26 M17 19 L13 15 M31 33 L35 37 M17 33 L13 37 M31 19 L35 15"
-          stroke={stroke2}
-          strokeWidth="2.5"
-          strokeLinecap="round"
-        />
-        <path
-          d="M26 44H46c6 0 10-4 10-9s-4-9-10-9c-1 0-2 0-3 .3C41 22 38 19 33 19c-5 0-9 4-9 9v.2C20 29 18 32 18 36c0 4 3 8 8 8z"
-          stroke={stroke}
-          strokeWidth="3"
-          strokeLinejoin="round"
-        />
+        <g transform="translate(-7,-6) scale(0.86)">{sun}</g>
+        {cloud}
       </svg>
     );
   }
@@ -239,14 +231,9 @@ function WeatherIcon({ code, size = 30 }: { code: number | null; size?: number }
   if (isFog) {
     return (
       <svg {...common}>
-        <path
-          d="M18 30c1-7 6-12 14-12 6 0 10 3 12 8 7 0 12 5 12 12 0 6-4 10-10 10H22c-6 0-10-4-10-10 0-4 2-7 6-8z"
-          stroke={stroke}
-          strokeWidth="3"
-          strokeLinejoin="round"
-        />
-        <path d="M14 50H50" stroke={stroke2} strokeWidth="3" strokeLinecap="round" />
-        <path d="M18 56H46" stroke={stroke2} strokeWidth="3" strokeLinecap="round" />
+        {cloud}
+        <path d="M14 50h36" stroke="#9AA9B8" strokeWidth="3" strokeLinecap="round" />
+        <path d="M18 56h30" stroke="#9AA9B8" strokeWidth="3" strokeLinecap="round" />
       </svg>
     );
   }
@@ -254,17 +241,11 @@ function WeatherIcon({ code, size = 30 }: { code: number | null; size?: number }
   if (isSnow) {
     return (
       <svg {...common}>
-        <path
-          d="M18 34c1-7 6-12 14-12 6 0 10 3 12 8 7 0 12 5 12 12 0 6-4 10-10 10H22c-6 0-10-4-10-10 0-4 2-7 6-8z"
-          stroke={stroke}
-          strokeWidth="3"
-          strokeLinejoin="round"
-        />
-        {[18, 28, 38, 48].map((x, i) => (
-          <g key={i}>
-            <path d={`M${x} 50v10`} stroke={stroke2} strokeWidth="3" strokeLinecap="round" />
-            <path d={`M${x - 4} 54l8 6`} stroke={stroke2} strokeWidth="2.5" strokeLinecap="round" />
-            <path d={`M${x + 4} 54l-8 6`} stroke={stroke2} strokeWidth="2.5" strokeLinecap="round" />
+        {cloud}
+        {[22, 32, 42].map((x, i) => (
+          <g key={i} transform={`translate(${x} 52)`}>
+            <circle cx="0" cy="0" r="2.3" fill="#60A5FA" />
+            <path d="M0 -4v8M-4 0h8M-3 -3l6 6M-3 3l6-6" stroke="#2563EB" strokeWidth="1.5" strokeLinecap="round" />
           </g>
         ))}
       </svg>
@@ -274,13 +255,8 @@ function WeatherIcon({ code, size = 30 }: { code: number | null; size?: number }
   if (isThunder) {
     return (
       <svg {...common}>
-        <path
-          d="M18 34c1-7 6-12 14-12 6 0 10 3 12 8 7 0 12 5 12 12 0 6-4 10-10 10H22c-6 0-10-4-10-10 0-4 2-7 6-8z"
-          stroke={stroke}
-          strokeWidth="3"
-          strokeLinejoin="round"
-        />
-        <path d="M30 48l-6 10h8l-4 10 12-16h-8l6-10h-8z" fill={stroke} />
+        {cloud}
+        <path d="M33 44l-6 11h7l-3 9 11-15h-7l4-8z" fill="#F59E0B" stroke="#D97706" strokeWidth="1.2" />
       </svg>
     );
   }
@@ -288,29 +264,15 @@ function WeatherIcon({ code, size = 30 }: { code: number | null; size?: number }
   if (isDrizzle || isRain) {
     return (
       <svg {...common}>
-        <path
-          d="M18 30c1-7 6-12 14-12 6 0 10 3 12 8 7 0 12 5 12 12 0 6-4 10-10 10H22c-6 0-10-4-10-10 0-4 2-7 6-8z"
-          stroke={stroke}
-          strokeWidth="3"
-          strokeLinejoin="round"
-        />
-        {[20, 30, 40, 50].map((x, i) => (
-          <path key={i} d={`M${x} 48l-4 10`} stroke={stroke2} strokeWidth="3" strokeLinecap="round" />
+        {cloud}
+        {[22, 32, 42].map((x, i) => (
+          <path key={i} d={`M${x} 49l-3 9`} stroke="#2563EB" strokeWidth="3" strokeLinecap="round" />
         ))}
       </svg>
     );
   }
 
-  return (
-    <svg {...common}>
-      <path
-        d="M18 34c1-7 6-12 14-12 6 0 10 3 12 8 7 0 12 5 12 12 0 6-4 10-10 10H22c-6 0-10-4-10-10 0-4 2-7 6-8z"
-        stroke={stroke}
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <svg {...common}>{cloud}</svg>;
 }
 
 /** -------- 공지(메인) : 리스트형 (✅ 6개/페이지) -------- */
@@ -706,15 +668,16 @@ function WeatherCard() {
                 <div
                   style={{
                     minWidth: 108,
-                    borderRadius: 12,
-                    border: "1px solid #FCA5A5",
-                    background: "linear-gradient(135deg,#fff1f2 0%,#ffe4e6 100%)",
-                    padding: "7px 10px",
+                    borderRadius: 14,
+                    border: "1px solid #b91c1c",
+                    background: "linear-gradient(135deg,#dc2626 0%,#be123c 100%)",
+                    boxShadow: "0 10px 20px rgba(190,18,60,0.28)",
+                    padding: "8px 11px",
                     textAlign: "center",
                   }}
                 >
-                  <div style={{ fontSize: 11, fontWeight: 900, color: "#BE123C", letterSpacing: 0.2 }}>체감온도</div>
-                  <div style={{ marginTop: 2, fontSize: 24, lineHeight: 1, fontWeight: 950, color: "#9F1239" }}>
+                  <div style={{ fontSize: 11, fontWeight: 900, color: "rgba(255,255,255,0.88)", letterSpacing: 0.2 }}>체감온도</div>
+                  <div style={{ marginTop: 2, fontSize: 26, lineHeight: 1, fontWeight: 950, color: "#ffffff", textShadow: "0 1px 2px rgba(0,0,0,0.22)" }}>
                     {w?.today.feelsLike == null ? "-" : `${Math.round(w.today.feelsLike)}°`}
                   </div>
                 </div>
