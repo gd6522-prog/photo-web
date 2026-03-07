@@ -139,7 +139,7 @@ function Card({
       style={{
         border: "1px solid #bdd0de",
         borderRadius: 18,
-        background: "rgba(255,255,255,0.94)",
+        background: "#fff",
         overflow: "hidden",
         boxShadow: "0 16px 34px rgba(2,32,46,0.10)",
         width: "100%",
@@ -157,7 +157,7 @@ function Card({
           alignItems: "center",
           justifyContent: "space-between",
           gap: 10,
-          background: "linear-gradient(180deg, rgba(249,252,255,0.95) 0%, rgba(255,255,255,0.92) 100%)",
+          background: "#fff",
         }}
       >
         <div style={{ minWidth: 0 }}>
@@ -349,7 +349,7 @@ function NoticeMainCard() {
               height: 32,
               borderRadius: 10,
               border: "1px solid #c4d5e3",
-              background: !canPrev ? "#e9eef3" : "rgba(255,255,255,0.92)",
+              background: !canPrev ? "#e9eef3" : "#fff",
               cursor: !canPrev ? "not-allowed" : "pointer",
               fontWeight: 950,
               lineHeight: 1,
@@ -367,7 +367,7 @@ function NoticeMainCard() {
               height: 32,
               borderRadius: 10,
               border: "1px solid #c4d5e3",
-              background: !canNext ? "#e9eef3" : "rgba(255,255,255,0.92)",
+              background: !canNext ? "#e9eef3" : "#fff",
               cursor: !canNext ? "not-allowed" : "pointer",
               fontWeight: 950,
               lineHeight: 1,
@@ -408,7 +408,7 @@ function NoticeMainCard() {
               padding: "0 12px",
               borderRadius: 999,
               border: "1px solid #c4d5e3",
-              background: "rgba(255,255,255,0.92)",
+              background: "#fff",
               cursor: "pointer",
               fontWeight: 950,
               fontSize: 13,
@@ -433,7 +433,7 @@ function NoticeMainCard() {
               border: "1px solid #d9e6ef",
               borderRadius: 14,
               overflow: "hidden",
-              background: "rgba(255,255,255,0.92)",
+              background: "#fff",
             }}
           >
             {pageItems.map((n, idx) => (
@@ -521,7 +521,7 @@ function NoticeMainCard() {
                     padding: "0 10px",
                     borderRadius: 10,
                     border: "1px solid #c4d5e3",
-                    background: safePage === 1 ? "#e9eef3" : "rgba(255,255,255,0.92)",
+                    background: safePage === 1 ? "#e9eef3" : "#fff",
                     cursor: safePage === 1 ? "not-allowed" : "pointer",
                     fontWeight: 950,
                     fontSize: 12,
@@ -537,7 +537,7 @@ function NoticeMainCard() {
                     padding: "0 10px",
                     borderRadius: 10,
                     border: "1px solid #c4d5e3",
-                    background: safePage === maxPage ? "#e9eef3" : "rgba(255,255,255,0.92)",
+                    background: safePage === maxPage ? "#e9eef3" : "#fff",
                     cursor: safePage === maxPage ? "not-allowed" : "pointer",
                     fontWeight: 950,
                     fontSize: 12,
@@ -708,7 +708,7 @@ function WeatherCard() {
                 주간예보 (D+7, 오늘 제외)
               </div>
 
-              <div style={{ overflow: "hidden", borderRadius: 14, border: "1px solid #d9e6ef", background: "rgba(255,255,255,0.92)" }}>
+              <div style={{ overflow: "hidden", borderRadius: 14, border: "1px solid #d9e6ef", background: "#fff" }}>
                 <div
                   style={{
                     display: "grid",
@@ -1179,7 +1179,7 @@ export default function AdminHomePage() {
                         height: 26,
                         borderRadius: 8,
                         border: "1px solid #c4d5e3",
-                        background: "rgba(255,255,255,0.92)",
+                        background: "#fff",
                         cursor: "pointer",
                         fontWeight: 900,
                         lineHeight: 1,
@@ -1194,7 +1194,7 @@ export default function AdminHomePage() {
                         height: 26,
                         borderRadius: 8,
                         border: "1px solid #c4d5e3",
-                        background: "rgba(255,255,255,0.92)",
+                        background: "#fff",
                         cursor: "pointer",
                         fontWeight: 900,
                         lineHeight: 1,
@@ -1343,7 +1343,7 @@ export default function AdminHomePage() {
             style={{
               border: "1px solid #bdd0de",
               borderRadius: 16,
-              background: "rgba(255,255,255,0.92)",
+              background: "#fff",
               padding: 8,
               display: "flex",
               flexDirection: "column",
@@ -1362,7 +1362,7 @@ export default function AdminHomePage() {
                   color: "#113247",
                   fontSize: 12,
                   fontWeight: 900,
-                  background: "rgba(248,252,255,0.92)",
+                  background: "#fff",
                 }}
               >
               <span
@@ -1394,7 +1394,7 @@ export default function AdminHomePage() {
                     fontSize: 11,
                   lineHeight: 1,
                   fontWeight: 900,
-                  background: "rgba(255,255,255,0.92)",
+                  background: "#fff",
                 }}
                 title="배송사진 페이지로 이동"
               >
@@ -1413,7 +1413,7 @@ export default function AdminHomePage() {
                   color: "#113247",
                   fontSize: 12,
                   fontWeight: 900,
-                  background: "rgba(248,252,255,0.92)",
+                  background: "#fff",
                 }}
               >
               <span
@@ -1445,7 +1445,7 @@ export default function AdminHomePage() {
                     fontSize: 11,
                   lineHeight: 1,
                   fontWeight: 900,
-                  background: "rgba(255,255,255,0.92)",
+                  background: "#fff",
                 }}
                 title="위험요인 페이지로 이동"
               >
