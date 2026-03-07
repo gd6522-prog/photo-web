@@ -87,9 +87,20 @@ export async function GET(req: NextRequest) {
     };
   });
 
+  // 전체 미처리 건수 = 전체 제보 수 - 처리완료(개선사진 존재) 수
+  const { count: resolvedCount, error: resolvedCountErr } = await guard.sbAdmin
+    .from("hazard_report_resolutions")
+    .select("report_id", { count: "exact", head: true })
+    .not("after_public_url", "is", null);
+  if (resolvedCountErr) return json(false, resolvedCountErr.message, null, 500);
+
+  const total = count ?? 0;
+  const unresolvedTotalCount = Math.max(0, total - (resolvedCount ?? 0));
+
   return json(true, undefined, {
     items,
     totalCount: count ?? 0,
+    unresolvedTotalCount,
     page,
     pageSize,
   });

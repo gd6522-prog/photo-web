@@ -33,6 +33,7 @@ function isSection(pathname: string, prefix: string) {
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [workLogTab, setWorkLogTab] = useState<"basic" | "detail">("basic");
 
   const isAdminPath = pathname === "/admin" || pathname.startsWith("/admin/");
 
@@ -44,6 +45,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const [photosOpen, setPhotosOpen] = useState(false);
   const [noticeOpen, setNoticeOpen] = useState(false);
+  const [workLogOpen, setWorkLogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -70,6 +72,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     []
   );
 
+  const WORK_LOG_ITEMS = useMemo(
+    () => [
+      { label: "1. 기본근태", href: "/admin/work-log?tab=basic" },
+      { label: "2. 상세근태", href: "/admin/work-log?tab=detail" },
+    ],
+    []
+  );
+
   const clearCloseTimer = () => {
     if (closeTimer.current) clearTimeout(closeTimer.current);
     closeTimer.current = null;
@@ -78,31 +88,41 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const closeAll = () => {
     setPhotosOpen(false);
     setNoticeOpen(false);
+    setWorkLogOpen(false);
     setSettingsOpen(false);
   };
 
-  const openDropdown = (which: "photos" | "notice" | "settings") => {
+  const openDropdown = (which: "photos" | "notice" | "worklog" | "settings") => {
     clearCloseTimer();
     if (which === "photos") {
       setPhotosOpen(true);
       setNoticeOpen(false);
+      setWorkLogOpen(false);
       setSettingsOpen(false);
     } else if (which === "notice") {
       setPhotosOpen(false);
       setNoticeOpen(true);
+      setWorkLogOpen(false);
+      setSettingsOpen(false);
+    } else if (which === "worklog") {
+      setPhotosOpen(false);
+      setNoticeOpen(false);
+      setWorkLogOpen(true);
       setSettingsOpen(false);
     } else {
       setPhotosOpen(false);
       setNoticeOpen(false);
+      setWorkLogOpen(false);
       setSettingsOpen(true);
     }
   };
 
-  const closeDropdownDelayed = (which: "photos" | "notice" | "settings") => {
+  const closeDropdownDelayed = (which: "photos" | "notice" | "worklog" | "settings") => {
     clearCloseTimer();
     closeTimer.current = setTimeout(() => {
       if (which === "photos") setPhotosOpen(false);
       if (which === "notice") setNoticeOpen(false);
+      if (which === "worklog") setWorkLogOpen(false);
       if (which === "settings") setSettingsOpen(false);
     }, 180);
   };
@@ -112,6 +132,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     document.addEventListener("click", onDocClick);
     return () => document.removeEventListener("click", onDocClick);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    setWorkLogTab(tab === "detail" ? "detail" : "basic");
+  }, [pathname]);
 
   const pillStyle = (active: boolean) => ({
     textDecoration: "none",
@@ -170,6 +196,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   // ??怨듭? 猷⑦듃 ?ы븿
   const isNoticeActive = pathname.startsWith("/admin/notice");
+  const isWorkLogActive = pathname.startsWith("/admin/work-log");
   const isSettingsActive = pathname.startsWith("/admin/settings");
 
   const canShow = (menuKey: string, mainOnly?: boolean) => {
@@ -458,9 +485,36 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </div>
 
                 {canShow("admin_work_log") ? (
-                  <Link href="/admin/work-log" style={pillStyle(isActive("/admin/work-log"))}>
-                    근태
-                  </Link>
+                  <div
+                    onMouseEnter={() => openDropdown("worklog")}
+                    onMouseLeave={() => closeDropdownDelayed("worklog")}
+                    style={{ position: "relative" }}
+                  >
+                    <Link href="/admin/work-log?tab=basic" style={pillStyle(isWorkLogActive)} onMouseEnter={() => openDropdown("worklog")}>
+                      근태
+                    </Link>
+
+                    {workLogOpen && (
+                      <div
+                        onMouseEnter={() => openDropdown("worklog")}
+                        onMouseLeave={() => closeDropdownDelayed("worklog")}
+                        style={dropdownBoxStyle}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {WORK_LOG_ITEMS.map((it) => {
+                          const active = it.href.includes("tab=detail")
+                            ? pathname.startsWith("/admin/work-log") && workLogTab === "detail"
+                            : pathname === "/admin/work-log" && workLogTab === "basic";
+
+                          return (
+                            <Link key={it.href} href={it.href} style={dropdownItemStyle(active)}>
+                              {it.label}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 ) : null}
 
                 {/* 설정 */}

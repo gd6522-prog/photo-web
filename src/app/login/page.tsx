@@ -41,7 +41,7 @@ function toKoreanErrorMessage(e: unknown): string {
   const lower = raw.toLowerCase();
 
   if (lower.includes("infinite recursion detected in policy") && lower.includes('"profiles"')) {
-    return "서버 권한정책(RLS) 설정 오류로 로그인 처리가 막혔습니다. 관리자에게 정책 수정이 필요합니다.";
+    return '서버 권한정책(RLS) 설정 오류로 로그인 처리가 막혔습니다. 관리자에게 정책 수정이 필요합니다.';
   }
   if (lower.includes("invalid login credentials") || lower.includes("invalid credentials")) {
     return "전화번호 또는 비밀번호가 올바르지 않습니다.";
@@ -64,6 +64,38 @@ function toKoreanErrorMessage(e: unknown): string {
   return "로그인 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
 }
 
+function toKoreanResetErrorMessage(e: unknown): string {
+  const raw = String((e as { message?: string } | null)?.message ?? e ?? "");
+  const lower = raw.toLowerCase();
+
+  if (!raw.trim()) return "비밀번호 재설정 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+  if (lower.includes("sms") && lower.includes("provider")) {
+    return "SMS 인증 설정이 비활성화되어 있습니다. Supabase Auth Phone/SMS Provider를 먼저 설정해 주세요.";
+  }
+  if (lower.includes("unsupported") && lower.includes("phone")) {
+    return "전화번호 OTP를 지원하지 않는 설정입니다. 인증 설정을 확인해 주세요.";
+  }
+  if (lower.includes("invalid") && lower.includes("otp")) {
+    return "인증번호가 올바르지 않습니다. 다시 확인해 주세요.";
+  }
+  if (lower.includes("user not found") || lower.includes("not found")) {
+    return "가입된 전화번호를 찾을 수 없습니다.";
+  }
+  if (lower.includes("expired") && lower.includes("otp")) {
+    return "인증번호가 만료되었습니다. 인증번호를 다시 발송해 주세요.";
+  }
+  if (lower.includes("rate limit") || lower.includes("too many")) {
+    return "요청이 많아 잠시 제한되었습니다. 잠시 후 다시 시도해 주세요.";
+  }
+  if (lower.includes("failed to fetch") || lower.includes("network")) {
+    return "네트워크 오류입니다. 인터넷 연결을 확인해 주세요.";
+  }
+  if (lower.includes("row-level security") || lower.includes("rls")) {
+    return "권한 정책(RLS)으로 요청이 차단되었습니다. 관리자에게 문의해 주세요.";
+  }
+  return `비밀번호 재설정 오류: ${raw}`;
+}
+
 export default function LoginPage() {
   const router = useRouter();
 
@@ -72,7 +104,17 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
+  const [showReset, setShowReset] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetMsg, setResetMsg] = useState("");
+  const [resetPhone, setResetPhone] = useState("");
+  const [resetOtpSent, setResetOtpSent] = useState(false);
+  const [resetOtp, setResetOtp] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetPassword2, setResetPassword2] = useState("");
+
   const e164 = useMemo(() => toE164KR(phone.trim()), [phone]);
+  const resetE164 = useMemo(() => toE164KR(resetPhone.trim()), [resetPhone]);
 
   const onLogin = async () => {
     if (busy) return;
@@ -136,48 +178,182 @@ export default function LoginPage() {
     }
   };
 
+  const onSendResetOtp = async () => {
+    if (resetBusy) return;
+    setResetBusy(true);
+    setResetMsg("");
+    try {
+      if (!resetE164) throw new Error("전화번호 형식이 올바르지 않습니다. (예: 01012345678)");
+      const { error } = await supabase.auth.signInWithOtp({
+        phone: resetE164,
+        options: { shouldCreateUser: false },
+      });
+      if (error) throw error;
+      setResetOtpSent(true);
+      setResetMsg("인증번호를 발송했습니다.");
+    } catch (e: unknown) {
+      setResetMsg(toKoreanResetErrorMessage(e));
+    } finally {
+      setResetBusy(false);
+    }
+  };
+
+  const onResetPassword = async () => {
+    if (resetBusy) return;
+    setResetBusy(true);
+    setResetMsg("");
+    try {
+      if (!resetE164) throw new Error("전화번호 형식이 올바르지 않습니다.");
+      if (!resetOtpSent) throw new Error("먼저 인증번호를 발송해 주세요.");
+      if (resetOtp.trim().length < 4) throw new Error("인증번호를 입력해 주세요.");
+      if (resetPassword.trim().length < 6) throw new Error("비밀번호는 6자리 이상이어야 합니다.");
+      if (resetPassword.trim() !== resetPassword2.trim()) throw new Error("비밀번호 확인이 일치하지 않습니다.");
+
+      const { error: otpErr } = await supabase.auth.verifyOtp({
+        phone: resetE164,
+        token: resetOtp.trim(),
+        type: "sms",
+      });
+      if (otpErr) throw otpErr;
+
+      const { error: upErr } = await supabase.auth.updateUser({
+        password: resetPassword.trim(),
+      });
+      if (upErr) throw upErr;
+
+      await supabase.auth.signOut();
+      setShowReset(false);
+      setResetOtpSent(false);
+      setResetOtp("");
+      setResetPassword("");
+      setResetPassword2("");
+      setResetMsg("");
+      setMsg("비밀번호가 재설정되었습니다. 새 비밀번호로 로그인해 주세요.");
+    } catch (e: unknown) {
+      setResetMsg(toKoreanResetErrorMessage(e));
+    } finally {
+      setResetBusy(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-50 p-6">
-      <div className="w-full max-w-md rounded-2xl border bg-white p-6 shadow-sm">
-        <div className="text-xl font-black text-zinc-900">관리자 로그인</div>
-        <div className="mt-1 text-sm text-zinc-500">전화번호 + 비밀번호로 로그인합니다.</div>
+    <div className="min-h-screen relative overflow-hidden bg-[#ecf2f7]">
+      <div className="pointer-events-none absolute -top-28 -left-24 h-80 w-80 rounded-full bg-[#0f766e]/20 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-32 -right-20 h-96 w-96 rounded-full bg-[#164e63]/20 blur-3xl" />
 
-        <div className="mt-5 grid gap-3">
-          <input
-            className="w-full rounded-xl border px-3 py-3 outline-none focus:ring"
-            placeholder="전화번호 (예: 01012345678)"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            inputMode="tel"
-            autoCapitalize="none"
-            autoCorrect="off"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") onLogin();
-            }}
-          />
+      <div className="relative min-h-screen flex items-center justify-center p-6">
+        <div className="w-full max-w-md rounded-3xl border border-[#b6c8d7] bg-white/95 p-7 shadow-[0_24px_60px_rgba(2,32,46,0.18)]">
+          <div className="mb-5">
+            <div className="text-2xl font-black tracking-tight text-[#0b2536]">관리자 로그인</div>
+            <div className="mt-1 text-sm font-medium text-[#557186]">전화번호와 비밀번호로 로그인합니다.</div>
+          </div>
 
-          <input
-            className="w-full rounded-xl border px-3 py-3 outline-none focus:ring"
-            placeholder="비밀번호"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") onLogin();
-            }}
-          />
+          <div className="grid gap-3">
+            <input
+              className="h-12 w-full rounded-xl border border-[#b7c8d7] px-4 text-[15px] outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20"
+              placeholder="전화번호 (예: 01012345678)"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              inputMode="tel"
+              autoCapitalize="none"
+              autoCorrect="off"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") onLogin();
+              }}
+            />
 
-          <button
-            className="w-full rounded-xl bg-black py-3 font-bold text-white disabled:opacity-60"
-            onClick={onLogin}
-            disabled={busy || !phone || !password}
-          >
-            {busy ? "로그인 중..." : "로그인"}
-          </button>
+            <input
+              className="h-12 w-full rounded-xl border border-[#b7c8d7] px-4 text-[15px] outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20"
+              placeholder="비밀번호"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") onLogin();
+              }}
+            />
 
-          {msg && <div className="text-sm text-red-600">{msg}</div>}
+            <button
+              className="h-12 w-full rounded-xl bg-[#103b53] text-[16px] font-black text-white transition hover:bg-[#0c2f43] disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={onLogin}
+              disabled={busy || !phone || !password}
+            >
+              {busy ? "로그인 중..." : "로그인"}
+            </button>
 
-          <div className="text-xs text-zinc-400">로그인 성공 후 관리자면 /admin 으로 이동합니다.</div>
+            {msg ? <div className="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{msg}</div> : null}
+
+            <button
+              type="button"
+              className="mt-1 w-fit text-sm font-black text-[#0f3c8e] underline underline-offset-2"
+              onClick={() => {
+                setShowReset((p) => !p);
+                setResetMsg("");
+              }}
+            >
+              비밀번호 재설정
+            </button>
+
+            {showReset ? (
+              <div className="rounded-2xl border border-[#c9d7e2] bg-[#f7fbff] p-3">
+                <div className="mb-2 text-sm font-black text-[#0f2433]">비밀번호 재설정</div>
+                <div className="grid gap-2">
+                  <div className="flex gap-2">
+                    <input
+                      className="h-11 flex-1 rounded-xl border border-[#b7c8d7] px-3 text-[15px] outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20"
+                      placeholder="전화번호 (예: 01012345678)"
+                      value={resetPhone}
+                      onChange={(e) => setResetPhone(e.target.value)}
+                      inputMode="tel"
+                      disabled={resetBusy}
+                    />
+                    <button
+                      type="button"
+                      className="h-11 rounded-xl bg-[#0f172a] px-3 text-sm font-black text-white transition hover:bg-black disabled:opacity-50"
+                      onClick={onSendResetOtp}
+                      disabled={resetBusy || !resetPhone}
+                    >
+                      {resetBusy ? "요청 중..." : resetOtpSent ? "재발송" : "인증번호 발송"}
+                    </button>
+                  </div>
+
+                  <input
+                    className="h-11 rounded-xl border border-[#b7c8d7] px-3 text-[15px] outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20"
+                    placeholder="인증번호"
+                    value={resetOtp}
+                    onChange={(e) => setResetOtp(e.target.value)}
+                    disabled={resetBusy || !resetOtpSent}
+                  />
+                  <input
+                    className="h-11 rounded-xl border border-[#b7c8d7] px-3 text-[15px] outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20"
+                    type="password"
+                    placeholder="새 비밀번호 (6자리 이상)"
+                    value={resetPassword}
+                    onChange={(e) => setResetPassword(e.target.value)}
+                    disabled={resetBusy || !resetOtpSent}
+                  />
+                  <input
+                    className="h-11 rounded-xl border border-[#b7c8d7] px-3 text-[15px] outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20"
+                    type="password"
+                    placeholder="새 비밀번호 확인"
+                    value={resetPassword2}
+                    onChange={(e) => setResetPassword2(e.target.value)}
+                    disabled={resetBusy || !resetOtpSent}
+                  />
+                  <button
+                    type="button"
+                    className="h-11 w-full rounded-xl bg-[#334155] text-sm font-black text-white transition hover:bg-[#1e293b] disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={onResetPassword}
+                    disabled={resetBusy || !resetOtpSent || !resetOtp || !resetPassword || !resetPassword2}
+                  >
+                    {resetBusy ? "처리 중..." : "비밀번호 변경"}
+                  </button>
+                  {resetMsg ? <div className="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{resetMsg}</div> : null}
+                </div>
+              </div>
+            ) : null}
+
+          </div>
         </div>
       </div>
     </div>

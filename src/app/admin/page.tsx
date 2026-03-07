@@ -713,7 +713,7 @@ function WeatherCard() {
                     border: "1px solid #FCA5A5",
                     background: "linear-gradient(135deg,#fff1f2 0%,#ffe4e6 100%)",
                     padding: "7px 10px",
-                    textAlign: "right",
+                    textAlign: "center",
                   }}
                 >
                   <div style={{ fontSize: 11, fontWeight: 900, color: "#BE123C", letterSpacing: 0.2 }}>체감온도</div>

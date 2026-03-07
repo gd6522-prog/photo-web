@@ -3,18 +3,28 @@ import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const secret = process.env.MIGRATION_SECRET!;
-
-const admin = createClient(url, serviceKey, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) return null;
+  return createClient(url, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
 
 export async function GET(req: Request) {
+  const secret = process.env.MIGRATION_SECRET;
+  if (!secret) {
+    return NextResponse.json({ error: "server env missing: MIGRATION_SECRET" }, { status: 500 });
+  }
   const s = req.headers.get("x-migration-secret");
   if (!s || s !== secret) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const admin = getAdminClient();
+  if (!admin) {
+    return NextResponse.json({ error: "server env missing: supabase url/service role key" }, { status: 500 });
   }
 
   const { data: profiles, error } = await admin
