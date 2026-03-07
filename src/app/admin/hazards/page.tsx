@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 
 type ReportRow = {
   id: string;
@@ -32,8 +33,6 @@ type HazardListItem = ReportRow & {
   resolution: ResolutionRow | null;
 };
 
-const ADMIN_EMAIL = "gd6522@naver.com";
-const ADMIN_UID = "bf70f0c0-3c58-444e-b69f-bd5de601deb6";
 const PAGE_SIZE = 4;
 
 function pad2(n: number) {
@@ -49,10 +48,6 @@ function toKstDate(iso: string) {
 function formatKST(ts: string | null) {
   if (!ts) return "-";
   return new Date(ts).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour12: false });
-}
-
-function norm(v: unknown) {
-  return String(v ?? "").trim();
 }
 
 function extFromName(name: string) {
@@ -202,12 +197,11 @@ export default function AdminHazardsPage() {
       .eq("id", uid)
       .maybeSingle();
 
-    const hardAdmin = uid === ADMIN_UID || email === ADMIN_EMAIL;
+    const hardAdmin = isMainAdminIdentity(uid, email);
     const main = hardAdmin || (!!prof && !!(prof as { is_admin?: boolean | null }).is_admin);
-    const general = norm((prof as { work_part?: string | null } | null)?.work_part) === "관리자";
-    const general2 = norm((prof as { work_part?: string | null } | null)?.work_part) === "일반관리자";
+    const general = isGeneralAdminWorkPart((prof as { work_part?: string | null } | null)?.work_part);
 
-    const admin = main || general || general2;
+    const admin = main || general;
     setIsAdmin(admin);
     setIsMainAdmin(main);
 

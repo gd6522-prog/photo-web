@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 
 type EventRow = {
   id: string;
@@ -20,13 +21,6 @@ type HolidayRow = {
   name: string;
   source: string | null;
 };
-
-const ADMIN_EMAIL = "gd6522@naver.com";
-const ADMIN_UID = "bf70f0c0-3c58-444e-b69f-bd5de601deb6";
-
-function normWorkPart(v: any) {
-  return String(v ?? "").trim();
-}
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -116,10 +110,9 @@ export default function AdminNoticeCalendarPage() {
       .eq("id", uid)
       .maybeSingle();
 
-    const hardAdmin = uid === ADMIN_UID || email === ADMIN_EMAIL;
+    const hardAdmin = isMainAdminIdentity(uid, email);
     const main = hardAdmin || (!!prof && !!(prof as any).is_admin);
-    const general = normWorkPart((prof as any)?.work_part) === "관리자";
-
+    const general = isGeneralAdminWorkPart((prof as any)?.work_part);
     const admin = main || general;
 
     setIsAdmin(admin);

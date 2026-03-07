@@ -1,6 +1,7 @@
-// src/app/api/admin/notices/list/route.ts
+﻿// src/app/api/admin/notices/list/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -23,13 +24,13 @@ export async function GET(req: Request) {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    // 세션 체크
+    // ?몄뀡 泥댄겕
     const { data: userData, error: userErr } = await supabase.auth.getUser();
     if (userErr) throw userErr;
     const user = userData.user;
     if (!user) return NextResponse.json({ ok: false, message: "Invalid session" }, { status: 401 });
 
-    // 관리자 체크
+    // 愿由ъ옄 泥댄겕
     const { data: prof, error: profErr } = await supabase
       .from("profiles")
       .select("id, is_admin, work_part")
@@ -37,13 +38,12 @@ export async function GET(req: Request) {
       .maybeSingle();
     if (profErr) throw profErr;
 
-    const hardAdmin = user.id === "bf70f0c0-3c58-444e-b69f-bd5de601deb6" || (user.email ?? "") === "gd6522@naver.com";
-    const isAdmin =
-      hardAdmin || !!(prof as any)?.is_admin || String((prof as any)?.work_part ?? "").trim() === "관리자";
+    const hardAdmin = isMainAdminIdentity(user.id, user.email ?? "");
+    const isAdmin = hardAdmin || !!(prof as any)?.is_admin || isGeneralAdminWorkPart((prof as any)?.work_part);
 
     if (!isAdmin) return NextResponse.json({ ok: false, message: "Forbidden" }, { status: 403 });
 
-    // ✅ 1) created_by 포함해서 먼저 시도
+    // ??1) created_by ?ы븿?댁꽌 癒쇱? ?쒕룄
     let rows: any[] = [];
     let hasCreatedBy = true;
 
@@ -55,7 +55,7 @@ export async function GET(req: Request) {
         .order("updated_at", { ascending: false });
 
       if (error) {
-        // created_by 컬럼이 없으면 여기로 떨어짐
+        // created_by 而щ읆???놁쑝硫??ш린濡??⑥뼱吏?
         hasCreatedBy = false;
 
         const r2 = await supabase
@@ -71,7 +71,7 @@ export async function GET(req: Request) {
       }
     }
 
-    // ✅ 2) 작성자 uid들 → profiles.name 매핑
+    // ??2) ?묒꽦??uid????profiles.name 留ㅽ븨
     let nameMap: Record<string, string> = {};
     if (hasCreatedBy) {
       const ids = Array.from(
@@ -104,3 +104,4 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, message: e?.message ?? String(e) }, { status: 500 });
   }
 }
+

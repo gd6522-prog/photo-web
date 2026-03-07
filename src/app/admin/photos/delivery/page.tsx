@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 
 type DeliveryPhotoRow = {
   id: string;
@@ -27,9 +28,6 @@ type RedeliveryDoneRow = {
   done_by: string;
   done_at: string;
 };
-
-const ADMIN_EMAIL = "gd6522@naver.com";
-const ADMIN_UID = "bf70f0c0-3c58-444e-b69f-bd5de601deb6";
 
 type DriverCategory = "bottle" | "tobacco" | "miochul";
 type MiochulFlags = { redelivery: boolean; damage: boolean; other: boolean };
@@ -60,9 +58,6 @@ function formatKST(ts: string) {
   const MI = pad2(kst.getUTCMinutes());
   const SS = pad2(kst.getUTCSeconds());
   return `${yyyy}-${mm}-${dd} ${HH}:${MI}:${SS}`;
-}
-function norm(v: any) {
-  return String(v ?? "").trim();
 }
 function categoryLabel(c: DriverCategory) {
   if (c === "bottle") return "공병";
@@ -203,12 +198,10 @@ export default function AdminDeliveryPhotosPage() {
 
     setMyProfile(profRow);
 
-    const hardAdmin = uid === ADMIN_UID || email === ADMIN_EMAIL;
+    const hardAdmin = isMainAdminIdentity(uid, email);
     const main = hardAdmin || (!!prof && !!(prof as any).is_admin);
-    const general = norm((prof as any)?.work_part) === "관리자";
-    const general2 = norm((prof as any)?.work_part) === "일반관리자";
-
-    const admin = main || general || general2;
+    const general = isGeneralAdminWorkPart((prof as any)?.work_part);
+    const admin = main || general;
     setIsAdmin(admin);
 
     return { ok: true as const, admin };
@@ -573,7 +566,7 @@ export default function AdminDeliveryPhotosPage() {
     return (
       <div style={{ padding: 24, fontFamily: "system-ui" }}>
         <div style={{ fontWeight: 900, color: "#111827" }}>권한이 없습니다.</div>
-        <div style={{ marginTop: 6, color: "#6B7280", fontSize: 13 }}>관리자/일반관리자만 접근 가능합니다.</div>
+        <div style={{ marginTop: 6, color: "#6B7280", fontSize: 13 }}>관리자/일반관리자/업체관리자만 접근 가능합니다.</div>
         <div style={{ marginTop: 10, fontSize: 13, color: "#374151" }}>
           현재 로그인: {sessionEmail || "-"} / UID: {sessionUid || "-"}
         </div>

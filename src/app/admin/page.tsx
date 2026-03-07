@@ -4,6 +4,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 
 type EventRow = {
   id: string;
@@ -20,10 +21,6 @@ type HolidayRow = {
   name: string;
   source: string | null;
 };
-
-// ⚠️ 유지: 기존 하드코딩 관리자
-const ADMIN_EMAIL = "gd6522@naver.com";
-const ADMIN_UID = "bf70f0c0-3c58-444e-b69f-bd5de601deb6";
 
 const CARD_MIN_H = 520;
 const WEATHER_MIN_H = 520;
@@ -62,10 +59,6 @@ function dowKo(dateYMD: string) {
   const map = ["일", "월", "화", "수", "목", "금", "토"];
   return map[d.getDay()] ?? "";
 }
-function normWorkPart(v: any) {
-  return String(v ?? "").trim();
-}
-
 function holidayDisplayName(ymd: string, holidaysByDate: Record<string, HolidayRow>) {
   const h = holidaysByDate[ymd];
   if (!h) return null;
@@ -977,10 +970,9 @@ export default function AdminHomePage() {
 
     const { data: prof } = await supabase.from("profiles").select("id, is_admin, work_part").eq("id", uid).maybeSingle();
 
-    const hardAdmin = uid === ADMIN_UID || email === ADMIN_EMAIL;
+    const hardAdmin = isMainAdminIdentity(uid, email);
     const main = hardAdmin || (!!prof && !!(prof as any).is_admin);
-    const general = normWorkPart((prof as any)?.work_part) === "관리자";
-
+    const general = isGeneralAdminWorkPart((prof as any)?.work_part);
     const admin = main || general;
     setIsAdmin(admin);
 

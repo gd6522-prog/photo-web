@@ -245,7 +245,8 @@ export default function AdminPhotosPage() {
     const general = normWorkPart((prof as any)?.work_part) === "관리자";
     const general2 = normWorkPart((prof as any)?.work_part) === "일반관리자";
 
-    const admin = main || general || general2;
+    const general3 = normWorkPart((prof as any)?.work_part) === "업체관리자";
+    const admin = main || general || general2 || general3;
     setIsAdmin(admin);
 
     return { ok: true as const, admin };

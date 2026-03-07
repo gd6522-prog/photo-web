@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
+import { isCompanyAdminWorkPart } from "@/lib/admin-role";
 
 type Profile = {
   id: string;
@@ -39,6 +40,7 @@ const COMPANY_ORDER: Record<string, number> = {
   "더블에스잡": 30,
   "비상GLS": 40,
 };
+const BLOCKED_COMPANY = "한익스프레스";
 
 const WORK_PART_ORDER_LIST = ["관리자", "박스존", "이너존", "슬라존", "경량존", "담배존", "이형존"] as const;
 const WORK_PART_ORDER: Record<string, number> = Object.fromEntries(
@@ -303,6 +305,7 @@ export default function WorkLogPage() {
   const [companyOptions, setCompanyOptions] = useState<string[]>([]);
   const [workPartOptions, setWorkPartOptions] = useState<string[]>([]);
   const [workTableOptions, setWorkTableOptions] = useState<string[]>([]);
+  const [isCompanyAdminRole, setIsCompanyAdminRole] = useState(false);
 
   const [basicRows, setBasicRows] = useState<BasicRow[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -314,15 +317,26 @@ export default function WorkLogPage() {
     let alive = true;
     (async () => {
       try {
+        const { data: authData } = await supabase.auth.getSession();
+        const uid = authData.session?.user?.id ?? "";
+        let companyAdmin = false;
+        if (uid) {
+          const { data: myProf } = await supabase.from("profiles").select("work_part").eq("id", uid).maybeSingle();
+          companyAdmin = isCompanyAdminWorkPart((myProf as { work_part?: string | null } | null)?.work_part);
+        }
+
         const { data, error } = await supabase.from("profiles").select("company_name,work_part,work_table");
         if (error) throw error;
         if (!alive) return;
+        setIsCompanyAdminRole(companyAdmin);
         const rows = (data ?? []) as ProfileOptionsRow[];
-        setCompanyOptions(uniq(rows.map((r) => String(r.company_name ?? ""))));
+        const companies = uniq(rows.map((r) => String(r.company_name ?? ""))).filter((c) => !(companyAdmin && c === BLOCKED_COMPANY));
+        setCompanyOptions(companies);
         setWorkPartOptions(uniq(rows.map((r) => String(r.work_part ?? ""))));
         setWorkTableOptions(uniq(rows.map((r) => String(r.work_table ?? ""))));
       } catch {
         if (!alive) return;
+        setIsCompanyAdminRole(false);
         setCompanyOptions([]);
         setWorkPartOptions([]);
         setWorkTableOptions([]);
@@ -332,6 +346,10 @@ export default function WorkLogPage() {
       alive = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (isCompanyAdminRole && company === BLOCKED_COMPANY) setCompany("");
+  }, [isCompanyAdminRole, company]);
 
   const days = useMemo(() => Array.from({ length: 31 }, (_, i) => i + 1), []);
   const monthLastDay = useMemo(() => monthRange(month).lastDay, [month]);
@@ -351,19 +369,23 @@ export default function WorkLogPage() {
   }, [monthShifts]);
 
   const getProfiles = useCallback(async () => {
+    const companyFilter = company.trim();
+    const effectiveCompanyFilter = isCompanyAdminRole && companyFilter === BLOCKED_COMPANY ? "" : companyFilter;
+
     let q = supabase
       .from("profiles")
       .select("id,name,work_part,company_name,work_table,join_date")
       .not("work_part", "ilike", "%기사%")
       .order("name", { ascending: true });
     if (nameQ.trim()) q = q.ilike("name", `%${nameQ.trim()}%`);
-    if (company.trim()) q = q.eq("company_name", company.trim());
+    if (isCompanyAdminRole) q = q.neq("company_name", BLOCKED_COMPANY);
+    if (effectiveCompanyFilter) q = q.eq("company_name", effectiveCompanyFilter);
     if (workPart.trim()) q = q.eq("work_part", workPart.trim());
     if (workTable.trim()) q = q.eq("work_table", workTable.trim());
     const { data, error } = await q;
     if (error) throw error;
     return (data ?? []) as Profile[];
-  }, [nameQ, company, workPart, workTable]);
+  }, [nameQ, company, workPart, workTable, isCompanyAdminRole]);
 
   const loadBasic = useCallback(async () => {
     const ps = sortProfilesLikeUserMaster(await getProfiles());

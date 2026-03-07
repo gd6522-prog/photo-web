@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { isCompanyAdminWorkPart } from "@/lib/admin-role";
 
 type ProfileRow = {
   id: string;
@@ -24,6 +25,7 @@ type ShiftTodayRow = {
 };
 
 type TodayShiftMap = Record<string, { inAt: string | null; outAt: string | null }>;
+const BLOCKED_COMPANY = "한익스프레스";
 
 const COMPANY_OPTIONS = ["한익스프레스", "경산씨스템", "더블에스잡", "비상GLS"] as const;
 const COMPANY_ORDER: Record<string, number> = {
@@ -206,6 +208,7 @@ export default function UserMasterPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkCompany, setBulkCompany] = useState("");
   const [bulkWorkTable, setBulkWorkTable] = useState("");
+  const [isCompanyAdminRole, setIsCompanyAdminRole] = useState(false);
 
   const [f, setF] = useState({
     name: "",
@@ -218,12 +221,17 @@ export default function UserMasterPage() {
     leave_date: "",
     is_admin: false,
     is_general_admin: false,
+    is_company_admin: false,
     approval_status: "pending" as "pending" | "approved" | "rejected",
   });
 
   const age = useMemo(() => calcAge(f.birthdate || null), [f.birthdate]);
   const tenureDays = useMemo(() => calcTenureDays(f.join_date || null, f.leave_date || null), [f.join_date, f.leave_date]);
   const tenureText = useMemo(() => tenurePretty(tenureDays), [tenureDays]);
+  const allowedCompanies = useMemo(
+    () => COMPANY_OPTIONS.filter((c) => !(isCompanyAdminRole && c === BLOCKED_COMPANY)),
+    [isCompanyAdminRole]
+  );
 
   const sortRows = (list: ProfileRow[]) => {
     return [...list].sort((a, b) => {
@@ -253,6 +261,18 @@ export default function UserMasterPage() {
     setLoading(true);
     setErr(null);
     try {
+      const { data: authData } = await supabase.auth.getSession();
+      const uid = authData.session?.user?.id ?? "";
+      let companyAdmin = false;
+      if (uid) {
+        const { data: myProf } = await supabase.from("profiles").select("work_part").eq("id", uid).maybeSingle();
+        companyAdmin = isCompanyAdminWorkPart((myProf as { work_part?: string | null } | null)?.work_part);
+      }
+      setIsCompanyAdminRole(companyAdmin);
+
+      const companyFilter = qCompany.trim();
+      const effectiveCompanyFilter = companyAdmin && companyFilter === BLOCKED_COMPANY ? "" : companyFilter;
+
       let q = supabase
         .from("profiles")
         .select("id,approval_status,name,phone,birthdate,work_part,company_name,work_table,join_date,leave_date,is_admin")
@@ -260,7 +280,8 @@ export default function UserMasterPage() {
 
       if (qName.trim()) q = q.ilike("name", `%${qName.trim()}%`);
       if (qPart.trim()) q = q.eq("work_part", qPart.trim());
-      if (qCompany.trim()) q = q.eq("company_name", qCompany.trim());
+      if (companyAdmin) q = q.neq("company_name", BLOCKED_COMPANY);
+      if (effectiveCompanyFilter) q = q.eq("company_name", effectiveCompanyFilter);
       if (qWorkTable.trim()) q = q.eq("work_table", qWorkTable.trim());
 
       const { data, error } = await q;
@@ -301,9 +322,18 @@ export default function UserMasterPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!isCompanyAdminRole) return;
+    if (qCompany === BLOCKED_COMPANY) setQCompany("");
+    if (bulkCompany === BLOCKED_COMPANY) setBulkCompany("");
+    if (f.company_name === BLOCKED_COMPANY) setF((p) => ({ ...p, company_name: "" }));
+  }, [isCompanyAdminRole, qCompany, bulkCompany, f.company_name]);
+
   const openEdit = (r: ProfileRow) => {
     const ap = normalizeApproval(r.approval_status);
-    const isGeneral = String(r.work_part ?? "").trim() === "관리자";
+    const compact = String(r.work_part ?? "").trim().replace(/\s+/g, "");
+    const isGeneral = compact === "관리자" || compact === "일반관리자";
+    const isCompany = compact === "업체관리자";
     setSelected(r);
     setF({
       name: r.name ?? "",
@@ -316,6 +346,7 @@ export default function UserMasterPage() {
       leave_date: r.leave_date ?? "",
       is_admin: !!r.is_admin,
       is_general_admin: !r.is_admin && isGeneral,
+      is_company_admin: !r.is_admin && isCompany,
       approval_status: ap,
     });
   };
@@ -327,8 +358,17 @@ export default function UserMasterPage() {
     setSaving(true);
     setErr(null);
     try {
+      if (isCompanyAdminRole && f.company_name.trim() === BLOCKED_COMPANY) {
+        throw new Error("업체관리자는 한익스프레스 데이터를 볼 수 없습니다.");
+      }
       const phoneToSave = toKRLocalDigits(f.phone) || null;
-      const workPartToSave = f.is_general_admin && !f.is_admin ? "관리자" : f.work_part.trim() || null;
+      const workPartToSave = f.is_admin
+        ? f.work_part.trim() || null
+        : f.is_company_admin
+          ? "업체관리자"
+          : f.is_general_admin
+            ? "관리자"
+            : f.work_part.trim() || null;
       const payload = {
         name: f.name.trim() || null,
         phone: phoneToSave,
@@ -363,6 +403,9 @@ export default function UserMasterPage() {
     setBulkSaving(true);
     setErr(null);
     try {
+      if (isCompanyAdminRole && bulkCompany.trim() === BLOCKED_COMPANY) {
+        throw new Error("업체관리자는 한익스프레스로 일괄 변경할 수 없습니다.");
+      }
       const payload: { company_name?: string; work_table?: string } = {};
       if (bulkCompany.trim()) payload.company_name = bulkCompany.trim();
       if (bulkWorkTable.trim()) payload.work_table = bulkWorkTable.trim();
@@ -463,7 +506,7 @@ export default function UserMasterPage() {
           <span style={{ fontSize: 12, color: "#475467", fontWeight: 700 }}>회사명</span>
           <select value={qCompany} onChange={(e) => setQCompany(e.target.value)} style={inputStyle()}>
             <option value="">전체</option>
-            {COMPANY_OPTIONS.map((c) => (
+            {allowedCompanies.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>
@@ -504,7 +547,7 @@ export default function UserMasterPage() {
           <span style={{ fontSize: 12, color: "#475467", fontWeight: 700 }}>회사명 일괄 변경</span>
           <select value={bulkCompany} onChange={(e) => setBulkCompany(e.target.value)} style={inputStyle(selectedCount === 0)}>
             <option value="">(변경 안함)</option>
-            {COMPANY_OPTIONS.map((c) => (
+            {allowedCompanies.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>
@@ -656,7 +699,7 @@ export default function UserMasterPage() {
                     <div style={fieldLabelStyle()}>회사명</div>
                     <select value={f.company_name} onChange={(e) => setF((p) => ({ ...p, company_name: e.target.value }))} style={inputStyle()}>
                       <option value="">-</option>
-                      {COMPANY_OPTIONS.map((c) => (
+                      {allowedCompanies.map((c) => (
                         <option key={c} value={c}>
                           {c}
                         </option>
@@ -711,7 +754,14 @@ export default function UserMasterPage() {
                       <input
                         type="checkbox"
                         checked={f.is_admin}
-                        onChange={(e) => setF((p) => ({ ...p, is_admin: e.target.checked, is_general_admin: e.target.checked ? false : p.is_general_admin }))}
+                        onChange={(e) =>
+                          setF((p) => ({
+                            ...p,
+                            is_admin: e.target.checked,
+                            is_general_admin: e.target.checked ? false : p.is_general_admin,
+                            is_company_admin: e.target.checked ? false : p.is_company_admin,
+                          }))
+                        }
                       />
                       메인관리자(is_admin)
                     </label>
@@ -719,9 +769,31 @@ export default function UserMasterPage() {
                       <input
                         type="checkbox"
                         checked={f.is_general_admin}
-                        onChange={(e) => setF((p) => ({ ...p, is_general_admin: e.target.checked, is_admin: e.target.checked ? false : p.is_admin }))}
+                        onChange={(e) =>
+                          setF((p) => ({
+                            ...p,
+                            is_general_admin: e.target.checked,
+                            is_company_admin: e.target.checked ? false : p.is_company_admin,
+                            is_admin: e.target.checked ? false : p.is_admin,
+                          }))
+                        }
                       />
                       일반관리자(작업파트=관리자)
+                    </label>
+                    <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, fontWeight: 600, color: "#334155" }}>
+                      <input
+                        type="checkbox"
+                        checked={f.is_company_admin}
+                        onChange={(e) =>
+                          setF((p) => ({
+                            ...p,
+                            is_company_admin: e.target.checked,
+                            is_general_admin: e.target.checked ? false : p.is_general_admin,
+                            is_admin: e.target.checked ? false : p.is_admin,
+                          }))
+                        }
+                      />
+                      업체관리자(작업파트=업체관리자)
                     </label>
                   </div>
                 </div>

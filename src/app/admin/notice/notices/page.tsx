@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 
 type NoticeRow = {
   id: string;
@@ -15,15 +16,12 @@ type NoticeRow = {
   created_by: string | null;
 };
 
-const ADMIN_EMAIL = "gd6522@naver.com";
-const ADMIN_UID = "bf70f0c0-3c58-444e-b69f-bd5de601deb6";
-
 function hardToLogin() {
   window.location.replace("/login");
 }
 
 function normWorkPart(v: unknown) {
-  return String(v ?? "").trim();
+  return isGeneralAdminWorkPart(v) ? "관리자" : String(v ?? "").trim();
 }
 
 const cardStyle: React.CSSProperties = {
@@ -72,7 +70,7 @@ export default function AdminNoticesPage() {
     const { data: prof } = await supabase.from("profiles").select("id, is_admin, work_part").eq("id", u.id).maybeSingle();
 
     const p = prof as { is_admin?: boolean | null; work_part?: string | null } | null;
-    const hardAdmin = u.id === ADMIN_UID || (u.email ?? "") === ADMIN_EMAIL;
+    const hardAdmin = isMainAdminIdentity(u.id, u.email ?? "");
     const main = hardAdmin || !!p?.is_admin;
     const general = normWorkPart(p?.work_part) === "관리자";
 

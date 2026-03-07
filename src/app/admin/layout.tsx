@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { AdminAccessProvider, AccessLevel, MenuAccessMap } from "@/lib/admin-access";
 import { getSettingsItems, findMenuKeyByPath, getAllItems } from "@/lib/menu-registry";
-import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
+import { isCompanyAdminWorkPart, isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 
 const MAX_W = 1700;
 
@@ -40,6 +40,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [checking, setChecking] = useState<boolean>(isAdminPath);
   const [isMainAdmin, setIsMainAdmin] = useState(false);
   const [isGeneralAdmin, setIsGeneralAdmin] = useState(false);
+  const [isCompanyAdmin, setIsCompanyAdmin] = useState(false);
   const [menuAccess, setMenuAccess] = useState<MenuAccessMap>({});
   const [loginUserName, setLoginUserName] = useState("");
 
@@ -202,6 +203,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const canShow = (menuKey: string, mainOnly?: boolean) => {
     if (isMainAdmin) return true;
     if (mainOnly) return false;
+    if (isCompanyAdmin && (menuKey === "admin_work_log" || menuKey === "settings_user_master")) return true;
     const access = (menuAccess?.[menuKey] ?? "full") as AccessLevel;
     return access !== "hidden";
   };
@@ -260,6 +262,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         const hardMain = isMainAdminIdentity(uid, session.user.email ?? "");
         const main = hardMain || !!p?.is_admin;
+        const companyAdmin = isCompanyAdminWorkPart(p?.work_part);
         const general = isGeneralAdminWorkPart(p?.work_part);
 
         if (!main && !general) {
@@ -274,6 +277,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         setIsMainAdmin(main);
         setIsGeneralAdmin(!main && general);
+        setIsCompanyAdmin(!main && companyAdmin);
         setLoginUserName(String(p?.name ?? "").trim());
 
         if (main) {
@@ -297,7 +301,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           const menuKey = findMenuKeyByPath(pathname);
           if (menuKey) {
             const access = (map?.[menuKey] ?? "full") as AccessLevel;
-            if (access === "hidden") {
+            const vendorOverride = companyAdmin && (menuKey === "admin_work_log" || menuKey === "settings_user_master");
+            if (access === "hidden" && !vendorOverride) {
               router.replace("/admin");
               router.refresh();
               return;
@@ -347,11 +352,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (!menuKey) return;
 
     const access = (menuAccess?.[menuKey] ?? "full") as AccessLevel;
-    if (access === "hidden") {
+    const vendorOverride = isCompanyAdmin && (menuKey === "admin_work_log" || menuKey === "settings_user_master");
+    if (access === "hidden" && !vendorOverride) {
       router.replace("/admin");
       router.refresh();
     }
-  }, [isAdminPath, pathname, checking, isMainAdmin, menuAccess, router]);
+  }, [isAdminPath, pathname, checking, isMainAdmin, isCompanyAdmin, menuAccess, router]);
 
   const onLogout = async () => {
     if (loggingOutRef.current) return;
