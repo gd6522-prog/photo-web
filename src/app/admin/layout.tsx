@@ -57,9 +57,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const PHOTO_ITEMS = useMemo(
     () => [
-      { label: "1. 현장사진", href: "/admin/photos" },
-      { label: "2. 배송사진", href: "/admin/photos/delivery" },
-      { label: "3. 위험요인", href: "/admin/hazards" },
+      { label: "현장사진", href: "/admin/photos" },
+      { label: "배송사진", href: "/admin/photos/delivery" },
+      { label: "위험요인", href: "/admin/hazards" },
     ],
     []
   );
@@ -67,16 +67,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // 공지 섹션: 달력/공지사항을 /admin/notice/* 로 통일
   const NOTICE_ITEMS = useMemo(
     () => [
-      { label: "1. 일정작성(달력)", href: "/admin/notice/calendar" },
-      { label: "2. 공지사항 등록/작성", href: "/admin/notice/notices" },
+      { label: "일정작성(달력)", href: "/admin/notice/calendar" },
+      { label: "공지사항 등록/작성", href: "/admin/notice/notices" },
     ],
     []
   );
 
   const WORK_LOG_ITEMS = useMemo(
     () => [
-      { label: "1. 기본근태", href: "/admin/work-log?tab=basic" },
-      { label: "2. 상세근태", href: "/admin/work-log?tab=detail" },
+      { label: "기본근태", href: "/admin/work-log?tab=basic" },
+      { label: "상세근태", href: "/admin/work-log?tab=detail" },
     ],
     []
   );
