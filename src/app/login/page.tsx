@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -145,29 +145,6 @@ export default function LoginPage() {
       const session = (await ensureSessionReady()) ?? (data as { session?: unknown } | null)?.session ?? null;
       const uid = (session as { user?: { id?: string } } | null)?.user?.id ?? data?.user?.id;
       if (!uid) throw new Error("로그인 세션 생성 실패");
-
-      const { data: prof, error: pErr } = await supabase
-        .from("profiles")
-        .select("approval_status,is_admin,work_part")
-        .eq("id", uid)
-        .single();
-      if (pErr) throw pErr;
-
-      if (prof?.approval_status !== "approved") {
-        await supabase.auth.signOut();
-        setMsg("승인 대기 상태입니다. 관리자 승인 후 로그인할 수 있습니다.");
-        return;
-      }
-
-      const email = (session as { user?: { email?: string | null } } | null)?.user?.email ?? "";
-      const isMainAdmin = isMainAdminIdentity(uid, email) || !!prof?.is_admin;
-      const isAdminWorkPart = isGeneralAdminWorkPart(prof?.work_part);
-
-      if (!isMainAdmin && !isAdminWorkPart) {
-        await supabase.auth.signOut();
-        setMsg(`관리자만 로그인 가능합니다. (작업파트: ${String(prof?.work_part ?? "-")})`);
-        return;
-      }
 
       router.replace("/admin");
       router.refresh();

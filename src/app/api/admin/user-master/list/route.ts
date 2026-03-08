@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { isCompanyAdminWorkPart } from "@/lib/admin-role";
 import { json, requireAdmin } from "../../notices/_shared";
 
 const BLOCKED_COMPANY = "한익스프레스";
@@ -28,6 +27,14 @@ function kstTodayYMD(): string {
   const now = new Date();
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   return kst.toISOString().slice(0, 10);
+}
+
+function isCompanyAdminWorkPart(workPart: string | null | undefined) {
+  return String(workPart ?? "").trim() === "업체관리자";
+}
+
+function displayWorkPart(workPart: string | null): string | null {
+  return String(workPart ?? "").trim() === "업체관리자" ? "관리자" : workPart;
 }
 
 export async function GET(req: NextRequest) {
@@ -59,7 +66,10 @@ export async function GET(req: NextRequest) {
   const { data, error } = await q;
   if (error) return json(false, error.message, null, 500);
 
-  const rows = (data ?? []) as ProfileRow[];
+  const rows = ((data ?? []) as ProfileRow[]).map((row) => ({
+    ...row,
+    work_part: displayWorkPart(row.work_part),
+  }));
   const ids = rows.map((r) => r.id);
 
   const todayShiftMap: Record<string, { inAt: string | null; outAt: string | null }> = {};
@@ -78,4 +88,3 @@ export async function GET(req: NextRequest) {
 
   return json(true, undefined, { rows, todayShiftMap, isCompanyAdminRole });
 }
-

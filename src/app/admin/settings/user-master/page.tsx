@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { isMissingColumnError } from "@/lib/supabase-compat";
 
 type ProfileRow = {
   id: string;
@@ -15,6 +16,8 @@ type ProfileRow = {
   join_date: string | null;
   leave_date: string | null;
   is_admin?: boolean | null;
+  is_general_admin?: boolean | null;
+  is_company_admin?: boolean | null;
 };
 
 type TodayShiftMap = Record<string, { inAt: string | null; outAt: string | null }>;
@@ -36,9 +39,10 @@ const WORK_PART_ORDER: Record<string, number> = Object.fromEntries(
 const WORK_TABLE_OPTIONS = [
   "조출A 06:00~15:00",
   "조출B 07:00~16:00",
-  "주간 08:00~17:00",
-  "후반A 09:00~18:00",
-  "후반B 10:00~19:00",
+  "사무 08:30~17:30",
+  "현장A 08:30~17:30",
+  "현장B 09:30~18:30",
+  "현장C 10:30~19:30",
 ] as const;
 
 function kstTodayYMD(): string {
@@ -305,9 +309,6 @@ export default function UserMasterPage() {
 
   const openEdit = (r: ProfileRow) => {
     const ap = normalizeApproval(r.approval_status);
-    const compact = String(r.work_part ?? "").trim().replace(/\s+/g, "");
-    const isGeneral = compact === "관리자" || compact === "일반관리자";
-    const isCompany = compact === "업체관리자";
     setSelected(r);
     setF({
       name: r.name ?? "",
@@ -319,8 +320,8 @@ export default function UserMasterPage() {
       join_date: r.join_date ?? "",
       leave_date: r.leave_date ?? "",
       is_admin: !!r.is_admin,
-      is_general_admin: !r.is_admin && isGeneral,
-      is_company_admin: !r.is_admin && isCompany,
+      is_general_admin: !!r.is_general_admin,
+      is_company_admin: !!r.is_company_admin,
       approval_status: ap,
     });
   };
@@ -337,26 +338,36 @@ export default function UserMasterPage() {
       }
       const lockedIsAdmin = isCompanyAdminRole ? !!selected.is_admin : !!f.is_admin;
       const phoneToSave = toKRLocalDigits(f.phone) || null;
-      const workPartToSave = lockedIsAdmin
-        ? f.work_part.trim() || null
-        : f.is_company_admin
-          ? "업체관리자"
-          : f.is_general_admin
-            ? "관리자"
-            : f.work_part.trim() || null;
       const payload = {
         name: f.name.trim() || null,
         phone: phoneToSave,
         birthdate: f.birthdate || null,
-        work_part: workPartToSave,
+        work_part: f.work_part.trim() || null,
         company_name: f.company_name.trim() || null,
         work_table: f.work_table.trim() || null,
         join_date: f.join_date || null,
         leave_date: f.leave_date || null,
         is_admin: lockedIsAdmin,
+        is_general_admin: f.is_general_admin,
+        is_company_admin: f.is_company_admin,
         approval_status: f.approval_status,
       };
-      const { error } = await supabase.from("profiles").update(payload).eq("id", selected.id);
+      let { error } = await supabase.from("profiles").update(payload).eq("id", selected.id);
+      if (isMissingColumnError(error, "is_general_admin") || isMissingColumnError(error, "is_company_admin")) {
+        const fallbackPayload = {
+          name: payload.name,
+          phone: payload.phone,
+          birthdate: payload.birthdate,
+          work_part: payload.work_part,
+          company_name: payload.company_name,
+          work_table: payload.work_table,
+          join_date: payload.join_date,
+          leave_date: payload.leave_date,
+          is_admin: payload.is_admin,
+          approval_status: payload.approval_status,
+        };
+        ({ error } = await supabase.from("profiles").update(fallbackPayload).eq("id", selected.id));
+      }
       if (error) throw error;
       await load();
       closeEdit();
@@ -754,7 +765,7 @@ export default function UserMasterPage() {
                           }))
                         }
                       />
-                      일반관리자(작업파트=관리자)
+                      일반관리자(웹사이트 권한)
                     </label>
                     <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, fontWeight: 600, color: "#334155" }}>
                       <input
@@ -769,7 +780,7 @@ export default function UserMasterPage() {
                           }))
                         }
                       />
-                      업체관리자(작업파트=업체관리자)
+                      업체관리자(조회 권한 구분)
                     </label>
                   </div>
                 </div>

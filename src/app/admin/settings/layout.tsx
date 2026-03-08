@@ -8,14 +8,15 @@ import { getSettingsItems } from "@/lib/menu-registry";
 
 export default function AdminSettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { isMainAdmin, isCompanyAdmin } = useAdminAccess();
+  const { isMainAdmin, isCompanyAdmin, menuAccess } = useAdminAccess();
 
   const items = useMemo(() => getSettingsItems(), []);
 
   const canShow = (item: { mainOnly?: boolean; key: string }) => {
     if (item.mainOnly && !isMainAdmin) return false;
     if (isCompanyAdmin && item.key === "settings_driver_master") return false;
-    return true;
+    if (isMainAdmin) return true;
+    return (menuAccess?.[item.key] ?? "hidden") !== "hidden";
   };
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");

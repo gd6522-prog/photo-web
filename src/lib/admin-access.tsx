@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { isCompanyAdminWorkPart, isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
+import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 
 /**
  * ✅ 기존 DB/코드 호환 유지:
@@ -117,7 +117,7 @@ export function AdminAccessProvider({
         const main = hardMain || dbMain;
 
         const general = isGeneralAdminWorkPart((prof as any)?.work_part);
-        const company = isCompanyAdminWorkPart((prof as any)?.work_part);
+        const company = false;
 
         if (!alive) return;
         setState((prev) => ({

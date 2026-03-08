@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { isCompanyAdminWorkPart } from "@/lib/admin-role";
+import { isCompanyAdminFlag } from "@/lib/admin-role";
+import { isMissingColumnError } from "@/lib/supabase-compat";
 import { json, requireAdmin } from "../../notices/_shared";
 
 const BLOCKED_COMPANY = "한익스프레스";
@@ -22,10 +23,20 @@ export async function GET(req: NextRequest) {
   const qWorkPart = (req.nextUrl.searchParams.get("workPart") ?? "").trim();
   const qWorkTable = (req.nextUrl.searchParams.get("workTable") ?? "").trim();
 
-  const { data: myProf, error: meErr } = await guard.sbAdmin.from("profiles").select("work_part").eq("id", guard.uid).maybeSingle();
+  let myProf: any = null;
+  let meErr: any = null;
+  {
+    const result = await guard.sbAdmin.from("profiles").select("is_company_admin").eq("id", guard.uid).maybeSingle();
+    myProf = result.data;
+    meErr = result.error;
+  }
+  if (isMissingColumnError(meErr, "is_company_admin")) {
+    meErr = null;
+    myProf = null;
+  }
   if (meErr) return json(false, meErr.message, null, 500);
 
-  const isCompanyAdminRole = isCompanyAdminWorkPart((myProf as { work_part?: string | null } | null)?.work_part);
+  const isCompanyAdminRole = isCompanyAdminFlag((myProf as { is_company_admin?: boolean | null } | null)?.is_company_admin);
   const effectiveCompany = isCompanyAdminRole && qCompany === BLOCKED_COMPANY ? "" : qCompany;
 
   let q = guard.sbAdmin
@@ -45,4 +56,3 @@ export async function GET(req: NextRequest) {
 
   return json(true, undefined, { rows: (data ?? []) as ProfileRow[], isCompanyAdminRole });
 }
-

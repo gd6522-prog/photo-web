@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import type { AccessLevel } from "@/lib/admin-access";
 import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 
 type DeliveryPhotoRow = {
@@ -201,7 +202,19 @@ export default function AdminDeliveryPhotosPage() {
     const hardAdmin = isMainAdminIdentity(uid, email);
     const main = hardAdmin || (!!prof && !!(prof as any).is_admin);
     const general = isGeneralAdminWorkPart((prof as any)?.work_part);
-    const admin = main || general;
+
+    let admin = main;
+    if (!admin && general) {
+      const { data: perm } = await supabase
+        .from("admin_menu_permissions")
+        .select("general_access")
+        .eq("menu_key", "admin_photos")
+        .maybeSingle();
+
+      const access = ((perm as { general_access?: AccessLevel | null } | null)?.general_access ?? "hidden") as AccessLevel;
+      admin = access !== "hidden";
+    }
+
     setIsAdmin(admin);
 
     return { ok: true as const, admin };

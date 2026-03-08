@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { isCompanyAdminWorkPart } from "@/lib/admin-role";
+import { isCompanyAdminFlag } from "@/lib/admin-role";
+import { isMissingColumnError } from "@/lib/supabase-compat";
 
 export const BLOCKED_COMPANY = "한익스프레스";
 
@@ -13,9 +14,19 @@ export type WorkLogProfileRow = {
 };
 
 export async function getWorkLogScope(sbAdmin: SupabaseClient, uid: string) {
-  const { data: myProf, error: meErr } = await sbAdmin.from("profiles").select("work_part").eq("id", uid).maybeSingle();
+  let myProf: any = null;
+  let meErr: any = null;
+  {
+    const result = await sbAdmin.from("profiles").select("is_company_admin").eq("id", uid).maybeSingle();
+    myProf = result.data;
+    meErr = result.error;
+  }
+  if (isMissingColumnError(meErr, "is_company_admin")) {
+    meErr = null;
+    myProf = null;
+  }
   if (meErr) throw meErr;
-  const isCompanyAdminRole = isCompanyAdminWorkPart((myProf as { work_part?: string | null } | null)?.work_part);
+  const isCompanyAdminRole = isCompanyAdminFlag((myProf as { is_company_admin?: boolean | null } | null)?.is_company_admin);
   return { isCompanyAdminRole };
 }
 
@@ -46,4 +57,3 @@ export async function getWorkLogProfiles(
   if (error) throw error;
   return (data ?? []) as WorkLogProfileRow[];
 }
-

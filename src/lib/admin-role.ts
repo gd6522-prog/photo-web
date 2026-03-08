@@ -13,10 +13,19 @@ export function isCompanyAdminWorkPart(workPart: unknown) {
   return compact(workPart) === "업체관리자";
 }
 
+export function isCompanyAdminFlag(value: unknown) {
+  return value === true;
+}
+
+export function isGeneralAdminFlag(value: unknown) {
+  return value === true;
+}
+
 export function isGeneralAdminWorkPart(workPart: unknown) {
   const c = compact(workPart);
   if (!c || c === "비관리자") return false;
-  if (c === "관리자" || c === "일반관리자" || c === "업체관리자") return true;
+  if (c === "관리자" || c === "일반관리자") return true;
+  if (c.includes("업체관리자")) return false;
   return c.includes("관리자");
 }
 

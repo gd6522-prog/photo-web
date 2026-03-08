@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { AdminAccessProvider, AccessLevel, MenuAccessMap } from "@/lib/admin-access";
 import { getSettingsItems, findMenuKeyByPath, getAllItems } from "@/lib/menu-registry";
-import { isCompanyAdminWorkPart, isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
+import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 
 const MAX_W = 1700;
 
@@ -80,6 +80,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     ],
     []
   );
+
+  const getAccess = (menuKey: string, mainOnly?: boolean): AccessLevel => {
+    if (isMainAdmin) return "full";
+    if (mainOnly) return "hidden";
+    if (isCompanyAdmin && menuKey === "settings_driver_master") return "hidden";
+    if (isCompanyAdmin && (menuKey === "admin_work_log" || menuKey === "settings_user_master")) return "full";
+    return (menuAccess?.[menuKey] ?? "hidden") as AccessLevel;
+  };
 
   const clearCloseTimer = () => {
     if (closeTimer.current) clearTimeout(closeTimer.current);
@@ -201,14 +209,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const isWorkLogActive = pathname.startsWith("/admin/work-log");
   const isSettingsActive = pathname.startsWith("/admin/settings");
 
-  const canShow = (menuKey: string, mainOnly?: boolean) => {
-    if (isMainAdmin) return true;
-    if (mainOnly) return false;
-    if (isCompanyAdmin && menuKey === "settings_driver_master") return false;
-    if (isCompanyAdmin && (menuKey === "admin_work_log" || menuKey === "settings_user_master")) return true;
-    const access = (menuAccess?.[menuKey] ?? "full") as AccessLevel;
-    return access !== "hidden";
-  };
+  const canShow = (menuKey: string, mainOnly?: boolean) => getAccess(menuKey, mainOnly) !== "hidden";
+  const visibleSettingsItems = SETTINGS_ITEMS.filter((it) => canShow(it.key, it.mainOnly));
+  const canShowPhotos = canShow("admin_photos");
 
   const syncRegistryToDB = async () => {
     const rows = getAllItems().map((m) => ({ menu_key: m.key, label: m.label }));
@@ -249,7 +252,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           .select("name,approval_status,is_admin,work_part")
           .eq("id", uid)
           .single();
-
         if (pErr) throw pErr;
 
         const p = prof as Profile;
@@ -264,7 +266,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         const hardMain = isMainAdminIdentity(uid, session.user.email ?? "");
         const main = hardMain || !!p?.is_admin;
-        const companyAdmin = isCompanyAdminWorkPart(p?.work_part);
         const general = isGeneralAdminWorkPart(p?.work_part);
 
         if (!main && !general) {
@@ -279,7 +280,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         setIsMainAdmin(main);
         setIsGeneralAdmin(!main && general);
-        setIsCompanyAdmin(!main && companyAdmin);
+        setIsCompanyAdmin(false);
         setLoginUserName(String(p?.name ?? "").trim());
 
         if (main) {
@@ -302,13 +303,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           const menuKey = findMenuKeyByPath(pathname);
           if (menuKey) {
-            if (companyAdmin && menuKey === "settings_driver_master") {
+            if (false && menuKey === "settings_driver_master") {
               router.replace("/admin");
               router.refresh();
               return;
             }
-            const access = (map?.[menuKey] ?? "full") as AccessLevel;
-            const vendorOverride = companyAdmin && (menuKey === "admin_work_log" || menuKey === "settings_user_master");
+            const access = (map?.[menuKey] ?? "hidden") as AccessLevel;
+            const vendorOverride = false;
             if (access === "hidden" && !vendorOverride) {
               router.replace("/admin");
               router.refresh();
@@ -363,7 +364,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       return;
     }
 
-    const access = (menuAccess?.[menuKey] ?? "full") as AccessLevel;
+    const access = getAccess(menuKey);
     const vendorOverride = isCompanyAdmin && (menuKey === "admin_work_log" || menuKey === "settings_user_master");
     if (access === "hidden" && !vendorOverride) {
       router.replace("/admin");
@@ -431,47 +432,45 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </Link>
 
                 {/* 사진 */}
-                <div
-                  onMouseEnter={() => openDropdown("photos")}
-                  onMouseLeave={() => closeDropdownDelayed("photos")}
-                  style={{ position: "relative" }}
-                >
-                  <Link href="/admin/photos" style={pillStyle(isPhotosActive)} onMouseEnter={() => openDropdown("photos")}>
-                    사진
-                  </Link>
+                {canShowPhotos ? (
+                  <div
+                    onMouseEnter={() => openDropdown("photos")}
+                    onMouseLeave={() => closeDropdownDelayed("photos")}
+                    style={{ position: "relative" }}
+                  >
+                    <Link href="/admin/photos" style={pillStyle(isPhotosActive)} onMouseEnter={() => openDropdown("photos")}>
+                      사진
+                    </Link>
 
-                  {photosOpen && (
-                    <div
-                      onMouseEnter={() => openDropdown("photos")}
-                      onMouseLeave={() => closeDropdownDelayed("photos")}
-                      style={dropdownBoxStyle}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {PHOTO_ITEMS.map((it) => {
-                        // 활성 드롭다운 판정:
-                        // - 현장사진(/admin/photos)은 exact만 active
-                        // - 배송사진(/admin/photos/delivery)은 섹션(active) 허용
-                        // - 위험요인(/admin/hazards)은 섹션(active) 허용
-                        let active = false;
-                        if (it.href === "/admin/photos") {
-                          active = isExact(pathname, "/admin/photos");
-                        } else if (it.href === "/admin/photos/delivery") {
-                          active = isSection(pathname, "/admin/photos/delivery");
-                        } else if (it.href === "/admin/hazards") {
-                          active = isSection(pathname, "/admin/hazards");
-                        } else {
-                          active = pathname === it.href;
-                        }
+                    {photosOpen && (
+                      <div
+                        onMouseEnter={() => openDropdown("photos")}
+                        onMouseLeave={() => closeDropdownDelayed("photos")}
+                        style={dropdownBoxStyle}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {PHOTO_ITEMS.map((it) => {
+                          let active = false;
+                          if (it.href === "/admin/photos") {
+                            active = isExact(pathname, "/admin/photos");
+                          } else if (it.href === "/admin/photos/delivery") {
+                            active = isSection(pathname, "/admin/photos/delivery");
+                          } else if (it.href === "/admin/hazards") {
+                            active = isSection(pathname, "/admin/hazards");
+                          } else {
+                            active = pathname === it.href;
+                          }
 
-                        return (
-                          <Link key={it.href} href={it.href} style={dropdownItemStyle(active)}>
-                            {it.label}
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                          return (
+                            <Link key={it.href} href={it.href} style={dropdownItemStyle(active)}>
+                              {it.label}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
 
                 {/* 공지 */}
                 <div
@@ -536,33 +535,35 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 ) : null}
 
                 {/* 설정 */}
-                <div
-                  onMouseEnter={() => openDropdown("settings")}
-                  onMouseLeave={() => closeDropdownDelayed("settings")}
-                  style={{ position: "relative" }}
-                >
-                  <Link href={SETTINGS_ROOT} style={pillStyle(isSettingsActive)} onMouseEnter={() => openDropdown("settings")}>
-                    설정
-                  </Link>
+                {visibleSettingsItems.length > 0 ? (
+                  <div
+                    onMouseEnter={() => openDropdown("settings")}
+                    onMouseLeave={() => closeDropdownDelayed("settings")}
+                    style={{ position: "relative" }}
+                  >
+                    <Link href={SETTINGS_ROOT} style={pillStyle(isSettingsActive)} onMouseEnter={() => openDropdown("settings")}>
+                      설정
+                    </Link>
 
-                  {settingsOpen && (
-                    <div
-                      onMouseEnter={() => openDropdown("settings")}
-                      onMouseLeave={() => closeDropdownDelayed("settings")}
-                      style={dropdownBoxStyle}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {SETTINGS_ITEMS.filter((it) => canShow(it.key, it.mainOnly)).map((it) => {
-                        const active = pathname === it.href || pathname.startsWith(it.href + "/");
-                        return (
-                          <Link key={it.key} href={it.href} style={dropdownItemStyle(active)}>
-                            {it.label}
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                    {settingsOpen && (
+                      <div
+                        onMouseEnter={() => openDropdown("settings")}
+                        onMouseLeave={() => closeDropdownDelayed("settings")}
+                        style={dropdownBoxStyle}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {visibleSettingsItems.map((it) => {
+                          const active = pathname === it.href || pathname.startsWith(it.href + "/");
+                          return (
+                            <Link key={it.key} href={it.href} style={dropdownItemStyle(active)}>
+                              {it.label}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
               </nav>
             </div>
 
