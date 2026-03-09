@@ -19,7 +19,7 @@ export default function BoardListPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const boardParam = searchParams.get("board");
-  const board = isNoticeBoardKey(boardParam) ? boardParam : "notice";
+  const board: NoticeBoardKey = isNoticeBoardKey(boardParam) ? boardParam : "notice";
   const qParam = String(searchParams.get("q") ?? "");
 
   const [loading, setLoading] = useState(true);
@@ -42,7 +42,7 @@ export default function BoardListPage() {
         const { data, error } = await supabase.auth.getSession();
         if (error) throw error;
         const token = String(data.session?.access_token ?? "").trim();
-        if (!token) throw new Error("로그인 세션이 없습니다.");
+        if (!token) throw new Error("\ub85c\uadf8\uc778 \uc138\uc158\uc774 \uc5c6\uc2b5\ub2c8\ub2e4.");
 
         const params = new URLSearchParams({ board });
         if (qParam.trim()) params.set("q", qParam.trim());
@@ -51,10 +51,10 @@ export default function BoardListPage() {
           cache: "no-store",
         });
         const json = (await res.json().catch(() => ({}))) as ListResponse;
-        if (!res.ok || !json.ok) throw new Error(json.message || "게시글 조회 실패");
+        if (!res.ok || !json.ok) throw new Error(json.message || "\uac8c\uc2dc\uae00 \uc870\ud68c \uc2e4\ud328");
         setItems((json.items ?? []) as NoticePost[]);
       } catch (e: unknown) {
-        setErr(e instanceof Error ? e.message : "게시글 조회 실패");
+        setErr(e instanceof Error ? e.message : "\uac8c\uc2dc\uae00 \uc870\ud68c \uc2e4\ud328");
         setItems([]);
       } finally {
         setLoading(false);
@@ -98,7 +98,7 @@ export default function BoardListPage() {
                   fontWeight: 900,
                 }}
               >
-                총 {items.length}건
+                {`\ucd1d ${items.length}\uac74`}
               </span>
             </div>
             <div style={{ marginTop: 8, fontSize: 13, color: "#64748B" }}>{boardDef.description}</div>
@@ -119,7 +119,7 @@ export default function BoardListPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="제목, 내용, 작성자 검색"
+              placeholder={"\uc81c\ubaa9, \ub0b4\uc6a9, \uc791\uc131\uc790 \uac80\uc0c9"}
               style={{ height: 36, minWidth: 240, borderRadius: 10, border: "1px solid #CBD5E1", padding: "0 12px" }}
             />
             <button
@@ -135,7 +135,7 @@ export default function BoardListPage() {
                 cursor: "pointer",
               }}
             >
-              조회
+              {"\uc870\ud68c"}
             </button>
           </form>
         </div>
@@ -145,14 +145,14 @@ export default function BoardListPage() {
 
       <div style={{ padding: 20 }}>
         {loading ? (
-          <div style={{ color: "#64748B" }}>불러오는 중...</div>
+          <div style={{ color: "#64748B" }}>{"\ubd88\ub7ec\uc624\ub294 \uc911..."}</div>
         ) : visibleItems.length === 0 ? (
-          <div style={{ color: "#64748B" }}>등록된 게시글이 없습니다.</div>
+          <div style={{ color: "#64748B" }}>{"\ub4f1\ub85d\ub41c \uac8c\uc2dc\uae00\uc774 \uc5c6\uc2b5\ub2c8\ub2e4."}</div>
         ) : (
           <>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <Link href={`/admin/notice/boards/write?board=${board}`} style={{ textDecoration: "none", color: "#0F172A", fontWeight: 900 }}>
-                새글쓰기
+                {"\uae00\uc4f0\uae30"}
               </Link>
               <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} style={{ height: 32, borderRadius: 8, border: "1px solid #CBD5E1", padding: "0 8px" }}>
                 {PAGE_SIZE_OPTIONS.map((option) => (
@@ -177,10 +177,10 @@ export default function BoardListPage() {
                   fontWeight: 900,
                 }}
               >
-                <div>구분</div>
-                <div>제목</div>
-                <div>작성자</div>
-                <div>작성일</div>
+                <div>{"\uad6c\ubd84"}</div>
+                <div>{"\uc81c\ubaa9"}</div>
+                <div>{"\uc791\uc131\uc790"}</div>
+                <div>{"\uc791\uc131\uc77c"}</div>
               </div>
 
               {visibleItems.map((item) => (
@@ -215,7 +215,7 @@ export default function BoardListPage() {
                         fontWeight: 900,
                       }}
                     >
-                      {item.is_pinned ? "고정" : boardDef.shortLabel}
+                      {item.is_pinned ? "\uace0\uc815" : boardDef.shortLabel}
                     </span>
                   </div>
                   <div style={{ minWidth: 0 }}>

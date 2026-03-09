@@ -17,6 +17,7 @@ export default function BoardsLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const activeBoard = getActiveBoard(pathname, searchParams);
+  const isCalendarActive = pathname === "/admin/notice/calendar" || pathname.startsWith("/admin/notice/calendar/");
 
   return (
     <div
@@ -54,12 +55,12 @@ export default function BoardsLayout({ children }: { children: React.ReactNode }
               background: "#F8FAFC",
             }}
           >
-            글쓰기
+            {"\uae00\uc4f0\uae30"}
           </Link>
         </div>
 
         <div style={{ padding: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 900, color: "#64748B", marginBottom: 10 }}>전사게시판</div>
+          <div style={{ fontSize: 12, fontWeight: 900, color: "#64748B", marginBottom: 10 }}>{"\uac8c\uc2dc\ud310"}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {NOTICE_BOARD_DEFS.map((board) => {
               const active = activeBoard === board.key;
@@ -81,6 +82,24 @@ export default function BoardsLayout({ children }: { children: React.ReactNode }
                 </Link>
               );
             })}
+          </div>
+
+          <div style={{ fontSize: 12, fontWeight: 900, color: "#64748B", marginTop: 18, marginBottom: 10 }}>{"\uc77c\uc815\uad00\ub9ac"}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <Link
+              href="/admin/notice/calendar"
+              style={{
+                padding: "10px 12px",
+                borderRadius: 12,
+                textDecoration: "none",
+                background: isCalendarActive ? "#EEF6FF" : "transparent",
+                border: isCalendarActive ? "1px solid #BFDBFE" : "1px solid transparent",
+                color: isCalendarActive ? "#0F172A" : "#1E293B",
+                fontWeight: isCalendarActive ? 900 : 700,
+              }}
+            >
+              {"\uc77c\uc815\ub2ec\ub825"}
+            </Link>
           </div>
         </div>
       </aside>

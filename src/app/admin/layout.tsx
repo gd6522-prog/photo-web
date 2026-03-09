@@ -67,8 +67,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // 게시판 섹션: 달력/게시판을 /admin/notice/* 로 통일
   const NOTICE_ITEMS = useMemo(
     () => [
-      { label: "일정 달력", href: "/admin/notice/calendar" },
-      { label: "게시판", href: "/admin/notice/boards?board=notice" },
+      { label: "\uac8c\uc2dc\ud310", href: "/admin/notice/boards?board=notice" },
+      { label: "\uc77c\uc815\ub2ec\ub825", href: "/admin/notice/calendar" },
     ],
     []
   );

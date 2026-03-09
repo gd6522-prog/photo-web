@@ -798,13 +798,17 @@ function WeatherCard() {
                 </div>
                 <div
                   style={{
-                    minWidth: 108,
+                    minWidth: 92,
                     borderRadius: 14,
                     border: `1px solid ${feelsLikeStatus.borderColor}`,
                     background: feelsLikeStatus.background,
                     boxShadow: feelsLikeStatus.boxShadow,
-                    padding: "8px 11px",
+                    padding: "12px 10px 16px",
+                    minHeight: 98,
                     textAlign: "center",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
                   }}
                 >
                   <div style={{ fontSize: 14, fontWeight: 900, color: feelsLikeStatus.titleColor, letterSpacing: 0.2 }}>
