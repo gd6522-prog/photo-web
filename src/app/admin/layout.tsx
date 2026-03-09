@@ -64,11 +64,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     []
   );
 
-  // 공지 섹션: 달력/공지사항을 /admin/notice/* 로 통일
+  // 게시판 섹션: 달력/게시판을 /admin/notice/* 로 통일
   const NOTICE_ITEMS = useMemo(
     () => [
-      { label: "일정작성(달력)", href: "/admin/notice/calendar" },
-      { label: "공지사항 등록/작성", href: "/admin/notice/notices" },
+      { label: "일정 달력", href: "/admin/notice/calendar" },
+      { label: "게시판", href: "/admin/notice/boards?board=notice" },
     ],
     []
   );
@@ -204,7 +204,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     isSection(pathname, "/admin/delivery-photos") ||
     isSection(pathname, "/admin/hazards");
 
-  // ??怨듭? 猷⑦듃 ?ы븿
+  // 공지 라우트 포함
   const isNoticeActive = pathname.startsWith("/admin/notice");
   const isWorkLogActive = pathname.startsWith("/admin/work-log");
   const isSettingsActive = pathname.startsWith("/admin/settings");
@@ -472,14 +472,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   </div>
                 ) : null}
 
-                {/* 공지 */}
+                {/* 게시판 */}
                 <div
                   onMouseEnter={() => openDropdown("notice")}
                   onMouseLeave={() => closeDropdownDelayed("notice")}
                   style={{ position: "relative" }}
                 >
-                  <Link href="/admin/notice/calendar" style={pillStyle(isNoticeActive)} onMouseEnter={() => openDropdown("notice")}>
-                    공지
+                  <Link href="/admin/notice/boards?board=notice" style={pillStyle(isNoticeActive)} onMouseEnter={() => openDropdown("notice")}>
+                    게시판
                   </Link>
 
                   {noticeOpen && (
@@ -490,7 +490,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       onClick={(e) => e.stopPropagation()}
                     >
                       {NOTICE_ITEMS.map((it) => {
-                        const active = pathname === it.href || pathname.startsWith(it.href + "/");
+                        const baseHref = it.href.replace(/\?.*/, "");
+                        const active = pathname === baseHref || pathname.startsWith(baseHref + "/");
                         return (
                           <Link key={it.href} href={it.href} style={dropdownItemStyle(active)}>
                             {it.label}

@@ -9,10 +9,9 @@ const MAX_W = 1700;
 export default function NoticeLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  // ✅ 공지 섹션은 /admin/notice/* 로 통일
   const items = [
-    { href: "/admin/notice/calendar", label: "1. 일정작성(달력)" },
-    { href: "/admin/notice/notices", label: "2. 공지사항 등록/작성" },
+    { href: "/admin/notice/calendar", label: "일정 달력" },
+    { href: "/admin/notice/boards?board=notice", label: "게시판" },
   ];
 
   return (
@@ -20,7 +19,7 @@ export default function NoticeLayout({ children }: { children: React.ReactNode }
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "260px minmax(0, 1fr)",
+          gridTemplateColumns: "220px minmax(0, 1fr)",
           gap: 14,
           alignItems: "start",
         }}
@@ -33,11 +32,11 @@ export default function NoticeLayout({ children }: { children: React.ReactNode }
             overflow: "hidden",
           }}
         >
-          <div style={{ padding: 14, borderBottom: "1px solid #F3F4F6", fontWeight: 950 }}>공지</div>
+          <div style={{ padding: 14, borderBottom: "1px solid #F3F4F6", fontWeight: 950 }}>게시판 관리</div>
 
           <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
             {items.map((it) => {
-              const active = pathname === it.href || pathname.startsWith(it.href + "/");
+              const active = pathname === it.href || pathname.startsWith(it.href.replace(/\?.*/, "") + "/") || (it.href.includes("/boards") && pathname.startsWith("/admin/notice/boards"));
               return (
                 <Link
                   key={it.href}

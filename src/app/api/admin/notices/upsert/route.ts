@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { json, requireAdmin } from "../_shared";
+import { buildNoticeBoardBody, isNoticeBoardKey } from "@/lib/notice-board";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,15 +14,18 @@ export async function POST(req: NextRequest) {
     const id = body?.id ? String(body.id).trim() : "";
     const title = String(body?.title ?? "").trim();
     const noticeBody = String(body?.body ?? "").trim();
+    const boardKeyRaw = String(body?.board_key ?? "").trim();
     const is_pinned = !!body?.is_pinned;
+    const board_key = isNoticeBoardKey(boardKeyRaw) ? boardKeyRaw : "notice";
 
     if (!title) return json(false, "Missing title", null, 400);
     if (!noticeBody) return json(false, "Missing body", null, 400);
+    const storedBody = buildNoticeBoardBody(board_key, noticeBody);
 
     if (id) {
       const { error } = await r.sbAdmin
         .from("notices")
-        .update({ title, body: noticeBody, is_pinned })
+        .update({ title, body: storedBody, is_pinned })
         .eq("id", id);
 
       if (error) return json(false, error.message, null, 500);
@@ -30,8 +34,9 @@ export async function POST(req: NextRequest) {
 
     const { error } = await r.sbAdmin.from("notices").insert({
       title,
-      body: noticeBody,
+      body: storedBody,
       is_pinned,
+      created_by: r.uid,
     });
 
     if (error) return json(false, error.message, null, 500);

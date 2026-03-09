@@ -375,7 +375,7 @@ export default function AdminNoticeCalendarPage() {
     }
   };
 
-  const isNoticesActive = pathname === "/admin/notice/notices" || pathname.startsWith("/admin/notice/notices/");
+  const isNoticesActive = pathname === "/admin/notice/boards" || pathname.startsWith("/admin/notice/boards/");
   const isCalendarActive = pathname === "/admin/notice/calendar" || pathname.startsWith("/admin/notice/calendar/");
 
   if (checking || !ready) return <div style={{ padding: 16, color: "#6B7280" }}>로딩...</div>;
@@ -384,7 +384,7 @@ export default function AdminNoticeCalendarPage() {
     return (
       <div style={{ padding: 16, fontFamily: "system-ui" }}>
         <div style={{ fontWeight: 900, fontSize: 16 }}>권한이 없습니다.</div>
-        <div style={{ marginTop: 6, color: "#6B7280", fontSize: 13 }}>관리자 계정으로 로그인해야 접근할 수 있습니다.</div>
+        <div style={{ marginTop: 6, color: "#6B7280", fontSize: 13 }}>관리자 계정으로 로그인해 주세요.</div>
         <div style={{ marginTop: 10, fontSize: 12, color: "#374151" }}>
           현재 로그인: {sessionEmail || "-"} / UID: {sessionUid || "-"}
         </div>
@@ -400,7 +400,7 @@ export default function AdminNoticeCalendarPage() {
           <div style={{ marginTop: 6, color: "#6B7280", fontSize: 13 }}>관리자 계정은 일정 조회, 등록, 수정, 삭제가 가능합니다.</div>
           <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
             <TabLink href="/admin/notice/calendar" label="달력" active={isCalendarActive} />
-            <TabLink href="/admin/notice/notices" label="공지사항" active={isNoticesActive} />
+            <TabLink href="/admin/notice/boards?board=notice" label="게시판" active={isNoticesActive} />
           </div>
         </div>
 
@@ -550,7 +550,7 @@ export default function AdminNoticeCalendarPage() {
               </div>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 900, color: "#374151", marginBottom: 6 }}>제목</div>
-                <input value={formTitle} onChange={(e) => setFormTitle(e.target.value)} placeholder="센터 휴무 / 회의 / 업무" style={{ width: "100%", height: 40, borderRadius: 12, border: "1px solid #E5E7EB", padding: "0 12px", fontWeight: 800, outline: "none" }} />
+                <input value={formTitle} onChange={(e) => setFormTitle(e.target.value)} placeholder="센터 업무 / 회의 / 입고" style={{ width: "100%", height: 40, borderRadius: 12, border: "1px solid #E5E7EB", padding: "0 12px", fontWeight: 800, outline: "none" }} />
               </div>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 900, color: "#374151", marginBottom: 8 }}>일정 유형</div>
@@ -596,4 +596,3 @@ export default function AdminNoticeCalendarPage() {
     </div>
   );
 }
-

@@ -1,5 +1,6 @@
 ﻿import { NextRequest } from "next/server";
 import { json, requireAdmin } from "../_shared";
+import { isNoticeBoardKey, makeNoticeExcerpt, parseNoticeBoardBody } from "@/lib/notice-board";
 
 type NoticeRow = {
   id: string;
@@ -20,6 +21,8 @@ export async function GET(req: NextRequest) {
   try {
     const guard = await requireAdmin(req);
     if (!guard.ok) return guard.res;
+    const board = String(req.nextUrl.searchParams.get("board") ?? "").trim();
+    const q = String(req.nextUrl.searchParams.get("q") ?? "").trim().toLowerCase();
 
     let rows: NoticeRow[] = [];
     let hasCreatedBy = true;
@@ -59,16 +62,27 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const items = rows.map((r) => ({
-      id: r.id,
-      title: r.title,
-      body: r.body,
-      is_pinned: !!r.is_pinned,
-      created_at: r.created_at,
-      updated_at: r.updated_at,
-      created_by: hasCreatedBy ? r.created_by ?? null : null,
-      author_name: hasCreatedBy && r.created_by ? nameMap[r.created_by] ?? "-" : "-",
-    }));
+    const items = rows
+      .map((r) => {
+        const parsed = parseNoticeBoardBody(r.body);
+        return {
+          id: r.id,
+          title: r.title,
+          body: parsed.body,
+          board_key: parsed.boardKey,
+          excerpt: makeNoticeExcerpt(parsed.body),
+          is_pinned: !!r.is_pinned,
+          created_at: r.created_at,
+          updated_at: r.updated_at,
+          created_by: hasCreatedBy ? r.created_by ?? null : null,
+          author_name: hasCreatedBy && r.created_by ? nameMap[r.created_by] ?? "-" : "-",
+        };
+      })
+      .filter((item) => {
+        if (isNoticeBoardKey(board) && item.board_key !== board) return false;
+        if (!q) return true;
+        return [item.title, item.body, item.author_name ?? ""].some((value) => String(value).toLowerCase().includes(q));
+      });
 
     return json(true, undefined, { items, canManageAll: guard.isMainAdmin });
   } catch (e: unknown) {
