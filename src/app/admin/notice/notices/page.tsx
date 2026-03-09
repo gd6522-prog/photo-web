@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -14,6 +14,7 @@ type NoticeRow = {
   created_at: string;
   updated_at: string;
   created_by: string | null;
+  author_name?: string | null;
 };
 
 function hardToLogin() {
@@ -38,6 +39,7 @@ export default function AdminNoticesPage() {
 
   const [checking, setChecking] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isMainAdmin, setIsMainAdmin] = useState(false);
   const [uid, setUid] = useState("");
   const [email, setEmail] = useState("");
 
@@ -52,6 +54,14 @@ export default function AdminNoticesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const mounted = useRef(false);
+
+  const getAccessToken = async () => {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    const token = String(data.session?.access_token ?? "").trim();
+    if (!token) throw new Error("로그인 세션이 없습니다.");
+    return token;
+  };
 
   const loadAdmin = async () => {
     const { data, error } = await supabase.auth.getSession();
@@ -74,23 +84,27 @@ export default function AdminNoticesPage() {
     const main = hardAdmin || !!p?.is_admin;
     const general = normWorkPart(p?.work_part) === "관리자";
 
-    const admin = main || general;
-    setIsAdmin(admin);
-    return { ok: true as const, admin };
+    setIsMainAdmin(main);
+    setIsAdmin(main || general);
+    return { ok: true as const, admin: main || general };
   };
 
   const loadList = async () => {
     setErr("");
     setLoadingList(true);
     try {
-      const { data, error } = await supabase
-        .from("notices")
-        .select("id, title, body, is_pinned, created_at, updated_at, created_by")
-        .order("is_pinned", { ascending: false })
-        .order("updated_at", { ascending: false });
+      const token = await getAccessToken();
+      const res = await fetch("/api/admin/notices/list", {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
 
-      if (error) throw error;
-      setList((data ?? []) as NoticeRow[]);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) throw new Error(json?.message || "공지 목록 조회 실패");
+
+      setList((json.items ?? []) as NoticeRow[]);
+      setIsMainAdmin(!!json.canManageAll);
     } catch (e: unknown) {
       setErr((e as Error)?.message ?? "공지 목록 조회 실패");
       setList([]);
@@ -152,26 +166,23 @@ export default function AdminNoticesPage() {
 
     setSaving(true);
     try {
-      if (!editingId) {
-        const { error } = await supabase.from("notices").insert({
+      const token = await getAccessToken();
+      const res = await fetch("/api/admin/notices/upsert", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          id: editingId ?? undefined,
           title: title.trim(),
           body: body.trim(),
           is_pinned: !!isPinned,
-          created_by: uid,
-        });
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("notices")
-          .update({
-            title: title.trim(),
-            body: body.trim(),
-            is_pinned: !!isPinned,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", editingId);
-        if (error) throw error;
-      }
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) throw new Error(json?.message || "저장 실패");
 
       await loadList();
       resetForm();
@@ -191,17 +202,30 @@ export default function AdminNoticesPage() {
   };
 
   const onDelete = async (id: string) => {
-    if (!confirm("삭제할까요?")) return;
+    if (!confirm("이 공지를 삭제할까요?")) return;
     setErr("");
     try {
-      const { error } = await supabase.from("notices").delete().eq("id", id);
-      if (error) throw error;
+      const token = await getAccessToken();
+      const res = await fetch("/api/admin/notices/delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ id }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) throw new Error(json?.message || "삭제 실패");
+
       await loadList();
       if (editingId === id) resetForm();
     } catch (e: unknown) {
       setErr((e as Error)?.message ?? "삭제 실패");
     }
   };
+
+  const sortedList = useMemo(() => list, [list]);
 
   if (checking) return <div style={{ padding: 16, color: "#6B7280" }}>로딩...</div>;
 
@@ -223,7 +247,7 @@ export default function AdminNoticesPage() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
           <div>
             <div style={{ fontWeight: 950, fontSize: 20, color: "#111827" }}>공지 관리</div>
-            <div style={{ marginTop: 4, color: "#6B7280", fontSize: 13 }}>공지 등록/수정/삭제를 관리합니다.</div>
+            <div style={{ marginTop: 4, color: "#6B7280", fontSize: 13 }}>메인관리자는 전체 공지 조회, 수정, 삭제가 가능합니다.</div>
           </div>
           <Link
             href="/admin"
@@ -267,23 +291,23 @@ export default function AdminNoticesPage() {
 
               <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, fontSize: 13, color: "#111827", fontWeight: 800 }}>
                 <input type="checkbox" checked={isPinned} onChange={(e) => setIsPinned(e.target.checked)} />
-                상단 고정(📌)
+                상단 고정
               </label>
 
               {err ? <div style={{ marginTop: 10, color: "#B91C1C", fontSize: 13, fontWeight: 700 }}>{err}</div> : null}
 
               <button
                 onClick={onSave}
-                disabled={saving}
+                disabled={saving || !isMainAdmin}
                 style={{
                   marginTop: 12,
                   height: 40,
                   padding: "0 16px",
                   borderRadius: 12,
                   border: "1px solid #111827",
-                  background: saving ? "#111827" : "white",
+                  background: saving ? "#111827" : isMainAdmin ? "white" : "#E5E7EB",
                   color: saving ? "white" : "#111827",
-                  cursor: saving ? "not-allowed" : "pointer",
+                  cursor: saving || !isMainAdmin ? "not-allowed" : "pointer",
                   fontWeight: 900,
                 }}
               >
@@ -298,27 +322,33 @@ export default function AdminNoticesPage() {
             <div style={{ padding: 10 }}>
               {loadingList ? (
                 <div style={{ color: "#6B7280", fontSize: 13 }}>불러오는 중...</div>
-              ) : list.length === 0 ? (
+              ) : sortedList.length === 0 ? (
                 <div style={{ color: "#6B7280", fontSize: 13 }}>등록된 공지가 없습니다.</div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {list.map((n) => (
+                  {sortedList.map((n) => (
                     <div key={n.id} style={{ border: "1px solid #EEF2F6", borderRadius: 14, padding: 10, background: "white" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                        <div style={{ fontWeight: 900, color: "#111827", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {n.is_pinned ? "📌 " : ""}
-                          {n.title}
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 900, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {n.is_pinned ? "[고정] " : ""}
+                            {n.title}
+                          </div>
+                          <div style={{ marginTop: 6, fontSize: 12, color: "#6B7280" }}>
+                            작성자: {n.author_name ?? "-"} / 수정: {new Date(n.updated_at).toLocaleString("ko-KR")}
+                          </div>
                         </div>
-                        <div style={{ display: "flex", gap: 8 }}>
-                          <button onClick={() => onEditPick(n)} style={{ height: 28, padding: "0 10px", borderRadius: 10, border: "1px solid #D1D5DB", background: "white", cursor: "pointer", fontWeight: 900 }}>
-                            수정
-                          </button>
-                          <button onClick={() => onDelete(n.id)} style={{ height: 28, padding: "0 10px", borderRadius: 10, border: "1px solid #FCA5A5", background: "white", cursor: "pointer", fontWeight: 900, color: "#B91C1C" }}>
-                            삭제
-                          </button>
-                        </div>
+                        {isMainAdmin ? (
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <button onClick={() => onEditPick(n)} style={{ height: 28, padding: "0 10px", borderRadius: 10, border: "1px solid #D1D5DB", background: "white", cursor: "pointer", fontWeight: 900 }}>
+                              수정
+                            </button>
+                            <button onClick={() => onDelete(n.id)} style={{ height: 28, padding: "0 10px", borderRadius: 10, border: "1px solid #FCA5A5", background: "white", cursor: "pointer", fontWeight: 900, color: "#B91C1C" }}>
+                              삭제
+                            </button>
+                          </div>
+                        ) : null}
                       </div>
-                      <div style={{ marginTop: 6, fontSize: 12, color: "#6B7280" }}>{new Date(n.updated_at).toLocaleString("ko-KR")}</div>
                     </div>
                   ))}
                 </div>
@@ -330,3 +360,4 @@ export default function AdminNoticesPage() {
     </div>
   );
 }
+

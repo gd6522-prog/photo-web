@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
-import { isCompanyAdminFlag } from "@/lib/admin-role";
-import { isMissingColumnError } from "@/lib/supabase-compat";
+import { getErrorMessage, isMissingColumnError } from "@/lib/supabase-compat";
 import { json, requireAdmin } from "../../notices/_shared";
+import { BLOCKED_COMPANY, getWorkLogScope } from "../_shared";
 
-const BLOCKED_COMPANY = "한익스프레스";
+const EXCLUDED_WORK_PART_KEYWORD = "\uAE30\uC0AC";
 
 type ProfileOptionRow = {
   company_name: string | null;
@@ -19,34 +19,28 @@ export async function GET(req: NextRequest) {
   const guard = await requireAdmin(req);
   if (!guard.ok) return guard.res;
 
-  let myProf: any = null;
-  let meErr: any = null;
-  {
-    const result = await guard.sbAdmin.from("profiles").select("is_company_admin").eq("id", guard.uid).maybeSingle();
-    myProf = result.data;
-    meErr = result.error;
+  try {
+    const scope = await getWorkLogScope(guard.sbAdmin, guard.uid);
+
+    const load = async (includeWorkTable: boolean) => {
+      const columns = includeWorkTable ? "company_name,work_part,work_table" : "company_name,work_part";
+      let q = guard.sbAdmin.from("profiles").select(columns).not("work_part", "ilike", `%${EXCLUDED_WORK_PART_KEYWORD}%`);
+      if (scope.isCompanyAdminRole) q = q.neq("company_name", BLOCKED_COMPANY);
+      return await q;
+    };
+
+    let result = await load(true);
+    if (result.error && isMissingColumnError(result.error, "work_table")) result = await load(false);
+    if (result.error) return json(false, result.error.message, null, 500);
+
+    const rows = ((result.data ?? []) as unknown[]) as ProfileOptionRow[];
+    const companyOptions = uniqSorted(rows.map((r) => r.company_name));
+    const workPartOptions = uniqSorted(rows.map((r) => r.work_part));
+    const workTableOptions = uniqSorted(rows.map((r) => r.work_table));
+
+    return json(true, undefined, { isCompanyAdminRole: scope.isCompanyAdminRole, companyOptions, workPartOptions, workTableOptions });
+  } catch (e: unknown) {
+    console.error("[work-log/options] failed", e);
+    return json(false, getErrorMessage(e, "failed to load options"), null, 500);
   }
-  if (isMissingColumnError(meErr, "is_company_admin")) {
-    meErr = null;
-    myProf = null;
-  }
-  if (meErr) return json(false, meErr.message, null, 500);
-
-  const isCompanyAdminRole = isCompanyAdminFlag((myProf as { is_company_admin?: boolean | null } | null)?.is_company_admin);
-
-  let q = guard.sbAdmin
-    .from("profiles")
-    .select("company_name,work_part,work_table")
-    .not("work_part", "ilike", "%기사%");
-  if (isCompanyAdminRole) q = q.neq("company_name", BLOCKED_COMPANY);
-
-  const { data, error } = await q;
-  if (error) return json(false, error.message, null, 500);
-
-  const rows = (data ?? []) as ProfileOptionRow[];
-  const companyOptions = uniqSorted(rows.map((r) => r.company_name));
-  const workPartOptions = uniqSorted(rows.map((r) => r.work_part));
-  const workTableOptions = uniqSorted(rows.map((r) => r.work_table));
-
-  return json(true, undefined, { isCompanyAdminRole, companyOptions, workPartOptions, workTableOptions });
 }

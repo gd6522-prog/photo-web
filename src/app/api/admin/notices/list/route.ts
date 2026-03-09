@@ -1,92 +1,61 @@
-﻿// src/app/api/admin/notices/list/route.ts
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
+﻿import { NextRequest } from "next/server";
+import { json, requireAdmin } from "../_shared";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+type NoticeRow = {
+  id: string;
+  title: string;
+  body: string;
+  is_pinned: boolean | null;
+  created_at: string;
+  updated_at: string;
+  created_by?: string | null;
+};
 
-function bearerToken(req: Request) {
-  const v = req.headers.get("authorization") || "";
-  const m = v.match(/^Bearer\s+(.+)$/i);
-  return m?.[1] ?? "";
-}
+type ProfileNameRow = {
+  id: string;
+  name: string | null;
+};
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
-    const token = bearerToken(req);
-    if (!token) {
-      return NextResponse.json({ ok: false, message: "Missing Authorization Bearer token" }, { status: 401 });
-    }
+    const guard = await requireAdmin(req);
+    if (!guard.ok) return guard.res;
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-
-    // ?몄뀡 泥댄겕
-    const { data: userData, error: userErr } = await supabase.auth.getUser();
-    if (userErr) throw userErr;
-    const user = userData.user;
-    if (!user) return NextResponse.json({ ok: false, message: "Invalid session" }, { status: 401 });
-
-    // 愿由ъ옄 泥댄겕
-    const { data: prof, error: profErr } = await supabase
-      .from("profiles")
-      .select("id, is_admin, work_part")
-      .eq("id", user.id)
-      .maybeSingle();
-    if (profErr) throw profErr;
-
-    const hardAdmin = isMainAdminIdentity(user.id, user.email ?? "");
-    const isAdmin = hardAdmin || !!(prof as any)?.is_admin || isGeneralAdminWorkPart((prof as any)?.work_part);
-
-    if (!isAdmin) return NextResponse.json({ ok: false, message: "Forbidden" }, { status: 403 });
-
-    // ??1) created_by ?ы븿?댁꽌 癒쇱? ?쒕룄
-    let rows: any[] = [];
+    let rows: NoticeRow[] = [];
     let hasCreatedBy = true;
 
     {
-      const { data, error } = await supabase
+      const { data, error } = await guard.sbAdmin
         .from("notices")
-        .select("id, title, body, is_pinned, updated_at, created_by")
+        .select("id, title, body, is_pinned, created_at, updated_at, created_by")
         .order("is_pinned", { ascending: false })
         .order("updated_at", { ascending: false });
 
       if (error) {
-        // created_by 而щ읆???놁쑝硫??ш린濡??⑥뼱吏?
         hasCreatedBy = false;
 
-        const r2 = await supabase
+        const r2 = await guard.sbAdmin
           .from("notices")
-          .select("id, title, body, is_pinned, updated_at")
+          .select("id, title, body, is_pinned, created_at, updated_at")
           .order("is_pinned", { ascending: false })
           .order("updated_at", { ascending: false });
 
         if (r2.error) throw r2.error;
-        rows = (r2.data ?? []) as any[];
+        rows = (r2.data ?? []) as NoticeRow[];
       } else {
-        rows = (data ?? []) as any[];
+        rows = (data ?? []) as NoticeRow[];
       }
     }
 
-    // ??2) ?묒꽦??uid????profiles.name 留ㅽ븨
     let nameMap: Record<string, string> = {};
     if (hasCreatedBy) {
-      const ids = Array.from(
-        new Set(
-          rows
-            .map((r) => r?.created_by)
-            .filter((v) => typeof v === "string" && v.length > 0)
-        )
-      ) as string[];
+      const ids = Array.from(new Set(rows.map((r) => r.created_by).filter((v): v is string => typeof v === "string" && v.length > 0)));
 
       if (ids.length > 0) {
-        const { data: profs, error: pErr } = await supabase.from("profiles").select("id, name").in("id", ids);
+        const { data: profs, error: pErr } = await guard.sbAdmin.from("profiles").select("id, name").in("id", ids);
         if (pErr) throw pErr;
 
-        nameMap = Object.fromEntries((profs ?? []).map((p: any) => [p.id, String(p.name ?? "").trim() || "-"]));
+        nameMap = Object.fromEntries(((profs ?? []) as ProfileNameRow[]).map((p) => [p.id, String(p.name ?? "").trim() || "-"]));
       }
     }
 
@@ -95,13 +64,14 @@ export async function GET(req: Request) {
       title: r.title,
       body: r.body,
       is_pinned: !!r.is_pinned,
+      created_at: r.created_at,
       updated_at: r.updated_at,
+      created_by: hasCreatedBy ? r.created_by ?? null : null,
       author_name: hasCreatedBy && r.created_by ? nameMap[r.created_by] ?? "-" : "-",
     }));
 
-    return NextResponse.json({ ok: true, items });
-  } catch (e: any) {
-    return NextResponse.json({ ok: false, message: e?.message ?? String(e) }, { status: 500 });
+    return json(true, undefined, { items, canManageAll: guard.isMainAdmin });
+  } catch (e: unknown) {
+    return json(false, e instanceof Error ? e.message : String(e), null, 500);
   }
 }
-

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -81,11 +81,26 @@ export default function SignupPage() {
 
   const canCheckPhone = !!e164 && !loading && !otpSent && !checkingPhone;
   const canSendOtp = formOk && !loading && !otpSent;
-  const canVerify = !!lockedE164 && otp.trim().length >= 4 && !loading && otpSent;
+  const canVerify = formOk && !!lockedE164 && otp.trim().length >= 4 && !loading && otpSent;
 
   const hardSignOut = async () => {
     try {
       await supabase.auth.signOut();
+    } catch {}
+  };
+
+  const cleanupIncompleteSignup = async (accessToken?: string | null) => {
+    const token = String(accessToken ?? "").trim();
+    if (!token) return;
+
+    try {
+      await fetch("/api/signup/cleanup-incomplete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
     } catch {}
   };
 
@@ -94,7 +109,7 @@ export default function SignupPage() {
     setCheckingPhone(true);
 
     try {
-      if (!e164) throw new Error("전화번호 형식이 올바르지 않습니다.");
+      if (!e164) throw new Error("?袁れ넅甕곕뜇???類ㅻ뻼????而?몴?? ??녿뮸??덈뼄.");
 
       const { data, error } = await supabase.rpc("check_phone_exists", { p_phone: e164 });
       if (error) throw error;
@@ -105,10 +120,10 @@ export default function SignupPage() {
       setCheckedE164(e164);
 
       if (exists) {
-        alert("이미 가입된 전화번호입니다. 로그인 페이지로 이동합니다.");
+        alert("??? 揶쎛??낅쭆 ?袁れ넅甕곕뜇???낅빍?? 嚥≪뮄?????륁뵠筌왖嚥???猷??몃빍??");
         router.replace("/login");
       } else {
-        alert("가입 가능한 전화번호입니다. 계속 진행하세요.");
+        alert("揶쎛??揶쎛?館釉??袁れ넅甕곕뜇???낅빍?? ?④쑴??筌욊쑵六??뤾쉭??");
       }
     } catch (e: any) {
       setPhoneChecked(false);
@@ -125,9 +140,9 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      if (!e164) throw new Error("전화번호 형식이 올바르지 않습니다.");
+      if (!e164) throw new Error("?袁れ넅甕곕뜇???類ㅻ뻼????而?몴?? ??녿뮸??덈뼄.");
       if (!phoneChecked || phoneExists !== false || checkedE164 !== e164) {
-        throw new Error("전화번호 확인을 먼저 진행해주세요.");
+        throw new Error("?袁れ넅甕곕뜇???類ㅼ뵥???믪눘? 筌욊쑵六??곻폒?紐꾩뒄.");
       }
 
       const birthdateDashed = birth8ToDash(birth8.trim());
@@ -151,7 +166,7 @@ export default function SignupPage() {
 
       setLockedE164(e164);
       setOtpSent(true);
-      alert("문자로 인증번호가 발송되었습니다.");
+      alert("?얜챷?꾣에??紐꾩쵄甕곕뜇?뉐첎? 獄쏆뮇???뤿???щ빍??");
     } catch (e: any) {
       setLockedE164(null);
       setOtpSent(false);
@@ -165,9 +180,14 @@ export default function SignupPage() {
   const onVerify = async () => {
     if (!canVerify) return;
     setLoading(true);
+    let cleanupToken = "";
 
     try {
       const e164Fixed = lockedE164!;
+      if (name.trim().length < 2) throw new Error("???藥??2?リ섣?????怨대쭜 ???놁졑???낅슣?섋땻??");
+      if (!birthOk) throw new Error("??紐꺜??븐슦逾?8???遊???筌먐쇰꼪?????놁졑???낅슣?섋땻??");
+      if (!workPart.trim()) throw new Error("??얜????怨뺣콦?????놁졑???낅슣?섋땻??");
+      if (!passOk) throw new Error("?????뺢퀡???믩ご????곕뻣 ?筌먦끉逾???낅슣?섋땻??");
       const birthdateDashed = birth8ToDash(birth8.trim());
 
       const { data: otpData, error: otpErr } = await supabase.auth.verifyOtp({
@@ -178,9 +198,10 @@ export default function SignupPage() {
       if (otpErr) throw otpErr;
 
       const userId = otpData?.user?.id;
-      if (!userId) throw new Error("OTP 인증은 됐는데 user id를 못 받았습니다.");
+      cleanupToken = String(otpData?.session?.access_token ?? "");
+      if (!userId) throw new Error("OTP ?紐꾩쵄?? ?癒?뮉??user id??筌?獄쏆룇釉??щ빍??");
 
-      // 비밀번호 설정 + 메타데이터 저장
+      // ??쑬?甕곕뜇????쇱젟 + 筌롫???怨쀬뵠??????
       const { error: upErr } = await supabase.auth.updateUser({
         password: password.trim(),
         data: {
@@ -212,9 +233,10 @@ export default function SignupPage() {
       if (profErr) throw profErr;
 
       await hardSignOut();
-      alert("가입 완료! 승인 대기 상태입니다. 승인되면 로그인 가능합니다.");
+      alert("揶쎛???袁⑥┷! ?諭????疫??怨밴묶??낅빍?? ?諭???롢늺 嚥≪뮄???揶쎛?館鍮??덈뼄.");
       router.replace("/login");
     } catch (e: any) {
+      await cleanupIncompleteSignup(cleanupToken);
       await hardSignOut();
       alert(e?.message ?? String(e));
     } finally {
@@ -229,7 +251,7 @@ export default function SignupPage() {
       <div className="w-full max-w-lg rounded-3xl border border-[#b6c8d7] bg-white/95 p-6 shadow-[0_24px_60px_rgba(2,32,46,0.18)]">
         <div className="text-xl font-black text-[#0b2536]">회원가입</div>
         <div className="mt-1 text-sm text-[#557186]">
-          가입 시 1회 문자 인증 후, 전화번호+비밀번호로 로그인합니다.
+          가입은 1회 문자 인증 후 전화번호와 비밀번호로 로그인합니다.
         </div>
 
         <div className="mt-5 grid gap-3">
@@ -237,32 +259,32 @@ export default function SignupPage() {
             value={name} onChange={(e) => setName(e.target.value)} disabled={loading || otpSent} />
 
           <div className="flex gap-2">
-            <input className="flex-1 rounded-xl border border-[#b7c8d7] px-3 py-3 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20" placeholder="전화번호 (01012345678)"
+            <input className="flex-1 rounded-xl border border-[#b7c8d7] px-3 py-3 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20" placeholder="?袁れ넅甕곕뜇??(01012345678)"
               value={phone} onChange={(e) => setPhone(e.target.value)} disabled={loading || otpSent || checkingPhone} />
             <button className="rounded-xl bg-[#103b53] px-4 text-white font-bold transition hover:bg-[#0c2f43] disabled:opacity-60"
               onClick={onCheckPhone} disabled={!canCheckPhone}>
-              {checkingPhone ? "확인중..." : "확인"}
+              {checkingPhone ? "?類ㅼ뵥餓?.." : "?類ㅼ뵥"}
             </button>
           </div>
 
-          <input className="w-full rounded-xl border border-[#b7c8d7] px-3 py-3 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20" placeholder="생년월일 8자리 (YYYYMMDD)"
+          <input className="w-full rounded-xl border border-[#b7c8d7] px-3 py-3 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20" placeholder="??몃?遺우뵬 8?癒?봺 (YYYYMMDD)"
             value={birth8} onChange={(e) => setBirth8(e.target.value)} disabled={loading || otpSent} />
 
-          <input className="w-full rounded-xl border border-[#b7c8d7] px-3 py-3 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20" placeholder="국적 (예: KR)"
+          <input className="w-full rounded-xl border border-[#b7c8d7] px-3 py-3 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20" placeholder="????(?? KR)"
             value={nationality} onChange={(e) => setNationality(e.target.value)} disabled={loading || otpSent} />
 
-          <input className="w-full rounded-xl border border-[#b7c8d7] px-3 py-3 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20" placeholder="작업파트"
+          <input className="w-full rounded-xl border border-[#b7c8d7] px-3 py-3 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20" placeholder="?臾믩씜??곕뱜"
             value={workPart} onChange={(e) => setWorkPart(e.target.value)} disabled={loading || otpSent} />
 
-          <input className="w-full rounded-xl border border-[#b7c8d7] px-3 py-3 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20" placeholder="비밀번호(6자리 이상)"
+          <input className="w-full rounded-xl border border-[#b7c8d7] px-3 py-3 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20" placeholder="??쑬?甕곕뜇??6?癒?봺 ??곴맒)"
             type="password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading || otpSent} />
-          <input className="w-full rounded-xl border border-[#b7c8d7] px-3 py-3 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20" placeholder="비밀번호 확인"
+          <input className="w-full rounded-xl border border-[#b7c8d7] px-3 py-3 outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20" placeholder="??쑬?甕곕뜇???類ㅼ뵥"
             type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} disabled={loading || otpSent} />
 
           {!otpSent ? (
             <button className="w-full rounded-xl bg-[#103b53] py-3 font-bold text-white transition hover:bg-[#0c2f43] disabled:opacity-60"
               onClick={onSendOtp} disabled={!canSendOtp}>
-              {loading ? "전송중..." : "인증번호 발송"}
+              {loading ? "전송중.." : "인증번호 발송"}
             </button>
           ) : (
             <>
@@ -270,7 +292,7 @@ export default function SignupPage() {
                 value={otp} onChange={(e) => setOtp(e.target.value)} disabled={loading} />
               <button className="w-full rounded-xl bg-[#103b53] py-3 font-bold text-white transition hover:bg-[#0c2f43] disabled:opacity-60"
                 onClick={onVerify} disabled={!canVerify}>
-                {loading ? "확인중..." : "인증 완료"}
+                {loading ? "?類ㅼ뵥餓?.." : "?紐꾩쵄 ?袁⑥┷"}
               </button>
             </>
           )}

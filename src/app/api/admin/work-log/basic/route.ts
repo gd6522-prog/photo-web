@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { json, requireAdmin } from "../../notices/_shared";
 import { getWorkLogProfiles, getWorkLogScope } from "../_shared";
+import { getErrorMessage } from "@/lib/supabase-compat";
 
 type ShiftRow = {
   id: string;
@@ -46,8 +47,8 @@ export async function GET(req: NextRequest) {
 
     return json(true, undefined, { isCompanyAdminRole: scope.isCompanyAdminRole, profiles, shifts });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "failed to load basic work-log";
-    return json(false, msg, null, 500);
+    console.error("[work-log/basic] failed", e);
+    return json(false, getErrorMessage(e, "failed to load basic work-log"), null, 500);
   }
 }
 

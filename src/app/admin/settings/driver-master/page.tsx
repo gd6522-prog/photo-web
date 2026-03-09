@@ -355,6 +355,24 @@ export default function DriverMasterPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const rejectAndDeleteUser = async (id: string) => {
+    const { data: authData } = await supabase.auth.getSession();
+    const token = authData.session?.access_token;
+    if (!token) throw new Error("로그인 세션이 없습니다.");
+
+    const res = await fetch("/api/admin/user-master/reject-delete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ userId: id }),
+    });
+
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok || !payload?.ok) throw new Error(payload?.message || "반려 삭제에 실패했습니다.");
+  };
+
   const save = async () => {
     if (!selected) return;
     setSaving(true);
@@ -385,6 +403,13 @@ export default function DriverMasterPage() {
 
         approval_status: f.approval_status || "pending",
       };
+
+      if (payload.approval_status === "rejected") {
+        await rejectAndDeleteUser(selected.id);
+        await load();
+        closeEdit();
+        return;
+      }
 
       const { error } = await supabase.from("profiles").update(payload).eq("id", selected.id);
       if (error) throw error;
@@ -434,8 +459,12 @@ export default function DriverMasterPage() {
   const updateApprovalInline = async (id: string, next: "pending" | "approved" | "rejected") => {
     setErr(null);
     try {
-      const { error } = await supabase.from("profiles").update({ approval_status: next }).eq("id", id);
-      if (error) throw error;
+      if (next === "rejected") {
+        await rejectAndDeleteUser(id);
+      } else {
+        const { error } = await supabase.from("profiles").update({ approval_status: next }).eq("id", id);
+        if (error) throw error;
+      }
       await load();
     } catch (e: any) {
       setErr(String(e?.message ?? e ?? "상태 변경 실패"));

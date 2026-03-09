@@ -1,16 +1,29 @@
-﻿// src/app/admin/page.tsx
+// src/app/admin/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
+import {
+  CALENDAR_EVENT_TYPE_BADGE,
+  calendarEventBadgeBackground,
+  calendarEventBadgeBorderColor,
+  CALENDAR_EVENT_TYPE_LABEL,
+  compareCalendarEventType,
+  dominantCalendarEventType,
+  isMixedCalendarEventTypes,
+  parseCalendarEventType,
+  summarizeCalendarEventTypes,
+  type CalendarEventType,
+} from "@/lib/calendar-event-type";
 
 type EventRow = {
   id: string;
   date: string; // YYYY-MM-DD
   title: string;
   memo: string | null;
+  event_type: CalendarEventType;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -25,10 +38,10 @@ type HolidayRow = {
 const CARD_MIN_H = 520;
 const WEATHER_MIN_H = 520;
 
-// ✅ 달력 크기는 유지하고, 공지 영역을 좌측으로 더 붙이기 위해 컬럼 폭 조정
+// ? 달력 크기는 유지하고, 공지 영역을 좌측으로 더 붙이기 위해 컬럼 폭 조정
 const LEFT_COL_W = 290;
 
-// ✅ 왼쪽 달력 ↔ 가운데 공지사항 간격 1cm 고정
+// ? 왼쪽 달력 ↔ 가운데 공지사항 간격 1cm 고정
 const COL_GAP = "8px";
 const ROW_GAP = "8px";
 
@@ -80,7 +93,7 @@ type Notice = {
   is_pinned: boolean;
   updated_at: string;
 
-  // ✅ 작성자 표시용 (API에서 내려줌)
+  // ? 작성자 표시용 (API에서 내려줌)
   author_name: string | null;
 };
 
@@ -275,7 +288,7 @@ function WeatherIcon({ code, size = 30 }: { code: number | null; size?: number }
   return <svg {...common}>{cloud}</svg>;
 }
 
-/** -------- 공지(메인) : 리스트형 (✅ 6개/페이지) -------- */
+/** -------- 공지(메인) : 리스트형 (? 6개/페이지) -------- */
 function NoticeMainCard() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<Notice[]>([]);
@@ -448,7 +461,7 @@ function NoticeMainCard() {
                 }}
               >
                 <div style={{ padding: "12px 12px", display: "flex", gap: 10, alignItems: "center" }}>
-                  <div style={{ width: 22, textAlign: "center" }}>{n.is_pinned ? "📌" : "•"}</div>
+                  <div style={{ width: 22, textAlign: "center" }}>{n.is_pinned ? "??" : "?"}</div>
 
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div
@@ -465,7 +478,7 @@ function NoticeMainCard() {
                       {n.title}
                     </div>
 
-                    {/* ✅ 날짜(왼쪽) + 작성자(오른쪽 끝 정렬) */}
+                    {/* ? 날짜(왼쪽) + 작성자(오른쪽 끝 정렬) */}
                     <div
                       style={{
                         marginTop: 4,
@@ -492,7 +505,7 @@ function NoticeMainCard() {
                     </div>
                   </div>
 
-                  <div style={{ opacity: 0.35, fontSize: 18 }}>›</div>
+                  <div style={{ opacity: 0.35, fontSize: 18 }}>?</div>
                 </div>
               </Link>
             ))}
@@ -702,7 +715,7 @@ function WeatherCard() {
               {!w?.ok && w?.message ? <div style={{ fontSize: 12, color: "#B91C1C" }}>{w.message}</div> : null}
             </div>
 
-            {/* ✅ 주간예보 "한 칸 내려간" 버전 */}
+            {/* ? 주간예보 "한 칸 내려간" 버전 */}
             <div style={{ marginTop: 14, borderTop: "1px solid #d9e6ef", paddingTop: 12 }}>
               <div style={{ fontWeight: 950, fontSize: 12.5, color: "#103b53", marginBottom: 8 }}>
                 주간예보 (D+7, 오늘 제외)
@@ -833,7 +846,11 @@ function ThreeDayPreview({
     for (const ymd of days) map[ymd] = [];
     for (const e of events) if (map[e.date]) map[e.date].push(e);
     for (const k of Object.keys(map)) {
-      map[k].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+      map[k].sort((a, b) => {
+        const typeDiff = compareCalendarEventType(a.event_type, b.event_type);
+        if (typeDiff !== 0) return typeDiff;
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      });
     }
     return map;
   }, [events, days]);
@@ -841,7 +858,6 @@ function ThreeDayPreview({
   return (
     <div style={{ marginTop: 2 }}>
       <div style={{ fontWeight: 950, fontSize: 13, color: "#103b53", marginBottom: 7 }}>3일 미리보기</div>
-
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {days.map((ymd) => {
           const list = grouped[ymd] ?? [];
@@ -875,7 +891,31 @@ function ThreeDayPreview({
                       style={{ fontSize: 13, color: "#35556b", display: "flex", gap: 6, minWidth: 0 }}
                       title={e.title}
                     >
-                      <span>•</span>
+                      <span
+                        style={{
+                          minWidth: 28,
+                          height: 16,
+                          padding: "0 4px",
+                          borderRadius: 3,
+                          background: CALENDAR_EVENT_TYPE_BADGE[e.event_type].bg,
+                          border: `1px solid ${CALENDAR_EVENT_TYPE_BADGE[e.event_type].border}`,
+                          color: CALENDAR_EVENT_TYPE_BADGE[e.event_type].text,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 9,
+                          fontWeight: 900,
+                          lineHeight: 1,
+                          marginTop: 2,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {e.event_type === "general"
+                          ? "일반"
+                          : e.event_type === "new_store"
+                            ? "신규"
+                            : "NB"}
+                      </span>
                       <span
                         style={{
                           fontWeight: 950,
@@ -1062,7 +1102,12 @@ export default function AdminHomePage() {
         throw new Error(payload.message || "달력 데이터를 불러오지 못했습니다.");
       }
 
-      setEvents((payload.events ?? []) as EventRow[]);
+      setEvents(
+        (payload.events ?? []).map((event) => ({
+          ...event,
+          event_type: parseCalendarEventType(event.memo),
+        }))
+      );
       setHolidays((payload.holidays ?? []) as HolidayRow[]);
     } catch {
       setEvents([]);
@@ -1107,8 +1152,11 @@ export default function AdminHomePage() {
   }, [ready, checking, isAdmin, ym.y, ym.m]);
 
   const eventsByDate = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const e of events) map[e.date] = (map[e.date] ?? 0) + 1;
+    const map: Record<string, EventRow[]> = {};
+    for (const e of events) {
+      if (!map[e.date]) map[e.date] = [];
+      map[e.date].push(e);
+    }
     return map;
   }, [events]);
 
@@ -1118,7 +1166,7 @@ export default function AdminHomePage() {
     return map;
   }, [holidays]);
 
-  const countFor = (ymd: string) => eventsByDate[ymd] ?? 0;
+  const countFor = (ymd: string) => (eventsByDate[ymd] ?? []).length;
 
   if (checking || !ready) return <div style={{ padding: 16, color: "#6B7280" }}>로딩...</div>;
 
@@ -1256,6 +1304,11 @@ export default function AdminHomePage() {
                     const holidayName = holidayDisplayName(c.ymd, holidaysByDate);
                     const count = countFor(c.ymd);
                     const badgeText = count > 99 ? "99+" : String(count);
+                    const badgeCounts = summarizeCalendarEventTypes((eventsByDate[c.ymd] ?? []).map((event) => event.event_type));
+                    const dominantType = dominantCalendarEventType((eventsByDate[c.ymd] ?? []).map((event) => event.event_type));
+                    const badgeBg = calendarEventBadgeBackground(badgeCounts);
+                    const badgeBorder = calendarEventBadgeBorderColor(badgeCounts);
+                    const mixedBadge = isMixedCalendarEventTypes(badgeCounts);
 
                     return (
                       <button
@@ -1300,9 +1353,9 @@ export default function AdminHomePage() {
                                 height: 18,
                                 padding: "0 5px",
                                 borderRadius: 999,
-                                background: isSelected ? "white" : "#103b53",
-                                color: isSelected ? "#103b53" : "white",
-                                border: "1px solid #103b53",
+                                background: isSelected ? "white" : badgeBg,
+                                color: mixedBadge ? "#6B7280" : CALENDAR_EVENT_TYPE_BADGE[dominantType].text,
+                                border: `1px solid ${badgeBorder}`,
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
@@ -1502,3 +1555,4 @@ export default function AdminHomePage() {
     </div>
   );
 }
+
