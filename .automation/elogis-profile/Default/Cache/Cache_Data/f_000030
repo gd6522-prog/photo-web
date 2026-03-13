@@ -1,0 +1,1620 @@
+var xMapInvoke = (function () {
+
+	
+	var privateMethod = function(message) {
+		//alert(message);
+	};
+	
+	var isEditableRoute = function(result) {
+	  	if (Number(result.ALREADY_LEAVED_CNT) > 0){
+	  		alert('배송시작(또는 실적확정)된 배송처가 포함되어 있습니다');
+	  		doCallbackBlockScreen(false);
+	  		return false;
+	  	}
+	  	else if (Number(result.CONFIRM_POINT_CNT) > 0){
+	  		alert('확정된 배송처가 포함되어 있습니다');
+	  		doCallbackBlockScreen(false);
+	  		return false;
+	  	}		    	  	
+	  	else if (Number(result.SELECT_POINT_CNT) == 0){
+	  		alert('노선을 조정할 대상이 선택되지 않았습니다');
+	  		doCallbackBlockScreen(false);
+	  		return false;
+	  	}		    	  	
+	  	else if (Number(result.MOBILE_ADJUST_CNT) > 0){
+	  		alert('모바일에서 조정중인 배송처가 포함되어 있습니다');
+	  		doCallbackBlockScreen(false);
+	  		return false;
+	  	}		    	  	
+	  	else if (result.TARGET_ADJUST_STATUS == '2'){
+	  		alert('모바일에서 조정중인 노선에 배송처를 추가할 수 없습니다.');
+	  		doCallbackBlockScreen(false);
+	  		return false;
+	  	}
+	  	else{		
+	  		return true;
+	  	}
+	};	
+	
+  
+	return {
+		
+		publicMethod1: function (text) {
+			privateMethod(text);
+		},
+		
+  
+		publicMethod1: function (text) {
+			privateMethod(text);
+		},
+	  
+
+		doInitNaverMap: function (divId, zoomLevel, centerLatt, centerLngt){
+		    var oMap = new naver.maps.Map(document.getElementById(divId), {
+	 		      center: new naver.maps.LatLng(centerLatt, centerLngt)
+	 		    , zoom: zoomLevel
+	 		    , minZoom: 1 //지도의 최소 줌 레벨
+	 		    , mapDataControl: false
+	 		    , logoControl: false
+	 		    , zoomControl: true //줌 컨트롤의 표시 여부
+	 		    , mapTypeControl: true
+	 		    , zoomControlOptions: { //줌 컨트롤의 옵션
+	 		    	  style: naver.maps.ZoomControlStyle.SMALL
+	 		        , position: naver.maps.Position.TOP_RIGHT
+	 		    }
+	 	        , mapTypeControlOptions: {
+	 	              style: naver.maps.MapTypeControlStyle.BUTTON
+	 	            , position: naver.maps.Position.TOP_RIGHT
+	 	        }
+	 		});
+		    
+		    return oMap;
+		},
+
+		
+		//===================================
+		doZipAddrMap: function (
+			    divId
+			  , requestMapping
+			  ,	centerCd
+			  ,	addrCds
+			  , mapCenter
+			  , mapZoom
+			  , isDraw
+			  ,	clientCd			  
+			  , isGrpDelivery
+			  , isSimulation
+		){
+			$('#'+divId).load(requestMapping, {
+				    client_cd : clientCd
+				  , center_cd : centerCd
+				  , addr_cds : addrCds
+				  , draw_button : isDraw	  
+				  , draw_zone : isDraw && doMapGetIsDrawZone()
+				  , remove_zone : isDraw && doMapGetIsRemoveZone()
+				  , move_zone : isDraw && doMapGetIsMoveZone()
+				  , grp_delivery : isGrpDelivery
+				  , simulation : isSimulation
+				  , map_center : mapCenter
+				  , map_zoom : mapZoom
+				  , map_center_before : doMapGetCenter()//for oMap.panTo
+				  , map_zoom_before : doMapGetZoom()//for oMap.setZoom				  
+ 			}
+			, doCallbackLoadZipAddrMap
+			);	
+		},
+		
+		
+		//===================================
+		doZipMap: function (
+			    divId
+			  , requestMapping
+			  ,	centerCd
+			  ,	zipCd
+			  , mapCenter
+			  , mapZoom
+			  , isDraw
+			  ,	clientCd			  
+			  , isGrpDelivery
+			  , isSimulation
+		){
+			$('#'+divId).load(requestMapping, {
+				    client_cd : clientCd
+				  , center_cd : centerCd
+				  , zip_cd : zipCd
+				  , draw_button : isDraw	  
+				  , draw_zone : isDraw && doMapGetIsDrawZone()
+				  , remove_zone : isDraw && doMapGetIsRemoveZone()
+				  , move_zone : isDraw && doMapGetIsMoveZone()
+				  , grp_delivery : isGrpDelivery
+				  , simulation : isSimulation
+				  , map_center : mapCenter
+				  , map_zoom : mapZoom
+				  , map_center_before : doMapGetCenter()//for oMap.panTo
+				  , map_zoom_before : doMapGetZoom()//for oMap.setZoom				  
+ 			}
+			, doCallbackLoadZipMap
+			);	
+		},		
+		
+		
+		//===================================
+		doZoneMap: function (
+			    divId
+			  , requestMapping
+			  ,	centerCd
+			  ,	zoneCds
+			  , mapCenter
+			  , mapZoom
+			  , isDraw
+			  ,	clientCd			  
+			  , isGrpDelivery
+			  , isSimulation
+		){
+			$('#'+divId).load(requestMapping, {
+				    client_cd : clientCd
+				  , center_cd : centerCd
+				  , zone_cds : zoneCds
+				  , draw_button : isDraw	  
+				  , draw_zone : 	isDraw && doMapGetIsDrawZone()
+				  , remove_zone : 	isDraw && doMapGetIsRemoveZone()
+				  , move_zone : 	isDraw && doMapGetIsMoveZone()
+				  , grp_delivery : isGrpDelivery
+				  , simulation : isSimulation
+				  , map_center : mapCenter
+				  , map_zoom : mapZoom
+				  , map_center_before : doMapGetCenter()//for oMap.panTo
+				  , map_zoom_before : doMapGetZoom()//for oMap.setZoom				  
+ 			}
+			, doCallbackLoadZoneMap
+			);	
+		},
+		
+		
+		//===================================
+		doRouteMap: function (
+			    divId
+			  , requestMapping
+			  ,	centerCd
+			  , deliDy
+			  , deliTypeCd
+			  , productType
+			  , deliSeq
+			  , routeSeq
+			  , selectRouteIds
+			  , mapCenter
+			  , mapZoom
+			  , isStartLine
+			  , isShowDepot
+			  , isDraw
+			  , ownerCd
+			  , zoneCd
+			  , orderMoveYn
+			  , deliType
+			  , deliGrp
+			  , orderBy
+			  , clientCd
+			  , isSimulation
+			  , planExeId
+			  , isGrpDelivery
+			  , planxSqlNamespace
+			  , planxSqlIdPrefix			  
+		){
+			//console.log('### owner_cd : ' + ownerCd);			
+			$('#'+divId).load(requestMapping, {
+				    client_cd : clientCd
+				  , center_cd : centerCd
+				  , deli_dy : deliDy
+				  , deli_type_cd : deliTypeCd
+				  , product_type : productType
+				  , deli_seq : deliSeq
+				  , plan_exe_id : planExeId
+				  , route_ids : selectRouteIds
+				  , route_seq : routeSeq
+				  , draw_button : isDraw	  
+				  , grp_delivery : isGrpDelivery
+				  , simulation : isSimulation
+				  , planx_sql_namespace : planxSqlNamespace
+				  , planx_sql_id_prefix : planxSqlIdPrefix				  
+				  , draw_area_polygon     : isDraw && doMapGetIsDrawAreaPolygon()
+				  , draw_area_ellipse     : isDraw && doMapGetIsDrawAreaEllipse() 
+				  , draw_area_rectangle   : isDraw && doMapGetIsDrawAreaRectangle()
+				  , draw_order_point      : isDraw && doMapGetIsDrawOrderPoint()
+				  , draw_order_route      : isDraw && doMapGetIsDrawOrderRoute()
+				  , draw_exchange_point   : isDraw && doMapGetIsDrawExchangePoint()
+				  , draw_next_point       : isDraw && doMapGetIsDrawNextPoint()
+				  , draw_start_point      : isDraw && doMapGetIsDrawStartPoint()		  
+				  , draw_intra_route      : isDraw && doMapGetIsDrawIntraRoute()
+				  , button_area_polygon   : isDraw
+				  , button_area_ellipse   : isDraw
+				  , button_area_rectangle : isDraw
+				  , button_order_point    : isDraw
+				  , button_order_route    : isDraw
+				  , button_exchange_point : isDraw
+				  , button_next_point     : isDraw
+				  , button_start_point    : isDraw
+				  , button_intra_route    : isDraw
+				  , stay_route : ''
+				  , map_center : mapCenter
+				  , map_zoom : mapZoom
+				  , map_center_before : doMapGetCenter()//for oMap.panTo
+				  , map_zoom_before : doMapGetZoom()//for oMap.setZoom				  
+				  , start_line : isStartLine
+				  , show_depot : isShowDepot
+				  , owner_cd : ownerCd				  
+				  , zone_cd : zoneCd
+				  , order_move_yn : orderMoveYn
+				  , deli_type : deliType
+				  , deli_grp : deliGrp
+				  , order_by : orderBy
+ 			}
+			, doCallbackLoadRouteMap
+			);	
+		},		
+		
+		doKpRouteMap: function (
+			    divId
+			  , requestMapping
+			  ,	centerCd
+			  , deliDy
+			  , shipCom
+			  , deliSeq
+			  , deliStatus
+		){
+			//console.log('### owner_cd : ' + ownerCd);			
+			$('#'+divId).load(requestMapping, {
+				    center_cd : centerCd
+				  , deli_dy : deliDy
+				  , ship_com : shipCom
+				  , deli_seq : deliSeq
+				  , deli_status : deliStatus
+ 			}
+			, doCallbackLoadRouteMap
+			);	
+		},		
+		
+		//===================================		
+		doLoadDropSheet: function (
+			    divId
+			  , requestMapping
+			  ,	centerCd
+			  , deliDy	
+			  , deliTypeCd
+			  , productType
+			  , deliSeq
+			  , routeSeq
+			  , selectRouteIds
+			  , mstRouteId
+			  , isStayRoute
+			  , actionCode
+			  , pointIds
+			  , isStartLine
+			  , isShowDepot
+			  , isDraw
+			  , deliType
+			  , deliGrp
+			  , orderBy
+			  , clientCd
+			  , isSimulation
+			  , planExeId
+			  , isGrpDelivery
+			  , planxSqlNamespace
+			  , planxSqlIdPrefix			  
+		){	
+		
+			var affectPointIds = pointIds;
+			
+			$.ajax({ 
+			  	type: 'POST'
+		      , url: '/tms/task/vp/TmsVpPlanMap/preProcessClicked.do'
+		      , async : false
+		      , data: {
+		    	         client_cd : clientCd
+					   , center_cd : centerCd
+					   , deli_dy : deliDy
+					   , deli_type_cd : deliTypeCd
+					   , product_type : productType
+					   , deli_seq : deliSeq
+					   , route_seq : routeSeq
+					   , plan_exe_id : planExeId
+					   , route_ids : selectRouteIds
+					   , grp_delivery : isGrpDelivery
+					   , simulation : isSimulation
+					   , planx_sql_namespace : planxSqlNamespace
+					   , planx_sql_id_prefix : planxSqlIdPrefix			  					   
+					   , affect_point_ids : affectPointIds
+			      	}
+		      , dataType: 'json'
+		      , success: function(result) {
+	    	  	if (Number(result.MOBILE_ADJUST_CNT) > 0){
+	    	  		alert('모바일에서 조정중인 배송처가 포함되어 있습니다');
+	    	  		doCallbackBlockScreen(false);
+	    	  	}		    	 
+	    	  	else if (result.TARGET_ADJUST_STATUS == '2'){
+	    	  		alert('모바일에서 조정중인 노선에 배송처를 추가할 수 없습니다.');
+	    	  		doCallbackBlockScreen(false);
+	    	  	}	    	  	
+	    	  	else{
+					doMapShowProgressBar(true);
+					$('#'+divId).load(requestMapping,{ 
+						    client_cd : clientCd
+						  , center_cd : centerCd
+						  , deli_dy : deliDy
+						  , deli_type_cd : deliTypeCd
+						  , product_type : productType
+						  , deli_seq : deliSeq
+						  , route_seq : routeSeq
+						  , plan_exe_id : planExeId
+						  , route_ids : selectRouteIds
+						  , mst_route_id : mstRouteId
+						  , action_code : actionCode
+						  , draw_button : isDraw
+						  , grp_delivery : isGrpDelivery
+						  , planx_sql_namespace : planxSqlNamespace
+						  , planx_sql_id_prefix : planxSqlIdPrefix						  
+						  , simulation : isSimulation
+						  , affect_point_ids : affectPointIds
+						  , draw_area_polygon : isDraw && doMapGetIsDrawAreaPolygon()
+						  , draw_area_ellipse : isDraw && doMapGetIsDrawAreaEllipse()
+						  , draw_area_rectangle : isDraw && doMapGetIsDrawAreaRectangle()
+						  , draw_order_point : isDraw && doMapGetIsDrawOrderPoint()
+						  , draw_order_route : isDraw && doMapGetIsDrawOrderRoute()
+						  , draw_exchange_point : isDraw && doMapGetIsDrawExchangePoint()				
+						  , draw_next_point : isDraw && doMapGetIsDrawNextPoint()
+						  , draw_start_point : isDraw && doMapGetIsDrawStartPoint()
+						  , draw_intra_route : isDraw && doMapGetIsDrawIntraRoute()
+						  , button_area_polygon : isDraw
+						  , button_area_ellipse : isDraw
+						  , button_area_rectangle : isDraw
+						  , button_order_point : isDraw
+						  , button_order_route :isDraw
+						  , button_exchange_point : isDraw
+						  , button_next_point : isDraw
+						  , button_start_point : isDraw			  
+						  , button_intra_route : isDraw						  
+						  , stay_route : isStayRoute
+						  , map_center : doMapGetCenter()
+						  , map_zoom : doMapGetZoom()	
+						  , start_line : isStartLine
+						  , show_depot : isShowDepot
+						  , deli_type : deliType
+						  , deli_grp : deliGrp
+						  , order_by : orderBy
+			 		}
+					, doCallbackLoadDropSheet
+					);
+	    	  	}
+		      }
+		      , error:function(request,status,error){
+			  }	
+			});					
+		},
+
+		
+		
+		//===================================		
+		doLoadDrawEllipse: function (
+			    divId
+			  , requestMapping
+			  ,	centerCd
+			  , deliDy	
+			  , deliTypeCd
+			  , productType
+			  , deliSeq
+			  , routeSeq
+			  , selectRouteIds
+			  , mstRouteId
+			  , isStayRoute
+			  , actionCode
+			  , polylineRouteId
+			  , latt
+			  , lngt
+			  , isStartLine
+			  , isShowDepot
+			  , isDraw
+			  , ownerCd			  
+			  , zoneCd
+			  , orderMoveYn
+			  , deliType
+			  , deliGrp
+			  , orderBy
+			  , clientCd
+			  , isSimulation
+			  , planExeId
+			  , isGrpDelivery
+			  , planxSqlNamespace
+			  , planxSqlIdPrefix			  
+		){
+			
+			var clickedEllipseLatLng = doMapGetClickedEllipseLatLng();
+			var ellipseLatLngs = clickedEllipseLatLng[0].lat()+","+clickedEllipseLatLng[0].lng()+"|"+clickedEllipseLatLng[1].lat()+","+clickedEllipseLatLng[1].lng();
+			
+			$.ajax({ 
+			  	type: 'POST'
+		      , url: '/tms/task/vp/TmsVpPlanMap/preProcessDrawEllipse.do'
+		      , async : false
+		      , data: {
+		    	     client_cd : clientCd
+		    	   , center_cd : centerCd
+				   , deli_dy : deliDy
+				   , deli_type_cd : deliTypeCd
+				   , product_type : productType
+				   , deli_seq : deliSeq
+				   , route_seq : routeSeq
+				   , plan_exe_id : planExeId
+				   , route_ids : selectRouteIds
+				   , grp_delivery : isGrpDelivery
+				   , simulation : isSimulation
+				   , planx_sql_namespace : planxSqlNamespace
+				   , planx_sql_id_prefix : planxSqlIdPrefix			  				   
+				   , ellipse_latlngs : ellipseLatLngs
+				   , polyline_route_id : polylineRouteId
+		      	}
+		      , dataType: 'json'
+		      , success: function(result) {
+		    	  	if (isEditableRoute(result)){
+		    	  		doMapShowProgressBar(true);
+						$('#'+divId).load(requestMapping, {
+							    client_cd : clientCd
+							  ,	center_cd : centerCd
+							  , deli_dy : deliDy
+							  , deli_type_cd : deliTypeCd
+							  , product_type : productType
+							  , deli_seq : deliSeq
+							  , route_seq : routeSeq
+							  , plan_exe_id : planExeId
+							  , grp_delivery : isGrpDelivery
+							  , simulation : isSimulation
+							  , planx_sql_namespace : planxSqlNamespace
+							  , planx_sql_id_prefix : planxSqlIdPrefix			  							  
+							  , route_ids : selectRouteIds
+							  , mst_route_id : mstRouteId
+							  , action_code : actionCode
+							  , polyline_route_id : polylineRouteId
+							  , polyline_lattlngt : latt+","+lngt
+							  , ellipse_latlngs : ellipseLatLngs
+							  , draw_button : isDraw
+							  , draw_area_polygon : isDraw && doMapGetIsDrawAreaPolygon()
+							  , draw_area_ellipse : isDraw && doMapGetIsDrawAreaEllipse()
+							  , draw_area_rectangle : isDraw && doMapGetIsDrawAreaRectangle()
+							  , draw_order_point : isDraw && doMapGetIsDrawOrderPoint()
+							  , draw_order_route : isDraw && doMapGetIsDrawOrderRoute()
+							  , draw_exchange_point : isDraw && doMapGetIsDrawExchangePoint()
+							  , draw_next_point : isDraw && doMapGetIsDrawNextPoint()
+							  , draw_start_point : isDraw && doMapGetIsDrawStartPoint()
+							  , draw_intra_route : isDraw && doMapGetIsDrawIntraRoute()
+							  , button_area_polygon : isDraw
+							  , button_area_ellipse : isDraw
+							  , button_area_rectangle : isDraw
+							  , button_order_point : isDraw
+							  , button_order_route :isDraw
+							  , button_exchange_point : isDraw
+							  , button_next_point : isDraw
+							  , button_start_point : isDraw			  
+							  , button_intra_route : isDraw							  
+							  , stay_route : isStayRoute
+							  , map_center : doMapGetCenter()
+							  , map_zoom : doMapGetZoom()
+							  , start_line : isStartLine
+							  , show_depot : isShowDepot
+							  , owner_cd : ownerCd							  
+							  , zone_cd : zoneCd
+							  , order_move_yn : orderMoveYn
+							  , deli_type : deliType
+							  , deli_grp : deliGrp
+							  , order_by : orderBy
+				 		}
+						, doCallbackLoadDrawEllipse
+						);		
+		    	  	}
+		      	}
+		      , error:function(request,status,error){
+			    }	
+			});
+		},
+		
+		
+		//===================================		
+		doLoadDrawRectangle: function (
+			    divId
+			  , requestMapping
+			  ,	centerCd
+			  , deliDy
+			  , deliTypeCd
+			  , productType
+			  , deliSeq
+			  , routeSeq
+			  , selectRouteIds
+			  , mstRouteId
+			  , isStayRoute
+			  , actionCode
+			  , polylineRouteId
+			  , latt
+			  , lngt
+			  , isStartLine
+			  , isShowDepot
+			  , isDraw
+			  , ownerCd			  
+			  , zoneCd
+			  , orderMoveYn
+			  , deliType
+			  , deliGrp
+			  , orderBy
+			  , clientCd
+			  , isSimulation
+			  , planExeId
+			  , isGrpDelivery
+			  , planxSqlNamespace
+			  , planxSqlIdPrefix			  
+		){		
+			
+			var clickedRectangleLatLng = doMapGetClickedRectangleLatLng();
+			var rectangleLatLngs = clickedRectangleLatLng[0].lat()+","+clickedRectangleLatLng[0].lng()+"|"+clickedRectangleLatLng[1].lat()+","+clickedRectangleLatLng[1].lng();
+			
+			$.ajax({ 
+			  	type: 'POST'
+		      , url: '/tms/task/vp/TmsVpPlanMap/preProcessDrawRectangle.do'
+		      , async : false
+		      , data: {
+		    	     client_cd : clientCd
+				   , center_cd : centerCd
+				   , deli_dy : deliDy
+				   , deli_type_cd : deliTypeCd
+				   , product_type : productType
+				   , deli_seq : deliSeq
+				   , route_seq : routeSeq
+				   , plan_exe_id : planExeId
+				   , route_ids : selectRouteIds
+				   , grp_delivery : isGrpDelivery
+				   , simulation : isSimulation
+				   , planx_sql_namespace : planxSqlNamespace
+				   , planx_sql_id_prefix : planxSqlIdPrefix			  				   
+				   , rectangle_latlngs : rectangleLatLngs
+				   , polyline_route_id : polylineRouteId
+		      	}
+		      , dataType: 'json'
+		      , success: function(result) {
+		    	  	if (isEditableRoute(result)){
+		    	  		doMapShowProgressBar(true);
+						$('#'+divId).load(requestMapping, {
+							    client_cd : clientCd
+							  , center_cd : centerCd
+							  , deli_dy : deliDy
+							  , deli_type_cd : deliTypeCd
+							  , product_type : productType
+							  , deli_seq : deliSeq
+							  , route_seq : routeSeq
+							  , plan_exe_id : planExeId
+							  , route_ids : selectRouteIds
+							  , mst_route_id : mstRouteId
+							  , action_code : actionCode
+							  , grp_delivery : isGrpDelivery
+							  , simulation : isSimulation
+							  , planx_sql_namespace : planxSqlNamespace
+							  , planx_sql_id_prefix : planxSqlIdPrefix			  							  
+							  , polyline_route_id : polylineRouteId
+							  , polyline_lattlngt : latt+","+lngt				  
+							  , rectangle_latlngs : rectangleLatLngs
+							  , draw_button : isDraw
+							  , draw_area_polygon : isDraw && doMapGetIsDrawAreaPolygon()
+							  , draw_area_ellipse : isDraw && doMapGetIsDrawAreaEllipse()
+							  , draw_area_rectangle : isDraw && doMapGetIsDrawAreaRectangle()
+							  , draw_order_point : isDraw && doMapGetIsDrawOrderPoint()
+							  , draw_order_route : isDraw && doMapGetIsDrawOrderRoute()
+							  , draw_exchange_point : isDraw && doMapGetIsDrawExchangePoint()
+							  , draw_next_point : isDraw && doMapGetIsDrawNextPoint()
+							  , draw_start_point : isDraw && doMapGetIsDrawStartPoint()
+							  , draw_intra_route : isDraw && doMapGetIsDrawIntraRoute()
+							  , button_area_polygon : isDraw
+							  , button_area_ellipse : isDraw
+							  , button_area_rectangle : isDraw
+							  , button_order_point : isDraw
+							  , button_order_route :isDraw
+							  , button_exchange_point : isDraw
+							  , button_next_point : isDraw
+							  , button_start_point : isDraw			  
+							  , button_intra_route : isDraw							  
+							  , stay_route : isStayRoute
+							  , map_center : doMapGetCenter()
+							  , map_zoom : doMapGetZoom()
+							  , start_line : isStartLine
+							  , show_depot : isShowDepot
+							  , owner_cd : ownerCd							  
+							  , zone_cd : zoneCd
+							  , order_move_yn : orderMoveYn
+							  , deli_type : deliType							  
+							  , deli_grp : deliGrp
+							  , order_by : orderBy
+			 			}
+						, doCallbackLoadDrawRectangle
+						);				
+		    	  	}
+		      	}
+		      , error:function(request,status,error){
+			    }	
+			});			
+		},		
+		
+		
+		//===================================		
+		doLoadDrawPolygon: function (
+			    divId
+			  , requestMapping
+			  ,	centerCd
+			  , deliDy
+			  , deliTypeCd
+			  , productType
+			  , deliSeq
+			  , routeSeq
+			  , selectRouteIds
+			  , mstRouteId
+			  , isStayRoute
+			  , actionCode
+			  , polylineRouteId
+			  , latt
+			  , lngt
+			  , isStartLine
+			  , isShowDepot
+			  , isDraw
+			  , ownerCd			  
+			  , zoneCd
+			  , orderMoveYn
+			  , deliType
+			  , deliGrp
+			  , orderBy
+			  , clientCd
+			  , isSimulation
+			  , planExeId
+			  , isGrpDelivery
+			  , planxSqlNamespace
+			  , planxSqlIdPrefix			  
+		){	
+			
+			var clickedPolygonLatLng = doMapGetClickedPolygonLatLng();
+			var polygonLatLngs = '';
+			
+			for(i=0;i<clickedPolygonLatLng.length;i++){
+				polygonLatLngs += clickedPolygonLatLng[i].lat()+","+clickedPolygonLatLng[i].lng()+((i+1<clickedPolygonLatLng.length)?"|":"");
+			}
+
+			$.ajax({ 
+			  	type: 'POST'
+		      , url: '/tms/task/vp/TmsVpPlanMap/preProcessDrawPolygon.do'
+		      , async : false
+		      , data: {
+		    	     client_cd : clientCd
+				   , center_cd : centerCd
+				   , deli_dy : deliDy
+				   , deli_type_cd : deliTypeCd
+				   , product_type : productType
+				   , deli_seq : deliSeq
+				   , route_seq : routeSeq
+				   , plan_exe_id : planExeId
+				   , route_ids : selectRouteIds
+				   , grp_delivery : isGrpDelivery
+				   , simulation : isSimulation
+			 	   , planx_sql_namespace : planxSqlNamespace
+				   , planx_sql_id_prefix : planxSqlIdPrefix			  				   
+				   , polygon_latlngs : polygonLatLngs
+				   , polyline_route_id : polylineRouteId
+		      	}
+		      , dataType: 'json'
+		      , success: function(result) {
+		    	  	if (isEditableRoute(result)){
+			    	  	doMapShowProgressBar(true);
+						$('#'+divId).load(requestMapping, {
+							    client_cd : clientCd
+							  , center_cd : centerCd
+							  , deli_dy : deliDy
+							  , deli_type_cd : deliTypeCd
+							  , product_type : productType
+							  , deli_seq : deliSeq
+							  , route_seq : routeSeq
+							  , plan_exe_id : planExeId
+							  , route_ids : selectRouteIds
+							  , mst_route_id : mstRouteId							  
+							  , action_code : actionCode
+							  , grp_delivery : isGrpDelivery
+							  , simulation : isSimulation
+							  , planx_sql_namespace : planxSqlNamespace
+							  , planx_sql_id_prefix : planxSqlIdPrefix			  							  
+							  , polyline_route_id : polylineRouteId
+							  , polyline_lattlngt : latt+","+lngt				  
+							  , polygon_latlngs : polygonLatLngs
+							  , draw_button : isDraw
+							  , draw_area_polygon : isDraw && doMapGetIsDrawAreaPolygon()
+							  , draw_area_ellipse : isDraw && doMapGetIsDrawAreaEllipse()
+							  , draw_area_rectangle : isDraw && doMapGetIsDrawAreaRectangle()
+							  , draw_order_point : isDraw && doMapGetIsDrawOrderPoint()
+							  , draw_order_route : isDraw && doMapGetIsDrawOrderRoute()
+							  , draw_exchange_point : isDraw && doMapGetIsDrawExchangePoint()
+							  , draw_next_point : isDraw && doMapGetIsDrawNextPoint()
+							  , draw_start_point : isDraw && doMapGetIsDrawStartPoint()
+							  , draw_intra_route :isDraw &&  doMapGetIsDrawIntraRoute()
+							  , button_area_polygon : isDraw
+							  , button_area_ellipse : isDraw
+							  , button_area_rectangle : isDraw
+							  , button_order_point : isDraw
+							  , button_order_route :isDraw
+							  , button_exchange_point : isDraw
+							  , button_next_point : isDraw
+							  , button_start_point : isDraw			  
+							  , button_intra_route : isDraw							  
+							  , stay_route : isStayRoute
+							  , map_center : doMapGetCenter()
+							  , map_zoom : doMapGetZoom()
+							  , start_line : isStartLine
+							  , show_depot : isShowDepot
+							  , owner_cd : ownerCd							  
+							  , zone_cd : zoneCd
+							  , order_move_yn : orderMoveYn
+							  , deli_type : deliType
+							  , deli_grp : deliGrp
+							  , order_by : orderBy
+				 	    }
+						, doCallbackLoadDrawPolygon
+						);		
+		    	  	}
+		      	}
+		      , error:function(request,status,error){
+			    }	
+			});
+		},		
+		
+		
+		//===================================		
+		doLoadDrawOrderPoint: function (
+			    divId
+			  , requestMapping
+			  ,	centerCd
+			  , deliDy
+			  , deliTypeCd
+			  , productType
+			  , deliSeq
+			  , routeSeq
+			  , selectRouteIds
+			  , mstRouteId
+			  , isStayRoute
+			  , actionCode
+			  , polylineRouteId
+			  , latt
+			  , lngt
+			  , isStartLine
+			  , isShowDepot
+			  , isDraw
+			  , deliType
+			  , deliGrp
+			  , orderBy
+			  , clientCd
+			  , isSimulation
+			  , planExeId
+			  , isGrpDelivery
+			  , planxSqlNamespace
+			  , planxSqlIdPrefix			  
+		){	
+			var clickedPointId = doMapGetClickedPointId();
+			var affectPointIds = '';
+			
+			for(i=0;i<clickedPointId.length;i++){
+				affectPointIds += clickedPointId[i]+((i+1<clickedPointId.length)?"|":"");
+			}
+
+			$.ajax({ 
+			  	type: 'POST'
+		      , url: '/tms/task/vp/TmsVpPlanMap/preProcessClicked.do'
+		      , async : false
+		      , data: {
+		    	         client_cd : clientCd
+					   , center_cd : centerCd
+					   , deli_dy : deliDy
+					   , deli_type_cd : deliTypeCd
+					   , product_type : productType
+					   , deli_seq : deliSeq
+					   , route_seq : routeSeq
+					   , plan_exe_id : planExeId
+					   , route_ids : selectRouteIds
+					   , grp_delivery : isGrpDelivery
+					   , simulation : isSimulation
+					   , planx_sql_namespace : planxSqlNamespace
+					   , planx_sql_id_prefix : planxSqlIdPrefix			  					   
+					   , affect_point_ids : affectPointIds
+					   , polyline_route_id : polylineRouteId
+			      	}
+		      , dataType: 'json'
+		      , success: function(result) {
+	    	  	if (Number(result.MOBILE_ADJUST_CNT) > 0){
+	    	  		alert('모바일에서 조정중인 배송처가 포함되어 있습니다');
+	    	  		doCallbackBlockScreen(false);
+	    	  	}		    	 
+	    	  	else if (result.TARGET_ADJUST_STATUS == '2'){
+	    	  		alert('모바일에서 조정중인 노선에 배송처를 추가할 수 없습니다.');
+	    	  		doCallbackBlockScreen(false);
+	    	  	}	    	  	
+	    	  	else{
+					doMapShowProgressBar(true);
+					$('#'+divId).load(requestMapping,{
+						    client_cd : clientCd
+						  , center_cd : centerCd
+						  , deli_dy : deliDy
+						  , deli_type_cd : deliTypeCd
+						  , product_type : productType
+						  , deli_seq : deliSeq
+						  , route_seq : routeSeq
+						  , plan_exe_id : planExeId
+						  , route_ids : selectRouteIds
+						  , mst_route_id : mstRouteId
+						  , action_code : actionCode
+						  , grp_delivery : isGrpDelivery
+						  , simulation : isSimulation
+						  , planx_sql_namespace : planxSqlNamespace
+						  , planx_sql_id_prefix : planxSqlIdPrefix			  						  
+						  , polyline_route_id : polylineRouteId
+						  , polyline_lattlngt : latt+","+lngt
+						  , affect_point_ids : affectPointIds
+						  , draw_button : isDraw
+						  , draw_area_polygon : isDraw && doMapGetIsDrawAreaPolygon()
+						  , draw_area_ellipse : isDraw && doMapGetIsDrawAreaEllipse()
+						  , draw_area_rectangle : isDraw && doMapGetIsDrawAreaRectangle()
+						  , draw_order_point : isDraw && doMapGetIsDrawOrderPoint()
+						  , draw_order_route : isDraw && doMapGetIsDrawOrderRoute()
+						  , draw_exchange_point : isDraw && doMapGetIsDrawExchangePoint()				
+						  , draw_next_point : isDraw && doMapGetIsDrawNextPoint()
+						  , draw_start_point : isDraw && doMapGetIsDrawStartPoint()
+						  , draw_intra_route : isDraw && doMapGetIsDrawIntraRoute()
+						  , button_area_polygon : isDraw
+						  , button_area_ellipse : isDraw
+						  , button_area_rectangle : isDraw
+						  , button_order_point : isDraw
+						  , button_order_route :isDraw
+						  , button_exchange_point : isDraw
+						  , button_next_point : isDraw
+						  , button_start_point : isDraw			  
+						  , button_intra_route : isDraw						  
+						  , stay_route : isStayRoute
+						  , map_center : doMapGetCenter()
+						  , map_zoom : doMapGetZoom()		
+						  , start_line : isStartLine
+						  , show_depot : isShowDepot
+						  , deli_type : deliType
+						  , deli_grp : deliGrp
+						  , order_by : orderBy
+			 		}
+					, doCallbackLoadDrawOrderPoint
+					);
+	    	  	}
+		      }
+		      , error:function(request,status,error){
+			  }	
+			});					
+		},
+		
+		
+		//===================================		
+		doLoadDrawStartPoint: function (
+			    divId
+			  , requestMapping
+			  ,	centerCd
+			  , deliDy
+			  , deliTypeCd
+			  , productType
+			  , deliSeq
+			  , routeSeq
+			  , selectRouteIds
+			  , isStayRoute
+			  , isStartLine
+			  , isShowDepot
+			  , isDraw
+			  , deliType
+			  , deliGrp
+			  , orderBy
+			  , clientCd
+			  , isSimulation
+			  , planExeId
+			  , isGrpDelivery
+			  , planxSqlNamespace
+			  , planxSqlIdPrefix			  
+		){	
+			var clickedPointId = doMapGetClickedPointId();
+			var clickedRouteId = doMapGetClickedRouteId();				
+			var affectPointIds = '';
+			
+			for(i=0;i<clickedPointId.length;i++){
+				affectPointIds += clickedPointId[i]+((i+1<clickedPointId.length)?"|":"");
+			}
+			
+			var affectRouteIds = '';
+			for(i=0;i<clickedRouteId.length;i++){
+				affectRouteIds += clickedRouteId[i]+((i+1<clickedRouteId.length)?"|":"");
+			}				
+			
+			$.ajax({ 
+			  	type: 'POST'
+		      , url: '/tms/task/vp/TmsVpPlanMap/preProcessClicked.do'
+		      , async : false
+		      , data: {
+		    	         client_cd : clientCd
+					   , center_cd : centerCd
+					   , deli_dy : deliDy
+					   , deli_type_cd : deliTypeCd
+					   , product_type : productType
+					   , deli_seq : deliSeq
+					   , route_seq : routeSeq
+					   , plan_exe_id : planExeId
+					   , route_ids : selectRouteIds
+					   , grp_delivery : isGrpDelivery
+					   , simulation : isSimulation
+					   , planx_sql_namespace : planxSqlNamespace
+					   , planx_sql_id_prefix : planxSqlIdPrefix			  					   
+					   , affect_point_ids : affectPointIds
+					   , affect_route_ids : affectRouteIds
+			      	}
+		      , dataType: 'json'
+		      , success: function(result) {
+	    	  	if (Number(result.MOBILE_ADJUST_CNT) > 0){
+	    	  		alert('모바일에서 조정중인 배송처가 포함되어 있습니다');
+	    	  		doCallbackBlockScreen(false);
+	    	  	}		    	 
+	    	  	else if (result.TARGET_ADJUST_STATUS == '2'){
+	    	  		alert('모바일에서 조정중인 노선에 배송처를 추가할 수 없습니다.');
+	    	  		doCallbackBlockScreen(false);
+	    	  	}	    	  	
+	    	  	else{
+					doMapShowProgressBar(true);
+					$('#'+divId).load(requestMapping, {
+						    client_cd : clientCd
+						  , center_cd : centerCd
+						  , deli_dy : deliDy
+						  , deli_type_cd : deliTypeCd
+						  , product_type : productType
+						  , deli_seq : deliSeq
+						  , route_seq : routeSeq
+						  , plan_exe_id : planExeId
+						  , route_ids : selectRouteIds
+						  , grp_delivery : isGrpDelivery
+						  , simulation : isSimulation
+						  , planx_sql_namespace : planxSqlNamespace
+						  , planx_sql_id_prefix : planxSqlIdPrefix			  						  
+						  , affect_point_ids : affectPointIds
+						  , affect_route_ids : affectRouteIds
+						  , draw_button : isDraw
+						  , draw_area_polygon : isDraw && doMapGetIsDrawAreaPolygon()
+						  , draw_area_ellipse : isDraw && doMapGetIsDrawAreaEllipse()
+						  , draw_area_rectangle : isDraw && doMapGetIsDrawAreaRectangle()
+						  , draw_order_point : isDraw && doMapGetIsDrawOrderPoint()
+						  , draw_order_route : isDraw && doMapGetIsDrawOrderRoute()
+						  , draw_exchange_point : isDraw && doMapGetIsDrawExchangePoint()			
+						  , draw_next_point : isDraw && doMapGetIsDrawNextPoint()
+						  , draw_start_point : isDraw && doMapGetIsDrawStartPoint()
+						  , draw_intra_route : isDraw && doMapGetIsDrawIntraRoute()
+						  , button_area_polygon : isDraw
+						  , button_area_ellipse : isDraw
+						  , button_area_rectangle : isDraw
+						  , button_order_point : isDraw
+						  , button_order_route :isDraw
+						  , button_exchange_point : isDraw
+						  , button_next_point : isDraw
+						  , button_start_point : isDraw			  
+						  , button_intra_route : isDraw						  
+						  , stay_route : isStayRoute
+						  , map_center : doMapGetCenter()
+						  , map_zoom : doMapGetZoom()
+						  , start_line : isStartLine
+						  , show_depot : isShowDepot
+						  , deli_type : deliType
+						  , deli_grp : deliGrp
+						  , order_by : orderBy						  
+		 			}
+					, doCallbackLoadDrawStartPoint
+					);	
+    	  	    }
+		      }
+		      , error:function(request,status,error){
+			  }	
+			});					
+					
+		},		
+		
+		
+		//===================================		
+		doLoadDrawExchangePoint: function (
+			    divId
+			  , requestMapping
+			  ,	centerCd
+			  , deliDy
+			  , deliTypeCd
+			  , productType
+			  , deliSeq
+			  , routeSeq
+			  , selectRouteIds
+			  , isStayRoute
+			  , isStartLine
+			  , isShowDepot
+			  , isDraw
+			  , deliType
+			  , deliGrp
+			  , orderBy
+			  , clientCd
+			  , isSimulation
+			  , planExeId
+			  , isGrpDelivery
+			  , planxSqlNamespace
+			  , planxSqlIdPrefix			  
+		){	
+		
+			var clickedPointId = doMapGetClickedPointId();
+			var clickedRouteId = doMapGetClickedRouteId();
+			
+			if (clickedRouteId[0]=='' && clickedRouteId[1]==''){
+				alert('미할당 주문간에는 교환할 수 없습니다.');
+				doMapClearClickedPoint();
+				return;
+			}
+			
+			if (clickedPointId.length > 0){
+				
+				//doMapShowProgressBar(true);
+				
+				var affectPointIds = '';
+				for(i=0;i<clickedPointId.length;i++){
+					affectPointIds += clickedPointId[i]+((i+1<clickedPointId.length)?"|":"");
+				}
+				
+				var affectRouteIds = '';
+				for(i=0;i<clickedRouteId.length;i++){
+					affectRouteIds += clickedRouteId[i]+((i+1<clickedRouteId.length)?"|":"");
+				}				
+				
+				$.ajax({ 
+				  	type: 'POST'
+			      , url: '/tms/task/vp/TmsVpPlanMap/preProcessClicked.do'
+			      , async : false
+			      , data: {
+			    	         client_cd : clientCd
+						   , center_cd : centerCd
+						   , deli_dy : deliDy
+						   , deli_type_cd : deliTypeCd
+						   , product_type :productType
+						   , deli_seq : deliSeq
+						   , route_seq : routeSeq
+						   , plan_exe_id : planExeId
+						   , route_ids : selectRouteIds
+						   , grp_delivery : isGrpDelivery
+						   , simulation : isSimulation
+						   , planx_sql_namespace : planxSqlNamespace
+						   , planx_sql_id_prefix : planxSqlIdPrefix			  						   
+						   , affect_point_ids : affectPointIds
+						   , affect_route_ids : affectRouteIds
+				      	}
+			      , dataType: 'json'
+			      , success: function(result) {
+		    	  	if (Number(result.MOBILE_ADJUST_CNT) > 0){
+		    	  		alert('모바일에서 조정중인 배송처가 포함되어 있습니다');
+		    	  		doMapClearClickedPoint();
+		    	  		doCallbackBlockScreen(false);
+		    	  	}		    	 
+		    	  	else if (result.TARGET_ADJUST_STATUS == '2'){
+		    	  		alert('모바일에서 조정중인 노선에 배송처를 추가할 수 없습니다.');
+		    	  		doMapClearClickedPoint();
+		    	  		doCallbackBlockScreen(false);
+		    	  	}	    	  	
+		    	  	else{
+						doMapShowProgressBar(true);				
+						$('#'+divId).load(requestMapping,{
+							    client_cd : clientCd
+							  , center_cd : centerCd
+							  , deli_dy : deliDy
+							  , deli_type_cd : deliTypeCd
+							  , product_type :productType
+							  , deli_seq : deliSeq
+							  , route_seq : routeSeq
+							  , plan_exe_id : planExeId
+							  , route_ids : selectRouteIds				
+							  , grp_delivery : isGrpDelivery
+							  , simulation : isSimulation
+							  , planx_sql_namespace : planxSqlNamespace
+							  , planx_sql_id_prefix : planxSqlIdPrefix			  							  
+							  , affect_point_ids : affectPointIds
+							  , affect_route_ids : affectRouteIds
+							  , draw_button : isDraw
+							  , draw_area_polygon : isDraw && doMapGetIsDrawAreaPolygon()
+							  , draw_area_ellipse : isDraw && doMapGetIsDrawAreaEllipse()
+							  , draw_area_rectangle : isDraw && doMapGetIsDrawAreaRectangle()
+							  , draw_order_point : isDraw && doMapGetIsDrawOrderPoint()
+							  , draw_order_route : isDraw && doMapGetIsDrawOrderRoute()
+							  , draw_exchange_point : isDraw && doMapGetIsDrawExchangePoint()
+							  , draw_next_point : isDraw && doMapGetIsDrawNextPoint()
+							  , draw_start_point : isDraw && doMapGetIsDrawStartPoint()
+							  , draw_intra_route : isDraw && doMapGetIsDrawIntraRoute()
+							  , button_area_polygon : isDraw
+							  , button_area_ellipse : isDraw
+							  , button_area_rectangle : isDraw
+							  , button_order_point : isDraw
+							  , button_order_route :isDraw
+							  , button_exchange_point : isDraw
+							  , button_next_point : isDraw
+							  , button_start_point : isDraw			  
+							  , button_intra_route : isDraw							  
+							  , stay_route : isStayRoute
+							  , map_center : doMapGetCenter()
+							  , map_zoom : doMapGetZoom()
+							  , start_line : isStartLine
+							  , show_depot : isShowDepot
+							  , deli_type : deliType
+							  , deli_grp : deliGrp
+							  , order_by : orderBy							  
+				 			}
+							, doCallbackLoadDrawExchangePoint
+							);
+    	  				}
+			      	}
+			      , error:function(request,status,error){
+				    }	
+				});					
+						
+			}
+			else{
+				alert('선택된 포인트가 유효하지 않습니다.');
+			}
+		},
+		
+		
+		//===================================		
+		doLoadDrawNextPoint: function (
+			    divId
+			  , requestMapping
+			  ,	centerCd
+			  , deliDy
+			  , deliTypeCd
+			  , productType
+			  , deliSeq
+			  , routeSeq
+			  , selectRouteIds
+			  , isStayRoute
+			  , isStartLine
+			  , isShowDepot
+			  , isDraw
+			  , deliType
+			  , deliGrp
+			  , orderBy
+			  , clientCd
+			  , isSimulation
+			  , planExeId
+			  , isGrpDelivery
+			  , planxSqlNamespace
+			  , planxSqlIdPrefix			  
+		){	
+			var clickedPointId = doMapGetClickedPointId();
+			var clickedRouteId = doMapGetClickedRouteId();				
+			var affectPointIds = '';
+			
+			for(i=0;i<clickedPointId.length;i++){
+				affectPointIds += clickedPointId[i]+((i+1<clickedPointId.length)?"|":"");
+			}
+			
+			var affectRouteIds = '';
+			for(i=0;i<clickedRouteId.length;i++){
+				affectRouteIds += clickedRouteId[i]+((i+1<clickedRouteId.length)?"|":"");
+			}				
+			
+			$.ajax({ 
+			  	type: 'POST'
+		      , url: '/tms/task/vp/TmsVpPlanMap/preProcessClicked.do'
+		      , async : false
+		      , data: {
+		    	         client_cd : clientCd
+					   , center_cd : centerCd
+					   , deli_dy : deliDy
+					   , deli_type_cd : deliTypeCd
+					   , product_type : productType
+					   , deli_seq : deliSeq
+					   , route_seq : routeSeq
+					   , plan_exe_id : planExeId
+					   , route_ids : selectRouteIds
+					   , grp_delivery : isGrpDelivery
+					   , simulation : isSimulation
+					   , planx_sql_namespace : planxSqlNamespace
+					   , planx_sql_id_prefix : planxSqlIdPrefix			  					   
+					   , affect_point_ids : affectPointIds
+					   , affect_route_ids : affectRouteIds
+			      	}
+		      , dataType: 'json'
+		      , success: function(result) {
+	    	  	if (Number(result.MOBILE_ADJUST_CNT) > 0){
+	    	  		alert('모바일에서 조정중인 배송처가 포함되어 있습니다');
+	    	  		doMapClearClickedPoint();
+	    	  		doCallbackBlockScreen(false);
+	    	  	}		    	 
+	    	  	else if (result.TARGET_ADJUST_STATUS == '2'){
+	    	  		alert('모바일에서 조정중인 노선에 배송처를 추가할 수 없습니다.');
+	    	  		doMapClearClickedPoint();
+	    	  		doCallbackBlockScreen(false);
+	    	  	}	    	  	
+	    	  	else{
+					doMapShowProgressBar(true);				
+					
+					$('#route_map').load(requestMapping,{
+						    client_cd : clientCd
+						  , center_cd : centerCd
+						  , deli_dy : deliDy
+						  , deli_type_cd : deliTypeCd
+						  , product_type : productType
+						  , deli_seq : deliSeq
+						  , route_seq : routeSeq
+						  , plan_exe_id : planExeId
+						  , grp_delivery : isGrpDelivery
+						  , simulation : isSimulation
+						  , planx_sql_namespace : planxSqlNamespace
+						  , planx_sql_id_prefix : planxSqlIdPrefix			  						  
+						  , affect_point_ids : affectPointIds
+						  , affect_route_ids : affectRouteIds
+						  , route_ids : selectRouteIds
+						  , draw_button : isDraw
+						  , draw_area_polygon : isDraw && doMapGetIsDrawAreaPolygon()
+						  , draw_area_ellipse : isDraw && doMapGetIsDrawAreaEllipse()
+						  , draw_area_rectangle : isDraw && doMapGetIsDrawAreaRectangle()
+						  , draw_order_point : isDraw && doMapGetIsDrawOrderPoint()
+						  , draw_order_route : isDraw && doMapGetIsDrawOrderRoute()
+						  , draw_exchange_point : isDraw && doMapGetIsDrawExchangePoint()
+						  , draw_next_point : isDraw && doMapGetIsDrawNextPoint()
+						  , draw_start_point : isDraw && doMapGetIsDrawStartPoint()
+						  , draw_intra_route : isDraw && doMapGetIsDrawIntraRoute()
+						  , button_area_polygon : isDraw
+						  , button_area_ellipse : isDraw
+						  , button_area_rectangle : isDraw
+						  , button_order_point : isDraw
+						  , button_order_route :isDraw
+						  , button_exchange_point : isDraw
+						  , button_next_point : isDraw
+						  , button_start_point : isDraw			  
+						  , button_intra_route : isDraw						  
+						  , stay_route : isStayRoute
+						  , map_center : doMapGetCenter()
+						  , map_zoom : doMapGetZoom()		
+						  , start_line : isStartLine
+						  , show_depot : isShowDepot
+						  , deli_type : deliType
+						  , deli_grp : deliGrp
+						  , order_by : orderBy
+			 			}
+						, doCallbackLoadDrawNextPoint
+						);	
+  					}
+		      	}
+		      , error:function(request,status,error){
+			    }	
+			});					
+					
+		},		
+		
+		
+		//===================================		
+		doLoadDrawIntraRoute: function (
+			    divId
+			  , requestMapping
+			  ,	centerCd
+			  , deliDy
+			  , deliTypeCd
+			  , productType
+			  , deliSeq
+			  , routeSeq
+			  , selectRouteIds			  
+			  , intraRouteId
+			  , isCalcTime
+			  , isStartLine
+			  , isShowDepot
+			  , isDraw
+			  , deliType
+			  , deliGrp
+			  , orderBy
+			  , clientCd
+			  , isSimulation
+			  , planExeId
+			  , isGrpDelivery
+			  , planxSqlNamespace
+			  , planxSqlIdPrefix			  
+		){
+			
+			doMapShowProgressBar(true);
+			
+			$('#'+divId).load(requestMapping,
+			{ 
+				client_cd : clientCd
+			  ,	center_cd : centerCd
+			  , deli_dy : deliDy
+			  , deli_type_cd : deliTypeCd
+			  , product_type : productType
+			  , deli_seq : deliSeq
+			  , route_seq : routeSeq
+			  , plan_exe_id : planExeId
+			  , grp_delivery : isGrpDelivery
+			  , simulation : isSimulation
+			  , planx_sql_namespace : planxSqlNamespace
+			  , planx_sql_id_prefix : planxSqlIdPrefix			  			  
+			  , intra_route_id : intraRouteId
+			  , route_ids : selectRouteIds
+			  , calc_time : isCalcTime
+			  , draw_button : isDraw
+			  , draw_area_polygon : isDraw && doMapGetIsDrawAreaPolygon()
+			  , draw_area_ellipse : isDraw && doMapGetIsDrawAreaEllipse()
+			  , draw_area_rectangle : isDraw && doMapGetIsDrawAreaRectangle()
+			  , draw_order_point : isDraw && doMapGetIsDrawOrderPoint()
+			  , draw_order_route : isDraw && doMapGetIsDrawOrderRoute()
+			  , draw_exchange_point : isDraw && doMapGetIsDrawExchangePoint()
+			  , draw_next_point : isDraw && doMapGetIsDrawNextPoint()
+			  , draw_start_point : isDraw && doMapGetIsDrawStartPoint()
+			  , draw_intra_route : isDraw && doMapGetIsDrawIntraRoute()
+			  , button_area_polygon : isDraw
+			  , button_area_ellipse : isDraw
+			  , button_area_rectangle : isDraw
+			  , button_order_point : isDraw
+			  , button_order_route :isDraw
+			  , button_exchange_point : isDraw
+			  , button_next_point : isDraw
+			  , button_start_point : isDraw			  
+			  , button_intra_route : isDraw			  
+			  , stay_route : true
+			  , map_center : doMapGetCenter()
+			  , map_zoom : doMapGetZoom()		
+			  , start_line : isStartLine
+			  , show_depot : isShowDepot
+			  , deli_type : deliType
+			  , deli_grp : deliGrp
+			  , order_by : orderBy			  
+			  //, calc_distance : true
+			  //, calc_time : true
+ 			}
+			, doCallbackLoadDrawIntraRoute()
+			);				
+		},	
+
+		//===================================
+		//===================================
+		//===================================
+		
+		doLoadGetPointClicked: function (
+			    requestMapping
+			  ,	centerCd
+			  , deliDy	
+			  , deliTypeCd
+			  , productType
+			  , deliSeq
+			  , routeSeq
+			  , selectRouteIds
+			  , isMarkNotAssign
+			  , deliType
+			  , deliGrp
+			  , clientCd
+			  , isSimulation
+			  , planExeId
+			  , isGrpDelivery
+			  , planxSqlNamespace
+			  , planxSqlIdPrefix			  
+		){
+			
+			var clickedPointId = doMapGetClickedPointId();
+			var affectPointIds = '';
+			
+			for(i=0;i<clickedPointId.length;i++){
+				affectPointIds += clickedPointId[i]+((i+1<clickedPointId.length)?"|":"");
+			}
+
+			$.ajax({ 
+			  	type: 'POST'
+		      , url: requestMapping
+		      , async : false
+		      , data: {
+		    	     client_cd : clientCd
+				   , center_cd : centerCd
+				   , deli_dy : deliDy
+				   , deli_type_cd : deliTypeCd
+				   , product_type : productType
+				   , deli_seq : deliSeq
+				   , route_seq : routeSeq
+				   , plan_exe_id : planExeId
+				   , route_ids : selectRouteIds
+				   , grp_delivery : isGrpDelivery
+				   , simulation : isSimulation
+				   , planx_sql_namespace : planxSqlNamespace
+				   , planx_sql_id_prefix : planxSqlIdPrefix			  				   
+				   , affect_point_ids : affectPointIds
+				   , deli_type : deliType
+				   , deli_grp : deliGrp
+		      	}
+		      , dataType: 'json'
+		      , success: function(result) {
+		    	  doCallbackLoadSelectPost(result, isMarkNotAssign);
+		      	}
+		      , error:function(request,status,error){
+			    }	
+			});
+		},
+		
+		
+		doLoadGetPointPolygon: function (
+			    requestMapping
+			  ,	centerCd
+			  , deliDy
+			  , deliTypeCd
+			  , productType
+			  , deliSeq
+			  , routeSeq
+			  , selectRouteIds		
+			  , ownerCd			  
+			  , zoneCd
+			  , orderMoveYn
+			  , deliType			  
+			  , deliGrp
+			  , clientCd
+			  , isSimulation
+			  , planExeId
+			  , isGrpDelivery
+			  , planxSqlNamespace
+			  , planxSqlIdPrefix			  
+		){
+			
+			var clickedPolygonLatLng = doMapGetClickedPolygonLatLng();
+			var polygonLatLngs = '';
+			
+			for(i=0;i<clickedPolygonLatLng.length;i++){
+				polygonLatLngs += clickedPolygonLatLng[i].lat()+","+clickedPolygonLatLng[i].lng()+((i+1<clickedPolygonLatLng.length)?"|":"");
+			}
+
+			$.ajax({ 
+			  	type: 'POST'
+		      , url: requestMapping
+		      , async : false
+		      , data: {
+		    	     client_cd : clientCd
+				   , center_cd : centerCd
+				   , deli_dy : deliDy
+				   , deli_type_cd : deliTypeCd
+				   , product_type : productType
+				   , deli_seq : deliSeq
+				   , route_seq : routeSeq
+				   , plan_exe_id : planExeId
+				   , route_ids : selectRouteIds
+				   , grp_delivery : isGrpDelivery
+				   , simulation : isSimulation
+			 	   , planx_sql_namespace : planxSqlNamespace
+				   , planx_sql_id_prefix : planxSqlIdPrefix			  				   
+				   , polygon_latlngs : polygonLatLngs
+				   , owner_cd : ownerCd				   
+				   , zone_cd : zoneCd
+				   , order_move_yn : orderMoveYn
+				   , deli_type : deliType
+				   , deli_grp : deliGrp
+		      	}
+		      , dataType: 'json'
+		      , success: function(result) {
+		    	  doCallbackLoadSelectPost(result, true);
+		      	}
+		      , error:function(request,status,error){
+			    }	
+			});
+		},
+		
+		
+		doLoadGetPointEllipse: function (
+			    requestMapping
+			  ,	centerCd
+			  , deliDy
+			  , deliTypeCd
+			  , productType
+			  , deliSeq
+			  , routeSeq
+			  , selectRouteIds
+			  , ownerCd
+			  , zoneCd
+			  , orderMoveYn
+			  , deliType
+			  , deliGrp
+			  , clientCd
+			  , isSimulation
+			  , planExeId
+			  , isGrpDelivery
+			  , planxSqlNamespace
+			  , planxSqlIdPrefix			  
+		){
+			
+			var clickedEllipseLatLng = doMapGetClickedEllipseLatLng();
+			var ellipseLatLngs = clickedEllipseLatLng[0].lat()+","+clickedEllipseLatLng[0].lng()+"|"+clickedEllipseLatLng[1].lat()+","+clickedEllipseLatLng[1].lng();
+
+			$.ajax({ 
+			  	type: 'POST'
+		      , url: requestMapping
+		      , async : false
+		      , data: {
+		    	     client_cd : clientCd
+				   , center_cd : centerCd
+				   , deli_dy : deliDy
+				   , deli_type_cd : deliTypeCd
+				   , product_type : productType
+				   , deli_seq : deliSeq
+				   , route_seq : routeSeq
+				   , plan_exe_id : planExeId
+				   , route_ids : selectRouteIds
+				   , grp_delivery : isGrpDelivery
+				   , simulation : isSimulation
+				   , planx_sql_namespace : planxSqlNamespace
+				   , planx_sql_id_prefix : planxSqlIdPrefix			  				   
+				   , ellipse_latlngs : ellipseLatLngs
+				   , owner_cd : ownerCd				   
+				   , zone_cd : zoneCd
+				   , order_move_yn : orderMoveYn
+				   , deli_type : deliType
+				   , deli_grp : deliGrp
+		      	}
+		      , dataType: 'json'
+		      , success: function(result) {
+		    	  doCallbackLoadSelectPost(result, true);
+		      	}
+		      , error:function(request,status,error){
+			    }	
+			});
+		},
+		
+		
+		doLoadGetPointRectangle: function (
+			    requestMapping
+			  ,	centerCd
+			  , deliDy	
+			  , deliTypeCd
+			  , productType
+			  , deliSeq
+			  , routeSeq
+			  , selectRouteIds
+			  , ownerCd
+			  , zoneCd
+			  , orderMoveYn
+			  , deliType
+			  , deliGrp
+			  , clientCd
+			  , isSimulation
+			  , planExeId
+			  , isGrpDelivery
+			  , planxSqlNamespace
+			  , planxSqlIdPrefix			  
+		){
+			var clickedRectangleLatLng = doMapGetClickedRectangleLatLng();
+			var rectangleLatLngs = clickedRectangleLatLng[0].lat()+","+clickedRectangleLatLng[0].lng()+"|"+clickedRectangleLatLng[1].lat()+","+clickedRectangleLatLng[1].lng();
+			
+			$.ajax({ 
+			  	type: 'POST'
+		      , url: requestMapping
+		      , async : false
+		      , data: {
+		    	     client_cd : clientCd
+				   , center_cd : centerCd
+				   , deli_dy : deliDy
+				   , deli_type_cd : deliTypeCd
+				   , product_type : productType
+				   , deli_seq : deliSeq
+				   , route_seq : routeSeq
+				   , plan_exe_id : planExeId
+				   , route_ids : selectRouteIds
+				   , grp_delivery : isGrpDelivery
+				   , simulation : isSimulation
+				   , planx_sql_namespace : planxSqlNamespace
+				   , planx_sql_id_prefix : planxSqlIdPrefix			  				   
+				   , rectangle_latlngs : rectangleLatLngs
+				   , owner_cd : ownerCd
+				   , zone_cd : zoneCd
+				   , order_move_yn : orderMoveYn
+				   , deli_type : deliType
+				   , deli_grp : deliGrp
+		      	}
+		      , dataType: 'json'
+		      , success: function(result) {
+		    	  doCallbackLoadSelectPost(result, true);
+		      	}
+		      , error:function(request,status,error){
+			    }	
+			});
+		}
+		
+	};
+
+})();
+
+
+

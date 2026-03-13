@@ -1,0 +1,312 @@
+/*@@전체 배경 색상 - top,bottom...등*/
+body.x-border-layout-ct, div.x-border-layout-ct {background-color: #000;}
+
+div.x-splitter.x-border-item.x-box-item.x-splitter-default.x-splitter-vertical.x-unselectable {background-color:#e0e0e0}
+div.x-splitter.x-border-item.x-box-item.x-splitter-default.x-splitter-horizontal.x-unselectable {background-color:#e0e0e0}
+
+.x-tip {width: auto !important;} 
+.x-tip-body {width: auto !important;} 
+.x-tip-body span {width: auto !important;}
+
+.x-tool-img {opacity: 1 !important;}
+
+/*@@/////////  main panel title  ////////////////////////////////////////////////////////////////////////*/
+.v-main-panel-title {color:#999}.searchCondition-body
+/*@@/////////  조회조건  ////////////////////////////////////////////////////////////////////////*/
+/* 폼 백그라운드 */
+.form-body {background-color:#DBDDDA}
+/* 조회조건용 css 13.12.23 김수겸 추가*/
+.searchCondition-body {background-color:#eee;border-bottom: 1px solid #dadada !important;}
+/*  조회조건 설명 라인 높이(2줄이 생기는 경우 문제 해결위해 17px -> 15px로 수정. 2017-07-11 이강규) */
+.x-box-item {
+    line-height: 15px;
+}
+/*  조회조건 값 높이 조절(조회조건 유형별로 약간씩 차이 존재함. 2017-07-11 이강규) */
+.x-webkit .x-form-text {
+	height: calc( 100% + 0px);
+}
+/*검색조건 오퍼레이터*/
+.x-btn-default-small{background-color:transparent ; background-image:none ;}
+.x-btn-over.x-btn-default-small {
+    border-color: #d3d3d3;
+    background-image: none;
+    background-color: #e9e9e9;
+}
+/*popeditform(팝업 에디트 폼)*/
+.v-grid-editform-toolbar{height:37px;}
+
+/*/////////  Button  ////////////////////////////////////////////////////////////////////////*/
+/* Button */
+.x-btn{border:solid 1px #d3d3d3; border-radius: 0px;background-color: transparent;background-image: none;}
+.x-btn-over.x-btn-default-toolbar-small {border:solid 1px #d3d3d3; border-radius: 0px;background-color: #f5f5f5;background-image: none;}
+.x-btn-focus.x-btn-menu-active.x-btn-default-toolbar-small, .x-btn-focus.x-btn-pressed.x-btn-default-toolbar-small{box-shadow: none !important;}
+.x-btn-focus.x-btn-default-toobar-small{box-shadow: none !important;}
+/* 선택된 버튼 box shadow Color 변경(2016-11-09 이강규 추가) */
+.x-btn-focus.x-btn-over.x-btn-default-toolbar-small {box-shadow: #f5f5f5 0 1px 0px 0 inset, #f5f5f5 0 -1px 0px 0 inset, #f5f5f5 -1px 0 0px 0 inset, #f5f5f5 1px 0 0px 0 inset;}
+
+.x-btn-focus.x-btn-default-small{box-shadow: none !important;}
+.x-btn-inner-default-small {
+    font: bold 12px/16px helvetica, arial, verdana, sans-serif;
+    color: #454545;
+    padding: 0 5px;
+    max-width: 100%;
+}
+/* 메뉴, 메뉴얼 Panel Backgroup Color 정의 (기본 x-panel-header-default-vertical과 달리 가져가고자 함) */
+#main-menualPanel-placeholder{
+	background-image:none;
+	background-color:#F5F5F5 !important;
+}
+#main-sidebar-placeholder{
+	background-image:none;
+	background-color:#F5F5F5 !important;
+}
+
+/* Button icon */
+.home-title-text{font-weight:bold; color:#004a88; margin-left:3px !important; line-height:29px !important ;vertical-align:middle !important;}
+.icon-menu-sub-dot{margin-left:-2px !important;background-image:url(/view/img/theme/neptune/black/icons/dot_sub_menu.png) !important;}
+/*.icon-page-title{margin-left:3px !important; margin-right:9px !important;line-height:28px !important ;vertical-align:middle !important;background-image:url(/view/img/theme/neptune/black/icons/page_title.gif) !important;}*/
+.icon-search{background-image:url(/view/img/theme/neptune/black/icons/page_search.png) !important;}
+.icon-add{background-image:url(/view/img/theme/neptune/black/icons/page_add.png) !important;}
+.icon-save{background-image:url(/view/img/theme/neptune/black/icons/page_save.png) !important;}
+.icon-report{background-image:url(/view/img/theme/neptune/black/icons/page_report.png) !important;}
+.icon-refresh{background-image:url(/view/img/theme/neptune/black/icons/page_refresh.png) !important;}
+.icon-my-info-title{background-image:url(/view/img/theme/neptune/black/icons/my_info_title.png) !important; opacity: 1 !important;}
+.icon-del{background-image:url(/view/img/theme/neptune/black/icons/page_del.png) !important;}
+.icon-pref{background-image:url(/view/img/theme/neptune/black/icons/page_pref.png) !important;}
+.icon-cancel{background-image:url(/view/img/theme/neptune/black/icons/page_cancel.png) !important;}
+.icon-printer-new{background-image:url(/view/img/theme/neptune/black/icons/printer_new.png) !important;}
+.icon-printer-select{background-image:url(/view/img/theme/neptune/black/icons/printer_select.png) !important;}
+.icon-printer-all{background-image:url(/view/img/theme/neptune/black/icons/printer_all.png) !important;}
+.icon-excel{background-image:url(/view/img/theme/neptune/black/icons/excel.png) !important;}
+.icon-excel-search{background-image:url(/view/img/theme/neptune/black/icons/excel_search.png) !important;}
+.icon-excel-checked{background-image:url(/view/img/theme/neptune/black/icons/excel_checked.png) !important;}
+.icon-excel-grid{background-image:url(/view/img/theme/neptune/black/icons/excel_grid.png) !important;}
+.icon-delete{background-image:url(/view/img/theme/neptune/black/icons/page_delete.png) !important;}
+.icon-upload{background-image:url(/view/img/theme/neptune/black/icons/page_upload.png) !important;}
+.icon-download{background-image:url(/view/img/theme/neptune/black/icons/page_download.png) !important;}
+
+.icon-action{background-image:url(/view/img/theme/neptune/black/icons/page_action.png) !important;}
+.icon-closejob{background-image:url(/view/img/theme/neptune/black/icons/page_closejob.png) !important;}
+.icon-confirm{background-image:url(/view/img/theme/neptune/black/icons/page_confirm.png) !important;}
+.icon-reload{background-image:url(/view/img/theme/neptune/black/icons/page_reload.png) !important;}
+.icon-apply{background-image:url(/view/img/theme/neptune/black/icons/page_apply.png) !important;}
+.icon-copy{background-image:url(/view/img/theme/neptune/black/icons/page_copy.png) !important;}
+.icon-dispatch{background-image:url(/view/img/theme/neptune/black/icons/page_dispatch.png) !important;}
+.icon-new{background-image:url(/view/img/theme/neptune/black/icons/page_new.png) !important;}
+.icon-plan{background-image:url(/view/img/theme/neptune/black/icons/page_plan.png) !important;}
+.icon-printer-re{background-image:url(/view/img/theme/neptune/black/icons/printer_re.png) !important;}
+.icon-level-up{background-image:url(/view/img/theme/neptune/black/icons/page_up.png) !important;}
+.icon-level-down{background-image:url(/view/img/theme/neptune/black/icons/page_down.png) !important;}
+.icon-zoom-up{background-image:url(/view/img/theme/neptune/black/icons/page_close_up.png) !important;}
+.icon-zoom-down{background-image:url(/view/img/theme/neptune/black/icons/page_close_down.png) !important;}
+.icon-2d{background-image:url(/view/img/theme/neptune/black/icons/page_2d.png) !important;}
+.icon-folder {background-image:url(/view/img/theme/neptune/black/icons/folder.gif) !important;}
+.icon-folder-open {background-image:url(/view/img/theme/neptune/black/icons/folder-open.gif) !important;}
+.icon-leaf {background-image:url(/view/img/theme/neptune/black/icons/leaf.gif) !important;}
+
+.icon-search-condition-equal {background-image:url(/view/img/theme/neptune/black/searchcondition/sc_equal_btn.gif) !important;}
+.icon-search-condition-like {background-image:url(/view/img/theme/neptune/black/searchcondition/sc_like_btn.gif) !important;}
+.icon-search-condition-less {background-image:url(/view/img/theme/neptune/black/searchcondition/sc_less_btn.gif) !important;}
+.icon-search-condition-lessequal {background-image:url(/view/img/theme/neptune/black/searchcondition/sc_lessequal_btn.gif) !important;}
+.icon-search-condition-more {background-image:url(/view/img/theme/neptune/black/searchcondition/sc_more_btn.gif) !important;}
+.icon-search-condition-moreequal {background-image:url(/view/img/theme/neptune/black/searchcondition/sc_moreequal_btn.gif) !important;}
+.icon-search-condition-notequal {background-image:url(/view/img/theme/neptune/black/searchcondition/sc_notequal_btn.gif) !important;}
+.icon-search-condition-in {background-image:url(/view/img/theme/neptune/black/searchcondition/sc_in_btn.gif) !important;}
+.icon-search-condition-notused {background-image:url(/view/img/theme/neptune/black/searchcondition/sc_notused_btn.gif) !important;}
+
+/* 14.1.2 김수겸 추가*/
+.grid-left-line{border-left : 1px solid #e0e0e0 !important}
+.grid-right-line{border-right : 1px solid #e0e0e0 !important}
+.grid-top-line{border-top : 1px solid #e0e0e0 !important}
+.grid-bottom-line{border-bottom : 1px solid #e0e0e0 !important}
+.grid-line{border:1px solid #e0e0e0 !important}
+
+/* .grid-body-border-bottom {border-bottom: 1px solid #e0e0e0 !important;} */
+
+/* readonly 폼 필드 */
+.form-field-readonly {background-color:#efefef}
+/* form required fieldlabel */
+.form-required-fieldlabel {color:#000 !important;} /* 14.1.2 색변경(적->흑) */
+
+/*@@/////////  Left Menu  ////////////////////////////////////////////////////////////////////////*/
+/* app icon */
+.icon-menu-sub-adm{margin-left:-2px !important;background-image:url(/view/img/theme/neptune/black/icons/adm.png) !important; opacity: 1 !important;}
+.icon-menu-sub-wms{margin-left:-2px !important;background-image:url(/view/img/theme/neptune/black/icons/wms.png) !important; opacity: 1 !important;}
+.icon-menu-sub-tms{margin-left:-2px !important;background-image:url(/view/img/theme/neptune/black/icons/tms.png) !important; opacity: 1 !important;}
+.icon-menu-sub-vms{margin-left:-2px !important;background-image:url(/view/img/theme/neptune/black/icons/vms.png) !important; opacity: 1 !important;}
+.icon-menu-sub-oms{margin-left:-2px !important;background-image:url(/view/img/theme/neptune/black/icons/oms.png) !important; opacity: 1 !important;}
+.icon-menu-sub-mdm{margin-left:-2px !important;background-image:url(/view/img/theme/neptune/black/icons/mdm.png) !important; opacity: 1 !important;}
+.icon-menu-sub-bms{margin-left:-2px !important;background-image:url(/view/img/theme/neptune/black/icons/bms.png) !important; opacity: 1 !important;}
+.icon-menu-sub-ptl{margin-left:-2px !important;background-image:url(/view/img/theme/neptune/black/icons/portal.png) !important; opacity: 1 !important;}
+.icon-menu-sub-hqs{margin-left:-2px !important;background-image:url(/view/img/theme/neptune/black/icons/hqs.png) !important; opacity: 1 !important;}
+.icon-menu-sub-bookmark{margin-left:-2px !important;background-image:url(/view/img/theme/neptune/black/icons/bookmark.png) !important; opacity: 1 !important;}
+/*size*/
+.x-panel-header-title-default > .x-title-icon-wrap-default > .x-title-icon-default {
+    width: 22px;
+    height: 22px;
+    font-size: 16px;
+    color: #fff;
+    background-position: center center;
+    opacity: 0.5;
+}
+
+/*@@menu title style*/
+.v-menu-header{border-bottom:0px !important;}
+.x-accordion-hd .x-panel-header-title {color: #000;}
+.x-accordion-item .x-accordion-hd {
+    background: #d5d5d5;
+    border-width: 0;
+    border-color: #d5d5d5;
+    padding: 8px 10px;
+}
+.x-accordion-hd .x-tool-img {background-color: transparent;}
+.x-accordion-item .x-accordion-hd-over .x-tool-tool-el   {background-color: transparent;} /* 2017.10.20 추가 */
+.x-accordion-item .x-accordion-hd {padding: 5px 10px;}
+.x-panel-header-default {
+    background-image: none;
+	border: 0px solid #474747;
+}
+
+
+/*/////////  Tree  ////////////////////////////////////////////////////////////////////////*/
+/* 메인 메뉴 트리 그리드 타이틀, 행 선택 스타일*/
+.mainmenu-treegrid .x-panel-header-text-container {padding-top:3px; }
+.mainmenu-treegrid .x-grid-row-selected .x-grid-td, .common-grid .x-grid-row-focused .x-grid-td {border-top:1px solid #dadada !important; border-bottom:1px solid #dadada !important;}
+/*forder leaf icon*/
+.x-tree-icon-parent {background-image: url(/view/img/theme/neptune/black/icons/folder.gif);}
+.x-tree-icon-parent-expanded {background-image: url(/view/img/theme/neptune/black/icons/folder-open.gif);}
+.x-tree-icon-leaf {background-image: url(/view/img/theme/neptune/black/icons/page.png);}
+/* 트리 그리드 컬럼 기본 스타일*/
+.grid-treecolumn-normal {}
+.grid-treecolumn-edit-disabled {background-color:#efefef !important;}
+.grid-treecolumn-update-disabled {background-color:#efefef !important;}
+.x-grid-row .grid-treecolumn-normal .x-grid-cell-inner {line-height:20px !important; padding-top:0px !important; padding-bottom:0 !important;}
+.x-grid-row .grid-treecolumn-edit-disabled .x-grid-cell-inner {line-height:20px !important; padding-top:0px !important; padding-bottom:0 !important;}
+.x-grid-row .grid-treecolumn-update-disabled .x-grid-cell-inner {line-height:20px !important; padding-top:0px !important; padding-bottom:0 !important;}
+/*@@menu default over selected
+.x-grid-item {background-color: #606060;}
+.x-grid-item-over {background-color: #cfeaf5;}*/
+.x-grid-item-selected {background-color: #eee};
+
+/* 그리드 stripRows 스타일. 그리드 config 에서 viewConfig : {stripeRows:true} 해줘야 적용됨 */
+.x-grid-row-alt .x-grid-cell, .x-grid-row-alt .x-grid-rowwrap-div {background-color: #e6e6e6;}
+/* 그리드 마우스 오버 공통 스타일 */
+.common-grid .x-grid-row-over .x-grid-cell-inner, .common-grid .x-grid-row-over .x-grid-rowwrap-div {}
+/* 그리드 선택 행 공통 스타일*/
+.common-grid .x-grid-row-selected .x-grid-td, .common-grid .x-grid-row-focused .x-grid-td {border-top-width:0 !important; border-bottom:1px solid #d5d5d5 !important;}
+/* 그리드 컬럼 공통 스타일*/
+.common-grid .x-grid-row .x-grid-cell {border-color:#d5d5d5; border-top:1px;}
+/* 그리드 헤더 공통 스타일 */
+.grid-header-normal {text-align:center; padding-top:0px;}
+.grid-header-required {color:#000000; text-align:center; padding-top:0px;}	/* 14.1.2 색변경(적->흑) */
+.grid-header-black {color:#000000; text-align:center; padding-top:0px;}	/* 14.1.2 추가 */
+.grid-header-blue {color:#0446c0; text-align:center; padding-top:0px;} /* 14.1.2 추가 */
+
+/* 그리드 컬럼 기본 스타일 */
+.grid-column-normal {}
+.grid-column-edit-disabled {background-color:#F5F5F5 !important;}
+.grid-column-update-disabled {background-color:#F5F5F5 !important;}
+.x-grid-row .grid-column-normal .x-grid-cell-inner {line-height:15px !important; }
+.x-grid-row .grid-column-edit-disabled .x-grid-cell-inner {line-height:15px !important;  }
+.x-grid-row .grid-column-update-disabled .x-grid-cell-inner {line-height:15px !important;  }
+.x-grid-cell-inner-checkcolumn {padding: 5px 0px 0px 0px;}
+
+/* rownumberer 헤더에 쓰는 듯? */
+.x-column-header-align-right .x-column-header-text {padding-right:0; margin-right:0;}
+/* 그리드 컬럼 입력 스타일 01 */
+.grid-column01 {background-color:#eee !important;}
+.grid-column02 {background-color:#fcf1f1 !important;}
+.x-grid-row .grid-column01 .x-grid-cell-inner {line-height:15px !important;}
+/*@@그리드 행 수*/
+.v-label-count {
+	text-align:center;
+	color:#FFFFFF; 
+	background-color:#b2b2b2;
+	line-height:17px !important ;
+	vertical-align:middle !important;
+	-moz-border-radius-topleft: 2px;
+    -webkit-border-top-left-radius: 2px;
+    border-top-left-radius: 2px;
+    -moz-border-radius-topright: 2px;
+    -webkit-border-top-right-radius: 2px;
+    border-top-right-radius: 2px;
+    -moz-border-radius-bottomright: 2px;
+    -webkit-border-bottom-right-radius: 2px;
+    border-bottom-right-radius: 2px;
+    -moz-border-radius-bottomleft: 2px;
+    -webkit-border-bottom-left-radius: 2px;
+    border-bottom-left-radius: 2px;
+}
+/* 합계 행 스타일*/
+.x-grid-row-summary .x-grid-td {border-color:#d5d5d5 !important; border-bottom:1px solid #d5d5d5 !important; }
+.x-grid-row-summary .x-grid-cell-inner {background-color:#fae8e9 !important; line-height:14px !important; padding-top:4px !important; padding-bottom:2px !important; font-weight:bold;}
+/* 페이지 툴바 입력 필드*/
+.x-tbar-page-number input {height:20px !important; }
+/* 콤보 점선긋기  ??? 이거 상단에서 호출하면 특정style 깨짐 why???*/
+ul.x-list-plain > li:not(:last-child) {border-bottom: dotted 1px lightgray;};
+
+/*@@/////////  Tab  ////////////////////////////////////////////////////////////////////////*/
+/* boutton text style*/
+.x-tab-inner-default {color: #69803A; line-height: 16px;} /*deactive*/
+.x-tab.x-tab-active.x-tab-default .x-tab-inner-default {color: #000;}/*active*/
+/* boutton style over*/
+.x-tab-over.x-tab-default {border-color: #ccc; background-color: #dcdcdc;}
+/* boutton style active*/
+.x-tab.x-tab-active.x-tab-default { border-color: #fff; background-color: #fff;}
+.x-keyboard-mode .x-tab-focus.x-tab-active.x-tab-default{ border-color: #fff; background-color: #fff;}  /* 2017-10-20 이강규 추가 */
+
+/* 선택된 탭 box shadow 없애기(2016-11-09 이강규 추가) */
+.x-tab-default-top.x-tab-focus.x-tab-active {box-shadow: none !important;}
+.x-tab-default-top.x-tab-focus.x-tab-over {box-shadow: none !important;}
+
+/* boutton style active - line*/
+.x-tab-bar-strip-default {border-color: #fff;background-color: #fff;}
+/* boutton close button position style*/
+.x-tab-default .x-tab-close-btn {top: 9px;}
+.x-tab-default .x-tab-close-btn {
+    background: url(/view/img/theme/neptune/black/icons/tab-default-close.png) 0 0;
+}
+/* boutton style default*/
+.x-tab-default {
+    border-color: #ccc;
+	color: #777; 
+    cursor: pointer;
+}
+.x-tab-default-top {background-color: #ccc;}
+/* app icon */
+.icon-tab-adm{margin-left:-2px !important;background-image:url(/view/img/theme/neptune/black/icons/tab_adm.png) !important; opacity: 1 !important;}
+.icon-tab-wms{margin-left:-2px !important;background-image:url(/view/img/theme/neptune/black/icons/tab_wms.png) !important; opacity: 1 !important;}
+.icon-tab-tms{margin-left:-2px !important;background-image:url(/view/img/theme/neptune/black/icons/tab_tms.png) !important; opacity: 1 !important;}
+.icon-tab-vms{margin-left:-2px !important;background-image:url(/view/img/theme/neptune/black/icons/tab_vms.png) !important; opacity: 1 !important;}
+.icon-tab-oms{margin-left:-2px !important;background-image:url(/view/img/theme/neptune/black/icons/tab_oms.png) !important; opacity: 1 !important;}
+.icon-tab-mdm{margin-left:-2px !important;background-image:url(/view/img/theme/neptune/black/icons/tab_mdm.png) !important; opacity: 1 !important;}
+.icon-tab-ptl{margin-left:-2px !important;background-image:url(/view/img/theme/neptune/black/icons/tab_portal.png) !important; opacity: 1 !important;}
+.icon-tab-bms{margin-left:-2px !important;background-image:url(/view/img/theme/neptune/black/icons/tab_bms.png) !important; opacity: 1 !important;}
+.icon-tab-hqs{margin-left:-2px !important;background-image:url(/view/img/theme/neptune/black/icons/tab_hqs.png) !important; opacity: 1 !important;}
+.icon-tab-bookmark{margin-left:-2px !important;background-image:url(/view/img/theme/neptune/black/icons/tab_bookmark.png) !important; opacity: 1 !important;}
+/* tab icon size*/
+.x-tab-icon-left > .x-tab-icon-el-default, .x-tab-icon-right > .x-tab-icon-el-default {
+    width: 16px;
+}
+.x-tab-icon-el-default {
+    min-height: 16px;
+    background-position: center center;
+    font-size: 16px;
+    line-height: 16px;
+    color: #fff;
+}
+
+/* 팝업 확인창 color 변경(2016-11-10 이강규 추가) */
+.x-toolbar-footer {
+    padding: 6px 0 6px 6px;
+    border-style: solid;
+    border-color: #c2c2c2;
+    border-width: 0;
+    background-image: none;
+    background-color: #f5f5f5;
+}
+
+/*@@/////////  Bottom  ////////////////////////////////////////////////////////////////////////*/
+/*사용자정보*/
+.v-label-bottom-text {color:#777; vertical-align:middle !important; margin-right:40px;font-family: 'Malgun Gothic', Gulim, "굴림", Dotum, "돋움", Arial, sans-serif;
+    font-size: 11px !important;}

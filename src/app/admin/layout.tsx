@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { AdminAccessProvider, AccessLevel, MenuAccessMap } from "@/lib/admin-access";
-import { getSettingsItems, findMenuKeyByPath, getAllItems } from "@/lib/menu-registry";
+import { getSettingsItems, findMenuKeyByPath } from "@/lib/menu-registry";
 import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 
 const MAX_W = 1700;
@@ -21,6 +21,32 @@ type PermRow = {
   menu_key: string;
   general_access: AccessLevel;
 };
+
+async function waitForSession(retry = 20, delayMs = 500) {
+  for (let i = 0; i < retry; i++) {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    if (data.session) return data.session;
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  return null;
+}
+
+async function readProfileWithRetry(uid: string, retry = 20, delayMs = 500) {
+  let lastError: unknown = null;
+  for (let i = 0; i < retry; i++) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("name,approval_status,is_admin,work_part")
+      .eq("id", uid)
+      .single();
+
+    if (!error && data) return data as Profile;
+    lastError = error;
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  throw lastError ?? new Error("Failed to load profile");
+}
 
 // 섹션(active) 판정 유틸
 function isExact(pathname: string, href: string) {
@@ -45,6 +71,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [loginUserName, setLoginUserName] = useState("");
 
   const [photosOpen, setPhotosOpen] = useState(false);
+  const [vehicleOpen, setVehicleOpen] = useState(false);
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [workLogOpen, setWorkLogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -60,6 +87,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { label: "현장사진", href: "/admin/photos" },
       { label: "배송사진", href: "/admin/photos/delivery" },
       { label: "위험요인", href: "/admin/hazards" },
+    ],
+    []
+  );
+
+  const VEHICLE_ITEMS = useMemo(
+    () => [
+      { label: "단품별/물동량", href: "/admin/vehicles" },
+      { label: "운행일보", href: "/admin/vehicles/report" },
     ],
     []
   );
@@ -96,40 +131,52 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const closeAll = () => {
     setPhotosOpen(false);
+    setVehicleOpen(false);
     setNoticeOpen(false);
     setWorkLogOpen(false);
     setSettingsOpen(false);
   };
 
-  const openDropdown = (which: "photos" | "notice" | "worklog" | "settings") => {
+  const openDropdown = (which: "photos" | "vehicle" | "notice" | "worklog" | "settings") => {
     clearCloseTimer();
     if (which === "photos") {
       setPhotosOpen(true);
+      setVehicleOpen(false);
+      setNoticeOpen(false);
+      setWorkLogOpen(false);
+      setSettingsOpen(false);
+    } else if (which === "vehicle") {
+      setPhotosOpen(false);
+      setVehicleOpen(true);
       setNoticeOpen(false);
       setWorkLogOpen(false);
       setSettingsOpen(false);
     } else if (which === "notice") {
       setPhotosOpen(false);
+      setVehicleOpen(false);
       setNoticeOpen(true);
       setWorkLogOpen(false);
       setSettingsOpen(false);
     } else if (which === "worklog") {
       setPhotosOpen(false);
+      setVehicleOpen(false);
       setNoticeOpen(false);
       setWorkLogOpen(true);
       setSettingsOpen(false);
     } else {
       setPhotosOpen(false);
+      setVehicleOpen(false);
       setNoticeOpen(false);
       setWorkLogOpen(false);
       setSettingsOpen(true);
     }
   };
 
-  const closeDropdownDelayed = (which: "photos" | "notice" | "worklog" | "settings") => {
+  const closeDropdownDelayed = (which: "photos" | "vehicle" | "notice" | "worklog" | "settings") => {
     clearCloseTimer();
     closeTimer.current = setTimeout(() => {
       if (which === "photos") setPhotosOpen(false);
+      if (which === "vehicle") setVehicleOpen(false);
       if (which === "notice") setNoticeOpen(false);
       if (which === "worklog") setWorkLogOpen(false);
       if (which === "settings") setSettingsOpen(false);
@@ -206,21 +253,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   // 공지 라우트 포함
   const isNoticeActive = pathname.startsWith("/admin/notice");
+  const isVehicleActive = pathname.startsWith("/admin/vehicles");
   const isWorkLogActive = pathname.startsWith("/admin/work-log");
   const isSettingsActive = pathname.startsWith("/admin/settings");
 
   const canShow = (menuKey: string, mainOnly?: boolean) => getAccess(menuKey, mainOnly) !== "hidden";
   const visibleSettingsItems = SETTINGS_ITEMS.filter((it) => canShow(it.key, it.mainOnly));
   const canShowPhotos = canShow("admin_photos");
-
-  const syncRegistryToDB = async () => {
-    const rows = getAllItems().map((m) => ({ menu_key: m.key, label: m.label }));
-    await supabase.from("admin_menu_permissions").upsert(rows, { onConflict: "menu_key" });
-  };
+  const canShowVehicle = canShow("admin_vehicle");
 
   useEffect(() => {
     let mounted = true;
     let runId = 0;
+    let guardRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
     if (!isAdminPath) {
       setChecking(false);
@@ -236,25 +281,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setChecking(true);
 
       try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error) throw error;
-
-        const session = data.session;
+        const session = await waitForSession();
         if (!session) {
           hardToLogin();
           return;
         }
 
         const uid = session.user.id;
-
-        const { data: prof, error: pErr } = await supabase
-          .from("profiles")
-          .select("name,approval_status,is_admin,work_part")
-          .eq("id", uid)
-          .single();
-        if (pErr) throw pErr;
-
-        const p = prof as Profile;
+        const p = await readProfileWithRetry(uid);
 
         if (p?.approval_status !== "approved") {
           try {
@@ -284,9 +318,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         setLoginUserName(String(p?.name ?? "").trim());
 
         if (main) {
-          try {
-            await syncRegistryToDB();
-          } catch {}
           if (!mounted || runId !== my) return;
           setMenuAccess({});
         } else {
@@ -318,9 +349,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           }
         }
       } catch {
-        try {
-          await supabase.auth.signOut();
-        } catch {}
+        const { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+        if (data?.session) {
+          if (!mounted || runId !== my) return;
+          guardRetryTimer = setTimeout(() => {
+            if (mounted) void runGuard();
+          }, 1500);
+          return;
+        }
         hardToLogin();
       } finally {
         if (mounted && runId === my) setChecking(false);
@@ -344,6 +380,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     return () => {
       mounted = false;
+      if (guardRetryTimer) clearTimeout(guardRetryTimer);
       try {
         sub.subscription.unsubscribe();
       } catch {}
@@ -461,6 +498,39 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             active = pathname === it.href;
                           }
 
+                          return (
+                            <Link key={it.href} href={it.href} style={dropdownItemStyle(active)}>
+                              {it.label}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+
+                {canShowVehicle ? (
+                  <div
+                    onMouseEnter={() => openDropdown("vehicle")}
+                    onMouseLeave={() => closeDropdownDelayed("vehicle")}
+                    style={{ position: "relative" }}
+                  >
+                    <Link href="/admin/vehicles" style={pillStyle(isVehicleActive)} onMouseEnter={() => openDropdown("vehicle")}>
+                      차량
+                    </Link>
+
+                    {vehicleOpen && (
+                      <div
+                        onMouseEnter={() => openDropdown("vehicle")}
+                        onMouseLeave={() => closeDropdownDelayed("vehicle")}
+                        style={dropdownBoxStyle}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {VEHICLE_ITEMS.map((it) => {
+                          const active =
+                            it.href === "/admin/vehicles"
+                              ? pathname === "/admin/vehicles"
+                              : pathname === it.href || pathname.startsWith(it.href + "/");
                           return (
                             <Link key={it.href} href={it.href} style={dropdownItemStyle(active)}>
                               {it.label}

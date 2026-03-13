@@ -6,6 +6,8 @@ type Row = {
   store_name: string;
   car_no: string;
   seq_no: number;
+  delivery_due_time?: string;
+  address?: string;
 };
 
 function normalizeStoreCode(v: string) {
@@ -48,6 +50,8 @@ export async function POST(req: Request) {
       store_name: String(r.store_name ?? "").trim(),
       car_no: String(r.car_no ?? "").trim(),
       seq_no: Number(r.seq_no ?? 0),
+      delivery_due_time: String(r.delivery_due_time ?? "").trim(),
+      address: String(r.address ?? "").trim(),
     }));
 
     // ✅ 호차번호 빈 값 제외

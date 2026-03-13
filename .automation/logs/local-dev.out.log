@@ -1,0 +1,11 @@
+
+> han-admin@0.1.0 dev
+> next dev --webpack
+
+▲ Next.js 16.1.4 (webpack)
+- Local:         http://localhost:3000
+- Network:       http://10.215.3.77:3000
+- Environments: .env.local
+
+✓ Starting...
+✓ Ready in 2.2s

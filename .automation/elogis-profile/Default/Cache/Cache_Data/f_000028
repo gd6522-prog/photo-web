@@ -1,0 +1,2246 @@
+Map = function(){
+  this.map = new Object();
+ };
+ Map.prototype = {
+     put : function(key, value){
+         this.map[key] = value;
+     },
+     get : function(key){
+         return this.map[key];
+     },
+     containsKey : function(key){
+      return key in this.map;
+     },
+     containsValue : function(value){
+      for(var prop in this.map){
+       if(this.map[prop] == value) return true;
+      }
+      return false;
+     },
+     isEmpty : function(key){
+      return (this.size() == 0);
+     },
+     clear : function(){
+      for(var prop in this.map){
+       delete this.map[prop];
+      }
+     },
+     remove : function(key){
+      delete this.map[key];
+     },
+     keys : function(){
+         var keys = new Array();
+         for(var prop in this.map){
+             keys.push(prop);
+         }
+         return keys;
+     },
+     values : function(){
+      var values = new Array();
+         for(var prop in this.map){
+          values.push(this.map[prop]);
+         }
+         return values;
+     },
+     size : function(){
+       var count = 0;
+       for (var prop in this.map) {
+         count++;
+       }
+       return count;
+     }
+ };
+
+var common = (function () {
+
+
+	var privateMethod = function (message) {
+		//alert(message);
+	};
+
+	var onSetBGColorInput = function(objId) {
+		var v = $('#'+objId).val();
+		if (v.indexOf('|')>=0){
+			$('#'+objId).css('background-color', '#e1edfa');
+		}
+		else{
+			$('#'+objId).css('background-color', 'white');
+		}
+	};
+
+	return {
+
+		publicMethod1: function (text) {
+			privateMethod(text);
+		},
+
+
+		publicMethod1: function (text) {
+			privateMethod(text);
+		},
+
+
+		doReturnLookup: function(codeId, returnCode, descId, returnDesc) {
+			$('#'+codeId).val(returnCode).trigger('change');
+			$('#'+descId).val(returnDesc);
+			onSetBGColorInput(codeId);
+		},
+
+		doChangeInput: function(objId) {
+			onSetBGColorInput(objId);
+			if( objId == 'owner_cd' ||
+				objId== 'stop_cd' ||
+				objId == 'product_cd' ||
+				objId == 'auth_id'||
+				objId == 's_grp_cd'	||
+				objId=='center_cd' ||
+				objId == 'vhcl_cd'){
+				$('#'+objId).val($('#'+objId).val().toUpperCase());
+			}
+
+		},
+
+
+		doKeyInput: function(e, objCode, objDesc, qid, multiYn) {
+
+			if (event.keyCode == 13){
+				$.ajax({
+				  	type: 'POST'
+				     , url: '/tms/popup/LookupPopup/keydown/retrieve.do'
+				     , async : false
+				     , data: {
+						  qid : qid
+					   	, center_cd : objCode.value
+				       }
+				     , dataType: 'json'
+				     , success: function(data) {
+				    	 var code = '';
+				    	 var desc = '';
+				    	 $.each(data.result, function(index){
+				    		 code += data.result[index].VALUE+"|";
+				    		 desc += data.result[index].TEXT+",";
+				    		 if (multiYn == '0') {
+				    			 return false;
+				    		 }
+				    	});
+
+						if (desc.length > 0){
+							code = code.substring(0, code.length-1);
+							desc = desc.substring(0, desc.length-1);
+						}
+
+				    	objCode.value = code;
+				    	objDesc.value = desc;
+
+				    	//onKeyUp="field.value.toUpperCase()"
+
+				    	$(objCode).trigger('change');
+				       }
+				     , error:function(request,status,error){
+				     }
+				});
+			}
+			else{
+				objDesc.value = '';
+			}
+
+			var newValue = objCode.value.toUpperCase();
+
+			if (objCode.value != newValue) { // 대문자 값과 다르면
+				objCode.value = newValue;
+			}
+
+			onSetBGColorInput(objCode.id);
+		},
+		doKeyInput2: function(e, objCode, objDesc, objClient, qid, multiYn) {
+
+			if (event.keyCode == 13){
+				$.ajax({
+				  	type: 'POST'
+				     , url: '/tms/popup/LookupPopup/keydown/retrieve.do'
+				     , async : false
+				     , data: {
+						  qid : qid
+					   	, center_cd : objCode.value
+				       }
+				     , dataType: 'json'
+				     , success: function(data) {
+				    	 var code = '';
+				    	 var desc = '';
+				    	 var clientCd = '';
+				    	 $.each(data.result, function(index){
+				    		 code += data.result[index].VALUE+"|";
+				    		 desc += data.result[index].TEXT+",";
+				    		 clientCd += data.result[index].CLIENT_CD+",";
+				    		 if (multiYn == '0') {
+				    			 return false;
+				    		 }
+				    	});
+
+						if (desc.length > 0){
+							code = code.substring(0, code.length-1);
+							desc = desc.substring(0, desc.length-1);
+							clientCd = clientCd.substring(0, clientCd.length-1);
+						}
+
+				    	objCode.value = code;
+				    	objDesc.value = desc;
+				    	objClient.value = clientCd;
+
+				    	//onKeyUp="field.value.toUpperCase()"
+
+				    	$(objCode).trigger('change');
+				       }
+				     , error:function(request,status,error){
+				     }
+				});
+			}
+			else{
+				objDesc.value = '';
+			}
+
+			var newValue = objCode.value.toUpperCase();
+
+			if (objCode.value != newValue) { // 대문자 값과 다르면
+				objCode.value = newValue;
+			}
+
+			onSetBGColorInput(objCode.id);
+		},
+		//20180918 salzzin, append objUomType
+		doKeyInput3: function(e, objCode, objDesc, objClient, objUomType, qid, multiYn) {
+
+			if (event.keyCode == 13){
+				$.ajax({
+				  	type: 'POST'
+				     , url: '/tms/popup/LookupPopup/keydown/retrieve.do'
+				     , async : false
+				     , data: {
+						  qid : qid
+					   	, center_cd : objCode.value
+				       }
+				     , dataType: 'json'
+				     , success: function(data) {
+				    	 var code = '';
+				    	 var desc = '';
+				    	 var clientCd = '';
+				    	 var uomType = '';
+				    	 $.each(data.result, function(index){
+				    		 code += data.result[index].VALUE+"|";
+				    		 desc += data.result[index].TEXT+",";
+				    		 clientCd += data.result[index].CLIENT_CD+",";
+				    		 uomType += data.result[index].UOM_TYPE_NM+",";
+				    		 if (multiYn == '0') {
+				    			 return false;
+				    		 }
+				    	});
+
+						if (desc.length > 0){
+							code = code.substring(0, code.length-1);
+							desc = desc.substring(0, desc.length-1);
+							clientCd = clientCd.substring(0, clientCd.length-1);
+							uomType = uomType.substring(0, uomType.length-1);
+						}
+
+				    	objCode.value = code;
+				    	objDesc.value = desc;
+				    	objClient.value = clientCd;
+				    	objUomType.value = uomType;
+
+				    	//onKeyUp="field.value.toUpperCase()"
+
+				    	$(objCode).trigger('change');
+				       }
+				     , error:function(request,status,error){
+				     }
+				});
+			}
+			else{
+				objDesc.value = '';
+			}
+
+			var newValue = objCode.value.toUpperCase();
+
+			if (objCode.value != newValue) { // 대문자 값과 다르면
+				objCode.value = newValue;
+			}
+
+			onSetBGColorInput(objCode.id);
+		},
+		//배송그룹 조회조건
+		doKeyInput4: function(e, objCode, objDesc, owner_cd, center_cd, qid, multiYn) {
+
+			if (event.keyCode == 13){
+				$.ajax({
+				  	type: 'POST'
+				     , url: '/tms/popup/LookupPopup/keydown/retrieve.do'
+				     , async : false
+				     , data: {
+						  qid : qid
+					   	, deli_seq_cd  : objCode.value
+					   	, owner_cd : owner_cd.value
+					   	, center_cd : center_cd.value
+				       }
+				     , dataType: 'json'
+				     , success: function(data) {
+				    	 var code = '';
+				    	 var desc = '';
+				    	 $.each(data.result, function(index){
+				    		 code += data.result[index].VALUE+"|";
+				    		 desc += data.result[index].TEXT+",";
+				    		 if (multiYn == '0') {
+				    			 return false;
+				    		 }
+				    	});
+
+						if (desc.length > 0){
+							code = code.substring(0, code.length-1);
+							desc = desc.substring(0, desc.length-1);
+						}
+
+				    	objCode.value = code;
+				    	objDesc.value = desc;
+
+				    	//onKeyUp="field.value.toUpperCase()"
+
+				    	$(objCode).trigger('change');
+				       }
+				     , error:function(request,status,error){
+				     }
+				});
+			}
+			else{
+				objDesc.value = '';
+			}
+
+			var newValue = objCode.value.toUpperCase();
+
+			if (objCode.value != newValue) { // 대문자 값과 다르면
+				objCode.value = newValue;
+			}
+
+			onSetBGColorInput(objCode.id);
+		},
+		doKeyInput5: function(e, objCode, objDesc, qid, multiYn) {
+
+			if (event.keyCode == 13){
+				$.ajax({
+				  	type: 'POST'
+				     , url: '/tms/popup/LookupPopup/keydown/retrieve.do'
+				     , async : false
+				     , data: {
+						  qid : qid
+					   	, deli_seq : objCode.value
+				       }
+				     , dataType: 'json'
+				     , success: function(data) {
+				    	 var code = '';
+				    	 var desc = '';
+				    	 $.each(data.result, function(index){
+				    		 code += data.result[index].VALUE+"|";
+				    		 desc += data.result[index].TEXT+",";
+				    		 if (multiYn == '0') {
+				    			 return false;
+				    		 }
+				    	});
+
+						if (desc.length > 0){
+							code = code.substring(0, code.length-1);
+							desc = desc.substring(0, desc.length-1);
+						}
+
+				    	objCode.value = code;
+				    	objDesc.value = desc;
+
+				    	//onKeyUp="field.value.toUpperCase()"
+
+				    	$(objCode).trigger('change');
+				       }
+				     , error:function(request,status,error){
+				     }
+				});
+			}
+			else{
+				objDesc.value = '';
+			}
+
+			var newValue = objCode.value.toUpperCase();
+
+			if (objCode.value != newValue) { // 대문자 값과 다르면
+				objCode.value = newValue;
+			}
+
+			onSetBGColorInput(objCode.id);
+		},
+		doKeyInput6: function(e, objCode, objDesc, qid, multiYn) {
+
+			if (event.keyCode == 13){
+				$.ajax({
+				  	type: 'POST'
+				     , url: '/tms/popup/LookupPopup/keydown/retrieve.do'
+				     , async : false
+				     , data: {
+						  qid : qid
+					   	, owner_cd : objCode.value
+				       }
+				     , dataType: 'json'
+				     , success: function(data) {
+				    	 var code = '';
+				    	 var desc = '';
+				    	 $.each(data.result, function(index){
+				    		 code += data.result[index].VALUE+"|";
+				    		 desc += data.result[index].TEXT+",";
+				    		 if (multiYn == '0') {
+				    			 return false;
+				    		 }
+				    	});
+
+						if (desc.length > 0){
+							code = code.substring(0, code.length-1);
+							desc = desc.substring(0, desc.length-1);
+						}
+
+				    	objCode.value = code;
+				    	objDesc.value = desc;
+
+				    	//onKeyUp="field.value.toUpperCase()"
+
+				    	$(objCode).trigger('change');
+				       }
+				     , error:function(request,status,error){
+				     }
+				});
+			}
+			else{
+				objDesc.value = '';
+			}
+
+			var newValue = objCode.value.toUpperCase();
+
+			if (objCode.value != newValue) { // 대문자 값과 다르면
+				objCode.value = newValue;
+			}
+
+			onSetBGColorInput(objCode.id);
+		},
+		doKeyInput7: function(e, objCode, objDesc, center_cd, qid, multiYn) {
+
+			if (event.keyCode == 13){
+				$.ajax({
+				  	type: 'POST'
+				     , url: '/tms/popup/LookupPopup/keydown/retrieve.do'
+				     , async : false
+				     , data: {
+						  qid : qid
+					   	, owner_cd : objCode.value
+					   	, center_cd : center_cd.value
+				       }
+				     , dataType: 'json'
+				     , success: function(data) {
+				    	 var code = '';
+				    	 var desc = '';
+				    	 $.each(data.result, function(index){
+				    		 code += data.result[index].VALUE+"|";
+				    		 desc += data.result[index].TEXT+",";
+				    		 if (multiYn == '0') {
+				    			 return false;
+				    		 }
+				    	});
+
+						if (desc.length > 0){
+							code = code.substring(0, code.length-1);
+							desc = desc.substring(0, desc.length-1);
+						}
+
+				    	objCode.value = code;
+				    	objDesc.value = desc;
+
+				    	//onKeyUp="field.value.toUpperCase()"
+
+				    	$(objCode).trigger('change');
+				       }
+				     , error:function(request,status,error){
+				     }
+				});
+			}
+			else{
+				objDesc.value = '';
+			}
+
+			var newValue = objCode.value.toUpperCase();
+
+			if (objCode.value != newValue) { // 대문자 값과 다르면
+				objCode.value = newValue;
+			}
+
+			onSetBGColorInput(objCode.id);
+		},
+		//점포 조회조건
+		doKeyInput8: function(e, objCode, objDesc, owner_cd, qid, multiYn) {
+
+			if (event.keyCode == 13){
+				$.ajax({
+				  	type: 'POST'
+				     , url: '/tms/popup/LookupPopup/keydown/retrieve.do'
+				     , async : false
+				     , data: {
+						  qid : qid
+					   	, stop_cd : objCode.value
+					   	, owner_cd : owner_cd.value
+				       }
+				     , dataType: 'json'
+				     , success: function(data) {
+				    	 var code = '';
+				    	 var desc = '';
+				    	 $.each(data.result, function(index){
+				    		 code += data.result[index].VALUE+"|";
+				    		 desc += data.result[index].TEXT+",";
+				    		 if (multiYn == '0') {
+				    			 return false;
+				    		 }
+				    	});
+
+						if (desc.length > 0){
+							code = code.substring(0, code.length-1);
+							desc = desc.substring(0, desc.length-1);
+						}
+
+				    	objCode.value = code;
+				    	objDesc.value = desc;
+
+				    	//onKeyUp="field.value.toUpperCase()"
+
+				    	$(objCode).trigger('change');
+				       }
+				     , error:function(request,status,error){
+				     }
+				});
+			}
+			else{
+				objDesc.value = '';
+			}
+
+			var newValue = objCode.value.toUpperCase();
+
+			if (objCode.value != newValue) { // 대문자 값과 다르면
+				objCode.value = newValue;
+			}
+
+			onSetBGColorInput(objCode.id);
+		},
+		doKeyInput9: function(e, objCode, objDesc, qid, multiYn) {
+
+			if (event.keyCode == 13){
+				$.ajax({
+				  	type: 'POST'
+				     , url: '/tms/popup/LookupPopup/keydown/retrieve.do'
+				     , async : false
+				     , data: {
+						  qid : qid
+					   	, simul_owner_cd : objCode.value
+				       }
+				     , dataType: 'json'
+				     , success: function(data) {
+				    	 var code = '';
+				    	 var desc = '';
+				    	 $.each(data.result, function(index){
+				    		 code += data.result[index].VALUE+"|";
+				    		 desc += data.result[index].TEXT+",";
+				    		 if (multiYn == '0') {
+				    			 return false;
+				    		 }
+				    	});
+
+						if (desc.length > 0){
+							code = code.substring(0, code.length-1);
+							desc = desc.substring(0, desc.length-1);
+						}
+
+				    	objCode.value = code;
+				    	objDesc.value = desc;
+
+				    	//onKeyUp="field.value.toUpperCase()"
+
+				    	$(objCode).trigger('change');
+				       }
+				     , error:function(request,status,error){
+				     }
+				});
+			}
+			else{
+				objDesc.value = '';
+			}
+
+			var newValue = objCode.value.toUpperCase();
+
+			if (objCode.value != newValue) { // 대문자 값과 다르면
+				objCode.value = newValue;
+			}
+
+			onSetBGColorInput(objCode.id);
+		},
+
+		doKeyInput10: function(e, objCode, objDesc, qid, multiYn) {
+
+			if (event.keyCode == 13){
+				$.ajax({
+				  	type: 'POST'
+				     , url: '/tms/popup/LookupPopup/keydown/retrieve.do'
+				     , async : false
+				     , data: {
+						  qid : qid
+					   	, simul_center_cd : objCode.value
+				       }
+				     , dataType: 'json'
+				     , success: function(data) {
+				    	 var code = '';
+				    	 var desc = '';
+				    	 $.each(data.result, function(index){
+				    		 code += data.result[index].VALUE+"|";
+				    		 desc += data.result[index].TEXT+",";
+				    		 if (multiYn == '0') {
+				    			 return false;
+				    		 }
+				    	});
+
+						if (desc.length > 0){
+							code = code.substring(0, code.length-1);
+							desc = desc.substring(0, desc.length-1);
+						}
+
+				    	objCode.value = code;
+				    	objDesc.value = desc;
+
+				    	//onKeyUp="field.value.toUpperCase()"
+
+				    	$(objCode).trigger('change');
+				       }
+				     , error:function(request,status,error){
+				     }
+				});
+			}
+			else{
+				objDesc.value = '';
+			}
+
+			var newValue = objCode.value.toUpperCase();
+
+			if (objCode.value != newValue) { // 대문자 값과 다르면
+				objCode.value = newValue;
+			}
+
+			onSetBGColorInput(objCode.id);
+		},
+		/**
+		 * 날짜 유효성체크
+		 */
+		checkDate : function(strDate){
+			if(strDate==''){
+				return ''
+			}
+		 var arrDate
+		 var chkDate
+
+		 if (strDate.indexOf("-") != -1)
+		 {
+		  arrDate = strDate.split("-")
+		 }
+		 else
+		 {
+		  if (strDate.indexOf("/") != -1)
+		  {
+		   arrDate = strDate.split("/")
+		  }
+		  else
+		  {
+		   if (strDate.length == 8)
+		   {
+		    arrDate = strDate.substring(0,4)+"/"+strDate.substring(4,6)+"/"+strDate.substring(6,8)
+		    arrDate = arrDate.split("/")
+		   }
+		   else
+		   {
+			alert('올바른 날짜 형식이 아닙니다.');
+		    return ''
+		   }
+		  }
+		 }
+		 if (arrDate.length != 3)
+		 {
+			 alert('올바른 날짜 형식이 아닙니다.');
+		  return ''
+		 }
+		 if (arrDate[0].length != 4 || arrDate[1].length != 2 || arrDate[2].length != 2)
+		 {
+			 alert('올바른 날짜 형식이 아닙니다.');
+		  return ''
+		 }
+		 chkDate = new Date(arrDate[0] + "/" + arrDate[1] + "/" + arrDate[2]);
+
+		 if (isNaN(chkDate) == true || arrDate[1] != chkDate.getMonth() + 1 || arrDate[2] != chkDate.getDate())
+		 {
+			 alert('올바른 날짜 형식이 아닙니다.');
+		  return '';
+		 }
+		 return arrDate[0] + "-" + arrDate[1] + "-" + arrDate[2];
+		},
+
+		//초기 Cd에 따른 Txt값 세팅
+		initCdTxtValue: function(objCode, objDesc, qid, multiYn) {
+			$.ajax({
+			  	type: 'POST'
+			     , url: '/tms/popup/LookupPopup/keydown/retrieve.do'
+			     , async : false
+			     , data: {
+					  qid : qid
+				   	, center_cd : objCode.value
+			       }
+			     , dataType: 'json'
+			     , success: function(data) {
+			    	 var code = '';
+			    	 var desc = '';
+			    	 $.each(data.result, function(index){
+			    		 code += data.result[index].VALUE+"|";
+			    		 desc += data.result[index].TEXT+",";
+			    		 if (multiYn == '0') {
+			    			 return false;
+			    		 }
+			    	});
+
+					if (desc.length > 0){
+						code = code.substring(0, code.length-1);
+						desc = desc.substring(0, desc.length-1);
+					}
+
+			    	objCode.value = code;
+			    	objDesc.value = desc;
+			       }
+			     , error:function(request,status,error){
+			     }
+			});
+			onSetBGColorInput(objCode.id);
+		},
+
+		doOpenAreaLookup: function(obj, qId, centerCd) {
+			var $form = $('<form></form>');
+			$form.appendTo('body');
+			$form.attr("method","POST");
+
+			var center_cd =  $("<input type='hidden' name='center_cd' value='"+ centerCd +"'>"); //input 생성
+			var obj_id =  $("<input type='hidden' name='obj_id' value='"+ obj.name +"'>"); //input 생성
+			var qid =  $("<input type='hidden' name='qid' value='"+ qId +"'>"); //input 생성
+			var selVals =  $("<input type='hidden' name='selVals' value='"+ obj.value +"'>"); //input 생성
+			var multiYn =  $("<input type='hidden' name='multi_yn' value='1'>"); //input 생성
+			var headerTextHtml =  $("<input type='hidden' name='headerText' >"); //input 생성
+
+			$form.append(center_cd);
+			$form.append(obj_id);
+			$form.append(qid);
+			$form.append(selVals);
+			$form.append(multiYn);
+			$form.append(headerTextHtml);
+
+			var leftpos = 0;
+			var toppos = 0;
+			var aTag = obj;
+/*			do {
+				leftpos	+= aTag.offsetLeft;
+				toppos += aTag.offsetTop;
+			} while(aTag = aTag.offsetParent);
+
+
+			var cleft = window.screenLeft + leftpos;
+			var ctop = window.screenTop + obj.offsetHeight + toppos;*/
+			var popupId = "LOOKUP_POPUP";
+
+			$form.find('input[name=headerText]').val(obj.title);
+
+			var popupWin = window.open(
+					  ""
+					, popupId
+					, "width=500, height=400, left=" + event.screenX + ", top=" + event.screenY + ", resizable=1, location=0, toolbar=0, directories=0, status=0, menubar=0, scrollbars=0, copyhistory=0"
+				);
+
+			$form.attr("target", popupId);
+			$form.attr("action","/tms/popup/LookupAreaPopup/init.do");
+
+			$form.submit();
+
+			popupWin.focus();
+		},
+
+
+		doOpenLookup: function(objCode, objDesc, qId, menuId, title, multi_yn) {
+
+			var $form = $('<form></form>');
+			$form.appendTo('body');
+			$form.attr("method","POST");
+
+			var objCodeHtml =  $("<input type='hidden' name='code_id' value='"+ objCode.name +"'>"); //input 생성
+			var objDescHtml =  $("<input type='hidden' name='desc_id' value='"+ objDesc.name +"'>"); //input 생성
+			var menuIdHtml =  $("<input type='hidden' name='menu_id' value='"+ menuId +"'>"); //input 생성
+			var titleHtml =  $("<input type='hidden' name='title' value='"+ title +"'>"); //input 생성
+			var selValsHtml =  $("<input type='hidden' name='selVals' >"); //input 생성
+			var qidHtml =  $("<input type='hidden' name='qid' value='"+ qId +"'>"); //input 생성
+			var headerTextHtml =  $("<input type='hidden' name='headerText' >"); //input 생성
+			var multiYnHtml =  $("<input type='hidden' name='multi_yn' value='"+ (multi_yn || '1') +"'>"); //input 생성
+
+			$form.append(objCodeHtml);
+			$form.append(objDescHtml);
+			$form.append(menuIdHtml);
+			$form.append(titleHtml);
+			$form.append(qidHtml);
+			$form.append(selValsHtml);
+			$form.append(headerTextHtml);
+			$form.append(multiYnHtml);
+
+			$form.find('input[name=selVals]').val(objCode.value);
+			$form.find('input[name=headerText]').val(objCode.title);
+
+			var popupId = "LOOKUP_POPUP";
+			var popupWin = window.open(
+					  ""
+					, popupId
+					, "width=500, height=400, left=" + event.screenX + ", top=" + event.screenY + ", resizable=1, location=0, toolbar=0, directories=0, status=0, menubar=0, scrollbars=0, copyhistory=0"
+				);
+
+			$form.attr("target", popupId);
+			$form.attr("action","/tms/popup/LookupPopup/init.do");
+			$form.submit();
+
+			popupWin.focus();
+		},
+
+		//배송그룹 팝업
+		doOpenLookup4: function(objCode, objDesc, owner_cd, center_cd, qId, menuId, title, multi_yn) {
+
+			var $form = $('<form></form>');
+			$form.appendTo('body');
+			$form.attr("method","POST");
+
+			var objCodeHtml =  $("<input type='hidden' name='code_id' value='"+ objCode.name +"'>"); //input 생성
+			var objDescHtml =  $("<input type='hidden' name='desc_id' value='"+ objDesc.name +"'>"); //input 생성
+			var ownercdHtml =  $("<input type='hidden' name='owner_cd' value='"+ owner_cd.value +"'>"); //input 생성
+			var centercdHtml =  $("<input type='hidden' name='center_cd' value='"+ center_cd.value +"'>"); //input 생성
+			var menuIdHtml =  $("<input type='hidden' name='menu_id' value='"+ menuId +"'>"); //input 생성
+			var titleHtml =  $("<input type='hidden' name='title' value='"+ title +"'>"); //input 생성
+			var selValsHtml =  $("<input type='hidden' name='selVals' >"); //input 생성
+			var qidHtml =  $("<input type='hidden' name='qid' value='"+ qId +"'>"); //input 생성
+			var headerTextHtml =  $("<input type='hidden' name='headerText' >"); //input 생성
+			var multiYnHtml =  $("<input type='hidden' name='multi_yn' value='"+ (multi_yn || '1') +"'>"); //input 생성
+
+			$form.append(objCodeHtml);
+			$form.append(objDescHtml);
+			$form.append(ownercdHtml);
+			$form.append(centercdHtml);
+			$form.append(menuIdHtml);
+			$form.append(titleHtml);
+			$form.append(qidHtml);
+			$form.append(selValsHtml);
+			$form.append(headerTextHtml);
+			$form.append(multiYnHtml);
+
+			$form.find('input[name=selVals]').val(objCode.value);
+			$form.find('input[name=headerText]').val(objCode.title);
+
+			var popupId = "LOOKUP_POPUP";
+			var popupWin = window.open(
+					  ""
+					, popupId
+					, "width=500, height=400, left=" + event.screenX + ", top=" + event.screenY + ", resizable=1, location=0, toolbar=0, directories=0, status=0, menubar=0, scrollbars=0, copyhistory=0"
+				);
+
+			$form.attr("target", popupId);
+			$form.attr("action","/tms/popup/LookupPopup/init.do");
+			$form.submit();
+
+			popupWin.focus();
+		},
+
+		//화주 팝업
+		doOpenLookup7: function(objCode, objDesc, center_cd, qId, menuId, title, multi_yn) {
+
+			var $form = $('<form></form>');
+			$form.appendTo('body');
+			$form.attr("method","POST");
+
+			var center_cd = $("#center_cd").val();
+
+			var objCodeHtml =  $("<input type='hidden' name='code_id' value='"+ objCode.name +"'>"); //input 생성
+			var objDescHtml =  $("<input type='hidden' name='desc_id' value='"+ objDesc.name +"'>"); //input 생성
+			var centercdHtml =  $("<input type='hidden' name='center_cd' value='"+ center_cd +"'>"); //input 생성
+			var menuIdHtml =  $("<input type='hidden' name='menu_id' value='"+ menuId +"'>"); //input 생성
+			var titleHtml =  $("<input type='hidden' name='title' value='"+ title +"'>"); //input 생성
+			var selValsHtml =  $("<input type='hidden' name='selVals' >"); //input 생성
+			var qidHtml =  $("<input type='hidden' name='qid' value='"+ qId +"'>"); //input 생성
+			var headerTextHtml =  $("<input type='hidden' name='headerText' >"); //input 생성
+			var multiYnHtml =  $("<input type='hidden' name='multi_yn' value='"+ (multi_yn || '1') +"'>"); //input 생성
+
+			$form.append(objCodeHtml);
+			$form.append(objDescHtml);
+			$form.append(centercdHtml);
+			$form.append(menuIdHtml);
+			$form.append(titleHtml);
+			$form.append(qidHtml);
+			$form.append(selValsHtml);
+			$form.append(headerTextHtml);
+			$form.append(multiYnHtml);
+
+			$form.find('input[name=selVals]').val(objCode.value);
+			$form.find('input[name=headerText]').val(objCode.title);
+
+			var popupId = "LOOKUP_POPUP";
+			var popupWin = window.open(
+					  ""
+					, popupId
+					, "width=500, height=400, left=" + event.screenX + ", top=" + event.screenY + ", resizable=1, location=0, toolbar=0, directories=0, status=0, menubar=0, scrollbars=0, copyhistory=0"
+				);
+
+			$form.attr("target", popupId);
+			$form.attr("action","/tms/popup/LookupPopup/init.do");
+			$form.submit();
+
+			popupWin.focus();
+		},
+
+		//점포 팝업
+		doOpenLookup8: function(objCode, objDesc, owner_cd, qId, menuId, title, multi_yn) {
+
+			var $form = $('<form></form>');
+			$form.appendTo('body');
+			$form.attr("method","POST");
+
+			var owner_cd = $("#owner_cd").val();
+
+			var objCodeHtml =  $("<input type='hidden' name='code_id' value='"+ objCode.name +"'>"); //input 생성
+			var objDescHtml =  $("<input type='hidden' name='desc_id' value='"+ objDesc.name +"'>"); //input 생성
+			var ownerCdHtml =  $("<input type='hidden' name='owner_cd' value='"+ owner_cd +"'>"); //input 생성
+			var menuIdHtml =  $("<input type='hidden' name='menu_id' value='"+ menuId +"'>"); //input 생성
+			var titleHtml =  $("<input type='hidden' name='title' value='"+ title +"'>"); //input 생성
+			var selValsHtml =  $("<input type='hidden' name='selVals' >"); //input 생성
+			var qidHtml =  $("<input type='hidden' name='qid' value='"+ qId +"'>"); //input 생성
+			var headerTextHtml =  $("<input type='hidden' name='headerText' >"); //input 생성
+			var multiYnHtml =  $("<input type='hidden' name='multi_yn' value='"+ (multi_yn || '1') +"'>"); //input 생성
+
+			$form.append(objCodeHtml);
+			$form.append(objDescHtml);
+			$form.append(ownerCdHtml);
+			$form.append(menuIdHtml);
+			$form.append(titleHtml);
+			$form.append(qidHtml);
+			$form.append(selValsHtml);
+			$form.append(headerTextHtml);
+			$form.append(multiYnHtml);
+
+			$form.find('input[name=selVals]').val(objCode.value);
+			$form.find('input[name=headerText]').val(objCode.title);
+
+			var popupId = "LOOKUP_POPUP";
+			var popupWin = window.open(
+					  ""
+					, popupId
+					, "width=500, height=400, left=" + event.screenX + ", top=" + event.screenY + ", resizable=1, location=0, toolbar=0, directories=0, status=0, menubar=0, scrollbars=0, copyhistory=0"
+				);
+
+			$form.attr("target", popupId);
+			$form.attr("action","/tms/popup/LookupPopup/init.do");
+			$form.submit();
+
+			popupWin.focus();
+		},
+
+		//시뮬레이션 화주 팝업
+		doOpenLookup9: function(objCode, objDesc, qId, menuId, title, multi_yn) {
+
+			var $form = $('<form></form>');
+			$form.appendTo('body');
+			$form.attr("method","POST");
+
+			var objCodeHtml =  $("<input type='hidden' name='code_id' value='"+ objCode.name +"'>"); //input 생성
+			var objDescHtml =  $("<input type='hidden' name='desc_id' value='"+ objDesc.name +"'>"); //input 생성
+			var menuIdHtml =  $("<input type='hidden' name='menu_id' value='"+ menuId +"'>"); //input 생성
+			var titleHtml =  $("<input type='hidden' name='title' value='"+ title +"'>"); //input 생성
+			var selValsHtml =  $("<input type='hidden' name='selVals' >"); //input 생성
+			var qidHtml =  $("<input type='hidden' name='qid' value='"+ qId +"'>"); //input 생성
+			var headerTextHtml =  $("<input type='hidden' name='headerText' >"); //input 생성
+			var multiYnHtml =  $("<input type='hidden' name='multi_yn' value='"+ (multi_yn || '1') +"'>"); //input 생성
+
+			$form.append(objCodeHtml);
+			$form.append(objDescHtml);
+			$form.append(menuIdHtml);
+			$form.append(titleHtml);
+			$form.append(qidHtml);
+			$form.append(selValsHtml);
+			$form.append(headerTextHtml);
+			$form.append(multiYnHtml);
+
+			$form.find('input[name=selVals]').val(objCode.value);
+			$form.find('input[name=headerText]').val(objCode.title);
+
+			var popupId = "LOOKUP_POPUP";
+			var popupWin = window.open(
+					  ""
+					, popupId
+					, "width=500, height=400, left=" + event.screenX + ", top=" + event.screenY + ", resizable=1, location=0, toolbar=0, directories=0, status=0, menubar=0, scrollbars=0, copyhistory=0"
+				);
+
+			$form.attr("target", popupId);
+			$form.attr("action","/tms/popup/LookupPopup/init.do");
+			$form.submit();
+
+			popupWin.focus();
+		},
+
+
+		doRequestURISheet: function(objSheet) {
+			var requestURI = objSheet.GetEtcData("requestURI");
+			requestURI = (null == requestURI) ? '' : requestURI;
+			alert(requestURI);
+		},
+
+		//지도 팝업창
+		doSearchKpMap: function(info) {
+
+			var $form = $('<form></form>');
+			$form.appendTo('body');
+			$form.attr("method","POST");
+			var center_cd =  $("<input type='hidden' name='center_cd'>"); //input 생성
+			var deli_dy =  $("<input type='hidden' name='deli_dy'>"); //input 생성
+			var ship_com =  $("<input type='hidden' name='ship_com'>"); //input 생성
+			var deli_seq =  $("<input type='hidden' name='deli_seq'>"); //input 생성
+			var deli_status =  $("<input type='hidden' name='deli_status'>"); //input 생성
+
+			$form.append(center_cd);
+			$form.append(deli_dy);
+			$form.append(ship_com);
+			$form.append(deli_seq);
+			$form.append(deli_status);
+
+			$form.find('input[name=center_cd]').val(info.center_cd);
+			$form.find('input[name=deli_dy]').val(info.deli_dy);
+			$form.find('input[name=ship_com]').val(info.ship_com);
+			$form.find('input[name=deli_seq]').val(info.deli_seq);
+			$form.find('input[name=deli_status]').val(info.deli_status);
+
+			//창 크기, 위치 세팅
+			var width = 800;
+			var height = 650;
+			var left = Math.ceil((window.screen.width - width)/2);
+			var top = Math.ceil((window.screen.height - height)/2);
+
+			var popupId = "COMMON_POPUP";
+			var popupWin = window.open(
+					  ""
+					, popupId
+					, "width=" + width + ", height=" + height + ", left=" + left + ", top = " + top + ", resizable=1, location=0, toolbar=0, directories=0, status=0, menubar=0, scrollbars=0, copyhistory=0"
+				);
+
+			$form.attr("target", popupId);
+			$form.attr("action","/tms/popup/SearchKpMapPopup/init.do");
+			$form.submit();
+
+			popupWin.focus();
+		},
+
+		doMaximizeMap: function(uri) {
+
+			var $form = $('<form></form>');
+			$form.appendTo('body');
+			$form.attr("method","POST");
+			var uri_info =  $("<input type='hidden' name='uri_info'>"); //input 생성
+
+			$form.append(uri_info);
+
+			//창 크기, 위치 세팅
+			var width = 500;
+			var height = 400;
+			var left = Math.ceil((window.screen.width - width)/2);
+			var top = Math.ceil((window.screen.height - height)/2);
+
+			var popupId = "MAXIMIZE_POPUP";
+			var popupWin = window.open(
+					  ""
+					, popupId
+					, "width=" + width + ", height=" + height + ", left=" + left + ", top = " + top + ", resizable=1, location=0, toolbar=0, directories=0, status=0, menubar=0, scrollbars=0, copyhistory=0"
+				);
+
+			$form.find('input[name=uri_info]').val(uri);
+
+			$form.attr("target", popupId);
+			$form.attr("action","/tms/popup/MaxMapPopup/init.do");
+			$form.submit();
+
+			popupWin.focus();
+		},
+
+
+		doMaximizeSheet: function(objSheet) {
+
+			var queryInfo = objSheet.GetEtcData("queryInfo");
+			queryInfo = (null == queryInfo) ? '' : queryInfo;
+			if (queryInfo == ''){
+				alert('조회된 데이터가 없습니다.');
+			}
+			else{
+				var $form = $('<form></form>');
+				$form.appendTo('body');
+				$form.attr("method","POST");
+				var query_info =  $("<input type='hidden' name='query_info'>"); //input 생성
+				var column_info =  $("<input type='hidden' name='column_info'>"); //input 생성
+				var uri_info =  $("<input type='hidden' name='uri_info'>"); //input 생성
+
+				$form.append(query_info);
+				$form.append(column_info);
+				$form.append(uri_info);
+
+				//창 크기, 위치 세팅
+				var width = 500;
+				var height = 400;
+				var left = Math.ceil((window.screen.width - width)/2);
+				var top = Math.ceil((window.screen.height - height)/2);
+
+				var popupId = "MAXIMIZE_POPUP";
+				var popupWin = window.open(
+						  ""
+						, popupId
+						, "width=" + width + ", height=" + height + ", left=" + left + ", top = " + top + ", resizable=1, location=0, toolbar=0, directories=0, status=0, menubar=0, scrollbars=0, copyhistory=0"
+					);
+
+				$form.find('input[name=query_info]').val(encodeURIComponent(queryInfo));
+				$form.find('input[name=column_info]').val(encodeURIComponent(grid.doGetSheetColInfo(objSheet)));
+
+				$form.attr("target", popupId);
+				$form.attr("action","/tms/popup/MaxSheetPopup/init.do");
+				$form.submit();
+
+				popupWin.focus();
+			}
+		},
+
+		//지도 팝업창
+		doSearchMap: function(info) {
+			var $form = $('<form></form>');
+			$form.appendTo('body');
+			$form.attr("method","POST");
+			var latt =  $("<input type='hidden' name='latt'>"); //input 생성
+			var lngt =  $("<input type='hidden' name='lngt'>"); //input 생성
+			var pointNm =  $("<input type='hidden' name='pointNm'>"); //input 생성
+			var addr =  $("<input type='hidden' name='addr'>"); //input 생성
+
+			$form.append(latt);
+			$form.append(lngt);
+			$form.append(pointNm);
+			$form.append(addr);
+
+			//창 크기, 위치 세팅
+			var width = 800;
+			var height = 650;
+			var left = Math.ceil((window.screen.width - width)/2);
+			var top = Math.ceil((window.screen.height - height)/2);
+
+			var popupId = "COMMON_POPUP";
+			var popupWin = window.open(
+					  ""
+					, popupId
+					, "width=" + width + ", height=" + height + ", left=" + left + ", top = " + top + ", resizable=1, location=0, toolbar=0, directories=0, status=0, menubar=0, scrollbars=0, copyhistory=0"
+				);
+
+			$form.find('input[name=latt]').val(info.latt);
+			$form.find('input[name=lngt]').val(info.lngt);
+			$form.find('input[name=pointNm]').val(info.pointNm);
+			$form.find('input[name=addr]').val(info.addr);
+
+			$form.attr("target", popupId);
+			$form.attr("action","/tms/popup/SearchMapPopup/init.do");
+			$form.submit();
+
+			popupWin.focus();
+		},
+
+		//주문조회상세팝업창
+		doPmPlanOrderDtlPopup: function(center_cd, deli_no, item_cd, sel_yn, multi_yn, obj_id) {
+
+			var $form = $('<form></form>');
+			$form.appendTo('body');
+			$form.attr("method","POST");
+			var selYnHtml =  $("<input type='hidden' name='sel_yn'>"); //input 생성
+			var multiYnHtml =  $("<input type='hidden' name='multi_yn'>"); //input 생성
+			var centerCdHtml =  $("<input type='hidden' name='center_cd'>"); //input 생성
+			var deliNoHtml =  $("<input type='hidden' name='deli_no'>"); //input 생성
+			var itemCdHtml =  $("<input type='hidden' name='item_cd'>"); //input 생성
+			var objIdHtml =  $("<input type='hidden' name='obj_id'>"); //input 생성
+
+			$form.append(selYnHtml);
+			$form.append(multiYnHtml);
+			$form.append(centerCdHtml);
+			$form.append(deliNoHtml);
+			$form.append(itemCdHtml);
+			$form.append(objIdHtml);
+
+			//창 크기, 위치 세팅
+			var width = 800;
+			var height = 600;
+			var left = Math.ceil((window.screen.width - width)/2);
+			var top = Math.ceil((window.screen.height - height)/2);
+
+			var popupId = "COMMON_POPUP";
+
+			/*var popupWin = openWindow(popupId, '', {
+				width : 800,
+				height : 600
+			});*/
+
+			var popupWin = window.open(
+					  ""
+					, popupId
+					, "width=" + width + ", height=" + height + ", left=" + left + ", top = " + top + ", resizable=1, location=0, toolbar=0, directories=0, status=0, menubar=0, scrollbars=1, copyhistory=0"
+				);
+
+			$form.find('input[name=sel_yn]').val(sel_yn);
+			$form.find('input[name=multi_yn]').val(multi_yn);
+			$form.find('input[name=center_cd]').val(center_cd);
+			$form.find('input[name=deli_no]').val(deli_no);
+			$form.find('input[name=item_cd]').val(item_cd);
+			$form.find('input[name=obj_id]').val(obj_id);
+
+			$form.attr("target", popupId);
+			$form.attr("action","/tms/popup/PmPlanOrderDtlPopup/init.do");
+			$form.submit();
+
+			popupWin.focus();
+
+		},
+
+		//주문조회상세팝업창
+		doPmPlanRouteDtlPopup: function(center_cd, deli_dy, deli_seqnc, route_queue, route_id, sel_yn, multi_yn, obj_id) {
+
+			var $form = $('<form></form>');
+			$form.appendTo('body');
+			$form.attr("method","POST");
+			var selYnHtml =  $("<input type='hidden' name='sel_yn'>"); //input 생성
+			var multiYnHtml =  $("<input type='hidden' name='multi_yn'>"); //input 생성
+			var centerCdHtml =  $("<input type='hidden' name='center_cd'>"); //input 생성
+			var deliDyHtml =  $("<input type='hidden' name='deli_dy'>"); //input 생성
+			var deliSeqncHtml =  $("<input type='hidden' name='deli_seqnc'>"); //input 생성
+			var routeQueueHtml =  $("<input type='hidden' name='route_queue'>"); //input 생성
+			var routeIdHtml =  $("<input type='hidden' name='route_id'>"); //input 생성
+			var objIdHtml =  $("<input type='hidden' name='obj_id'>"); //input 생성
+
+			$form.append(selYnHtml);
+			$form.append(multiYnHtml);
+			$form.append(centerCdHtml);
+			$form.append(deliDyHtml);
+			$form.append(deliSeqncHtml);
+			$form.append(routeQueueHtml);
+			$form.append(routeIdHtml);
+			$form.append(objIdHtml);
+
+			//창 크기, 위치 세팅
+			var width = 800;
+			var height = 600;
+			var left = Math.ceil((window.screen.width - width)/2);
+			var top = Math.ceil((window.screen.height - height)/2);
+
+			var popupId = "COMMON_POPUP";
+
+			/*var popupWin = openWindow(popupId, '', {
+				width : 800,
+				height : 600
+			});*/
+
+			var popupWin = window.open(
+					  ""
+					, popupId
+					, "width=" + width + ", height=" + height + ", left=" + left + ", top = " + top + ", resizable=1, location=0, toolbar=0, directories=0, status=0, menubar=0, scrollbars=1, copyhistory=0"
+				);
+
+			$form.find('input[name=sel_yn]').val(sel_yn);
+			$form.find('input[name=multi_yn]').val(multi_yn);
+			$form.find('input[name=center_cd]').val(center_cd);
+			$form.find('input[name=deli_dy]').val(deli_dy);
+			$form.find('input[name=deli_seqnc]').val(deli_seqnc);
+			$form.find('input[name=route_queue]').val(route_queue);
+			$form.find('input[name=route_id]').val(route_id);
+			$form.find('input[name=obj_id]').val(obj_id);
+
+			$form.attr("target", popupId);
+			$form.attr("action","/tms/popup/PmPlanRouteDtlPopup/init.do");
+			$form.submit();
+
+			popupWin.focus();
+
+		},
+
+		/*
+		//차랑팝업창
+		doVhclPopup: function(center_cd, deli_dy, deli_seqnc, route_id, sel_yn, multi_yn, callback) {
+			var $form = $('<form></form>');
+			$form.appendTo('body');
+			$form.attr("method","POST");
+
+			var centerCdHtml =  $("<input type='hidden' name='center_cd'>"); //input 생성
+			var deliDyHtml =  $("<input type='hidden' name='deli_dy'>"); //input 생성
+			var deliSeqncHtml =  $("<input type='hidden' name='deli_seqnc'>"); //input 생성
+			var routeIdHtml =  $("<input type='hidden' name='route_id'>"); //input 생성
+			var selYnHtml =  $("<input type='hidden' name='sel_yn'>"); //input 생성
+			var multiYnHtml =  $("<input type='hidden' name='multi_yn'>"); //input 생성
+			var callbackHtml =  $("<input type='hidden' name='callback'>"); //input 생성
+
+			$form.append(centerCdHtml);
+			$form.append(deliDyHtml);
+			$form.append(deliSeqncHtml);
+			$form.append(routeIdHtml);
+			$form.append(selYnHtml);
+			$form.append(multiYnHtml);
+			$form.append(callbackHtml);
+
+			//창 크기, 위치 세팅
+			var width = 800;
+			var height = 600;
+			var left = Math.ceil((window.screen.width - width)/2);
+			var top = Math.ceil((window.screen.height - height)/2);
+
+			var popupId = "COMMON_POPUP";
+
+			//var popupWin = openWindow(popupId, '', {
+			//	width : 800,
+			//	height : 600
+			//});
+
+			var popupWin = window.open(
+					  ""
+					, popupId
+					, "width=" + width + ", height=" + height + ", left=" + left + ", top = " + top + ", resizable=1, location=0, toolbar=0, directories=0, status=0, menubar=0, scrollbars=1, copyhistory=0"
+				);
+
+			$form.find('input[name=center_cd]').val(center_cd);
+			$form.find('input[name=deli_dy]').val(deli_dy);
+			$form.find('input[name=deli_seqnc]').val(deli_seqnc);
+			$form.find('input[name=route_id]').val(route_id);
+			$form.find('input[name=sel_yn]').val(sel_yn);
+			$form.find('input[name=multi_yn]').val(multi_yn);
+			$form.find('input[name=callback]').val(callback);
+			$form.attr("target", popupId);
+			$form.attr("action","/tms/popup/BmVhclPopup/init.do");
+			$form.submit();
+
+			popupWin.focus();
+
+		},
+		*/
+
+		doMapPanorama: function(latt, lngt) {
+			var popupWin = window.open(
+					  "/map/naver/NaverMapPanorama/init.do?&latt="+latt+"&lngt="+lngt
+					, "PANORAMA_POPUP"
+					, "width=500, height=400, resizable=1, location=0, toolbar=0, directories=0, status=0, menubar=0, scrollbars=0, copyhistory=0"
+				);
+			popupWin.focus();
+		},
+
+
+		/**
+		 * 차량 유형 팝업
+		 *
+		 * @author HKH
+		 * @param callbackNm
+		 *            {String} 기사가 선택되면 정의된 callback 함수를 호출 한다. callback(rowData{Object})
+		 * @param param
+		 *            {Object} 파라미터맵
+		 */
+		doOpenVhclTypeSearchPopup : function(callbackNm, param) {
+			var popupName = 'vhclTypeSearchPopup';
+
+			openWindow(popupName, '', {
+				width : 1100,
+				height : 700
+			});
+
+			formSubmit('/tms/popup/vhclTypeSearchPopup/init.do', $.extend(param, {
+				callbackNm : callbackNm
+			}), {
+				target : popupName
+			});
+		},
+
+		/**
+		 * 차량 찾기 팝업
+		 *
+		 * @author HKH
+		 * @param callbackNm
+		 *            {String} 차량이 선택되면 정의된 callback 함수를 호출 한다. callback(rowData{Object})
+		 * @param param
+		 *            {Object} 파라미터맵
+		 */
+		doOpenVhclSearchPopup : function(callbackNm, param) {
+			var popupName = 'vhclSearchPopup';
+
+			openWindow(popupName, '', {
+				width : 1000,
+				height : 500
+			});
+
+			formSubmit('/tms/popup/vhclSearchPopup/init.do', $.extend(param, {
+				callbackNm : callbackNm
+			}), {
+				target : popupName
+			});
+		},
+
+		/**
+		 * 차량 찾기 팝업2
+		 *
+		 * @author HKH
+		 * @param callbackNm
+		 *            {String} 차량이 선택되면 정의된 callback 함수를 호출 한다. callback(rowData{Object})
+		 * @param param
+		 *            {Object} 파라미터맵
+		 */
+		doOpenVhclSearchPopup2 : function(callbackNm, param) {
+			var popupName = 'vhclSearchPopup2';
+
+			openWindow(popupName, '', {
+				width : 1000,
+				height : 500
+			});
+
+			formSubmit('/tms/popup/vhclSearchPopup2/init.do', $.extend(param, {
+				callbackNm : callbackNm
+			}), {
+				target : popupName
+			});
+		},
+
+		/**
+		 * 기사 찾기 팝업
+		 *
+		 * @author HKH
+		 * @param callbackNm
+		 *            {String} 기사가 선택되면 정의된 callback 함수를 호출 한다. callback(rowData{Object})
+		 * @param param
+		 *            {Object} 파라미터맵
+		 */
+		doOpenDrvSearchPopup : function(callbackNm, param) {
+			var popupName = 'drvSearchPopup';
+
+			openWindow(popupName, '', {
+				width : 1000,
+				height : 500
+			});
+
+			formSubmit('/tms/popup/drvSearchPopup/init.do', $.extend(param, {
+				callbackNm : callbackNm
+			}), {
+				target : popupName
+			});
+		},
+		/**
+		 * 차고지권역 찾기 팝업
+		 *
+		 * @author HKH
+		 * @param callbackNm
+		 *            {String} 기사가 선택되면 정의된 callback 함수를 호출 한다. callback(rowData{Object})
+		 * @param param
+		 *            {Object} 파라미터맵
+		 */
+		doOpenGarageZonePopup : function(callbackNm, param) {
+			var popupName = 'garageZoneSearchPopup';
+
+			openWindow(popupName, '', {
+				width : 1000,
+				height : 500
+			});
+
+			formSubmit('/tms/popup/GarageZonePopup/init.do', $.extend(param, {
+				callbackNm : callbackNm
+			}), {
+				target : popupName
+			});
+		},
+
+
+		/**
+		 * 확정배차 찾기 팝업
+		 *
+		 * @author
+		 * @param callbackNm
+		 * @param param
+		 */
+		doOpenLastRsltPopup : function(callbackNm, param) {
+			var popupName = 'lastRsltPopup';
+
+			openWindow(popupName, '', {
+				width : 1000,
+				height : 500
+			});
+
+			formSubmit('/tms/popup/lastRsltPopup/init.do', $.extend(param, {
+				callbackNm : callbackNm
+			}), {
+				target : popupName
+			});
+		},
+
+		/**
+		 * 화주 및 거래처 찾기 팝업
+		 *
+		 * @author
+		 * @param callbackNm
+		 * @param param
+		 */
+		doOpenOwnerStopPopup : function(callbackNm, param) {
+			var popupName = 'ownerStopPopup';
+
+			openWindow(popupName, '', {
+				width : 1000,
+				height : 500
+			});
+
+			formSubmit('/tms/popup/ownerStopPopup/init.do', $.extend(param, {
+				callbackNm : callbackNm
+			}), {
+				target : popupName
+			});
+		},
+
+		/**
+		 * 코드 조회 팝업
+		 *
+		 * @author HKH
+		 * @param callbackNm
+		 *            {String} 선택되면 정의된 callback 함수를 호출 한다. callback(rowData{Array}, param{Object})
+		 * @param qId
+		 *            {String} 쿼리ID
+		 * @param selVals
+		 *            {String} 선택된 값
+		 */
+		doOpenLookupCallbackPopup: function(callbackNm, qId, selVals, param) {
+			var popupName = 'lookupCallbackPopup';
+
+			openWindow(popupName, '', {
+				width : 500,
+				height : 400
+			});
+
+			formSubmit('/tms/popup/LookupPopup/init.do', $.extend(param, {
+				callbackNm : callbackNm,
+				qid : qId,
+				selVals : selVals
+			}), {
+				target : popupName
+			});
+		},
+
+		/**
+		 * 지오코딩 팝업
+		 *
+		 * @author HKH
+		 * @param callbackNm
+		 *            {String} 지오코딩이 완료되면 정의된 callback 함수를 호출 한다. callback(rowData{Object})
+		 * @param param
+		 *            {Object} 파라미터맵
+		 */
+		doOpenGeocodingMapPopup : function(callbackNm, param) {
+			var popupName = 'GeocodingMapPopup';
+
+			openWindow(popupName, '', {
+				width : 1000,
+				height : 900
+			});
+
+			formSubmit('/tms/popup/GeocodingMapPopup/init.do', $.extend(param, {
+				callbackNm : callbackNm
+			}), {
+				target : popupName
+			});
+		},
+
+		//기본운송비상세팝업창
+		doCpTranCostDtlPopup: function(tmsShipNo, sel_yn, multi_yn, obj_id) {
+
+			var $form = $('<form></form>');
+			$form.appendTo('body');
+			$form.attr("method","POST");
+			var selYnHtml =  $("<input type='hidden' name='sel_yn'>"); //input 생성
+			var multiYnHtml =  $("<input type='hidden' name='multi_yn'>"); //input 생성
+			var tmsShipNoHtml =  $("<input type='hidden' name='tms_ship_no'>"); //input 생성
+			var objIdHtml =  $("<input type='hidden' name='obj_id'>"); //input 생성
+
+			$form.append(selYnHtml);
+			$form.append(multiYnHtml);
+			$form.append(tmsShipNoHtml);
+			$form.append(objIdHtml);
+
+			//창 크기, 위치 세팅
+			var width = 800;
+			var height = 600;
+			var left = Math.ceil((window.screen.width - width)/2);
+			var top = Math.ceil((window.screen.height - height)/2);
+
+			var popupId = "COMMON_POPUP";
+
+			/*var popupWin = openWindow(popupId, '', {
+				width : 800,
+				height : 600
+			});*/
+
+			var popupWin = window.open(
+					  ""
+					, popupId
+					, "width=" + width + ", height=" + height + ", left=" + left + ", top = " + top + ", resizable=1, location=0, toolbar=0, directories=0, status=0, menubar=0, scrollbars=1, copyhistory=0"
+				);
+
+			$form.find('input[name=sel_yn]').val(sel_yn);
+			$form.find('input[name=multi_yn]').val(multi_yn);
+			$form.find('input[name=tms_ship_no]').val(tmsShipNo);
+			$form.find('input[name=obj_id]').val(obj_id);
+
+			$form.attr("target", popupId);
+			$form.attr("action","/tms/task/cp/TmsCpBasicTranCostDtl/init.do");
+			$form.submit();
+
+			popupWin.focus();
+
+		},
+
+		/**
+		 * Ajax 요청
+		 *
+		 * @author HKH
+		 * @param url
+		 *            {String} 요청 주소
+		 * @param reqData
+		 *            {Object|String|Array} 요청 데이터
+		 * @param callbacks
+		 *            {Function|Object} callback
+		 * @param options
+		 *            {Object} 옵션
+		 */
+		doAjax : function(url, reqData, callbacks, options) {
+			if (typeof callbacks === 'function') {
+				callbacks = {
+					success : callbacks
+				};
+			}
+			if (!$.isPlainObject(options)) {
+				options = options ? {
+					blockEl : options
+				} : {};
+			}
+
+			return $.ajax($.extend({
+				cache : false,
+				dataType : 'html',
+				type : 'POST',
+				traditional : true
+			}, options, {
+				url : url,
+				data : reqData,
+				beforeSend : function(jqHXR, settings) {
+					if (options.blockEl && $.blockUI) { // block 대상이 존재하면
+						$(options.blockEl).block(options.blockEl != window ? {
+							message : ''
+						} : {});
+					}
+
+					if (callbacks.beforeSend) { // callback이 존재하면
+						callbacks.beforeSend(jqHXR, settings);
+					}
+				},
+				success : function(resData, textStatus, jqXHR) {
+					if (options.blockEl && $.blockUI) { // block 대상이 존재하면
+						$(options.blockEl).unblock();
+					}
+
+					if (callbacks.success) { // callback이 존재하면
+						if (jqXHR.getResponseHeader('content-type').indexOf('json') != -1) { // JSON 응답이면
+							try {
+								resData = JSON.parse(resData);
+							} catch (e) {
+							}
+						}
+
+						callbacks.success(resData, textStatus, jqXHR, reqData);
+					}
+				},
+				error : function(jqXHR, textStatus, errorThrown) {
+					if (options.blockEl && $.blockUI) { // block 대상이 존재하면
+						$(options.blockEl).unblock();
+					}
+
+					log('status : ' + jqXHR.status);
+					log('responseText : ' + jqXHR.responseText);
+					log('errorThrown : ' + errorThrown);
+
+					if (callbacks.error) { // callback이 존재하면
+						callbacks.error(jqXHR, textStatus, errorThrown);
+					} else {
+						alert('오류가 발생했습니다.');
+					}
+				},
+				complete : function(jqHXR, textStatus) {
+					if (callbacks.complete) { // callback이 존재하면
+						callbacks.complete(jqHXR, textStatus);
+					}
+				}
+			}));
+		}
+	};
+})();
+
+(function($) {
+	$(document).ready(function() {
+
+				var popupCheck = (function() {
+					if ($('.popup-wrap').length != 0) {
+						return true;
+					} else {
+						return false;
+					}
+				})();
+
+				var elemChecker = function(elem) {
+					if($(elem).length != 0) {
+						var elemSize = $(elem).outerHeight(true);
+						return elemSize;
+					} else { return 0 }
+				}
+				if (popupCheck) {
+					var	stack = 0,
+						elemList = [".wrap-mainheader",".popup-btns",".area-subtitle", ".wrap-search", ".box"];
+					for(i=0; i < elemList.length; i++) {
+						var stackValue = elemChecker(elemList[i]);
+							stack += stackValue;
+						}
+
+					$('.ibcontainer').css({"height":"calc(100% - "+stack+"px)"});
+				}
+
+
+
+				if ($.validator) { // jQuery Validation이 존재하면
+					var VALID_CHAR_RULE = {
+						'1' : {
+							regExp : /^[\d]*$/,
+							message : '숫자만 입력 가능합니다.'
+						},
+						'2' : {
+							regExp : /^[a-zA-Z0-9]*$/,
+							message : '영문, 숫자만 입력 가능합니다.'
+						},
+						'3' : {
+							regExp : /^[a-zA-Z0-9\-\_]*$/,
+							message : '영문, 숫자, -, _만 입력 가능합니다.'
+						},
+						'4' : {
+							regExp : /^[a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣\ \-\_]*$/,
+							message : '영문, 한글, 숫자, -, _ spacebar만 입력 가능합니다.'
+						},
+						'5' : {
+							regExp : /^[\d\+\-]*$/,
+							message : '숫자, +, -만 입력 가능합니다.'
+						},
+						'6' : {
+							regExp : /^[a-zA-Z0-9\-\_\(\)]*$/,
+							message : '영문, 숫자, 콤마(,), -, _만 입력 가능합니다.'
+						},
+						'7' : {
+							regExp : /^[a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣\r\n\ \-\_\(\)\.]*$/,
+							message : '영문, 한글, 숫자, 콤마(,), -, _ spacebar, 마침표만 입력 가능합니다.'
+						},
+						'8' : {
+							regExp : /^[0-9\.]*$/,
+							message : '숫자, 마침표(.)만 입력 가능합니다.'
+						},
+						'9' : {
+							regExp : /^[a-zA-Z0-9\-\/\,)]*$/,
+							message : '영문, 숫자, -, /, 콤마(,)만 입력 가능합니다.'
+						},
+						'10' : {
+							regExp : /^[\d\-]*$/,
+							message : '숫자, -만 입력 가능합니다.'
+						},
+						'A' : {
+							regExp : /^[a-zA-Z0-9\-\;\_]*$/,
+							message : '영문, 한글, 숫자, -, _ ,만 입력 가능합니다.'
+						}
+					};
+
+					$.extend($.validator.messages, {
+						required : '필수 항목입니다.',
+						remote : '항목을 수정하세요.',
+						email : '유효하지 않은 E-Mail주소입니다.',
+						url : '유효하지 않은 URL입니다.',
+						date : '올바른 날짜를 입력하세요.',
+						dateISO : '올바른 날짜를 입력하세요.',
+						number : '유효한 숫자가 아닙니다.',
+						digits : '숫자만 입력 가능합니다.',
+						creditcard : '신용카드 번호가 바르지 않습니다.',
+						equalTo : '같은 값을 다시 입력하세요.',
+						extension : '올바른 확장자가 아닙니다.',
+						maxlength : $.validator.format('{0}자를 넘을 수 없습니다.'),
+						minlength : $.validator.format('{0}자 이상 입력하세요.'),
+						rangelength : $.validator.format('문자 길이가 {0} 에서 {1} 사이의 값을 입력하세요.'),
+						range : $.validator.format('{0} 에서 {1} 사이의 값을 입력하세요.'),
+						max : $.validator.format('{0} 이하의 값을 입력하세요.'),
+						min : $.validator.format('{0} 이상의 값을 입력하세요.')
+					});
+					$.validator.setDefaults({
+						showErrors : function(errorMap, errorList) {
+							if (errorList.length > 0) { // 에러가 존재하면
+								var errorMsgs = [];
+
+								for (var i = 0, n = errorList.length; i < n; i++) {
+									var error = errorList[i], $element = $(error.element);
+
+									if (this.settings.prefixErrorMsg && !$element.data('ignorePrefix')) {
+										errorMsgs.push($.validator.format('{0}(은/는) {1}', [ $element.attr('title'), error.message ]));
+									} else {
+										errorMsgs.push(error.message);
+									}
+								}
+
+								alert(errorMsgs.join('\n'));
+
+								try {
+									errorList[0].element.focus();
+								} catch (e) {
+								}
+							}
+						},
+						focusInvalid : false,
+						ignoreTitle : true,
+						prefixErrorMsg : true,
+						onclick : false,
+						onfocusout : false,
+						onkeyup : false,
+						onsubmit : false
+					});
+					$.validator.addMethod('number2', function(value, element, param) {
+						return this.optional(element) || /^(-?\d+)?(\.\d+)?$/.test(value);
+					}, $.validator.messages.number);
+					$.validator.addMethod('maxByte', function(value, element, param) {
+						return this.optional(element) || getByte(value) <= param;
+					}, $.validator.format('{0}byte를 넘을 수 없습니다.'));
+					$.validator.addMethod('phoneNo', function(value, element, param) {
+						return this.optional(element) || /^01([0|1|6|7|8|9])-?[0-9]{3,4}-?[0-9]{4}$/.test(value);
+					}, '잘못된 휴대폰 번호입니다.');
+					$.validator.addMethod('telNo', function(value, element, param) {
+						return this.optional(element) || /^[0-9]{2,3}-?[0-9]{3,4}-?[0-9]{4}$/.test(value);
+					}, '잘못된 전화번호입니다.');
+					$.validator.addMethod('notSpecialChar', function(value, element, param) {
+						var regExp = /[!#$%^&*<>]/gi;
+
+						return this.optional(element) || !regExp.test(value);
+					}, '특수문자(!#$%^&*<>)를 입력할 수 없습니다.');
+					$.validator.addMethod('validChar', function(value, element, param) {
+						return this.optional(element) || VALID_CHAR_RULE[param].regExp.test(value);
+					}, function(param, element) {
+						return VALID_CHAR_RULE[param].message;
+					});
+					$.validator.addMethod('time', function(value, element, param) {
+						switch (param) {
+						case 'HHmm':
+						default:
+							return this.optional(element) || /^([01]\d|2[0-3]):?([0-5]\d)$/.test(value);
+						}
+					}, function(param, element) {
+						switch (param) {
+						case 'HHmm':
+						default:
+							return '올바른 시각을 입력하세요.(0000 ~ 2359)';
+						}
+					});
+					$.validator.addMethod('lessThanEqual', function(value, element, param) {
+						if (this.optional(element) || this.optional(param)) {
+							return true;
+						}
+
+						if (!isNaN(value)) { // 숫자이면
+							value = Number(value);
+						}
+
+						return value <= this.elementValue(param);
+					}, function(param, element) {
+						return $(param).attr('title') + ' 보다 클 수 없습니다.';
+					});
+					$.validator.addMethod('oneOfTheTwo', function(value, element, param) {
+						return !(this.optional(element) && this.optional(param));
+					}, function(param, element) {
+						var $element =  $(element);
+						$element.data('ignorePrefix', true);
+
+						return $element.attr('title') + '/' + $(param).attr('title') + ' 둘 중 하나는 필수 항목입니다..';
+					});
+				}
+				if ($.blockUI) { // jQuery blockUI가 존재하면
+					var defaults = $.blockUI.defaults;
+					defaults.css.border = 0;
+					defaults.css.backgroundColor = '';
+					defaults.message = '<img src="/images/common/preloader.gif" />';
+					defaults.overlayCSS.opacity = 0.1;
+				}
+				if ($.fn.contextMenu) { // jQuery Context Menu가 존재하면
+					$.fn.contextMenu.defaults.afterOpen = function(data, event) {
+						window['_OPENED_CONTEXT_MENU'] = this;
+					};
+				}
+			}).ajaxError(function(event, jqXHR, settings, thrownError) {
+		if(settings.url != '/tms/popup/LookupPopup/retrieve.do'){
+			alert('오류가 발생했습니다.');
+		}
+
+		log('status : ' + jqXHR.status);
+		log('responseText : ' + jqXHR.responseText);
+		log('thrownError : ' + thrownError);
+	});
+})(jQuery);
+
+
+function getRouteCd(routeGrpCd, centerCd){
+
+	$.ajax({
+	  	type: 'GET'
+	     , url: '/tms/task/pm/TmsPmRouteStop/routeCd.do'
+	     , async : false
+	     , data: {
+		   	 center_cd : centerCd
+		   	, route_grp_cd : routeGrpCd
+	       }
+	     , dataType: 'json'
+	     , success: function(data) {
+	    	 var cdList = data.routeCdList;
+	    	 var ophtml = '';
+	    	 var $routeCd  = $('#route_cd');
+	    	 $("select#route_cd option").remove();
+		    	if(cdList !== undefined && cdList !== null && cdList.length > 0 ) {
+			    	 ophtml = '<option value="">전체</option>';
+			    	cdList.forEach( function(item, i){
+			    		ophtml += "<option value="+ item["VALUE"] + ">" + item["TEXT"] + "</option>";
+			    	 });
+
+			    	$routeCd.removeAttr("disabled");
+			    	$routeCd.html(ophtml);
+
+		    	}else{
+		    		$routeCd.attr("disabled", "disabled");
+		    	}
+
+	       }
+	     , error:function(request,status,error){
+	    	 console.log("request : ", request + ", status : ", status + ", error : ", error);
+	     }
+	});
+}
+
+
+/**
+ * Logger
+ *
+ * @author HKH
+ */
+function log() {
+	if (window.IS_LOGGING_ENABLED === undefined || window.IS_LOGGING_ENABLED) {
+		var msg = Array.prototype.join.call(arguments, '\n');
+
+		if (window.console && window.console.log) {
+			window.console.log(msg);
+		} else if (window.opera && window.opera.postError) {
+			window.opera.postError(msg);
+		}
+	}
+}
+
+/**
+ * 창을 연다.
+ *
+ * @author HKH
+ * @param name
+ *            {String}
+ * @param url
+ *            {String}
+ * @param options
+ *            {Object}
+ * @returns
+ */
+function openWindow(name, url, options) {
+	name = encodeURI(name);
+	options = $.extend({
+		centerBrowser : 0,
+		centerScreen : 0,
+		left : 0,
+		top : 0,
+		location : 0,
+		menubar : 0,
+		resizable : 1,
+		scrollbars : 0,
+		status : 0,
+		toolbar : 0,
+		width : 500,
+		height : 500
+	}, options || {});
+
+	var windowFeatures = 'height=' + options.height + ',width=' + options.width + ',toolbar=' + options.toolbar + ',scrollbars=' + options.scrollbars
+			+ ',status=' + options.status + ',resizable=' + options.resizable + ',location=' + options.location + ',menuBar=' + options.menubar;
+
+	var centeredY = null;
+	var centeredX = null;
+
+	var windowObj = null;
+
+	if (options.centerBrowser) {
+		if ($.browser && $.browser.msie) {
+			centeredY = (window.screenTop - 120) + ((((document.documentElement.clientHeight + 120) / 2) - (options.height / 2)));
+			centeredX = window.screenLeft + ((((document.body.offsetWidth + 20) / 2) - (options.width / 2)));
+		} else {
+			centeredY = window.screenY + (((window.outerHeight / 2) - (options.height / 2)));
+			centeredX = window.screenX + (((window.outerWidth / 2) - (options.width / 2)));
+		}
+
+		windowObj = window.open(url, name, windowFeatures + ',left=' + centeredX + ',top=' + centeredY);
+	} else if (options.centerScreen) {
+		centeredY = (screen.height - options.height) / 2;
+		centeredX = (screen.width - options.width) / 2;
+
+		windowObj = window.open(url, name, windowFeatures + ',left=' + centeredX + ',top=' + centeredY);
+	} else {
+		windowObj = window.open(url, name, windowFeatures + ',left=' + options.left + ',top=' + options.top);
+	}
+
+	if (windowObj) { // 팝업이 존재하면
+		windowObj.focus();
+	}
+
+	return windowObj;
+}
+
+/**
+ * byte 계산
+ *
+ * @author HKH
+ * @param str
+ *            {String}
+ * @returns
+ */
+function getByte(str) {
+	for (var b = i = 0; c = str.charCodeAt(i++); b += c >> 11 ? 3 : c >> 7 ? 2 : 1) {
+	}
+
+	return b;
+}
+
+/***********************************************************************************************************************
+ * Request
+ **********************************************************************************************************************/
+/**
+ * form submit을 발생 시킨다.
+ *
+ * @author HKH
+ * @param action
+ *            {String}
+ * @param paramMap
+ *            {Object}
+ * @param options
+ *            {Object}
+ */
+function formSubmit(action, paramMap, options) {
+	var $form = $('<form>').attr($.extend({
+		method : 'post'
+	}, options || {}, {
+		action : action
+	}));
+
+	for ( var key in paramMap) {
+		try {
+			$.each($.makeArray(paramMap[key]), function(index, value) {
+				$form.append($('<input>').attr({
+					name : key,
+					type : 'hidden'
+				}).val(typeof value === 'object' ? JSON.stringify(value) : value));
+			});
+		} catch (e) {
+			log(e);
+		}
+	}
+
+	$form.appendTo(document.body).submit().remove();
+}
+/***********************************************************************************************************************
+ * //Request
+ **********************************************************************************************************************/
+/***********************************************************************************************************************
+ * jQuery Function
+ **********************************************************************************************************************/
+(function($) {
+	/**
+	 * 문자열 포멧팅
+	 *
+	 * @author HKH
+	 * @param source
+	 *            {String)
+	 * @param params
+	 *            {Array|String}
+	 * @returns
+	 */
+	$.format = function(source, params) {
+		if (params === undefined) {
+			return source;
+		}
+		if (arguments.length > 2 && params.constructor != Array) {
+			params = $.makeArray(arguments).slice(1);
+		}
+		if (params.constructor != Array) { // 배열이 아니면
+			params = [ params ];
+		}
+
+		$.each(params, function(index, value) {
+			source = source.replace(new RegExp("\\{" + index + "\\}", "g"), value);
+		});
+
+		return source;
+	};
+
+	/**
+	 * serialize
+	 *
+	 * @author HKH
+	 * @returns
+	 */
+	$.fn.serializeObject = function() {
+		var result = {};
+
+		$.each(this.serializeArray(), function(index, value) {
+			if (this.name in result) {
+				if (result[this.name].constructor != Array) { // 배열이 아니면
+					result[this.name] = [ this.value ];
+				}
+
+				result[this.name].push(this.value);
+			} else {
+				result[this.name] = this.value;
+			}
+		});
+
+		return result;
+	};
+
+	/**
+	 * deserialize
+	 *
+	 * @author HKH
+	 * @param serialize
+	 *            {String}
+	 * @param options
+	 *            {Object}
+	 * @returns
+	 */
+	$.deserialize = function(serialize, options) {
+		var result = {}, options = options || {};
+
+		$.each(serialize ? serialize.split(/&amp;|&/i) : [], function(index, value) {
+			var pairs = this.split('=');
+			var key = decodeURIComponent(pairs[0]), value = decodeURIComponent(pairs[1]);
+
+			if (!options.except || options.except.indexOf(key) == -1) {
+				var matches = key.match(/^(\w+)\[(\w+)\]$/);
+
+				if (matches) {
+					if (!(matches[1] in result)) {
+						result[matches[1]] = {};
+					}
+
+					result[matches[1]][matches[2]] = value;
+				} else {
+					result[key] = value;
+				}
+			}
+		});
+
+		return result;
+	};
+
+	/**
+	 * deserialize
+	 *
+	 * @author HKH
+	 * @param options
+	 *            {Object}
+	 * @returns
+	 */
+	$.fn.deserialize = function(options) {
+		return $.deserialize($(this).serialize(), options);
+	};
+
+ 	/**
+	 * 엔터키 이벤트 바인딩
+	 *
+	 * @author HKH
+	 */
+	$.fn.onEnterKey = function(handler) {
+		$(this).keypress(function(e) {
+			if ((e.which ? e.which : e.keyCode) == 13) { // 엔터키면
+				handler.call(this, e);
+
+				return false;
+			}
+		});
+	};
+
+ 	/**
+	 * 숫자만 입력 이벤트 바인딩
+	 *
+	 * @author HKH
+	 */
+	$.fn.onOnlyNumber = function() {
+		$(this).on({
+			'keydown.OnlyNumber' : function(e) {
+				var keyCode = e.which ? e.which : e.keyCode;
+
+				if ((keyCode >= 48 && keyCode <= 57) || (keyCode >= 96 && keyCode <= 105) || keyCode == 8 || keyCode == 46 || keyCode == 37 || keyCode == 39  || keyCode == 13) {
+					return true;
+				} else {
+					return false;
+				}
+			},
+			'keyup.OnlyNumber' : function(e) {
+				var keyCode = e.which ? e.which : e.keyCode;
+
+				if (keyCode == 8 || keyCode == 46 || keyCode == 37 || keyCode == 39) {
+					return;
+				} else {
+					e.target.value = e.target.value.replace(/[^0-9]/g, '');
+				}
+			}
+		});
+	};
+
+	/**
+	 * 숫자만 입력 이벤트 언바인딩
+	 *
+	 * @author HKH
+	 */
+	$.fn.offOnlyNumber = function() {
+		$(this).off('.OnlyNumber');
+	};
+})(jQuery);
+/***********************************************************************************************************************
+ * //jQuery Function
+ **********************************************************************************************************************/
+
+
+/*$(document).ready(function(){
+	var frameHeight = $(window).outerHeight(true);
+		searchHeight = $(".wrap-search").outerHeight(true);
+		areaContHeight = frameHeight - searchHeight - 43;
+	$('.area-content').css({"height":areaContHeight});
+});*/
+
+/*
+$(parent).on('resize', function(){
+	var frameHeight = $(window).outerHeight(true);
+		searchHeight = $(".wrap-search").outerHeight(true);
+		areaContHeight = frameHeight - searchHeight - 86;
+	$('.area-content').css({"height":areaContHeight});
+})*/
+
+

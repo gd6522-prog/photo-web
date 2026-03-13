@@ -15,6 +15,12 @@ type ProfileRow = {
   // ✅ 기사 전용
   car_no: string | null; // "1" or "1,2"
   delivery_type: string | null; // 당일/전일/익일
+  car_no_2?: string | null;
+  car_no_3?: string | null;
+  car_no_4?: string | null;
+  delivery_type_2?: string | null;
+  delivery_type_3?: string | null;
+  delivery_type_4?: string | null;
   vehicle_type: string | null; // 1.5T/2.5T/3.5T
   carrier: string | null; // 운수사
   garage: string | null; // 차고지
@@ -148,12 +154,10 @@ function isDriverPart(part: string | null | undefined): boolean {
 }
 
 // ✅ 호차 정규화: 숫자만, 1~2개, 중복 제거, 오름차순 => "1" or "1,2" or null
-function normalizeCarNoInput(aRaw: string, bRaw: string): string | null {
+function normalizeCarNoInput(...rawValues: string[]): string | null {
   const cleanOne = (v: string) => String(v ?? "").replace(/[^\d]/g, "").trim();
-  const a = cleanOne(aRaw);
-  const b = cleanOne(bRaw);
-
-  const nums = [a, b]
+  const nums = rawValues
+    .map(cleanOne)
     .map((x) => x.trim())
     .filter(Boolean)
     .map((x) => String(parseInt(x, 10)))
@@ -164,14 +168,14 @@ function normalizeCarNoInput(aRaw: string, bRaw: string): string | null {
   const unique = Array.from(new Set(nums));
   unique.sort((x, y) => Number(x) - Number(y));
 
-  return unique.slice(0, 2).join(",");
+  return unique.slice(0, 4).join(",");
 }
 
-function splitCarNo(carNo: string | null): { a: string; b: string } {
+function splitCarNo(carNo: string | null): { a: string; b: string; c: string; d: string } {
   const raw = String(carNo ?? "").trim();
-  if (!raw) return { a: "", b: "" };
+  if (!raw) return { a: "", b: "", c: "", d: "" };
   const parts = raw.split(",").map((x) => x.trim()).filter(Boolean);
-  return { a: parts[0] ?? "", b: parts[1] ?? "" };
+  return { a: parts[0] ?? "", b: parts[1] ?? "", c: parts[2] ?? "", d: parts[3] ?? "" };
 }
 
 function displayCarNo(carNo: string | null): string {
@@ -180,7 +184,15 @@ function displayCarNo(carNo: string | null): string {
   const parts = raw.split(",").map((x) => x.trim()).filter(Boolean);
   if (parts.length === 0) return "-";
   if (parts.length === 1) return parts[0];
-  return `${parts[0]} / ${parts[1]}`;
+  return parts.join(" / ");
+}
+
+function displayDeliveryTypes(row: ProfileRow): string {
+  const values = [row.delivery_type, row.delivery_type_2, row.delivery_type_3, row.delivery_type_4]
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean);
+
+  return values.length ? values.join(" / ") : "-";
 }
 
 function normalizePick(v: string): string | null {
@@ -220,8 +232,13 @@ export default function DriverMasterPage() {
 
     car_no_1: "",
     car_no_2: "",
+    car_no_3: "",
+    car_no_4: "",
 
     delivery_type: "",
+    delivery_type_2: "",
+    delivery_type_3: "",
+    delivery_type_4: "",
     vehicle_type: "",
     carrier: "",
     join_date: "",
@@ -271,9 +288,14 @@ export default function DriverMasterPage() {
       work_part: r.work_part ?? "기사",
 
       car_no_1: car.a,
-      car_no_2: car.b,
+      car_no_2: r.car_no_2 ?? car.b,
+      car_no_3: r.car_no_3 ?? car.c,
+      car_no_4: r.car_no_4 ?? car.d,
 
       delivery_type: r.delivery_type ?? "",
+      delivery_type_2: r.delivery_type_2 ?? "",
+      delivery_type_3: r.delivery_type_3 ?? "",
+      delivery_type_4: r.delivery_type_4 ?? "",
       vehicle_type: r.vehicle_type ?? "",
       carrier: r.carrier ?? "",
       join_date: r.join_date ?? "",
@@ -296,7 +318,7 @@ export default function DriverMasterPage() {
       let q = supabase
         .from("profiles")
         .select(
-          "id,approval_status,name,phone,birthdate,work_part,car_no,delivery_type,vehicle_type,carrier,join_date,leave_date,garage,hipass,created_at"
+          "id,approval_status,name,phone,birthdate,work_part,car_no,car_no_2,car_no_3,car_no_4,delivery_type,delivery_type_2,delivery_type_3,delivery_type_4,vehicle_type,carrier,join_date,leave_date,garage,hipass,created_at"
         )
         .ilike("work_part", "%기사%");
 
@@ -308,7 +330,6 @@ export default function DriverMasterPage() {
 
       if (name) q = q.ilike("name", `%${name}%`);
       if (carrier) q = q.ilike("carrier", `%${carrier}%`);
-      if (delivery) q = q.eq("delivery_type", delivery);
       if (vehicle) q = q.eq("vehicle_type", vehicle);
 
       const { data, error } = await q;
@@ -317,6 +338,9 @@ export default function DriverMasterPage() {
       let list = (data ?? []) as ProfileRow[];
       if (car) {
         list = list.filter((r) => String(r.car_no ?? "").split(",").map((x) => x.trim()).includes(car));
+      }
+      if (delivery) {
+        list = list.filter((r) => [r.delivery_type, r.delivery_type_2, r.delivery_type_3, r.delivery_type_4].some((value) => String(value ?? "").trim() === delivery));
       }
 
       // 정렬: 운수사 → 차종 → 호차 → 이름
@@ -384,7 +408,7 @@ export default function DriverMasterPage() {
 
       // 기사 마스터이므로 기사로 보정
       const workPartToSave = isDriverPart(f.work_part) ? f.work_part.trim() : "기사";
-      const carNoToSave = normalizeCarNoInput(f.car_no_1, f.car_no_2);
+      const carNoToSave = normalizeCarNoInput(f.car_no_1, f.car_no_2, f.car_no_3, f.car_no_4);
 
       const payload: any = {
         name: f.name.trim() || null,
@@ -393,7 +417,13 @@ export default function DriverMasterPage() {
         work_part: workPartToSave,
 
         car_no: carNoToSave,
+        car_no_2: normalizePick(f.car_no_2),
+        car_no_3: normalizePick(f.car_no_3),
+        car_no_4: normalizePick(f.car_no_4),
         delivery_type: normalizePick(f.delivery_type),
+        delivery_type_2: normalizePick(f.delivery_type_2),
+        delivery_type_3: normalizePick(f.delivery_type_3),
+        delivery_type_4: normalizePick(f.delivery_type_4),
         vehicle_type: normalizePick(f.vehicle_type),
         carrier: normalizePick(f.carrier),
         join_date: f.join_date || null,
@@ -671,7 +701,7 @@ export default function DriverMasterPage() {
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)", fontWeight: 950 }}>{r.name ?? "-"}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.birthdate ?? "-"}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{ageV == null ? "-" : `${ageV}세`}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.delivery_type ?? "-"}</td>
+                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{displayDeliveryTypes(r)}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{formatKRPhone(r.phone)}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.vehicle_type ?? "-"}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.carrier ?? "-"}</td>
@@ -765,23 +795,51 @@ export default function DriverMasterPage() {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                     <input value={f.car_no_1} onChange={(e) => setF((p) => ({ ...p, car_no_1: e.target.value }))} style={inputStyle()} placeholder="호차1 (예: 1)" inputMode="numeric" />
                     <input value={f.car_no_2} onChange={(e) => setF((p) => ({ ...p, car_no_2: e.target.value }))} style={inputStyle()} placeholder="호차2 (선택, 예: 2)" inputMode="numeric" />
+                    <input value={f.car_no_3} onChange={(e) => setF((p) => ({ ...p, car_no_3: e.target.value }))} style={inputStyle()} placeholder="호차3 (선택, 예: 3)" inputMode="numeric" />
+                    <input value={f.car_no_4} onChange={(e) => setF((p) => ({ ...p, car_no_4: e.target.value }))} style={inputStyle()} placeholder="호차4 (선택, 예: 4)" inputMode="numeric" />
                   </div>
                   <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>
-                    저장값: <b>{displayCarNo(normalizeCarNoInput(f.car_no_1, f.car_no_2))}</b>
+                    저장값: <b>{displayCarNo(normalizeCarNoInput(f.car_no_1, f.car_no_2, f.car_no_3, f.car_no_4))}</b>
                   </div>
                 </div>
 
                 {/* 배송구분 / 차종 / 운수사 */}
-                <div>
-                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>배송구분</div>
-                  <select value={f.delivery_type} onChange={(e) => setF((p) => ({ ...p, delivery_type: e.target.value }))} style={inputStyle()}>
-                    <option value="">-</option>
-                    {DELIVERY_OPTIONS.map((x) => (
-                      <option key={x} value={x}>
-                        {x}
-                      </option>
-                    ))}
-                  </select>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>배송구분 (호차별 설정)</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <select value={f.delivery_type} onChange={(e) => setF((p) => ({ ...p, delivery_type: e.target.value }))} style={inputStyle()}>
+                      <option value="">호차1 -</option>
+                      {DELIVERY_OPTIONS.map((x) => (
+                        <option key={`delivery-1-${x}`} value={x}>
+                          {x}
+                        </option>
+                      ))}
+                    </select>
+                    <select value={f.delivery_type_2} onChange={(e) => setF((p) => ({ ...p, delivery_type_2: e.target.value }))} style={inputStyle()}>
+                      <option value="">호차2 -</option>
+                      {DELIVERY_OPTIONS.map((x) => (
+                        <option key={`delivery-2-${x}`} value={x}>
+                          {x}
+                        </option>
+                      ))}
+                    </select>
+                    <select value={f.delivery_type_3} onChange={(e) => setF((p) => ({ ...p, delivery_type_3: e.target.value }))} style={inputStyle()}>
+                      <option value="">호차3 -</option>
+                      {DELIVERY_OPTIONS.map((x) => (
+                        <option key={`delivery-3-${x}`} value={x}>
+                          {x}
+                        </option>
+                      ))}
+                    </select>
+                    <select value={f.delivery_type_4} onChange={(e) => setF((p) => ({ ...p, delivery_type_4: e.target.value }))} style={inputStyle()}>
+                      <option value="">호차4 -</option>
+                      {DELIVERY_OPTIONS.map((x) => (
+                        <option key={`delivery-4-${x}`} value={x}>
+                          {x}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div>

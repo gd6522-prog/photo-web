@@ -5,6 +5,17 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { getNoticeBoardDef, type NoticePost } from "@/lib/notice-board";
+import {
+  boardCardStyle,
+  boardDangerButtonStyle,
+  boardGhostButtonStyle,
+  boardPageShellStyle,
+  boardPrimaryButtonStyle,
+} from "../_board-theme";
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("ko-KR");
+}
 
 export default function BoardDetailPage() {
   const params = useParams<{ id: string }>();
@@ -39,6 +50,7 @@ export default function BoardDetailPage() {
         setLoading(false);
       }
     };
+
     if (id) load();
   }, [id]);
 
@@ -67,57 +79,72 @@ export default function BoardDetailPage() {
     }
   };
 
-  if (loading) return <div style={{ color: "#64748B" }}>불러오는 중...</div>;
-  if (err) return <div style={{ color: "#B91C1C" }}>{err}</div>;
-  if (!item) return <div style={{ color: "#B91C1C" }}>게시글을 찾지 못했습니다.</div>;
+  if (loading) return <div style={{ color: "#557186" }}>불러오는 중...</div>;
+  if (err) return <div style={{ color: "#b42318" }}>{err}</div>;
+  if (!item) return <div style={{ color: "#b42318" }}>게시글을 찾지 못했습니다.</div>;
 
   const board = getNoticeBoardDef(item.board_key);
 
   return (
-    <div
-      style={{
-        border: "1px solid #D7E0E8",
-        borderRadius: 18,
-        background: "white",
-        boxShadow: "0 12px 30px rgba(15,23,42,0.06)",
-        overflow: "hidden",
-      }}
-    >
-      <div style={{ padding: 24, borderBottom: "1px solid #EEF2F6" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+    <div style={boardPageShellStyle}>
+      <section style={boardCardStyle}>
+        <div style={{ padding: 22, borderBottom: "1px solid #d9e6ef", display: "flex", justifyContent: "space-between", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ padding: "4px 10px", borderRadius: 999, background: board.tone.bg, color: board.tone.text, border: `1px solid ${board.tone.border}`, fontSize: 12, fontWeight: 900 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ padding: "6px 12px", borderRadius: 999, background: board.tone.bg, color: board.tone.text, border: `1px solid ${board.tone.border}`, fontSize: 12, fontWeight: 900 }}>
                 {board.label}
               </span>
-              {item.is_pinned ? <span style={{ fontSize: 12, fontWeight: 900, color: "#0F766E" }}>상단 고정</span> : null}
+              {item.is_pinned ? (
+                <span style={{ padding: "6px 12px", borderRadius: 999, border: "1px solid #8dd3cc", background: "#ecfdf5", color: "#0f766e", fontSize: 12, fontWeight: 900 }}>
+                  상단 고정
+                </span>
+              ) : null}
             </div>
-            <h1 style={{ margin: "14px 0 10px", fontSize: 38, lineHeight: 1.15, color: "#0F172A" }}>{item.title}</h1>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", color: "#64748B", fontSize: 14 }}>
-              <span style={{ color: "#0F172A", fontWeight: 900 }}>{item.author_name ?? "-"}</span>
-              <span>{new Date(item.updated_at).toLocaleString("ko-KR")}</span>
-            </div>
+            <h1 style={{ margin: "16px 0 0", fontSize: 38, lineHeight: 1.15, color: "#103b53", wordBreak: "break-word" }}>{item.title}</h1>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Link href={`/admin/notice/boards?board=${item.board_key}`} style={{ height: 38, padding: "0 14px", borderRadius: 10, border: "1px solid #CBD5E1", background: "white", color: "#0F172A", textDecoration: "none", display: "inline-flex", alignItems: "center", fontWeight: 900 }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <Link href={`/admin/notice/boards?board=${item.board_key}`} style={boardGhostButtonStyle}>
               목록
             </Link>
             {canManageAll ? (
               <>
-                <Link href={`/admin/notice/boards/${item.id}/edit`} style={{ height: 38, padding: "0 14px", borderRadius: 10, border: "1px solid #CBD5E1", background: "white", color: "#0F172A", textDecoration: "none", display: "inline-flex", alignItems: "center", fontWeight: 900 }}>
+                <Link href={`/admin/notice/boards/${item.id}/edit`} style={boardPrimaryButtonStyle}>
                   수정
                 </Link>
-                <button onClick={onDelete} style={{ height: 38, padding: "0 14px", borderRadius: 10, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", fontWeight: 900, cursor: "pointer" }}>
+                <button onClick={onDelete} style={boardDangerButtonStyle}>
                   삭제
                 </button>
               </>
             ) : null}
           </div>
         </div>
-      </div>
+      </section>
 
-      <div style={{ padding: 24, minHeight: 420, whiteSpace: "pre-wrap", lineHeight: 1.8, color: "#111827", fontSize: 16 }}>{item.body}</div>
+      <section style={boardCardStyle}>
+        <div style={{ padding: 22, borderBottom: "1px solid #d9e6ef", display: "flex", gap: 12, flexWrap: "wrap", fontSize: 14, color: "#557186" }}>
+          <span style={{ color: "#103b53", fontWeight: 900 }}>{item.author_name ?? "-"}</span>
+          <span>{formatDateTime(item.updated_at)}</span>
+        </div>
+        <div style={{ padding: 22 }}>
+          <div
+            style={{
+              minHeight: 380,
+              border: "1px solid #d9e6ef",
+              borderRadius: 18,
+              background: "#fbfdfe",
+              padding: "22px 20px",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              lineHeight: 1.9,
+              color: "#103b53",
+              fontSize: 16,
+            }}
+          >
+            {item.body}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

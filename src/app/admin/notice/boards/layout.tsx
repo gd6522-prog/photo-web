@@ -3,6 +3,12 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { NOTICE_BOARD_DEFS, type NoticeBoardKey } from "@/lib/notice-board";
+import {
+  boardCardStyle,
+  boardPageShellStyle,
+  boardPrimaryButtonStyle,
+  boardSectionTitleStyle,
+} from "./_board-theme";
 
 function getActiveBoard(pathname: string, searchParams: URLSearchParams): NoticeBoardKey {
   const fromQuery = searchParams.get("board");
@@ -20,91 +26,73 @@ export default function BoardsLayout({ children }: { children: React.ReactNode }
   const isCalendarActive = pathname === "/admin/notice/calendar" || pathname.startsWith("/admin/notice/calendar/");
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "250px minmax(0, 1fr)",
-        gap: 16,
-        alignItems: "start",
-      }}
-    >
-      <aside
-        style={{
-          border: "1px solid #D7E0E8",
-          borderRadius: 18,
-          background: "white",
-          boxShadow: "0 10px 30px rgba(15,23,42,0.05)",
-          overflow: "hidden",
-          position: "sticky",
-          top: 88,
-        }}
-      >
-        <div style={{ padding: 16, borderBottom: "1px solid #EEF2F6" }}>
-          <Link
-            href={`/admin/notice/boards/write?board=${activeBoard}`}
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              height: 48,
-              borderRadius: 12,
-              border: "1px solid #CAD5E2",
-              color: "#0F172A",
-              textDecoration: "none",
-              fontWeight: 900,
-              background: "#F8FAFC",
-            }}
-          >
-            {"\uae00\uc4f0\uae30"}
-          </Link>
-        </div>
-
-        <div style={{ padding: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 900, color: "#64748B", marginBottom: 10 }}>{"\uac8c\uc2dc\ud310"}</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {NOTICE_BOARD_DEFS.map((board) => {
-              const active = activeBoard === board.key;
-              return (
-                <Link
-                  key={board.key}
-                  href={`/admin/notice/boards?board=${board.key}`}
-                  style={{
-                    padding: "10px 12px",
-                    borderRadius: 12,
-                    textDecoration: "none",
-                    background: active ? "#EEF6FF" : "transparent",
-                    border: active ? "1px solid #BFDBFE" : "1px solid transparent",
-                    color: active ? "#0F172A" : "#1E293B",
-                    fontWeight: active ? 900 : 700,
-                  }}
-                >
-                  {board.label}
-                </Link>
-              );
-            })}
-          </div>
-
-          <div style={{ fontSize: 12, fontWeight: 900, color: "#64748B", marginTop: 18, marginBottom: 10 }}>{"\uc77c\uc815\uad00\ub9ac"}</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <Link
-              href="/admin/notice/calendar"
-              style={{
-                padding: "10px 12px",
-                borderRadius: 12,
-                textDecoration: "none",
-                background: isCalendarActive ? "#EEF6FF" : "transparent",
-                border: isCalendarActive ? "1px solid #BFDBFE" : "1px solid transparent",
-                color: isCalendarActive ? "#0F172A" : "#1E293B",
-                fontWeight: isCalendarActive ? 900 : 700,
-              }}
-            >
-              {"\uc77c\uc815\ub2ec\ub825"}
+    <div style={boardPageShellStyle}>
+      <div className="board-layout-grid" style={{ display: "grid", gridTemplateColumns: "290px minmax(0, 1fr)", gap: 18, alignItems: "start" }}>
+        <aside style={{ ...boardCardStyle, position: "sticky", top: 88 }}>
+          <div style={{ padding: 18, borderBottom: "1px solid #d9e6ef" }}>
+            <Link href={`/admin/notice/boards/write?board=${activeBoard}`} style={{ ...boardPrimaryButtonStyle, width: "100%", marginTop: 14 }}>
+              글쓰기
             </Link>
           </div>
-        </div>
-      </aside>
 
-      <main>{children}</main>
+          <div style={{ padding: 18, display: "grid", gap: 18 }}>
+            <section>
+              <div style={{ ...boardSectionTitleStyle, fontSize: 13 }}>게시판</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+                {NOTICE_BOARD_DEFS.map((board) => {
+                  const active = activeBoard === board.key;
+                  return (
+                    <Link
+                      key={board.key}
+                      href={`/admin/notice/boards?board=${board.key}`}
+                      style={{
+                        padding: "12px 14px",
+                        borderRadius: 16,
+                        textDecoration: "none",
+                        border: active ? `1px solid ${board.tone.border}` : "1px solid #d9e6ef",
+                        background: active ? board.tone.bg : "#fbfdfe",
+                        color: active ? board.tone.text : "#103b53",
+                        boxShadow: active ? "0 8px 18px rgba(16,59,83,0.10)" : "none",
+                      }}
+                    >
+                      <div style={{ fontWeight: 900, fontSize: 14 }}>{board.label}</div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section>
+              <div style={{ ...boardSectionTitleStyle, fontSize: 13 }}>일정 관리</div>
+              <Link
+                href="/admin/notice/calendar"
+                style={{
+                  marginTop: 12,
+                  padding: "12px 14px",
+                  borderRadius: 16,
+                  display: "block",
+                  textDecoration: "none",
+                  border: isCalendarActive ? "1px solid #7dd3fc" : "1px solid #d9e6ef",
+                  background: isCalendarActive ? "#e0f2fe" : "#fbfdfe",
+                  color: isCalendarActive ? "#075985" : "#103b53",
+                }}
+              >
+                <div style={{ fontWeight: 900, fontSize: 14 }}>일정 달력</div>
+              </Link>
+            </section>
+          </div>
+        </aside>
+
+        <main>{children}</main>
+      </div>
+
+      <style jsx>{`
+        @media (max-width: 1100px) {
+          .board-layout-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

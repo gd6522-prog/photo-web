@@ -1,4 +1,4 @@
-// src/app/admin/page.tsx
+﻿// src/app/admin/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -197,6 +197,7 @@ function Card({
   children,
   minHeight,
   bodyPadding,
+  headerBorderless,
 }: {
   title: string;
   subtitle?: string;
@@ -204,6 +205,7 @@ function Card({
   children: React.ReactNode;
   minHeight?: number;
   bodyPadding?: number;
+  headerBorderless?: boolean;
 }) {
   return (
     <div
@@ -222,8 +224,8 @@ function Card({
     >
       <div
         style={{
-          padding: "12px 14px",
-          borderBottom: "1px solid #d9e6ef",
+          padding: headerBorderless ? "12px 10px 6px 14px" : "12px 14px",
+          borderBottom: headerBorderless ? "none" : "1px solid #d9e6ef",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -354,7 +356,7 @@ function NoticeMainCard() {
   const [activeBoard, setActiveBoard] = useState<NoticeBoardFilter>(NOTICE_BOARD_ALL);
 
   const [page, setPage] = useState(1);
-  const PAGE_SIZE = 6;
+  const PAGE_SIZE = 7;
 
   const load = async () => {
     setErr("");
@@ -412,22 +414,24 @@ function NoticeMainCard() {
 
   return (
     <Card
-      title="게시판"
-      subtitle="전사 공지와 운영, 운송, 안전 게시글을 한 곳에서 확인"
+      title="화성센터 게시판"
       minHeight={CARD_MIN_H}
+      bodyPadding={8}
+      headerBorderless
       right={
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
           <button
             onClick={() => canPrev && setPage((p) => p - 1)}
             disabled={!canPrev}
             style={{
-              width: 32,
-              height: 32,
-              borderRadius: 10,
-              border: "1px solid #c4d5e3",
-              background: !canPrev ? "#e9eef3" : "#fff",
+              width: 28,
+              height: 28,
+              borderRadius: 999,
+              border: "none",
+              background: "transparent",
               cursor: !canPrev ? "not-allowed" : "pointer",
-              fontWeight: 950,
+              color: !canPrev ? "#cbd5e1" : "#94a3b8",
+              fontSize: 20,
               lineHeight: 1,
             }}
             aria-label="prev"
@@ -439,13 +443,14 @@ function NoticeMainCard() {
             onClick={() => canNext && setPage((p) => p + 1)}
             disabled={!canNext}
             style={{
-              width: 32,
-              height: 32,
-              borderRadius: 10,
-              border: "1px solid #c4d5e3",
-              background: !canNext ? "#e9eef3" : "#fff",
+              width: 28,
+              height: 28,
+              borderRadius: 999,
+              border: "none",
+              background: "transparent",
               cursor: !canNext ? "not-allowed" : "pointer",
-              fontWeight: 950,
+              color: !canNext ? "#cbd5e1" : "#64748b",
+              fontSize: 20,
               lineHeight: 1,
             }}
             aria-label="next"
@@ -453,102 +458,115 @@ function NoticeMainCard() {
           >
             {">"}
           </button>
-
-          <Link
-            href="/admin/notice/boards?board=notice"
-            style={{
-              height: 32,
-              padding: "0 12px",
-              borderRadius: 999,
-              border: "1px solid #0e7490",
-              background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              textDecoration: "none",
-              fontWeight: 950,
-              fontSize: 13,
-              color: "white",
-              marginLeft: 4,
-              boxShadow: "0 8px 18px rgba(16,59,83,0.20)",
-            }}
-            title="게시판 보기"
-          >
-            게시판
-          </Link>
-
-          <button
-            onClick={load}
-            style={{
-              height: 32,
-              padding: "0 12px",
-              borderRadius: 999,
-              border: "1px solid #c4d5e3",
-              background: "#fff",
-              cursor: "pointer",
-              fontWeight: 950,
-              fontSize: 13,
-            }}
-            title="새로고침"
-          >
-            새로고침
-          </button>
         </div>
       }
     >
+      <div style={{ display: "flex", gap: 0, flexWrap: "wrap", margin: "0 0 6px", borderBottom: "1px solid #e2e8f0" }}>
+        <button
+          onClick={() => {
+            setActiveBoard(NOTICE_BOARD_ALL);
+            setPage(1);
+          }}
+          style={{
+            height: 40,
+            padding: "0 12px",
+            borderRadius: 0,
+            border: "none",
+            borderBottom: activeBoard === NOTICE_BOARD_ALL ? "2px solid #111827" : "2px solid transparent",
+            background: "transparent",
+            color: activeBoard === NOTICE_BOARD_ALL ? "#111827" : "#64748b",
+            fontWeight: 900,
+            cursor: "pointer",
+            marginBottom: -1,
+          }}
+        >
+          전체
+        </button>
+        {NOTICE_BOARD_DEFS.map((board) => (
+          <button
+            key={board.key}
+            onClick={() => {
+              setActiveBoard(board.key);
+              setPage(1);
+            }}
+            style={{
+              height: 40,
+              padding: "0 12px",
+              borderRadius: 0,
+              border: "none",
+              borderBottom: activeBoard === board.key ? `2px solid ${board.tone.text}` : "2px solid transparent",
+              background: "transparent",
+              color: activeBoard === board.key ? board.tone.text : "#64748b",
+              fontWeight: 900,
+              cursor: "pointer",
+              marginBottom: -1,
+            }}
+          >
+            {board.label}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div style={{ color: "#6B7280", fontSize: 14 }}>불러오는 중...</div>
       ) : err ? (
         <div style={{ color: "#B91C1C", fontSize: 14 }}>{err}</div>
       ) : filteredTotal === 0 ? (
-        <div style={{ color: "#6B7280", fontSize: 14 }}>등록된 게시글이 없습니다.</div>
-      ) : (
-        <>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-            <button
-              onClick={() => {
-                setActiveBoard(NOTICE_BOARD_ALL);
-                setPage(1);
-              }}
+        <div
+          style={{
+            background: "#f8fbfc",
+            padding: "22px 0",
+            display: "grid",
+            gap: 12,
+          }}
+        >
+          <div style={{ color: "#6B7280", fontSize: 14, padding: "0 4px" }}>등록된 게시글이 없습니다.</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Link
+              href={`/admin/notice/boards/write?board=${activeBoard === NOTICE_BOARD_ALL ? "notice" : activeBoard}`}
               style={{
-                height: 32,
-                padding: "0 12px",
-                borderRadius: 999,
-                border: activeBoard === NOTICE_BOARD_ALL ? "1px solid #111827" : "1px solid #CBD5E1",
-                background: activeBoard === NOTICE_BOARD_ALL ? "#111827" : "white",
-                color: activeBoard === NOTICE_BOARD_ALL ? "white" : "#111827",
-                fontWeight: 900,
-                cursor: "pointer",
+                height: 34,
+                padding: "0 14px",
+                borderRadius: 8,
+                border: "1px solid #111827",
+                background: "#111827",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                textDecoration: "none",
+                fontWeight: 950,
+                fontSize: 13,
+                color: "white",
+                boxShadow: "0 8px 18px rgba(16,59,83,0.20)",
               }}
             >
-              전체
-            </button>
-            {NOTICE_BOARD_DEFS.map((board) => (
-              <button
-                key={board.key}
-                onClick={() => {
-                  setActiveBoard(board.key);
-                  setPage(1);
-                }}
-                style={{
-                  height: 32,
-                  padding: "0 12px",
-                  borderRadius: 999,
-                  border: activeBoard === board.key ? `1px solid ${board.tone.border}` : "1px solid #CBD5E1",
-                  background: activeBoard === board.key ? board.tone.bg : "white",
-                  color: activeBoard === board.key ? board.tone.text : "#111827",
-                  fontWeight: 900,
-                  cursor: "pointer",
-                }}
-              >
-                {board.label}
-              </button>
-            ))}
+              글쓰기
+            </Link>
+            <Link
+              href={`/admin/notice/boards?board=${activeBoard === NOTICE_BOARD_ALL ? "notice" : activeBoard}`}
+              style={{
+                height: 34,
+                padding: "0 14px",
+                borderRadius: 8,
+                border: "1px solid #d1d5db",
+                background: "#fff",
+                color: "#111827",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                textDecoration: "none",
+                fontWeight: 900,
+                fontSize: 13,
+              }}
+            >
+              열기
+            </Link>
           </div>
+        </div>
+      ) : (
+        <>
           <div
             style={{
-              border: "1px solid #d9e6ef",
-              borderRadius: 14,
               overflow: "hidden",
               background: "#fff",
             }}
@@ -561,68 +579,47 @@ function NoticeMainCard() {
                   display: "block",
                   textDecoration: "none",
                   color: "inherit",
-                  borderTop: idx === 0 ? "none" : "1px solid #F3F4F6",
+                  borderTop: idx === 0 ? "none" : "1px solid #f1f5f9",
                 }}
               >
-                <div style={{ padding: "12px 12px", display: "flex", gap: 10, alignItems: "center" }}>
-                  <div style={{ width: 22, textAlign: "center", color: n.is_pinned ? "#0f766e" : "#9CA3AF", fontWeight: 900 }}>{n.is_pinned ? "📌" : "•"}</div>
-
+                <div style={{ padding: "10px 6px", display: "flex", gap: 12, alignItems: "flex-start" }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div
                       style={{
-                        fontWeight: 950,
+                        fontWeight: 800,
                         fontSize: 14,
-                        color: "#113247",
+                        color: n.is_pinned ? "#ea580c" : "#111827",
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                       }}
                       title={n.title}
                     >
+                      {n.is_pinned ? "[고정] " : ""}
                       {n.title}
                     </div>
 
-                    {/* 날짜는 왼쪽, 작성자는 오른쪽 정렬 */}
                     <div
                       style={{
-                        marginTop: 4,
+                        marginTop: 5,
                         fontSize: 12,
                         color: "#6B7280",
                         display: "flex",
                         alignItems: "center",
-                        gap: 8,
+                        gap: 10,
                         minWidth: 0,
+                        flexWrap: "wrap",
                       }}
                     >
-                      <span style={{ whiteSpace: "nowrap" }}>{fmtDate(n.updated_at)}</span>
-                      <span
-                        style={{
-                          padding: "2px 8px",
-                          borderRadius: 999,
-                          background: getNoticeBoardDef(n.board_key).tone.bg,
-                          color: getNoticeBoardDef(n.board_key).tone.text,
-                          border: `1px solid ${getNoticeBoardDef(n.board_key).tone.border}`,
-                          fontSize: 11,
-                          fontWeight: 900,
-                        }}
-                      >
+                      <span style={{ whiteSpace: "nowrap", color: "#64748b" }}>{new Date(n.updated_at).toLocaleString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+                      <span style={{ color: "#94a3b8" }}>{n.author_name ?? "-"}</span>
+                      <span style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700 }}>
                         {getNoticeBoardDef(n.board_key).label}
-                      </span>
-                      <span
-                        style={{
-                          marginLeft: "auto",
-                          whiteSpace: "nowrap",
-                          fontWeight: 900,
-                          color: "#374151",
-                        }}
-                        title={n.author_name ?? ""}
-                      >
-                        {n.author_name ?? "-"}
                       </span>
                     </div>
                   </div>
 
-                  <div style={{ opacity: 0.35, fontSize: 18, color: "#113247" }}>{">"}</div>
+                  <div style={{ opacity: 0.35, fontSize: 16, color: "#94a3b8", lineHeight: "22px" }}>{">"}</div>
                 </div>
               </Link>
             ))}
@@ -631,7 +628,7 @@ function NoticeMainCard() {
           <div style={{ marginTop: "auto" }}>
             <div
               style={{
-                marginTop: 10,
+                marginTop: 12,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
@@ -639,19 +636,17 @@ function NoticeMainCard() {
                 color: "#6B7280",
               }}
             >
-              <div>
-                {filteredTotal}건 · {safePage}/{maxPage} 페이지 (페이지당 {PAGE_SIZE}개)
-              </div>
+              <div>{filteredTotal}</div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button
                   onClick={() => setPage(1)}
                   disabled={safePage === 1}
                   style={{
+                    width: 28,
                     height: 28,
-                    padding: "0 10px",
-                    borderRadius: 10,
-                    border: "1px solid #c4d5e3",
-                    background: safePage === 1 ? "#e9eef3" : "#fff",
+                    borderRadius: 999,
+                    border: "1px solid #d1d5db",
+                    background: safePage === 1 ? "#f8fafc" : "#fff",
                     cursor: safePage === 1 ? "not-allowed" : "pointer",
                     fontWeight: 950,
                     fontSize: 12,
@@ -663,11 +658,11 @@ function NoticeMainCard() {
                   onClick={() => setPage(maxPage)}
                   disabled={safePage === maxPage}
                   style={{
+                    width: 28,
                     height: 28,
-                    padding: "0 10px",
-                    borderRadius: 10,
-                    border: "1px solid #c4d5e3",
-                    background: safePage === maxPage ? "#e9eef3" : "#fff",
+                    borderRadius: 999,
+                    border: "1px solid #d1d5db",
+                    background: safePage === maxPage ? "#f8fafc" : "#fff",
                     cursor: safePage === maxPage ? "not-allowed" : "pointer",
                     fontWeight: 950,
                     fontSize: 12,

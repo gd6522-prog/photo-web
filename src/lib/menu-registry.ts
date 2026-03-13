@@ -13,6 +13,7 @@ export type MenuItem = {
 export const MENU_REGISTRY: MenuItem[] = [
   { key: "admin_home", label: "메인", href: "/admin", group: "nav", order: 10 },
   { key: "admin_photos", label: "사진", href: "/admin/photos", group: "nav", order: 20 },
+  { key: "admin_vehicle", label: "차량", href: "/admin/vehicles", group: "nav", order: 25 },
   {
     key: "admin_notice",
     label: "게시판",

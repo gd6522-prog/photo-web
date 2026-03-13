@@ -1,0 +1,1685 @@
+/**************************************************************************************************************************************
+ * 공통 팝업 개발 가이드
+
+ - 공통 조회조건에서 사용 :
+	어드민 모듈 조회조건 설정 화면에서 해당 조회조건 항목을 팝업 타입으로 설정 후 커스텀 팝업 함수명을 입력.
+	입력한 함수명으로 아래에 함수를 구현.
+
+ - 그리드 팝업 타입 컬럼에서 사용 : 컬럼 정의에서 아래와 같이 popupParam 의 customPopupFunction 에 함수 객체 넣어줌. 함수명 문자열 아님.
+	{ ... , type : 'popup', popupParam : {
+		customPopupFunction : 커스텀 팝업 함수명, // ex) customPopupFunction : commonPop_item
+		TITLE : ...
+		MODULE : ...
+		SQLPROP : ...
+		KEYPARAM : ...
+		CODE_COLNAME : ... //팝업의 그리드에서 값을 받아올 코드 컬럼의 colName
+		NAME_COLNAME : ... //팝업의 그리드에서 값을 받아올 코드명 컬럼의 colName
+		CODENAMECOLUMN : ... //팝업 타입 그리드 컬럼에서 팝업 띄워 조회, 데이터 선택시 코드명 컬럼에 값도 같이 셋팅하고자 할 때 코드명 컬럼의 colName
+		기타 팝업용 파라미터들...
+	}}
+
+ - 공통 팝업 개발 : 아래 함수 중 하나를 복붙하여 필요한 부분 고쳐쓰면 됨.
+	고칠 부분 - 함수명,
+				searchCondiniotDS,
+				searchFormID,
+				그리드 idPrefix,
+				그리드 columnDefine,
+				팝업 창 타이틀,
+				팝업 객체의 closeAndReturn 함수 내에서 참조하는 그리드 컬럼의 colName 값.
+*/
+
+/**************************************************************************************************************************************
+ * 공통 팝업 - 제품 조회
+ **************************************************************************************************************************************/
+function commonPop_itemSku(param)
+{
+	//팝업창의 조회조건. 상품코드, 상품명
+	var searchConditionDS = [
+		{
+			TYPE		: 'FIELD',
+			DATATYPE	: 'STRING',
+			DBCOLUMN	: 'CODE',
+			COLUMNDESCR : 'ITEM_CD',
+			COLUMNDESCR_LANG : Lang.get('ITEM_CD'),
+			OPERATOR	: 'LIKE'
+		},
+		{
+			TYPE : 'FIELD',
+			DATATYPE : 'STRING',
+			DBCOLUMN : 'NAME',
+			COLUMNDESCR : 'ITEM_NM',
+			COLUMNDESCR_LANG : Lang.get('ITEM_NM'),
+			OPERATOR : 'LIKE'
+		}
+	];
+	var params = {
+		CURRENT_MENUCODE : Util.nvl(param.CURRENT_MENUCODE, CURRENT_MENUCODE),
+		MODULE : Util.nvl(param.MODULE),
+		SQLPROP : param.SQLPROP,
+		KEYPARAM : param.KEYPARAM,
+		PARAM1 : param.PARAM1,
+		PARAM2 : param.PARAM2,
+		PARAM3 : param.PARAM3,
+		PARAM4 : param.PARAM4,
+		PARAM5 : param.PARAM5,
+		PARAM6 : param.PARAM6,
+		PARAM7 : param.PARAM7,
+		PARAM8 : param.PARAM8,
+		PARAM9 : param.PARAM9,
+		PARAM10 : param.PARAM10
+	};
+
+	//한글의 경우 대비하여...
+	for(key in params)
+	{
+		if(!Util.isNull(params[key]))
+		{
+			params[key] = encodeURIComponent(params[key]);
+		}
+	}
+	var searchformID = 'ITEM_POP_SEACH_DS_FORM';
+
+	//조회 팝업 생성
+	getSearchConditionFormWithDS(searchConditionDS, {id : searchformID}, function(searchForm){
+		//그리드 생성. 팝업창을 닫을 때 그 하위 콤포넌트들이 distroy 되기 때문에 창 열 때마다 새로 만든다.
+		searchForm.enterSearch = true;
+		var popGrid = Ext.create('VC.grid.CommonGrid', {
+			idPrefix : 'popGrid',
+			region : 'center',
+			flex : 1,
+			defaultColWidth : 'autofit',
+			editable : false,
+			useCheckboxModel : true,
+			selectionMode : Util.nvl(param.SELECTIONMODE, 'SINGLE'),
+			pageSize : param.PAGESIZE,
+			pageNaviDock : Util.nvl(param.PAGESIZE, null)? 'bottom':'top',
+			columnDefine : [
+				{type : 'gridrownumber', width:40},
+				{header : 'ITEM_CD', colName : 'CODE', width : 145, align : 'center'},
+				{header : 'ITEM_NM', colName : 'NAME', width : 250},
+				{header : 'SKU_DECIMAL', hidden : true}
+			],
+			listeners : {
+				celldblclick : function(me, td, cellIdx, record, tr, rowIdx, evt, eOpts){
+					me.up('[xtype=window]').closeAndReturn();
+				}
+			},
+			buttonsConfig: [
+				{text: 'SEARCH', onClickCompleteEdit : false, handler : function(){
+					popWin.searchData();
+				}},
+				{text: 'APPLY', onClickCompleteEdit : false, handler : function(){
+					popWin.closeAndReturn();
+				}},
+				{text: 'CANCEL', onClickCompleteEdit : false, handler : function(){
+					popWin.close();
+				}}
+			]
+		});
+
+		//팝업 창 띄우기
+		//실질적인 POPUP을 실행함
+		var popWin = Ext.create('widget.window', {
+			title: '상품 조회',
+			id :  'popWin',
+			constrainHeader: true,
+			closable: true,
+			modal : true,
+			border : 0,
+			width: 500,
+			height: 500,
+			layout: {
+				type: 'fit'
+			},
+			hasReturnVal : false,
+			listeners : {
+				afterrender : function(){
+					var me = this;
+					Ext.defer(function(){
+						me.items.items[0].items.items[0].items.items[0].items.items[2].focus();
+						if(Util.nvl(param.AUTOSEARCH,false)) {
+							me.searchData();
+						}
+					},500);
+				},
+				close : function(){
+					var me = this;
+					if(param.CALLBY) param.CALLBY.popWinOpened = false;
+					if(!me.hasReturnVal && param.CALLBY && param.CALLBY.onPopClose)
+					{
+						param.CALLBY.onPopClose();
+					}
+					popGrid.getStore().removeAll();
+				}
+			},
+			items: [
+				{
+					layout : 'border',
+					items : [
+						searchForm, //생성된 폼이 파라미터로 넘어옴.
+						popGrid
+					]
+				}
+			],
+			searchData : function(){
+				//위에 지정한 폼 패널의 아이디로 팝업 창의 조회조건 폼 밸리데이션 후 조회조건 데이터셋 DS_SEARCHCONDITION 셋팅.
+				if( ! setSearchConditionDataSet(searchformID) ) return;
+				//popGrid의 search를 실행함
+				popGrid.search(popWin, '/appService/getCodeAndName', params);
+
+			},
+			closeAndReturn : function(){
+				var me = this;
+				me.hasReturnVal = true;
+				var grid = this.down('grid');
+				var selRows = grid.getSelectionModel().getSelection();
+				var ret = [];
+				for(var n=0; n<selRows.length; n++)
+				{
+					if(Util.nvl(param.RETURNROW, false))
+					{
+						ret.push(selRows[n].data);
+					}
+					else
+					{
+						ret.push(selRows[n].data['ITEM_CD']);
+					}
+				}
+				if(param.CALLBY && param.CALLBY.onPopClose)
+				{
+					param.CALLBY.onPopClose(ret);
+				}
+				else if(param.afterGetRow)
+				{
+					param.afterGetRow(ret);
+				}
+				popGrid.getStore().removeAll();
+				me.close();
+			}
+		}).show();
+	});
+}
+
+/**************************************************************************************************************************************
+ * 공통 팝업 - 엑셀 업로드
+ *
+ * 사용법 추가
+ * 1. commonPop_excelUpload(CURRENT_MENUCODE); // 기본
+ * 2. commonPop_excelUpload(CURRENT_MENUCODE, param); // param 추가시
+ *
+ * var param = {
+ *		SEARCH : search, - 저장 후 메인화면에서 검색되는 function : 참조 jsp(omtB2bSalesRegister.jsp)
+ *		HIDEABLE : false, - 버튼 show/hide 첫번째 : 참조 jsp(omtUibCo.jsp)
+ *		STARTIDX : 0, - 버튼 show/hide 두번째 : 참조 jsp(omtUibCo.jsp)
+ *		ENDIDX : 0, - 버튼 show/hide 세번째 : 참조 jsp(omtUibCo.jsp)
+ *		FORM : explanationForm - 추가설명을 적기 위한 폼 : 참조 jsp(omtB2bSalesRegister.jsp)
+ *		AUTORESIZE : true - 참조 jsp(omtB2bSalesRegister.jsp)
+ * };
+ *
+ * HIDEABLE, STARTIDX, ENDIDX 는 같이 써야지 적용됨
+ *
+ **************************************************************************************************************************************/
+function commonPop_excelUpload(menuCode, param)
+{
+	Ext.Ajax.request({
+		url : '/excelMgmtService/searchExcelForm',
+		params : {
+			PROG_ID : menuCode
+		},
+		callback : function(options, success, response){
+			var json = Util.isNull(response.responseText)? {ErrorMsg : 'Sever Response Failed!!'}:Ext.decode(response.responseText);
+			if(json["ErrorMsg"] === "OK")
+			{
+				var colList = json['DS_OUT'];
+				var progID = colList[0].PROG_ID;
+				var progNM = colList[0].PROG_NM;
+				var tempTableID = colList[0].TEMP_TABLE_ID;
+				var columnList = '';
+				var columnQty = colList.length;
+				var storeMap = {};
+				var exCount = 0;
+				var saveYn = false;
+
+				// 컬럼 정의.
+				var columnDefine = [];
+				columnDefine.push({type : 'gridrownumber', width:40});
+				for(var i=0; i<colList.length; i++){
+					var colMap = {
+						header : Util.nvl(colList[i].PROG_COL_CD, colList[i].SQL_COL_CD),
+						colName : 'VAL_' + i,
+						required : (colList[i].REQUIRED == "Y") ? true : false, // hjy 2022-04-20 필수추가
+						editable : true, /* 2022-03-24 / sjh / 업로드 그리드에서 편집 가능하도록 수정. */
+						maxSize : colList[i].MAX_SIZE, //2022.03.24 조기근(FCV00348) 추가 : 유효성 체크
+						autoFit : true,
+						text : (colList[i].REQUIRED == "Y") ? Lang.get(Util.nvl(colList[i].PROG_COL_CD, colList[i].SQL_COL_CD)) + '*' : Lang.get(Util.nvl(colList[i].PROG_COL_CD, colList[i].SQL_COL_CD))
+					};
+					columnDefine.push(colMap);
+
+					// insert List 생성.
+					if(i > 0) columnList += ',';
+					columnList += colList[i].SQL_COL_CD;
+
+					// temp data set
+					// 2022-06-13 hjy - undefined 일 때도 있어서 변경
+					if(!Util.isNull(colList[i].EXCEL_EXAMPLE)){
+						storeMap['VAL_' + i] = colList[i].EXCEL_EXAMPLE;
+						exCount++;
+					}
+				}
+
+				// 그리드 정의
+				var popGrid = Ext.create('VC.grid.CommonGrid', {
+					idPrefix : progID,
+					region : 'center',
+					flex : 1,
+					defaultColWidth : 100,
+					editable : true,
+					columnDefine : columnDefine,
+					buttonsConfig: [
+						{
+							text: 'DOWN_EXCEL_TEMPLATE', iconCls: Util.buttonClsConfig('DOWNLOAD'),
+							handler: function() {
+								popGrid.downloadExcelTemplateFile([])/* 2022-03-18 / sjh / 서비스 링커 적용. */;
+							}
+						},
+						{
+							text: 'UP_EXCEL_TO_GRID', iconCls: Util.buttonClsConfig('UPLOAD'),
+							handler: function() {
+								popGrid.openUploadAndReadExcelPopup()/* 2022-03-18 / sjh / 서비스 링커 적용. */;
+							}
+						},
+						{
+							text: 'SAVE', handler: function() {
+								var params = {
+									PROG_ID: progID,
+									TEMP_TABLE_ID: tempTableID,
+									TEMP_TABLE_COLUMN: columnList,
+									TEMP_TABLE_COLUMN_QTY: columnQty
+								}
+
+								// 저장 후 성공시 grid reset hjy 2022-04-20
+								popGrid.save(viewPort, '/excelMgmtService/saveTemp', params, function(result, successYn) {
+									if (successYn) {
+										saveYn = true;
+										popGrid.reset();
+									}
+								}, false);
+							}
+						},
+						{
+							text: 'CLOSE_WINDOW', onClickCompleteEdit: false, handler: function() {
+								// 2022-06-13 hjy param 값 추가
+								// 저장 후 클릭 시 화면 조회
+								// 명칭 변경
+								if (!Util.isNull(param) && !Util.isNull(param.SEARCH) && saveYn) {
+									param.SEARCH();
+								}
+
+								popWin.close();
+							}
+						}
+					]
+				});
+
+				//2022.03.24 조기근(FCV00348) 유효성 체크 추가 시작
+				var tmpValidator = {};
+
+				for(var i=0; i<colList.length; i++){
+					var maxSize = colList[i].MAX_SIZE;
+					var required = colList[i].REQUIRED;
+
+					if(!Util.isNull(maxSize) || !Util.isNull(required)) {
+						tmpValidator['VAL_' + i] = [];
+						tmpValidator['VAL_' + i][0] = function(grid, record, headerName, value) {
+							var columnDefine = getcolumnDefine(grid, headerName);
+							var valueByte = Util.getByte(value);
+
+							if (columnDefine.maxSize > 0 && valueByte > columnDefine.maxSize) {
+								grid.titleText = headerName;
+								return Lang.getRep('MSG_MAX_BYTES', [columnDefine.maxSize, valueByte]);
+							}
+
+							if (columnDefine.required && Util.isNull(value)) {
+								grid.titleText = headerName;
+								return Lang.getRep('MSG_REQUIRED_FIELD_REP', [headerName]);
+							}
+							return true;
+						};
+					}
+				}
+				popGrid.validator = tmpValidator;
+				//2022.03.24 조기근(FCV00348) 유효성 체크 추가 끝
+
+				/* 202.08.12 hjy 추가
+				 * 1. button show/hide
+				 * 2. form show/hide
+				 * */
+				var viewArray = [];
+
+				if (!Util.isNull(param)) {
+					// button show/hide
+					if (!Util.isNull(param.HIDEABLE) && !Util.isNull(param.STARTIDX) && !Util.isNull(param.ENDIDX)) {
+						popGrid.enableBtns(param.HIDEABLE,[param.STARTIDX, param.ENDIDX]);
+
+						var buttons = Ext.ComponentQuery.query('*[id^='+ CURRENT_MENUCODE + 'Button]');
+						var idxs = [];
+
+						idxs.push(param.STARTIDX);
+						idxs.push(param.ENDIDX);
+
+						var idx = idxs.toString();
+
+						for (var n=0; n<buttons.length; n++) {
+							if (idx.indexOf(n.toString()) > -1){
+								if (param.hideable) {
+									buttons[n].show();
+								} else {
+									buttons[n].hide();
+								}
+							}
+						}
+					}
+
+					// form show/hide
+					if (!Util.isNull(param.FORM)) {
+						viewArray.push(param.FORM);
+						viewArray.push(popGrid);
+					} else {
+						viewArray.push(popGrid);
+					}
+				} else {
+					viewArray.push(popGrid);
+				}
+
+				// 팝업 윈도우 생성.
+				var popWin = Ext.create('widget.window', {
+					title: progNM,
+					modal : true,
+					border : 0,
+					width: 1000,
+					height: 600,
+					layout: {
+						type: 'border'
+					},
+					items : viewArray,
+					listeners : {
+						afterrender : function(){
+							// 예시 데이터가 있는 경우 Row 추가
+							if(exCount > 0){
+								var newRow = Ext.create(popGrid.id + 'Model', storeMap);
+								popGrid.store.insert(0, newRow);
+								popGrid.resetTitleText(null, popGrid.store.count());
+							}
+						},
+						close : function(){
+							popGrid.store.removeAll();
+						}
+					}
+				}).show();
+			} else {
+				Ext.MessageBox.show({
+					//title: 'Error Message',
+					msg: json["ErrorMsg"],
+					buttons: Ext.MessageBox.OK,
+					icon: Ext.MessageBox.ERROR
+				});
+			}
+
+			if (!Util.isNull(param) && !Util.isNull(param.AUTORESIZE) && param.AUTORESIZE) {
+				var width = Ext.getCmp(CURRENT_MENUCODE).getView().getRow(0).clientWidth + 15;
+				var win = Ext.getCmp(CURRENT_MENUCODE).up();
+
+				win.setX((window.document.body.offsetWidth)/2 - Util.nvl(width, window.document.body.offsetWidth/2)/2);
+				win.setY((window.document.body.offsetHeight)/2 - Util.nvl(win.height, window.document.body.offsetHeight/2)/2);
+
+				win.setSize(width);
+			}
+		}
+	});
+}
+
+/********************************************************************************************************
+ * 2021.12.07 조기근(FCV00348)
+ * 엑셀 업로드 팝업 창
+ ********************************************************************************************************/
+Ext.define('VC.components.CustomExcelUploadPop',{
+	statics : {
+		show : function(param){
+			var popGrid = Ext.create('VC.grid.CommonGrid', {
+				itemId : '__customExcelUploadPopGrid__',
+				titleText : Util.nvl(param.titleText, ''),
+				editable : Util.nvl(param.editable, false),
+				updateOnly : true,
+				region : 'center',
+				selectionMode : Util.nvl(param.SELECTIONMODE, 'SINGLE'),
+				userColumnSave : false,				//컬럼 개인화 버튼 Active
+				columnDefine : param.columnDefine,
+				//buttonsConfig: param.buttonsConfig,
+				buttonsConfig: [
+					{text: 'SAVE', iconCls : Util.buttonClsConfig('SAVE',''), handler : function(){this.up('[xtype=window]').saveAndSearch();}},
+					{text: 'DELETE', iconCls : Util.buttonClsConfig('DELETE',''), handler : function(){this.up('[xtype=window]').remove();}},
+					{text: 'RESET', iconCls : Util.buttonClsConfig('RESET','icon-apply'), handler : function(){this.up('[xtype=window]').reset();}},
+					{text: 'CANCEL', iconCls : Util.buttonClsConfig('CANCEL',''), handler : function(){this.up('[xtype=window]').close();}},
+					{text : 'UPLOAD',
+						menu : [
+							{
+								text : 'DOWN_EXCEL_TEMPLATE',
+								iconCls : Util.buttonClsConfig('DOWNLOAD'),
+								handler : function(){this.up('[xtype=window]').downExcelTemplate();}
+							},
+							{
+								text : 'UP_EXCEL_TO_GRID',
+								iconCls : Util.buttonClsConfig('UPLOAD'),
+								handler : function(){this.up('[xtype=window]').upExcelDataToGrid();}
+							}
+						]
+					}
+				],
+				editorConfig : Util.nvl(param.editorConfig, {}),
+				validator : Util.nvl(param.validator, {}),
+				listeners : Util.nvl(param.listeners, {})
+			});
+
+			//엑셀 업로드 데이타 유효성 체크
+			if(!Util.isNull(param.loadData)) {
+				popGrid.loadData = param.loadData;
+			}
+
+			//윈도우 띄우기
+			return Ext.create('Ext.window.Window', {
+				title: Util.nvl(Util.nvl(param.COLUMNDESCR_LANG, Lang.get(param.TITLE)),'NEW'),
+				constrainHeader: true,
+				autoShow : true,
+				modal : true,
+				width : param.width,
+				height : param.height,
+				layout : 'fit',
+				hasReturnVal : false,
+				listeners : {
+					afterrender : function(){
+						var me = this;
+						Ext.defer(function(){
+							var grid = Ext.getCmp('__customExcelUploadPopGrid__');
+							//grid.loadExcelData();
+							grid.openUploadAndReadExcelPopup();
+						},500);
+					},
+					close : function(){
+						var me = this;
+						popGrid.store.removeAll();
+					}
+				},
+				items : [
+					{
+						xtype : 'container',
+						name : 'windowContent',
+						layout : 'border',
+						items : [
+							popGrid
+						]
+					}
+				],
+				//저장
+				saveAndSearch : function(){
+					var me = this;
+					var grid = Ext.getCmp('__customExcelUploadPopGrid__');
+					grid.saveAndSearch(viewPort, param.saveURL, {}, param.searchFunc, param.confirmYn);
+				},
+				//삭제
+				remove : function(){
+					var me = this;
+					var grid = Ext.getCmp('__customExcelUploadPopGrid__');
+					var store = grid.getStore();
+					if(grid.lastSelectedRowIdx > -1) {//선택한 행 Index
+						store.removeAt(grid.lastSelectedRowIdx);//선택한 행 Index의 레코드 제거
+						//그리드 레코드 건수 표시
+						Ext.getCmp(grid.id + "DataCount").setText(Lang.get(grid.titleText)+' : ' + store.getData().length);
+					}
+				},
+				//초기화
+				reset : function(){
+					var me = this;
+					var grid = Ext.getCmp('__customExcelUploadPopGrid__');
+					grid.clear();
+				},
+				//엑셀 업로드용 템플릿 다운
+				downExcelTemplate : function(){
+					var me = this;
+					var grid = Ext.getCmp('__customExcelUploadPopGrid__');
+					grid.downExcelSearch();
+				},
+				//엑셀 데이터 그리드에 로드
+				upExcelDataToGrid : function(){
+					var me = this;
+					var grid = Ext.getCmp('__customExcelUploadPopGrid__');
+					//grid.loadExcelData();
+					grid.openUploadAndReadExcelPopup();
+				}
+			});
+		}
+	}
+});
+
+function customPickCellPop(param)
+{
+	//팝업창의 조회조건. 상품코드, 상품명
+	var searchConditionDS = [
+		{
+			TYPE		: 'FIELD',
+			DATATYPE	: 'STRING',
+			DBCOLUMN	: 'WCELL_NO',
+			COLUMNDESCR : 'WCELL_NO',
+			COLUMNDESCR_LANG : Lang.get('WCELL'),
+			OPERATOR	: 'LIKE',
+			DEFAULTVALUE : param.PARAM1
+		},
+		{
+			TYPE 		: 'FIELD',
+			DATATYPE 	: 'STRING',
+			DBCOLUMN 	: 'WCELL_NM',
+			COLUMNDESCR : 'WCELL_NM',
+			COLUMNDESCR_LANG : Lang.get('WCELL_NM'),
+			OPERATOR : 'LIKE'
+		},
+		{
+			TYPE		: 'COMBO',
+			DATATYPE	: 'STRING',
+			DBCOLUMN	: 'ITEM_YN',
+			COLUMNDESCR : 'ITEM_YN',
+			COLUMNDESCR_LANG : Lang.get('ITEM_YN'),
+			OPERATOR	: 'LIKE',
+			SQLPROP 	: 'CODE',
+			KEYPARAM 	: 'USE_YN'
+		},
+		{
+			TYPE		: 'FIELD',
+			DATATYPE	: 'STRING',
+			DBCOLUMN	: 'ITEM_CNT',
+			COLUMNDESCR : 'ITEM_CNT',
+			COLUMNDESCR_LANG : Lang.get('ITEM_CNT_01'),
+			OPERATOR	: 'LIKE'
+		},
+	];
+	var params = {
+		CURRENT_MENUCODE : Util.nvl(param.CURRENT_MENUCODE, CURRENT_MENUCODE),
+		MODULE : Util.nvl(param.MODULE),
+		KEYPARAM : param.KEYPARAM,
+		PARAM1 : param.PARAM1,
+		PARAM2 : param.PARAM2,
+		PARAM3 : param.PARAM3,
+		PARAM4 : param.PARAM4,
+		PARAM5 : param.PARAM5,
+		PARAM6 : param.PARAM6,
+		PARAM7 : param.PARAM7,
+		PARAM8 : param.PARAM8,
+		PARAM9 : param.PARAM9,
+		PARAM10 : param.PARAM10
+	};
+
+	//한글의 경우 대비하여...
+	for(key in params)
+	{
+		if(!Util.isNull(params[key]))
+		{
+			params[key] = encodeURIComponent(params[key]);
+		}
+	}
+	var searchformID = 'PICK_CELL_SEACH_DS_FORM';
+
+	//조회 팝업 생성
+	getSearchConditionFormWithDS(searchConditionDS, {id : searchformID}, function(searchForm){
+		//그리드 생성. 팝업창을 닫을 때 그 하위 콤포넌트들이 distroy 되기 때문에 창 열 때마다 새로 만든다.
+		searchForm.enterSearch = true;
+		var popGrid = Ext.create('VC.grid.CommonGrid', {
+			idPrefix : 'popGrid',
+			region : 'center',
+			flex : 1,
+			defaultColWidth : 'autofit',
+			editable : false,
+			useCheckboxModel : true,
+			selectionMode : Util.nvl(param.SELECTIONMODE, 'SINGLE'),
+			pageSize : param.PAGESIZE,
+			pageNaviDock : Util.nvl(param.PAGESIZE, null)? 'bottom':'top',
+			columnDefine : [
+				{type : 'gridrownumber', width:40},
+				{header : 'WCELL_NO', 				colName : 'WCELL_NO', 				width : 150, 		align : 'center'},
+				{header : 'WCELL_NM', 				colName : 'WCELL_NM', 				width : 150,		align : 'center'},
+				{header : 'ZONE_NM',				colName : 'ZONE_NM',				width : 150,		align : 'center'},
+				{header : 'ITEM_YN',				colName : 'ITEM_YN',				width : 150,		align : 'center', type :'combobox', comboParam : {SQLPROP : 'CODE', KEYPARAM : 'USE_YN'}},
+				{header : 'ITEM_CNT_01',			colName : 'ITEM_CNT',				width : 150,		align : 'center'},
+				{header : 'STAGE_YN',				colName : 'STAGE_YN',				width : 150,		align : 'center', type :'combobox', comboParam : {SQLPROP : 'CODE', KEYPARAM : 'USE_YN'}}
+			],
+			listeners : {
+				celldblclick : function(me, td, cellIdx, record, tr, rowIdx, evt, eOpts){
+					me.up('[xtype=window]').closeAndReturn();
+				}
+			},
+			buttonsConfig: [
+				{text: 'SEARCH', onClickCompleteEdit : false, handler : function(){
+					popWin.searchData();
+				}},
+				{text: 'CANCEL', onClickCompleteEdit : false, handler : function(){
+					popWin.close();
+				}}
+			]
+		});
+
+		//팝업 창 띄우기
+		//실질적인 POPUP을 실행함
+		var popWin = Ext.create('widget.window', {
+			title: '상품 조회',
+			id :  'popWin',
+			constrainHeader: true,
+			closable: true,
+			modal : true,
+			border : 0,
+			width: 1000,
+			height: 500,
+			layout: {
+				type: 'fit'
+			},
+			hasReturnVal : false,
+			listeners : {
+				afterrender : function(){
+					var me = this;
+					Ext.defer(function(){
+						me.items.items[0].items.items[0].items.items[0].items.items[2].focus();
+						if(Util.nvl(param.AUTOSEARCH,false)) {
+							me.searchData();
+						}
+					},500);
+				},
+				close : function(){
+					var me = this;
+					if(param.CALLBY) param.CALLBY.popWinOpened = false;
+					if(!me.hasReturnVal && param.CALLBY && param.CALLBY.onPopClose)
+					{
+						param.CALLBY.onPopClose();
+					}
+					popGrid.getStore().removeAll();
+				}
+			},
+			items: [
+				{
+					layout : 'border',
+					items : [
+						searchForm, //생성된 폼이 파라미터로 넘어옴.
+						popGrid
+					]
+				}
+			],
+			searchData : function(){
+				//위에 지정한 폼 패널의 아이디로 팝업 창의 조회조건 폼 밸리데이션 후 조회조건 데이터셋 DS_SEARCHCONDITION 셋팅.
+				if( ! setSearchConditionDataSet(searchformID) ) return;
+				//popGrid의 search를 실행함
+				popGrid.search(popWin, '/appService/pickCell', params);
+
+			},
+			closeAndReturn : function(){
+				var me = this;
+				me.hasReturnVal = true;
+				var grid = this.down('grid');
+				var selRows = grid.getSelectionModel().getSelection();
+				var ret = [];
+				for(var n=0; n<selRows.length; n++)
+				{
+					if(Util.nvl(param.RETURNROW, false))
+					{
+						ret.push(selRows[n].data);
+					}
+					else
+					{
+						ret.push(selRows[n].data['ITEM_CD']);
+					}
+				}
+				if(param.CALLBY && param.CALLBY.onPopClose)
+				{
+					param.CALLBY.onPopClose(ret);
+				}
+				else if(param.afterGetRow)
+				{
+					param.afterGetRow(ret);
+				}
+				popGrid.getStore().removeAll();
+				me.close();
+			}
+		}).show();
+	});
+}
+
+//2023.12.06 로케이션코드, 로케이션명 추가 팝업 신규생성
+function customPickCellLocPop(param)
+{
+	//팝업창의 조회조건. 상품코드, 상품명
+	var searchConditionDS = [
+		{
+			TYPE		: 'FIELD',
+			DATATYPE	: 'STRING',
+			DBCOLUMN	: 'WLOC_CD',
+			COLUMNDESCR : 'WLOC_CD',
+			COLUMNDESCR_LANG : Lang.get('WLOC_CD'),
+			OPERATOR	: 'LIKE'
+		},
+		{
+			TYPE 		: 'FIELD',
+			DATATYPE 	: 'STRING',
+			DBCOLUMN 	: 'WLOC_NM',
+			COLUMNDESCR : 'WLOC_NM',
+			COLUMNDESCR_LANG : Lang.get('WLOC_NM'),
+			OPERATOR : 'LIKE'
+		},
+		{
+			TYPE		: 'FIELD',
+			DATATYPE	: 'STRING',
+			DBCOLUMN	: 'WCELL_NO',
+			COLUMNDESCR : 'WCELL_NO',
+			COLUMNDESCR_LANG : Lang.get('WCELL'),
+			OPERATOR	: 'LIKE',
+			DEFAULTVALUE : param.PARAM1
+		},
+		{
+			TYPE 		: 'FIELD',
+			DATATYPE 	: 'STRING',
+			DBCOLUMN 	: 'WCELL_NM',
+			COLUMNDESCR : 'WCELL_NM',
+			COLUMNDESCR_LANG : Lang.get('WCELL_NM'),
+			OPERATOR : 'LIKE'
+		},
+		{
+			TYPE		: 'COMBO',
+			DATATYPE	: 'STRING',
+			DBCOLUMN	: 'ITEM_YN',
+			COLUMNDESCR : 'ITEM_YN',
+			COLUMNDESCR_LANG : Lang.get('ITEM_YN'),
+			OPERATOR	: 'LIKE',
+			SQLPROP 	: 'CODE',
+			KEYPARAM 	: 'USE_YN'
+		},
+		{
+			TYPE		: 'FIELD',
+			DATATYPE	: 'STRING',
+			DBCOLUMN	: 'ITEM_CNT',
+			COLUMNDESCR : 'ITEM_CNT',
+			COLUMNDESCR_LANG : Lang.get('ITEM_CNT_01'),
+			OPERATOR	: 'LIKE'
+		},
+	];
+	var params = {
+		CURRENT_MENUCODE : Util.nvl(param.CURRENT_MENUCODE, CURRENT_MENUCODE),
+		MODULE : Util.nvl(param.MODULE),
+		KEYPARAM : param.KEYPARAM,
+		PARAM1 : param.PARAM1,
+		PARAM2 : param.PARAM2,
+		PARAM3 : param.PARAM3,
+		PARAM4 : param.PARAM4,
+		PARAM5 : param.PARAM5,
+		PARAM6 : param.PARAM6,
+		PARAM7 : param.PARAM7,
+		PARAM8 : param.PARAM8,
+		PARAM9 : param.PARAM9,
+		PARAM10 : param.PARAM10
+	};
+
+	//한글의 경우 대비하여...
+	for(key in params)
+	{
+		if(!Util.isNull(params[key]))
+		{
+			params[key] = encodeURIComponent(params[key]);
+		}
+	}
+	var searchformID = 'PICK_CELL_SEACH_DS_FORM';
+
+	//조회 팝업 생성
+	getSearchConditionFormWithDS(searchConditionDS, {id : searchformID}, function(searchForm){
+		//그리드 생성. 팝업창을 닫을 때 그 하위 콤포넌트들이 distroy 되기 때문에 창 열 때마다 새로 만든다.
+		searchForm.enterSearch = true;
+		var popGrid = Ext.create('VC.grid.CommonGrid', {
+			idPrefix : 'popGrid',
+			region : 'center',
+			flex : 1,
+			defaultColWidth : 'autofit',
+			editable : false,
+			useCheckboxModel : true,
+			selectionMode : Util.nvl(param.SELECTIONMODE, 'SINGLE'),
+			pageSize : param.PAGESIZE,
+			pageNaviDock : Util.nvl(param.PAGESIZE, null)? 'bottom':'top',
+			columnDefine : [
+				{type : 'gridrownumber', width:40},
+				{header : 'WCELL_NO', 				colName : 'WCELL_NO', 				width : 150, 		align : 'center'},
+				{header : 'WCELL_NM', 				colName : 'WCELL_NM', 				width : 150,		align : 'center'},
+				{header : 'ZONE_NM',				colName : 'ZONE_NM',				width : 150,		align : 'center'},
+				{header : 'WLOC_CD', 				colName : 'WLOC_CD', 				width : 150, 		align : 'center'},
+				{header : 'WLOC_NM', 				colName : 'WLOC_NM', 				width : 150,		align : 'center'},
+				{header : 'ITEM_YN',				colName : 'ITEM_YN',				width : 150,		align : 'center', type :'combobox', comboParam : {SQLPROP : 'CODE', KEYPARAM : 'USE_YN'}},
+				{header : 'ITEM_CNT_01',			colName : 'ITEM_CNT',				width : 150,		align : 'center'},
+				{header : 'STAGE_YN',				colName : 'STAGE_YN',				width : 150,		align : 'center', type :'combobox', comboParam : {SQLPROP : 'CODE', KEYPARAM : 'USE_YN'}}
+
+			],
+			listeners : {
+				celldblclick : function(me, td, cellIdx, record, tr, rowIdx, evt, eOpts){
+					me.up('[xtype=window]').closeAndReturn();
+				}
+			},
+			buttonsConfig: [
+				{text: 'SEARCH', onClickCompleteEdit : false, handler : function(){
+					popWin.searchData();
+				}},
+				{text: 'CANCEL', onClickCompleteEdit : false, handler : function(){
+					popWin.close();
+				}}
+			]
+		});
+
+		//팝업 창 띄우기
+		//실질적인 POPUP을 실행함
+		var popWin = Ext.create('widget.window', {
+			title: '상품 조회',
+			id :  'popWin',
+			constrainHeader: true,
+			closable: true,
+			modal : true,
+			border : 0,
+			width: 1000,
+			height: 500,
+			layout: {
+				type: 'fit'
+			},
+			hasReturnVal : false,
+			listeners : {
+				afterrender : function(){
+					var me = this;
+					Ext.defer(function(){
+						me.items.items[0].items.items[0].items.items[0].items.items[2].focus();
+						if(Util.nvl(param.AUTOSEARCH,false)) {
+							me.searchData();
+						}
+					},500);
+				},
+				close : function(){
+					var me = this;
+					if(param.CALLBY) param.CALLBY.popWinOpened = false;
+					if(!me.hasReturnVal && param.CALLBY && param.CALLBY.onPopClose)
+					{
+						param.CALLBY.onPopClose();
+					}
+					popGrid.getStore().removeAll();
+				}
+			},
+			items: [
+				{
+					layout : 'border',
+					items : [
+						searchForm, //생성된 폼이 파라미터로 넘어옴.
+						popGrid
+					]
+				}
+			],
+			searchData : function(){
+				//위에 지정한 폼 패널의 아이디로 팝업 창의 조회조건 폼 밸리데이션 후 조회조건 데이터셋 DS_SEARCHCONDITION 셋팅.
+				if( ! setSearchConditionDataSet(searchformID) ) return;
+				//popGrid의 search를 실행함
+				popGrid.search(popWin, '/appService/pickCellLoc', params);
+
+			},
+			closeAndReturn : function(){
+				var me = this;
+				me.hasReturnVal = true;
+				var grid = this.down('grid');
+				var selRows = grid.getSelectionModel().getSelection();
+				var ret = [];
+				for(var n=0; n<selRows.length; n++)
+				{
+					if(Util.nvl(param.RETURNROW, false))
+					{
+						ret.push(selRows[n].data);
+					}
+					else
+					{
+						ret.push(selRows[n].data['ITEM_CD']);
+					}
+				}
+				if(param.CALLBY && param.CALLBY.onPopClose)
+				{
+					param.CALLBY.onPopClose(ret);
+				}
+				else if(param.afterGetRow)
+				{
+					param.afterGetRow(ret);
+				}
+				popGrid.getStore().removeAll();
+				me.close();
+			}
+		}).show();
+	});
+}
+
+/**
+ * @since 2022-09-14
+ * @author sjh
+ * @name 배송거래처 팝업. 조회조건에서 쓰인다.
+ * @history 2022-10-06 hjy
+ * 			1. 팝업 사이즈 조절
+ * 			2. 팝업 명칭 변경 배송거래처 -> 점포
+ * 			3. 다른 모듈에서 사용가능하도록 변경
+ */
+function openCustomerPop(param) {
+
+	var searchConditionDS = [
+		{
+			TYPE		: 'FIELD',
+			DATATYPE	: 'STRING',
+			DBCOLUMN	: 'CODE',
+			COLUMNDESCR : 'CODE',
+			COLUMNDESCR_LANG : Lang.get('CODE'),
+			OPERATOR	: 'LIKE',
+			REQUIREMENT : 'N'
+		},
+		{
+			TYPE 		: 'FIELD',
+			DATATYPE 	: 'STRING',
+			DBCOLUMN 	: 'NAME',
+			COLUMNDESCR : 'CODENAME',
+			COLUMNDESCR_LANG : Lang.get('CODENAME'),
+			OPERATOR : 'LIKE',
+			REQUIREMENT : 'N'
+		},
+		{
+			TYPE		: 'COMBO',
+			DATATYPE	: 'STRING',
+			DBCOLUMN	: 'MGMT_STAT_CD',
+			COLUMNDESCR : 'MGMT_STAT_CD',
+			COLUMNDESCR_LANG : Lang.get('GDS_MGMT_STAT_CD'),
+			OPERATOR	: 'LIKE',
+			SQLPROP 	: 'CODE',
+			KEYPARAM 	: 'M333',
+			DEFAULTVALUE : 1
+		}
+	];
+	var params = {
+		CURRENT_MENUCODE : Util.nvl(param.CURRENT_MENUCODE, CURRENT_MENUCODE),
+		MODULE : Util.nvl(param.MODULE),
+		KEYPARAM : param.KEYPARAM,
+		SQL_ID : param.SQLPROP,
+		SQLPROP : param.SQLPROP,
+		PARAM1 : param.PARAM1,
+		PARAM2 : param.PARAM2,
+		PARAM3 : param.PARAM3,
+		PARAM4 : param.PARAM4,
+		PARAM5 : param.PARAM5,
+		PARAM6 : param.PARAM6,
+		PARAM7 : param.PARAM7,
+		PARAM8 : param.PARAM8,
+		PARAM9 : param.PARAM9,
+		PARAM10 : param.PARAM10
+	};
+
+	//한글의 경우 대비하여...
+	for (key in params) {
+		if (!Util.isNull(params[key])) {
+			params[key] = encodeURIComponent(params[key]);
+		}
+	}
+
+	var searchformID = 'CUSTOMER_SEACH_DS_FORM';
+	var module = params.MODULE.toLowerCase();
+
+	//조회 팝업 생성
+	getSearchConditionFormWithDS(searchConditionDS, {id : searchformID}, function(searchForm){
+		//그리드 생성. 팝업창을 닫을 때 그 하위 콤포넌트들이 distroy 되기 때문에 창 열 때마다 새로 만든다.
+		searchForm.enterSearch = true;
+		var popGrid = Ext.create('VC.grid.CommonGrid', {
+			idPrefix : 'popGrid',
+			region : 'center',
+			flex : 1,
+			defaultColWidth : 'autofit',
+			editable : false,
+			useCheckboxModel : true,
+			selectionMode : Util.nvl(param.SELECTIONMODE, 'SINGLE'),
+			pageSize : param.PAGESIZE,
+			pageNaviDock : Util.nvl(param.PAGESIZE, null)? 'bottom':'top',
+			columnDefine : [
+				{type : 'gridrownumber', width: 50, minWidth: 50},
+				{header : 'CODE', colName : 'CODE', align : 'center', flex: 1},
+				{header : 'CODENAME', colName : 'NAME', align : 'left', flex: 1}
+			],
+			listeners : {
+				celldblclick : function(me, td, cellIdx, record, tr, rowIdx, evt, eOpts){
+					popWin.closeAndReturn();
+				}
+			},
+			buttonsConfig: [
+				{text: 'SEARCH', onClickCompleteEdit : false, handler : function(){
+					popWin.searchData();
+				}},
+				{text: 'APPLY', onClickCompleteEdit : false, iconCls : 'icon-apply', handler : function(){
+					popWin.closeAndReturn();
+				}},
+				{text: 'CANCEL', onClickCompleteEdit : false, handler : function(){
+					popWin.close();
+				}}
+			]
+		});
+
+		//팝업 창 띄우기
+		//실질적인 POPUP을 실행함
+		var popWin = Ext.create('widget.window', {
+			title: Lang.get('STOR'),
+			id :  'popWin',
+			constrainHeader: true,
+			closable: true,
+			modal : true,
+			border : 0,
+			width: 600,
+			height: 400,
+			layout: {
+				type: 'fit'
+			},
+			hasReturnVal : false,
+			listeners : {
+				afterrender : function() {
+					var me = this;
+					Ext.defer(function() {
+						getSearchConditionFields(Util.nvl(param.NAME_HEADER, 'CODENAME'), searchformID)[2].focus();
+						if (Util.nvl(param.AUTOSEARCH,false)) {
+							me.searchData();
+						}
+					}, 100);
+				},
+				close : function() {
+					var me = this;
+					if (param.CALLBY) param.CALLBY.popWinOpened = false;
+					if (!me.hasReturnVal && param.CALLBY && param.CALLBY.onPopClose) {
+						param.CALLBY.onPopClose();
+					}
+					popGrid.getStore().removeAll();
+				}
+			},
+			items: [
+				{
+					layout : 'border',
+					items : [
+						searchForm, //생성된 폼이 파라미터로 넘어옴.
+						popGrid
+					]
+				}
+			],
+			searchData : function() {
+				//위에 지정한 폼 패널의 아이디로 팝업 창의 조회조건 폼 밸리데이션 후 조회조건 데이터셋 DS_SEARCHCONDITION 셋팅.
+				if (!setSearchConditionDataSet(searchformID)) return;
+
+				// popGrid의 search를 실행함
+				// HJY - 2022-10-06 모듈별로 쓸 수 있게 변경
+				popGrid.search(popWin, '/' + module + 'CommonService/search', params, false, function(result, successYn) {
+					// vc-all-min.js 에서 체크해제하기때문에 다시 세팅
+					popGrid.getSelectionModel().select(popGrid.store.first());
+					popGrid.lastSelectedRow = popGrid.store.first();
+					popGrid.lastSelectedRowIdx = 0;
+				}, true);
+			},
+			closeAndReturn: function() {
+				var me = this;
+				me.hasReturnVal = true;
+				var grid = this.down('grid');
+				var selRows = grid.getSelectionModel().getSelection();
+				var ret = [];
+				var nm = [];
+
+				//체크박스 선택 없을때
+				if (selRows.length == 0) {
+					Ext.MessageBox.show({
+						msg: Lang.get('NO_ROW_SELECTED'),
+						buttons: Ext.MessageBox.OK,
+						icon: Ext.MessageBox.INFO
+					});
+					return;
+				}
+
+				for (var n = 0; n < selRows.length; n++) {
+					if (!Util.isNull(param.afterGetRow)) {
+						for (var s = 0; s < grid.searchResult.length; s++) {
+							var row = grid.searchResult[s];
+							if (selRows[n].data[Util.nvl(param.CODE_COLNAME, 'CODE')] == row[Util.nvl(param.CODE_COLNAME, 'CODE')]) {
+								ret.push(row);
+								if (Util.nvl(param.SELECTIONMODE, 'SINGLE') == 'SINGLE') break;
+							}
+						}
+					} else if (Util.nvl(param.RETURNROW, false)) {
+						ret.push(selRows[n].data);
+						nm.push(selRows[n].data);
+					} else {
+						ret.push(selRows[n].data[Util.nvl(param.CODE_COLNAME, 'CODE')]);
+						nm.push(selRows[n].data[Util.nvl(param.NAME_COLNAME, 'NAME')]);
+					}
+				}
+
+				if (param.CALLBY && param.CALLBY.onPopClose) {
+					param.CALLBY.onPopClose(ret, nm);
+				} else if (param.afterGetRow) {
+					param.afterGetRow(ret);
+				}
+				popGrid.getStore().removeAll();
+				me.close();
+			}
+		}).show();
+	});
+}
+
+function commonCellPop(param){
+
+	var searchConditionDS = [
+
+		{
+		    TYPE		: 'FIELD',
+		    DATATYPE	: 'STRING',
+			DBCOLUMN	: 'ZONE_CD',
+			COLUMNDESCR : 'ZONE_CD',
+			COLUMNDESCR_LANG : Lang.get('ZONE_CD'),
+			OPERATOR	: 'LIKE',
+			REQUIREMENT : 'N'
+		},
+		{
+		    TYPE		: 'FIELD',
+		    DATATYPE	: 'STRING',
+			DBCOLUMN	: 'ZONE_NM',
+			COLUMNDESCR : 'ZONE_NM',
+			COLUMNDESCR_LANG : Lang.get('ZONE_NM'),
+			OPERATOR	: 'LIKE',
+			REQUIREMENT : 'N'
+		},
+		{
+		    TYPE		: 'FIELD',
+		    DATATYPE	: 'STRING',
+			DBCOLUMN	: 'WCELL_NO',
+			COLUMNDESCR : 'WCELL',
+			COLUMNDESCR_LANG : Lang.get('WCELL'),
+			OPERATOR	: 'LIKE',
+			REQUIREMENT : 'N'
+		},
+		{
+		    TYPE		: 'FIELD',
+		    DATATYPE	: 'STRING',
+			DBCOLUMN	: 'WCELL_NM',
+			COLUMNDESCR : 'WCELL_NM',
+			COLUMNDESCR_LANG : Lang.get('WCELL_NM'),
+			OPERATOR	: 'LIKE',
+			REQUIREMENT : 'N'
+		}
+	];
+
+	var searchformID = 'WCELL_POP_WMS141123';
+
+	getSearchConditionFormWithDS(searchConditionDS, {id : searchformID}, function(searchForm){
+    	searchForm.enterSearch = true;
+        //그리드 생성. 팝업창을 닫을 때 그 하위 콤포넌트들이 distroy 되기 때문에 창 열 때마다 새로 만든다.
+        popGrid = Ext.create('VC.grid.CommonGrid', {
+            idPrefix : 'popGrid',
+            region : 'center',
+            flex : 1,
+            defaultColWidth : 190,
+			selectionMode : 'SINGLE',
+            pageSize : 1000,
+            editable : false,
+        	features: [{
+                ftype: 'summary',
+        		dock : 'bottom'
+            }],
+            columnDefine : [
+                {type : 'gridrownumber', width:50},
+                {header : 'WCELL_NO',align:'center'},
+                {header : 'WCELL_NM',align:'center'},
+                {header : 'ZONE_CD',align:'center'},
+                {header : 'ZONE_NM',align:'center'}
+            ],
+            buttonsConfig: [
+                {text: 'SEARCH', onClickCompleteEdit : false, handler : function(){
+					popWin.searchData();
+                }},
+                {text: 'APPLY', onClickCompleteEdit : false, iconCls : 'icon-apply', handler : function(){
+                    popWin.closeAndReturn();
+                }},
+            ],
+            listeners : {
+                celldblclick : function(me, td, cellIdx, record, tr, rowIdx, evt, eOpts){
+                	popWin.closeAndReturn();
+                }
+            }
+        });
+        popGrid.reset();
+
+        //팝업 창 띄우기
+        //실질적인 POPUP을 실행함
+        var popWin = Ext.create('widget.window', {
+            title: Lang.get('WCELL'),
+            constrainHeader: true,
+            closable: true,
+            modal : true,
+            border : 0,
+            width: 800,
+            height: 500,
+            layout: {
+                type: 'fit'
+            },
+            items: [
+                {
+                    layout : 'border',
+                    items : [
+                        searchForm, //생성된 폼이 파라미터로 넘어옴.
+                        popGrid
+                    ]
+                }
+            ],
+        	searchData : function(){
+
+        		var whCd = getSearchConditionValue("WH_CD","SEARCH_CONDITION");
+        		if(Util.isNull(whCd)){
+        			Ext.MessageBox.show({
+        	            msg: "검색조건에 창고코드를 설정해야합니다.",
+        	            buttons: Ext.MessageBox.OK,
+        	            icon: Ext.MessageBox.INFO
+        	        });
+        	 		return;
+        		}
+
+                if( ! setSearchConditionDataSet(searchformID)){ return;}
+                var param = {
+               		 SQL_ID : 'SELECT_WMT_CMD_CELL_WITH_ZONE'
+               		,PAGE_SIZE : 1000
+               		,KEYPARAM : whCd
+                };
+                popGrid.search(popGrid, '/wmsCommonService/search',param);
+
+    		},
+    		closeAndReturn : function(){
+    			var me = this;
+                me.hasReturnVal = true;
+                var grid = this.down('grid');
+                var selRows = grid.getSelectionModel().getSelection();
+                //체크박스 선택 없을때
+                if(selRows.length == 0){
+                	Ext.MessageBox.show({
+                        msg: Lang.get('NO_ROW_SELECTED'),
+                        buttons: Ext.MessageBox.OK,
+                        icon: Ext.MessageBox.INFO
+                    });
+                	return;
+                }
+                //선택한 대상 SET
+                var ret = selRows[0].data;
+                var col = param['COLUMNDESCR']
+                var colNm = param['POPUP_NM']
+
+				if(param['PARAM10'] == 'N'){
+					param.afterGetRow(param.GRID, ret);
+				}else{
+	                setSearchConditionValue(col,ret.WCELL_NO);
+					if(!Util.isNull(colNm)){
+	                	setSearchConditionValue(colNm,ret.WCELL_NM);
+					}
+				}
+
+                me.close();
+    		}
+        }).show();
+    });
+}
+
+//상품조회 팝업
+function itemAllPop (param)
+{
+    //팝업창의 조회조건. 상품코드, 상품명, 사용여부
+    var searchConditionDS = [{
+        TYPE: 'FIELD',
+        DATATYPE: 'STRING', 
+        DBCOLUMN: 'ITEM_CD', 
+        COLUMNDESCR: 'ITEM_CD', 
+        COLUMNDESCR_LANG: Lang.get('ITEM_CD'), 
+        OPERATOR: 'LIKE',
+        DEFAULTVALUE: Util.nvl(param.DEFAULTVALUE, '')
+    }, {
+        TYPE: 'FIELD',
+        DATATYPE: 'STRING', 
+        DBCOLUMN: 'ITEM_NM', 
+        COLUMNDESCR: 'ITEM_NM',
+        COLUMNDESCR_LANG: Lang.get('ITEM_NM'), 
+        OPERATOR: 'LIKE'
+    }, {
+        TYPE: 'COMBO',
+        DATATYPE: 'STRING', 
+        DBCOLUMN: 'USE_YN', 
+        COLUMNDESCR: 'USE_YN',
+        COLUMNDESCR_LANG: Lang.get('USE_YN'), 
+        OPERATOR: '=',
+        OPERATORFIX: 'Y',
+        SQLPROP: 'CODE',
+        KEYPARAM: 'USE_YN',
+        DEFAULTVALUE: 'Y'
+    }];
+    
+    var params = {
+        TITLE : Lang.get('SEARCH_ITEM'),
+        PAGE_SIZE: 1000,
+        MODULE : param.MODULE,
+        SELECTIONMODE: Util.nvl(param.SELECTIONMODE, 'MULTI'),
+        CURRENT_MENUCODE: CURRENT_MENUCODE,
+        SQLPROP: param.SQLPROP,
+        KEYPARAM: param.KEYPARAM,
+        SQL_ID: 'ITEM_ALL_YN',
+        PARAM1: param.PARAM1,
+        PARAM2: param.PARAM2,
+        PARAM3: param.PARAM3,
+        PARAM4: param.PARAM4,
+        PARAM5: param.PARAM5,
+        PARAM6: param.PARAM6,
+        PARAM7: param.PARAM7,
+        PARAM8: Util.nvl(param.PARAM8, 'Y'), // 사용여부 기본값 세팅, 전체가 기본일 경우 all표기
+        PARAM9: Util.nvl(param.PARAM9, 'false'), // 사용여부 수정가능 여부
+        PARAM10: param.PARAM10 // 조회조건인지 아닌지 여부
+    };
+    
+    var searchformID = 'ITEM_ALL_POP_SEACH_DS_FORM';
+    
+    getSearchConditionFormWithDS(searchConditionDS, {id: searchformID}, function (searchForm) {
+        searchForm.enterSearch = true;
+        
+        //그리드 생성. 팝업창을 닫을 때 그 하위 컴포넌트들이 distroy 되기 때문에 창 열 때마다 새로 만든다.
+        var popGrid = Ext.create('VC.grid.CommonGrid', {
+            idPrefix: 'popAllItemGrid',
+            region: 'center',
+            flex: 1,
+            defaultColWidth: 150,
+            editable: false,
+            useCheckboxModel: true,
+            selectionMode: params.SELECTIONMODE,
+            pageSize : params.PAGE_SIZE,
+            pageNaviDock: 'bottom',
+            columnDefine: [
+                  {type: 'gridrownumber', width: 50},
+                  {header: 'ITEM_CD', width: 100, align: 'center'}, // 상품코드
+                  {header: 'ITEM_NM', minWidth: 250, flex: 1}, // 상품명
+                  {header: 'USE_YN', type : 'combobox', comboStore : storeUseYn, width: 80}, // 상품명
+                  {header: 'PROD_VALID_DAYS', hidden : true, hideable : false} // 제조일 유효일수
+              ],
+            buttonsConfig: [
+                {text: 'SEARCH', onClickCompleteEdit : false, handler: function () {
+                      popWin.searchData();
+                }},
+                {text: 'APPLY', onClickCompleteEdit : false, iconCls: 'icon-apply', handler: function () {
+                     popWin.closeAndReturn();
+                }},
+                {text: 'CANCEL', onClickCompleteEdit : false, handler : function () {
+                      popWin.close();
+                }}
+            ],
+            listeners : {
+                celldblclick : function(me, td, cellIdx, record, tr, rowIdx, evt, eOpts){
+                    param.PARAM1 == 'POP' ? popWin.closeAndReturnPop() : popWin.closeAndReturn();
+                }
+            }
+        });
+        
+        popGrid.getStore().removeAll();
+        
+        //팝업 창 띄우기
+        //실질적인 POPUP을 실행함
+        var popWin = Ext.create('widget.window', {
+            title: params.TITLE,
+            constrainHeader: true,
+            closable: true,
+            modal: true,
+            draggable: true,
+            border: 0,
+            width: 600,
+            height: 500,
+            autoFit:true,
+            layout: {
+                type: 'fit'
+            },
+            hasReturnVal: false,
+            listeners: {
+                //리스너 대신 handler로 처리
+            },
+            items: [{
+                layout : 'border',
+                items : [
+                    searchForm,
+                    popGrid
+                ]
+            }],
+            listeners: {
+                afterrender: function (me, eOpts){
+                    if (params.PARAM8.toUpperCase() === 'ALL') {
+                        setSearchConditionValue("USE_YN", '' , searchformID);
+                    } else {
+                        setSearchConditionValue("USE_YN", params.PARAM8.toUpperCase() , searchformID);
+                    }
+                    
+                    var trueFalseYn = params.PARAM9.toUpperCase() === 'TRUE'? true:false;
+                    searchForm.getForm().findField('USE_YN').setReadOnly(trueFalseYn);
+                }
+            },
+            searchData: function () {
+                //위에 지정한 폼 패널의 아이디로 팝업 창의 조회조건 폼 밸리데이션 후 조회조건 데이터셋 DS_SEARCHCONDITION 셋팅.
+                if ( !setSearchConditionDataSet(searchformID) ) return;
+                
+                //popGrid의 search를 실행함
+                popGrid.search(popWin, '/wmsCommonService/search', params);
+            },
+            closeAndReturn: function () {
+                var me = this;
+                me.hasReturnVal = true;
+                var grid = this.down('grid');
+                var selRows = grid.getSelectionModel().getSelection();
+                
+                //체크박스 선택 없을때
+                if(selRows.length == 0){
+                    Ext.MessageBox.show({
+                        msg: Lang.get('NO_ROW_SELECTED'),
+                        buttons: Ext.MessageBox.OK,
+                        icon: Ext.MessageBox.INFO
+                    });
+                    return;
+                }
+                
+                //선택한 대상 SET (다중선택 가능)
+                var ret = [];
+                var nm = [];
+                
+                if (params.PARAM10 == 'N') { //조회조건 외 호출일 경우
+                    for (var i = 0; i < selRows.length; i++) {
+                        ret.push(selRows[i].data);
+                    }
+                    param.afterGetRow(ret);
+                    me.close();
+                } else {
+                    for (var i = 0; i < selRows.length; i++) {
+                        ret.push(selRows[i].data.ITEM_CD);
+                        nm.push(selRows[i].data.ITEM_NM);
+                    }
+                    if (param.CALLBY && param.CALLBY.onPopClose) {
+                        param.CALLBY.onPopClose(ret, nm);
+                        me.close();
+                    } else {
+                        Ext.defer(function() { me.close() }, 100);
+                    }
+                }
+            }
+        }).show();
+    });
+}
+
+//OUT상품조회 팝업 [2025.12.17 추가]
+function outItemPop (param)
+{
+    //팝업창의 조회조건. 상품코드, 상품명, 사용여부
+    var searchConditionDS = [
+	{
+        TYPE: 'YMD',
+        DATATYPE: 'STRING', 
+        DBCOLUMN: 'OUT_DT', 
+        COLUMNDESCR: 'OUT_DT', 
+        COLUMNDESCR_LANG: Lang.get('OUT_DT'), 
+        OPERATOR: '=',
+        OPERATORFIX: 'Y'
+    },
+	{
+        TYPE: 'FIELD',
+        DATATYPE: 'STRING', 
+        DBCOLUMN: 'MASTER_PLU_CD', 
+        COLUMNDESCR: 'MASTER_PLU_CD', 
+        COLUMNDESCR_LANG: Lang.get('MASTER_PLU_CD'), 
+        OPERATOR: 'LIKE',
+        DEFAULTVALUE: Util.nvl(param.DEFAULTVALUE, '')
+    },
+    {
+        TYPE: 'FIELD',
+        DATATYPE: 'STRING', 
+        DBCOLUMN: 'ITEM_NM', 
+        COLUMNDESCR: 'MASTER_PLU_NM',
+        COLUMNDESCR_LANG: Lang.get('MASTER_PLU_NM'), 
+        OPERATOR: 'LIKE'
+    }];
+    
+    var params = {
+        TITLE : Lang.get('SEARCH_ITEM'),
+        PAGE_SIZE: 1000,
+        MODULE : param.MODULE,
+        SELECTIONMODE: Util.nvl(param.SELECTIONMODE, 'MULTI'),
+        CURRENT_MENUCODE: CURRENT_MENUCODE,
+        SQLPROP: param.SQLPROP,
+        KEYPARAM: param.KEYPARAM,
+        SQL_ID: 'SELECT_WMT_CST_OUT_ITEM',
+        PARAM1: param.PARAM1,
+        PARAM2: param.PARAM2,
+        PARAM3: param.PARAM3,
+        PARAM4: param.PARAM4,
+        PARAM5: param.PARAM5,
+        PARAM6: param.PARAM6,
+        PARAM7: param.PARAM7,
+        PARAM8: param.PARAM8, 
+        PARAM9: param.PARAM9, 
+        PARAM10: param.PARAM10 // 조회조건인지 아닌지 여부
+    };
+    
+    var searchformID = 'ITEM_ALL_POP_SEACH_DS_FORM';
+    
+    getSearchConditionFormWithDS(searchConditionDS, {id: searchformID}, function (searchForm) {
+        searchForm.enterSearch = true;
+        
+        //그리드 생성. 팝업창을 닫을 때 그 하위 컴포넌트들이 distroy 되기 때문에 창 열 때마다 새로 만든다.
+        var popGrid = Ext.create('VC.grid.CommonGrid', {
+            idPrefix: 'popAllItemGrid',
+            region: 'center',
+            flex: 1,
+            defaultColWidth: 150,
+            editable: false,
+            useCheckboxModel: true,
+            selectionMode: params.SELECTIONMODE,
+            pageSize : params.PAGE_SIZE,
+            pageNaviDock: 'bottom',
+            columnDefine: [
+                  {type: 'gridrownumber', width: 50},
+                  {header: 'OUT_DT', width: 100, type : 'date', dateFormat : 'Ymd', renderFormat : 'DF_YMD', align: 'center'}, // 상품코드
+                  {header: 'MASTER_PLU_CD', colName:'MASTER_PLU_CD', width: 140, align: 'center'}, // 상품코드
+                  {header: 'MASTER_PLU_NM', colName:'ITEM_NM', minWidth: 250, flex: 1}, // 상품명
+              ],
+            buttonsConfig: [
+                {text: 'SEARCH', onClickCompleteEdit : false, handler: function () {
+                      popWin.searchData();
+                }},
+                {text: 'APPLY', onClickCompleteEdit : false, iconCls: 'icon-apply', handler: function () {
+                     popWin.closeAndReturn();
+                }},
+                {text: 'CANCEL', onClickCompleteEdit : false, handler : function () {
+                      popWin.close();
+                }}
+            ],
+            listeners : {
+                celldblclick : function(me, td, cellIdx, record, tr, rowIdx, evt, eOpts){
+                    param.PARAM1 == 'POP' ? popWin.closeAndReturnPop() : popWin.closeAndReturn();
+                }
+            }
+        });
+        
+        popGrid.getStore().removeAll();
+        
+        //팝업 창 띄우기
+        //실질적인 POPUP을 실행함
+        var popWin = Ext.create('widget.window', {
+            title: params.TITLE,
+            constrainHeader: true,
+            closable: true,
+            modal: true,
+            draggable: true,
+            border: 0,
+            width: 700,
+            height: 450,
+            autoFit:true,
+            layout: {
+                type: 'fit'
+            },
+            hasReturnVal: false,
+            listeners: {
+                //리스너 대신 handler로 처리
+            },
+            items: [{
+                layout : 'border',
+                items : [
+                    searchForm,
+                    popGrid
+                ]
+            }],
+            listeners: {
+                afterrender: function (me, eOpts){
+                    
+                }
+            },
+            searchData: function () {
+                //위에 지정한 폼 패널의 아이디로 팝업 창의 조회조건 폼 밸리데이션 후 조회조건 데이터셋 DS_SEARCHCONDITION 셋팅.
+                if ( !setSearchConditionDataSet(searchformID) ) return;
+                
+                //popGrid의 search를 실행함
+                popGrid.search(popWin, '/vmsCommonService/search', params);
+            },
+            closeAndReturn: function () {
+                var me = this;
+                me.hasReturnVal = true;
+                var grid = this.down('grid');
+                var selRows = grid.getSelectionModel().getSelection();
+                
+                //체크박스 선택 없을때
+                if(selRows.length == 0){
+                    Ext.MessageBox.show({
+                        msg: Lang.get('NO_ROW_SELECTED'),
+                        buttons: Ext.MessageBox.OK,
+                        icon: Ext.MessageBox.INFO
+                    });
+                    return;
+                }
+                
+                //선택한 대상 SET (다중선택 가능)
+                var ret = [];
+                var nm = [];
+                
+                if (params.PARAM10 == 'N') { //조회조건 외 호출일 경우
+                    for (var i = 0; i < selRows.length; i++) {
+                        ret.push(selRows[i].data);
+                    }
+                    param.afterGetRow(ret);
+                    me.close();
+                } else {
+                    for (var i = 0; i < selRows.length; i++) {
+                        ret.push(selRows[i].data.MASTER_PLU_CD);
+                        nm.push(selRows[i].data.ITEM_NM);
+                    }
+                    if (param.CALLBY && param.CALLBY.onPopClose) {
+                        param.CALLBY.onPopClose(ret, nm);
+                        me.close();
+                    } else {
+                        Ext.defer(function() { me.close() }, 100);
+                    }
+                }
+            }
+        }).show();
+    });
+}

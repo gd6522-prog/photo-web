@@ -27,6 +27,19 @@ function isInvalidCreds(err: unknown) {
   return msg.includes("invalid login credentials") || msg.includes("invalid credentials");
 }
 
+async function withTimeout<T>(promise: Promise<T>, ms: number, message: string) {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), ms);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
 async function ensureSessionReady(retry = 6, delayMs = 120) {
   for (let i = 0; i < retry; i++) {
     const { data } = await supabase.auth.getSession();
@@ -58,10 +71,31 @@ function toKoreanErrorMessage(e: unknown): string {
   if (lower.includes("network") || lower.includes("failed to fetch")) {
     return "네트워크 오류입니다. 인터넷 연결을 확인해 주세요.";
   }
+  if (lower.includes("timeout") || lower.includes("timed out")) {
+    return "로그인 요청이 오래 걸려 중단되었습니다. 잠시 후 다시 시도해 주세요.";
+  }
   if (lower.includes("row-level security") || lower.includes("rls")) {
     return "권한 정책(RLS) 때문에 접근이 거부되었습니다. 관리자에게 문의해 주세요.";
   }
   return "로그인 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+}
+
+async function attemptPasswordLogin(e164: string, password: string) {
+  const email = phoneToEmail(e164);
+
+  const emailResult = await withTimeout(
+    supabase.auth.signInWithPassword({ email, password }),
+    10000,
+    "Email login request timed out"
+  );
+  if (!emailResult.error) return emailResult;
+
+  const phoneResult = await withTimeout(
+    supabase.auth.signInWithPassword({ phone: e164, password }),
+    20000,
+    "Phone login request timed out"
+  );
+  return phoneResult;
 }
 
 function toKoreanResetErrorMessage(e: unknown): string {
@@ -112,6 +146,9 @@ export default function LoginPage() {
   const [resetOtp, setResetOtp] = useState("");
   const [resetPassword, setResetPassword] = useState("");
   const [resetPassword2, setResetPassword2] = useState("");
+  const [loginOtpBusy, setLoginOtpBusy] = useState(false);
+  const [loginOtpSent, setLoginOtpSent] = useState(false);
+  const [loginOtp, setLoginOtp] = useState("");
 
   const e164 = useMemo(() => toE164KR(phone.trim()), [phone]);
   const resetE164 = useMemo(() => toE164KR(resetPhone.trim()), [resetPhone]);
@@ -129,20 +166,16 @@ export default function LoginPage() {
       let data: { session: unknown; user: { id?: string } | null } | null = null;
       let err: unknown = null;
 
-      const r1 = await supabase.auth.signInWithPassword({ phone: e164, password: pw });
-      data = r1.data as { session: unknown; user: { id?: string } | null } | null;
-      err = r1.error;
-
-      if (err && isInvalidCreds(err)) {
-        const email = phoneToEmail(e164);
-        const r2 = await supabase.auth.signInWithPassword({ email, password: pw });
-        data = r2.data as { session: unknown; user: { id?: string } | null } | null;
-        err = r2.error;
-      }
+      const result = await attemptPasswordLogin(e164, pw);
+      data = result.data as { session: unknown; user: { id?: string } | null } | null;
+      err = result.error;
 
       if (err) throw err;
 
-      const session = (await ensureSessionReady()) ?? (data as { session?: unknown } | null)?.session ?? null;
+      const session =
+        (await withTimeout(ensureSessionReady(), 5000, "Session readiness timed out")) ??
+        (data as { session?: unknown } | null)?.session ??
+        null;
       const uid = (session as { user?: { id?: string } } | null)?.user?.id ?? data?.user?.id;
       if (!uid) throw new Error("로그인 세션 생성 실패");
 
@@ -213,6 +246,56 @@ export default function LoginPage() {
     }
   };
 
+  const onSendLoginOtp = async () => {
+    if (loginOtpBusy) return;
+    setMsg("");
+    setLoginOtpBusy(true);
+    try {
+      if (!e164) throw new Error("전화번호 형식이 올바르지 않습니다. (예: 01012345678)");
+      const { error } = await withTimeout(
+        supabase.auth.signInWithOtp({
+          phone: e164,
+          options: { shouldCreateUser: false },
+        }),
+        12000,
+        "OTP send request timed out"
+      );
+      if (error) throw error;
+      setLoginOtpSent(true);
+      setMsg("인증번호를 발송했습니다.");
+    } catch (e: unknown) {
+      setMsg(toKoreanResetErrorMessage(e));
+    } finally {
+      setLoginOtpBusy(false);
+    }
+  };
+
+  const onLoginWithOtp = async () => {
+    if (loginOtpBusy) return;
+    setMsg("");
+    setLoginOtpBusy(true);
+    try {
+      if (!e164) throw new Error("전화번호 형식이 올바르지 않습니다. (예: 01012345678)");
+      if (loginOtp.trim().length < 4) throw new Error("인증번호를 입력해 주세요.");
+      const { error } = await withTimeout(
+        supabase.auth.verifyOtp({
+          phone: e164,
+          token: loginOtp.trim(),
+          type: "sms",
+        }),
+        12000,
+        "OTP verify request timed out"
+      );
+      if (error) throw error;
+      router.replace("/admin");
+      router.refresh();
+    } catch (e: unknown) {
+      setMsg(toKoreanResetErrorMessage(e));
+    } finally {
+      setLoginOtpBusy(false);
+    }
+  };
+
   return (
     <div className="min-h-screen relative overflow-hidden bg-[#ecf2f7]">
       <div className="pointer-events-none absolute -top-28 -left-24 h-80 w-80 rounded-full bg-[#0f766e]/20 blur-3xl" />
@@ -257,6 +340,32 @@ export default function LoginPage() {
             >
               {busy ? "로그인 중..." : "로그인"}
             </button>
+
+            <div className="rounded-xl border border-[#d7e1e8] bg-[#f8fbfd] p-3">
+              <div className="text-xs font-bold text-[#4c6a7d]">비밀번호 로그인이 안 되면 문자 인증 로그인</div>
+              <div className="mt-2 flex gap-2">
+                <button
+                  className="rounded-xl border border-[#0f766e] px-3 py-2 text-sm font-bold text-[#0f766e] disabled:opacity-60"
+                  onClick={onSendLoginOtp}
+                  disabled={loginOtpBusy || !phone}
+                >
+                  {loginOtpBusy ? "전송 중..." : "인증번호 발송"}
+                </button>
+                <input
+                  className="flex-1 rounded-xl border border-[#b7c8d7] px-3 py-2 text-[14px] outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20"
+                  placeholder="인증번호"
+                  value={loginOtp}
+                  onChange={(e) => setLoginOtp(e.target.value)}
+                />
+                <button
+                  className="rounded-xl bg-[#0f766e] px-3 py-2 text-sm font-black text-white disabled:opacity-60"
+                  onClick={onLoginWithOtp}
+                  disabled={loginOtpBusy || !loginOtpSent}
+                >
+                  로그인
+                </button>
+              </div>
+            </div>
 
             {msg ? <div className="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{msg}</div> : null}
 

@@ -4,7 +4,14 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { getNoticeBoardDef, isNoticeBoardKey, NOTICE_BOARD_DEFS, type NoticeBoardKey, type NoticePost } from "@/lib/notice-board";
+import { getNoticeBoardDef, isNoticeBoardKey, type NoticeBoardKey, type NoticePost } from "@/lib/notice-board";
+import {
+  boardCardStyle,
+  boardGhostButtonStyle,
+  boardInputStyle,
+  boardPageShellStyle,
+  boardPrimaryButtonStyle,
+} from "./_board-theme";
 
 type ListResponse = {
   ok?: boolean;
@@ -14,6 +21,10 @@ type ListResponse = {
 };
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100];
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString("ko-KR");
+}
 
 export default function BoardListPage() {
   const router = useRouter();
@@ -42,7 +53,7 @@ export default function BoardListPage() {
         const { data, error } = await supabase.auth.getSession();
         if (error) throw error;
         const token = String(data.session?.access_token ?? "").trim();
-        if (!token) throw new Error("\ub85c\uadf8\uc778 \uc138\uc158\uc774 \uc5c6\uc2b5\ub2c8\ub2e4.");
+        if (!token) throw new Error("로그인 정보가 없습니다.");
 
         const params = new URLSearchParams({ board });
         if (qParam.trim()) params.set("q", qParam.trim());
@@ -51,15 +62,16 @@ export default function BoardListPage() {
           cache: "no-store",
         });
         const json = (await res.json().catch(() => ({}))) as ListResponse;
-        if (!res.ok || !json.ok) throw new Error(json.message || "\uac8c\uc2dc\uae00 \uc870\ud68c \uc2e4\ud328");
+        if (!res.ok || !json.ok) throw new Error(json.message || "게시글 조회 실패");
         setItems((json.items ?? []) as NoticePost[]);
       } catch (e: unknown) {
-        setErr(e instanceof Error ? e.message : "\uac8c\uc2dc\uae00 \uc870\ud68c \uc2e4\ud328");
+        setErr(e instanceof Error ? e.message : "게시글 조회 실패");
         setItems([]);
       } finally {
         setLoading(false);
       }
     };
+
     load();
   }, [board, qParam]);
 
@@ -73,163 +85,194 @@ export default function BoardListPage() {
   };
 
   return (
-    <div
-      style={{
-        border: "1px solid #D7E0E8",
-        borderRadius: 18,
-        background: "white",
-        boxShadow: "0 12px 30px rgba(15,23,42,0.06)",
-        overflow: "hidden",
-      }}
-    >
-      <div style={{ padding: 20, borderBottom: "1px solid #EEF2F6" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <h1 style={{ margin: 0, fontSize: 34, lineHeight: 1.1, color: "#0F172A" }}>{boardDef.label}</h1>
-              <span
-                style={{
-                  padding: "4px 10px",
-                  borderRadius: 999,
-                  background: boardDef.tone.bg,
-                  color: boardDef.tone.text,
-                  border: `1px solid ${boardDef.tone.border}`,
-                  fontSize: 12,
-                  fontWeight: 900,
-                }}
-              >
-                {`\ucd1d ${items.length}\uac74`}
-              </span>
+    <div style={boardPageShellStyle}>
+      <section style={boardCardStyle}>
+        <div style={{ padding: 20, borderBottom: "1px solid #d9e6ef", display: "grid", gap: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+            <div>
+              <h1 style={{ margin: 0, fontSize: 34, lineHeight: 1.08, color: "#103b53" }}>{boardDef.label}</h1>
             </div>
-            <div style={{ marginTop: 8, fontSize: 13, color: "#64748B" }}>{boardDef.description}</div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <Link href={`/admin/notice/boards/write?board=${board}`} style={boardPrimaryButtonStyle}>
+                글쓰기
+              </Link>
+              <Link href="/admin/notice/calendar" style={boardGhostButtonStyle}>
+                일정
+              </Link>
+            </div>
           </div>
+        </div>
 
-          <form onSubmit={onSearchSubmit} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <select
-              value={board}
-              onChange={(e) => router.push(`/admin/notice/boards?board=${e.target.value}`)}
-              style={{ height: 36, borderRadius: 10, border: "1px solid #CBD5E1", padding: "0 10px", fontWeight: 700 }}
-            >
-              {NOTICE_BOARD_DEFS.map((item) => (
-                <option key={item.key} value={item.key}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={"\uc81c\ubaa9, \ub0b4\uc6a9, \uc791\uc131\uc790 \uac80\uc0c9"}
-              style={{ height: 36, minWidth: 240, borderRadius: 10, border: "1px solid #CBD5E1", padding: "0 12px" }}
-            />
-            <button
-              type="submit"
+        {err ? <div style={{ padding: 20, color: "#b42318", fontWeight: 800 }}>{err}</div> : null}
+
+        <div style={{ padding: 20, display: "grid", gap: 18 }}>
+          {loading ? (
+            <div style={{ color: "#557186" }}>불러오는 중...</div>
+          ) : visibleItems.length === 0 ? (
+            <div
               style={{
-                height: 36,
-                padding: "0 14px",
-                borderRadius: 10,
-                border: "1px solid #0F172A",
-                background: "#0F172A",
-                color: "white",
-                fontWeight: 900,
-                cursor: "pointer",
+                border: "1px solid #d9e6ef",
+                borderRadius: 18,
+                background: "#fbfdfe",
+                padding: "28px 20px",
+                display: "grid",
+                gap: 14,
+                justifyItems: "start",
               }}
             >
-              {"\uc870\ud68c"}
-            </button>
-          </form>
-        </div>
-      </div>
-
-      {err ? <div style={{ padding: 20, color: "#B91C1C", fontWeight: 800 }}>{err}</div> : null}
-
-      <div style={{ padding: 20 }}>
-        {loading ? (
-          <div style={{ color: "#64748B" }}>{"\ubd88\ub7ec\uc624\ub294 \uc911..."}</div>
-        ) : visibleItems.length === 0 ? (
-          <div style={{ color: "#64748B" }}>{"\ub4f1\ub85d\ub41c \uac8c\uc2dc\uae00\uc774 \uc5c6\uc2b5\ub2c8\ub2e4."}</div>
-        ) : (
-          <>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <Link href={`/admin/notice/boards/write?board=${board}`} style={{ textDecoration: "none", color: "#0F172A", fontWeight: 900 }}>
-                {"\uae00\uc4f0\uae30"}
-              </Link>
-              <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} style={{ height: 32, borderRadius: 8, border: "1px solid #CBD5E1", padding: "0 8px" }}>
-                {PAGE_SIZE_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+              <div style={{ color: "#557186" }}>등록된 게시글이 없습니다.</div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <Link href={`/admin/notice/boards/write?board=${board}`} style={boardPrimaryButtonStyle}>
+                  글쓰기
+                </Link>
+                <Link href="/admin/notice/calendar" style={boardGhostButtonStyle}>
+                  일정
+                </Link>
+              </div>
             </div>
-
-            <div style={{ border: "1px solid #E2E8F0", borderRadius: 14, overflow: "hidden" }}>
+          ) : (
+            <div style={{ display: "grid", gap: 12 }}>
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "90px minmax(0,1fr) 140px 110px",
+                  gridTemplateColumns: "96px minmax(0, 1fr) 140px 120px",
                   gap: 12,
-                  padding: "12px 16px",
-                  background: "#F8FAFC",
-                  borderBottom: "1px solid #E2E8F0",
-                  color: "#334155",
-                  fontSize: 13,
+                  padding: "0 16px",
+                  color: "#557186",
+                  fontSize: 12,
                   fontWeight: 900,
                 }}
+                className="board-table-head"
               >
-                <div>{"\uad6c\ubd84"}</div>
-                <div>{"\uc81c\ubaa9"}</div>
-                <div>{"\uc791\uc131\uc790"}</div>
-                <div>{"\uc791\uc131\uc77c"}</div>
+                <div>구분</div>
+                <div>제목</div>
+                <div>작성자</div>
+                <div>작성일</div>
               </div>
 
-              {visibleItems.map((item) => (
-                <Link
-                  key={item.id}
-                  href={`/admin/notice/boards/${item.id}`}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "90px minmax(0,1fr) 140px 110px",
-                    gap: 12,
-                    padding: "14px 16px",
-                    textDecoration: "none",
-                    color: "#0F172A",
-                    borderTop: "1px solid #F1F5F9",
-                    alignItems: "center",
-                  }}
-                >
-                  <div>
-                    <span
+              <div style={{ display: "grid", gap: 10 }}>
+                {visibleItems.map((item) => {
+                  const itemBoard = getNoticeBoardDef(item.board_key);
+                  return (
+                    <Link
+                      key={item.id}
+                      href={`/admin/notice/boards/${item.id}`}
                       style={{
-                        display: "inline-flex",
+                        display: "grid",
+                        gridTemplateColumns: "96px minmax(0, 1fr) 140px 120px",
+                        gap: 12,
                         alignItems: "center",
-                        justifyContent: "center",
-                        minWidth: 54,
-                        height: 26,
-                        padding: "0 10px",
-                        borderRadius: 999,
-                        background: boardDef.tone.bg,
-                        color: boardDef.tone.text,
-                        border: `1px solid ${boardDef.tone.border}`,
-                        fontSize: 12,
-                        fontWeight: 900,
+                        padding: "16px",
+                        borderRadius: 18,
+                        border: item.is_pinned ? `1px solid ${itemBoard.tone.border}` : "1px solid #d9e6ef",
+                        background: item.is_pinned ? "linear-gradient(135deg,#ffffff 0%,#f8fbfc 100%)" : "#ffffff",
+                        textDecoration: "none",
+                        color: "#103b53",
+                        boxShadow: item.is_pinned ? "0 10px 24px rgba(16,59,83,0.08)" : "0 6px 16px rgba(2,32,46,0.04)",
                       }}
+                      className="board-row"
                     >
-                      {item.is_pinned ? "\uace0\uc815" : boardDef.shortLabel}
-                    </span>
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.title}</div>
-                    <div style={{ marginTop: 4, fontSize: 12, color: "#64748B", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.excerpt || item.body}</div>
-                  </div>
-                  <div style={{ fontSize: 13, color: "#334155", fontWeight: 700 }}>{item.author_name ?? "-"}</div>
-                  <div style={{ fontSize: 13, color: "#64748B", fontWeight: 700 }}>{new Date(item.updated_at).toLocaleDateString("ko-KR")}</div>
-                </Link>
-              ))}
+                      <div>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            minWidth: 58,
+                            height: 28,
+                            padding: "0 10px",
+                            borderRadius: 999,
+                            background: itemBoard.tone.bg,
+                            color: itemBoard.tone.text,
+                            border: `1px solid ${itemBoard.tone.border}`,
+                            fontSize: 12,
+                            fontWeight: 900,
+                          }}
+                        >
+                          {item.is_pinned ? "고정" : itemBoard.shortLabel}
+                        </span>
+                      </div>
+
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                          <div style={{ minWidth: 0, fontWeight: 950, fontSize: 15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.title}</div>
+                          {item.is_pinned ? (
+                            <span
+                              style={{
+                                flex: "0 0 auto",
+                                padding: "3px 8px",
+                                borderRadius: 999,
+                                border: "1px solid #8dd3cc",
+                                background: "#ecfdf5",
+                                color: "#0f766e",
+                                fontSize: 11,
+                                fontWeight: 900,
+                              }}
+                            >
+                              상단고정
+                            </span>
+                          ) : null}
+                        </div>
+                        <div style={{ marginTop: 6, fontSize: 13, color: "#557186", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {item.excerpt || item.body}
+                        </div>
+                      </div>
+
+                      <div style={{ fontSize: 13, color: "#103b53", fontWeight: 800 }}>{item.author_name ?? "-"}</div>
+                      <div style={{ fontSize: 13, color: "#557186", fontWeight: 800 }}>{formatDate(item.updated_at)}</div>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-          </>
-        )}
-      </div>
+          )}
+
+          <form
+            onSubmit={onSearchSubmit}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1fr) auto auto",
+              gap: 10,
+              alignItems: "center",
+              paddingTop: 4,
+            }}
+            className="board-search-grid"
+          >
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="제목, 내용, 작성자 검색" style={boardInputStyle} />
+            <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} style={{ ...boardInputStyle, width: 110 }}>
+              {PAGE_SIZE_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}개
+                </option>
+              ))}
+            </select>
+            <button type="submit" style={boardPrimaryButtonStyle}>
+              조회
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <style jsx>{`
+        .board-row {
+          transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+        }
+        .board-row:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 16px 28px rgba(16, 59, 83, 0.1);
+          border-color: #9fc0d3;
+        }
+        @media (max-width: 900px) {
+          .board-table-head,
+          .board-row,
+          .board-search-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .board-table-head {
+            display: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

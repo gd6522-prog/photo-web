@@ -1,0 +1,4 @@
+[2026. 3. 11. 오전 9:11:28] 반자동 점포마스터 동기화를 시작합니다.
+[2026. 3. 11. 오전 9:11:28] 전용 프로필 경로: C:\Users\wals741\webphoto\han-admin\.automation\elogis-profile
+
+[실패] page.waitForTimeout: Target page, context or browser has been closed

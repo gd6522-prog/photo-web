@@ -1,0 +1,1395 @@
+
+var grid = (function () {
+
+	var privateMethod = function (message) {
+		//alert(message);
+	};
+
+	var getColumnIdx = function(objSheet, saveName){
+		for(var c=0; c<=objSheet.LastCol(); c++){
+			if (objSheet.ColSaveName(c) == saveName){
+				return c;
+			}
+		}
+		return -1;
+	};
+
+
+	var getColumnInfo = function(columnInfoArr, saveName){
+		for(i=0 ; i<columnInfoArr.length ; i++){
+			if (columnInfoArr[i][1] == saveName){
+				return columnInfoArr[i];
+
+			}
+		}
+		return null;
+	};
+
+
+	var getColumnObj = function(columnInfo){
+
+		var objColumn = new Object();
+
+		objColumn.Header 	= columnInfo[0];
+		objColumn.SaveName 	= columnInfo[1];
+		objColumn.Type 		= columnInfo[2];
+		objColumn.MinWidth 	= columnInfo[3];
+		objColumn.EditLen 	= columnInfo[4];
+		objColumn.Align 	= columnInfo[5];
+		objColumn.Edit 		= columnInfo[6];
+		objColumn.Hidden 	= columnInfo[7];
+
+		if (objColumn.Edit){
+			objColumn.BackColor =  '#ffffdd';
+		}
+
+		for(j=8 ; j<columnInfo.length ; j++){
+			var idx = columnInfo[j].indexOf(':');
+			eval("objColumn." + columnInfo[j].substring(0, idx) + "=" + columnInfo[j].substring(idx+1));//'TreeCol:1' 20190415 수정
+			//var attr = columnInfo[j].split(':');//'TreeCol:1'
+			//eval("objColumn." + attr[0] + "=" + attr[1]);
+		}
+
+		return objColumn;
+	};
+
+	var doAppendLine = function (objSheet) {
+		var retVal = true;
+
+		if (objSheet.GetEtcData("queryInfo") != null){
+
+			if(objSheet.GetEtcData("requestURI") != null && objSheet.GetEtcData("requestURI") != 'undefined' &&objSheet.GetEtcData("requestURI") != 'null'){
+				var preQuery = objSheet.GetEtcData("requestURI");
+				preQuery = preQuery.substring(preQuery.indexOf("?") + 1);
+
+				var nowQuery = FormQueryStringEnc(document.form_filter)+"&"
+				nowQuery = decodeURIComponent(nowQuery); //인코딩한 데이터 되돌림
+
+				//nowQuery = nowQuery.replace(/%7C/g, "|"); //디코딩후 필요 없음
+
+				var preQueryList = preQuery.split("&");
+				var nowQueryList = nowQuery.split("&");
+				var nEquals = 0;
+
+				for(var i=0; i< preQueryList.length; i++){
+					for(var j=0; j<nowQueryList.length; j++){
+						if(preQueryList[i] == nowQueryList[j]){
+							nEquals++;
+						}
+					}
+				}
+
+				if(nEquals == preQueryList.length){
+					objSheet.DataInsert(0);
+				}else{
+					alert('데이터 조회 조건이 같지 않습니다.');
+					retVal = false;
+				}
+			}else{
+				objSheet.DataInsert(0);
+			}
+		}
+		else{
+			alert('데이터 조회후 입력이 가능합니다.');
+			retVal = false;
+		}
+
+		return retVal;
+	};
+
+
+
+	return {
+
+
+		publicMethod1: function (text) {
+			privateMethod(text);
+		},
+
+		publicMethod1: function (text) {
+			privateMethod(text);
+		},
+
+		getLookupGridRowHeight: function () {
+			return 22;
+		},
+
+		//필수입력값 체크
+		doIsHaveToNullValue:function(objSheetArray){
+			var colArr = [];
+			for (i=0 ; i<objSheetArray.length ; i++){
+				var objSheet = objSheetArray[i];
+
+				for (c=0 ; c<=objSheet.LastCol() ; c++){
+					var header = objSheet.GetCellValue(0, c);
+					var len = header.length;
+					var idx = header.indexOf("*");
+					if(idx>-1){
+						colArr.push(c);
+						objSheet.SetColProperty(0, c, {"KeyField":1});
+					}
+				}
+				var saveJson = objSheet.GetSaveJson();
+
+				for(var x=0;x<colArr.length;x++){
+					objSheet.SetColProperty(0, colArr[x], {"KeyField":0});
+				}
+				if(saveJson["Message"]&&saveJson["Message"]=="KeyFieldError") return true;
+
+//				for(r=1 ; r<=objSheet.GetDataLastRow() ; r++){
+//					if ('' != objSheet.GetCellValue(r, 'CRUD') && 'R' != objSheet.GetCellValue(r, 'CRUD')){
+//						for (c=0 ; c<=objSheet.LastCol() ; c++){
+//							var header = objSheet.GetCellValue(0, c);
+//							var len = header.length;
+//							var idx = header.indexOf("*");
+//							if (idx > 0 && len == (idx+1)){
+//								var value = objSheet.GetCellValue(r, c);
+//								if (value == '' || value == null){
+//									alert('필수 입력값이 공백입니다('+header+', Row:'+r+')');
+//									return true;
+//								}
+//							}
+//						}
+//					}
+//				}
+			}
+			return false;
+
+		},
+
+		//중복되는 첫 행 구하기
+		doGetDupRow:function(objSheet, saveName){
+			var Row = objSheet.ColValueDup(saveName);
+			return Row;
+		},
+
+		//중복여부 구하기
+		doIsHaveToDupValue:function(objSheet, saveName){
+			var Row = objSheet.ColValueDup(saveName);
+			if(Row == -1){
+				return true;
+			}else{
+				alert(Row+'번째 줄에 중복값이 있습니다.');
+				return false;
+			}
+		},
+
+		//모시트 클릭 시 선택 위치 처리
+		doSetClick:function(objSheet, Row, preIBSHEET01SelRow){
+			var retRow = Row;
+			if(objSheet.GetCellValue(preIBSHEET01SelRow,"CRUD") != 'R'){ //변경이 되었을때
+				objSheet.ReturnData(preIBSHEET01SelRow);// 조회 초기값으로 원복
+			}
+
+			//인서트 한 행이 있을 경우 인서트 행 삭제
+			var sRows = objSheet.FindStatusRow("I");
+			if(sRows != ''){
+				var sRowList = sRows.split(";");
+				for(var sRowCnt = 0; sRowCnt < sRowList.length; sRowCnt++){
+					objSheet.RowDelete(sRowList[sRowCnt],0);
+					if(Row < sRowList[sRowCnt]){
+						IBSHEET01.SetSelectRow(Row);
+					}else{
+						IBSHEET01.SetSelectRow(Row-1);
+						retRow = Row-1;
+					}
+				}
+			}
+			return retRow;
+		},
+
+		doGetStartDataIndex:function(objSheet){
+			var headerRowCnt = objSheet.HeaderRows();
+			var filterRowIdx = objSheet.FindFilterRow(); //필터행을 찾는다.
+
+			return headerRowCnt + (filterRowIdx > -1 ? 1 : 0);
+		},
+
+
+		doGetEndDataIndex:function(objSheet){
+			return objSheet.RowCount() + (this.doGetStartDataIndex(objSheet) - 1); // 20200819 보완
+		},
+
+
+		//총 행 개수 구하기
+		doGetTotRowCnt:function(objSheet){
+			var rowCnt = objSheet.RowCount();
+			var filterRow = objSheet.FindFilterRow(); //필터행을 찾는다.
+			if(filterRow > -1){//필터행이 있을 경우
+				rowCnt++;
+			}
+			return rowCnt;
+		},
+
+
+		doPersonalizeCols:function(objSheet, savedColInfo){
+
+			if (savedColInfo != ''){
+
+				var jsonArray = JSON.parse(savedColInfo);
+				for(var i=0; i<jsonArray.length; i++){
+
+					var colIdx = getColumnIdx(objSheet, jsonArray[i].SaveName);
+
+					if (colIdx >= 0){
+						var colHidden = objSheet.GetCellProperty(0, colIdx, "Hidden");
+						var colWidth = objSheet.GetCellProperty(0, colIdx, "Width");
+
+						if (!colHidden && jsonArray[i].Hidden){
+							//IBSHEET 지원 예정
+							objSheet.SetColHidden(colIdx, jsonArray[i].Hidden);
+						}
+						if (colWidth != jsonArray[i].Width){
+							//IBSHEET 지원 예정
+							objSheet.SetColWidth(colIdx, parseInt(jsonArray[i].Width));
+						}
+					}
+				}
+			}
+		},
+
+
+		//컬럼 초기화
+		doGetIBSheetCols:function(objSheet, savedColInfo, columnInfoArr){
+
+			var headerArray = new Array();
+			var Data = [];
+
+			//컬럼 숨김 원본 저장
+			for(i=0 ; i<columnInfoArr.length ; i++){
+				Data.push( { Col: columnInfoArr[i][1], Hidden: columnInfoArr[i][7] } );
+			}
+			objSheet.S_ColHidden = Data;
+
+			//개인화 정보가 저장되어 있다면
+			if (savedColInfo != ''){
+
+				var jsonArray = JSON.parse(savedColInfo);
+				for(var i=0; i< jsonArray.length; i++){
+
+					var columnInfo = getColumnInfo(columnInfoArr, jsonArray[i].SaveName);
+
+					if (columnInfo != null){
+						headerArray.push(getColumnObj(columnInfo));
+					}
+				}
+			}
+			else{
+				for(i=0 ; i<columnInfoArr.length ; i++){
+					headerArray.push(getColumnObj(columnInfoArr[i]));
+				}
+			}
+
+			return headerArray;
+		},
+
+		//행추가
+		doAppendLine:function(objSheet){
+			doAppendLine(objSheet)
+		},
+
+		//행추가시 성공여부를 리턴하는 함수
+		doRetAppendLine:function(objSheet){
+			return doAppendLine(objSheet)
+		},
+
+		//행추가후 콤보박스 정보 세팅
+		doComboAppendLine:function(objSheet, saveName, comboCode, comboText){
+			if(doAppendLine(objSheet)){
+				var info = {"ComboCode":comboCode, "ComboText":comboText};
+			    objSheet.CellComboItem(objSheet.GetSelectRow(), saveName, info);
+
+			}
+		},
+
+		//행삭제
+		doRemoveLine:function(objSheet){
+			var delCnt = 0;
+
+			for(i= grid.doGetEndDataIndex(objSheet); i>= grid.doGetStartDataIndex(objSheet);i--){
+				var choice = objSheet.GetCellValue(i, 'IS_CHOICE');
+				if (choice == '1'){
+					objSheet.SetCellValue(i, 'IS_DELETE', '1');
+					objSheet.SetCellValue(i, 'IS_CHOICE', '0');
+					delCnt++;
+				}
+			}
+
+			if(delCnt == 0){
+				alert('삭제할 행을 선택하세요.');
+			}
+
+		},
+
+
+		//엑셀다운로드
+		doDownloadExcel:function(objSheet, name, skipcols){
+
+			// 날짜 얻기
+			var date = new Date();
+
+			var yyyy = date.getFullYear();
+			var mm = Number(date.getMonth() + 1);
+			var dd = Number(date.getDate());
+			var hh = Number(date.getHours());
+			var MM = Number(date.getMinutes());
+			var ss = Number(date.getSeconds());
+
+			var c_mm = mm > 9 ? mm : "0" + mm;
+			var c_dd = dd > 9 ? dd : "0" + dd;
+			var c_hh = hh > 9 ? hh : "0" + hh;
+			var c_MM = MM > 9 ? MM : "0" + MM;
+			var c_ss = ss > 9 ? ss : "0" + ss;
+
+			mm = c_mm.toString();
+			dd = c_dd.toString();
+			hh = c_hh.toString();
+			MM = c_MM.toString();
+			ss = c_ss.toString();
+
+			var toDay = "_" + yyyy + mm + dd + hh + MM + ss;
+
+			//
+			var loc_name = '';
+
+			if (objSheet.GetDataFirstRow() > -1){
+
+				if(name == undefined ){
+					loc_name = "TMS_"+objSheet.id;
+				}else{
+					loc_name = name + toDay;
+				}
+
+				var param = {
+						 id:objSheet.id
+						,name:loc_name
+				};
+				if(skipcols != undefined && skipcols != "") { param["skipcols"] = skipcols; }
+				ib.comm.downExcel(param);
+
+			}
+			else{
+				alert('데이터 조회 결과가 있어야 엑셀다운이 가능합니다.');
+			}
+		},
+
+
+		//엑셀업로드
+		doUploadExcel:function(objSheet){
+			var param = {
+					  id:objSheet.id
+					, Mode:"HeaderMatch"
+			};
+			ib.comm.loadExcel(param);
+		},
+
+
+		doIsLeaveQuestion: function (objSheetArray, message) {
+
+			var isModified = false;
+
+			for (i=0 ; i<objSheetArray.length ; i++){
+				if (objSheetArray[i].IsDataModified()){
+					isModified = true;
+					break;
+				}
+			}
+
+			if (isModified){
+				if (confirm("변경된 내용이 있습니다. ["+message+"]하겠습니까?")){
+					return true;
+				}
+			}
+			else{
+				return true;
+			}
+
+			return false;
+		},
+
+
+		doIsSaveQuestion: function (objSheetArray, message) {
+
+			var isModified = false;
+
+			for (i=0 ; i<objSheetArray.length ; i++){
+				if (objSheetArray[i].IsDataModified()){
+					isModified = true;
+					break;
+				}
+			}
+
+			if (isModified){
+				if (confirm("변경된 내용을 ["+message+"] 할까요?")){
+					return true;
+				}
+			}
+			else{
+				alert("변경된 내용이 없습니다.");
+			}
+
+			return false;
+		},
+
+
+
+		doGetSheetColInfo: function (objSheet) {
+
+			//json 전체 데이터
+			var jsonArray = new Array();
+
+			for(var c = 0; c <= objSheet.LastCol(); c++){
+
+				 var colInfo = new Object();
+
+				 colInfo.SaveName = objSheet.ColSaveName(c);
+				 colInfo.Header = objSheet.GetCellValue(0, c);
+				 colInfo.Width = objSheet.GetCellProperty(0, c, "MinWidth");
+				 colInfo.Align = objSheet.GetCellProperty(0, c, "Align");
+				 colInfo.Type = objSheet.GetCellProperty(0, c, "Type");
+				 colInfo.Hidden = objSheet.GetCellProperty(0, c, "Hidden");
+				 colInfo.TreeCol = objSheet.GetCellProperty(0, c, "TreeCol");
+				 colInfo.ComboText = objSheet.GetCellProperty(0, c, "ComboText");
+				 colInfo.ComboCode = objSheet.GetCellProperty(0, c, "ComboCode");
+				 colInfo.PointCount = objSheet.GetCellProperty(0, c, "PointCount");
+
+				 jsonArray.push(colInfo);
+			}
+
+			return JSON.stringify(jsonArray);
+		},
+
+
+		doSetSheetColInfo: function (objSheet, colInfo) {
+
+			colInfo = colInfo.replace(/\n/gi, '\\n');
+
+			var headerArray = new Array();
+			var jsonArray = JSON.parse(colInfo);
+
+			for(var i=0; i< jsonArray.length; i++){
+				var header = new Object();
+				header.Header 		= jsonArray[i].Header;
+				header.SaveName 	= jsonArray[i].SaveName;
+				header.Type 		= jsonArray[i].Type;
+				header.MinWidth 	= jsonArray[i].Width;
+				header.EditLen 		= 0;
+				header.Align 		= jsonArray[i].Align;
+				header.Edit 		= false;
+				header.Hidden 		= jsonArray[i].Hidden;
+
+				header.TreeCol 		= jsonArray[i].TreeCol;
+
+				header.ComboText 		= jsonArray[i].ComboText;
+				header.ComboCode 		= jsonArray[i].ComboCode;
+				header.PointCount		= jsonArray[i].PointCount;
+
+				headerArray.push(header);
+			}
+			return headerArray;
+		},
+
+
+		doPersonalizeSheet: function(userId, menuId, objSheet) {
+
+			console.log('개인화 저장 소스는 환경설정>공통코드 소스코드를 참조하세요');
+
+			if (confirm('개인화 정보를 저장 하겠습니까?')){
+				var jsonArray = new Array();
+
+				for(var c = 0; c <= objSheet.LastCol(); c++){
+					 var colInfo = new Object();
+
+					 colInfo.SaveName = objSheet.ColSaveName(c);
+					 colInfo.Width = objSheet.GetCellProperty(0, c, "Width");
+					 colInfo.Hidden = objSheet.GetCellProperty(0, c, "Hidden");
+
+					 jsonArray.push(colInfo);
+				}
+
+				$.ajax({
+					  	type: 'POST'
+				      , url: "/tms/task/cm/TmsCmPersonalize/save.do"
+				      , async : false
+				      , data: {
+				    	  	  user_id : userId
+							, menu_id : menuId
+							, sheet_id : objSheet.id
+							, col_info : JSON.stringify(jsonArray)
+							//, col_info : objSheet.GetCurrentColInfo()
+				      	}
+				      , dataType: 'json'
+				      , success: function(result) {
+				    	  alert('개인화 정보가 저장 되었습니다.('+objSheet.id+')');
+				      	}
+				      , error:function(request,status,error){
+					  }
+				});
+			}
+		},
+
+
+		doResetPersonalizeSheet: function(userId, menuId, objSheet) {
+
+			if (confirm('개인화 정보를 초기화 하겠습니까?')){
+				$.ajax({
+					  	type: 'POST'
+				      , url: "/tms/task/cm/TmsCmPersonalize/Reset/save.do"
+				      , async : false
+				      , data: {
+				    	  	  user_id : userId
+							, menu_id : menuId
+							, sheet_id : objSheet.id
+				      	}
+				      , dataType: 'json'
+				      , success: function(result) {
+				    	  alert('개인화 정보가 초기화 되었습니다.('+objSheet.id+')\n화면 초기화후 적용됩니다.');
+				      	}
+				      , error:function(request,status,error){
+					  }
+				});
+			}
+		},
+
+
+		doPrintSheet: function(objSheet) {
+			objSheet.DoPrint();
+		},
+
+
+		doCollapseTree: function(objSheet) {
+			objSheet.ShowTreeLevel(0, 1);
+		},
+
+
+		doExpandTree: function(objSheet) {
+			objSheet.ShowTreeLevel(1, 1);
+		},
+
+		//검색 후 데이터가 있는 셀을 지정된 색으로 세팅
+		doDataRangeBackColor:function(objSheet, color){
+			objSheet.RangeBackColor(this.doGetStartDataIndex(objSheet),1, this.doGetEndDataIndex(objSheet) -1, objSheet.LastCol(), color);
+		},
+
+		/**
+		 * 프론트엔드와 백엔드 양쪽에서 모두 중복 검사
+		 *
+		 * @author HKH
+		 * @param objSheet
+		 *            {Object} IBSheet Object
+		 * @param url
+		 *            {String} 요청 URL
+		 * @param keyName
+		 *            {String} 키에 해당하는 SaveName을 구분자 '|'로 연결한 문자열
+		 */
+		doDupCheck : function(objSheet, url, keyName) {
+			if (objSheet.RowCount('I') == 0) { // 입력 데이터가 없으면
+				return true;
+			}
+
+			var fnDupCallback = function(idx, seq) {
+
+				if(idx == null && seq == null){
+					alert('(노선명/차량번호)중복값이 있습니다.');
+				}else{
+					objSheet.SetSelectRow(idx);
+					alert(seq + '번째 줄에 중복값이 있습니다.');
+				}
+			};
+
+			var idx = objSheet.ColValueDup(keyName);
+
+			if (idx != -1) { // 중복 데이터가 존재하면
+				fnDupCallback(idx, objSheet.GetCellValue(idx, 'SEQ'));
+
+				return false;
+			}
+
+			var result = false;
+
+			var keyNames = keyName.split('|');
+
+			common.doAjax(url, {
+				save_data : $.map(objSheet.FindStatusRow('I').split(';'), function(value, index) {
+					var rowData = objSheet.GetRowData(value);
+
+					return keyNames.reduce(function(total, key) {
+						total.push(rowData[key]);
+
+						return total;
+					}, [ value, rowData.SEQ ]).join(':');
+				}).join('|')
+			}, function(resData, textStatus, jqXHR) {
+				resData = resData.XDataMap;
+				switch (resData.RESULT_CODE) {
+				case '0': // 정상
+					return result = true;
+				case '1': // 중복
+					fnDupCallback(resData.IDX, resData.SEQ);
+
+					return result = false;
+				default:
+					break;
+				}
+			}, {
+				async : false,
+				blockEl : window
+			});
+
+			return result;
+		},
+
+
+		/**
+		 * 프론트엔드와 백엔드 양쪽에서 모두 중복 검사
+		 *
+		 * @author HKH
+		 * @param objSheet
+		 *            {Object} IBSheet Object
+		 * @param url
+		 *            {String} 요청 URL
+		 * @param keyName
+		 *            {String} 키에 해당하는 SaveName을 구분자 '|'로 연결한 문자열
+		 */
+		doKpCheck : function(objSheet, url, keyName, alertName) {
+
+			var fnDupCallback = function(idx, seq) {
+				objSheet.SetSelectRow(idx);
+				alert ("그리드" + seq + '번째 줄에 '+ alertName);
+			};
+
+	//		var idx = objSheet.ColValueDup(keyName);
+
+	//		if (idx != -1) {
+	//			fnDupCallback(idx, objSheet.GetCellValue(idx, 'SEQ'));
+	//			return false;
+	//		}
+
+			var result = false;
+			var keyNames = keyName.split('|');
+
+
+			var isChoiceData = new Array();
+			for(i=grid.doGetStartDataIndex(objSheet); i<=grid.doGetEndDataIndex(objSheet); i++) {
+				var choice = objSheet.GetCellValue(i, 'IS_CHOICE');
+				if (choice == '1') {
+					isChoiceData.push(i);
+				}
+			}
+
+			common.doAjax(url, {
+				save_data : $.map(isChoiceData, function(value, index) {
+					var rowData = objSheet.GetRowData(value);
+
+					return keyNames.reduce(function(total, key) {
+						total.push(rowData[key]);
+						return total;
+
+					}, [ value, rowData.SEQ ]).join(':');
+				}).join('|')
+			}, function(resData, textStatus, jqXHR) {
+				resData = resData.XDataMap;
+
+				switch (resData.RESULT_CODE) {
+				case '0': // 정상
+					return result = true;
+				case '1': // 중복
+					fnDupCallback(resData.IDX, resData.SEQ);
+					return result = false;
+				default:
+					break;
+				}
+			}, {
+				async : false,
+				blockEl : window
+			});
+
+			return result;
+		},
+
+
+		/**
+		 * 프론트엔드와 백엔드 양쪽에서 모두 중복 검사
+		 *
+		 * @author LK
+		 * @param objSheet
+		 *            {Object} IBSheet Object
+		 * @param url
+		 *            {String} 요청 URL
+		 * @param keyName
+		 *            {String} 키에 해당하는 SaveName을 구분자 '|'로 연결한 문자열
+		 */
+		doKpStartEndCheck : function(objSheet, url, keyName, alertName) {
+
+			if (objSheet.RowCount('I') == 0 && objSheet.RowCount('U') == 0) { // 입력 데이터가 없으면
+				return true;
+			}
+
+			var fnDupCallback = function(idx, seq) {
+				objSheet.SetSelectRow(idx);
+
+				alert(seq + '번째 줄에 '+ alertName); //번째 줄에 이미 -> 번째 줄에
+			};
+
+			var idx = objSheet.ColValueDup(keyName);
+
+			if (idx != -1) { // 중복 데이터가 존재하면
+				fnDupCallback(idx, objSheet.GetCellValue(idx, 'SEQ'));
+
+				return false;
+			}
+
+			var result = false;
+
+			var keyNames = keyName.split('|');
+
+			common.doAjax(url, {
+				save_data : $.map(objSheet.FindStatusRow('I|U').split(';'), function(value, index) {
+					var rowData = objSheet.GetRowData(value);
+
+					return keyNames.reduce(function(total, key) {
+						total.push(rowData[key]);
+
+						return total;
+					}, [ value, rowData.SEQ ]).join(':');
+				}).join('|')
+			}, function(resData, textStatus, jqXHR) {
+				resData = resData.XDataMap;
+				switch (resData.RESULT_CODE) {
+				case '0': // 정상
+					return result = true;
+				case '1': // 중복
+					fnDupCallback(resData.IDX, resData.SEQ);
+
+					return result = false;
+				default:
+					break;
+				}
+			}, {
+				async : false,
+				blockEl : window
+			});
+
+			return result;
+
+		},
+
+		/**
+		 * 프론트엔드와 백엔드 양쪽에서 모두 마감여부 검사
+		 *
+		 * @author LK
+		 * @param objSheet
+		 *            {Object} IBSheet Object
+		 * @param url
+		 *            {String} 요청 URL
+		 * @param keyName
+		 *            {String} 키에 해당하는 SaveName을 구분자 '|'로 연결한 문자열
+		 */
+		doKpClosCheck : function(objSheet, url, keyName, alertName) {
+
+			if (objSheet.RowCount('I') == 0 && objSheet.RowCount('U') == 0) { // 입력 데이터가 없으면
+				return true;
+			}
+
+			var idx = objSheet.ColValueDup(keyName);
+
+			var result = false;
+
+			var keyNames = keyName.split('|');
+
+			common.doAjax(url, {
+				save_data : $.map(objSheet.FindStatusRow('I|U').split(';'), function(value, index) {
+					var rowData = objSheet.GetRowData(value);
+
+					return keyNames.reduce(function(total, key) {
+						total.push(rowData[key]);
+
+						return total;
+					}, [ value, rowData.SEQ ]).join(':');
+				}).join('|')
+			}, function(resData, textStatus, jqXHR) {
+				resData = resData.XDataMap;
+				switch (resData.RESULT_CODE) {
+				case '0': // 정상
+					return result = true;
+				case '1': // 일마감 처리된 데이터
+					alert(alertName);
+
+					return result = false;
+				default:
+					break;
+				}
+			}, {
+				async : false,
+				blockEl : window
+			});
+
+			return result;
+
+		},
+
+
+		/**
+		 * 프론트엔드와 백엔드 양쪽에서 모두 중복 검사(I && U)
+		 *
+		 * @author LJH
+		 * @param objSheet
+		 *            {Object} IBSheet Object
+		 * @param url
+		 *            {String} 요청 URL
+		 * @param keyName
+		 *            {String} 키에 해당하는 SaveName을 구분자 '|'로 연결한 문자열
+		 */
+		doDupCheckIU : function(objSheet, url, keyName) {
+
+			if (objSheet.RowCount('I') == 0 && objSheet.RowCount('U') == 0) { // 입력 데이터가 없으면
+				return true;
+			}
+
+			var fnDupCallback = function(idx, seq) {
+				objSheet.SetSelectRow(idx);
+
+				alert((idx-1) + '번째 줄에 중복값이 있습니다.');
+			};
+
+			var copyKeyName = keyName.replace('CRUD|', '');
+
+			var idx = objSheet.ColValueDup(keyName);
+
+			if (idx != -1) { // 중복 데이터가 존재하면
+				fnDupCallback(idx, objSheet.GetCellValue(idx, 'SEQ'));
+
+				return false;
+			}
+
+			var result = false;
+
+			var keyNames = keyName.split('|');
+
+			common.doAjax(url, {
+				save_data : $.map(objSheet.FindStatusRow('I|U').split(';'), function(value, index) {
+					var rowData = objSheet.GetRowData(value);
+
+					return keyNames.reduce(function(total, key) {
+						total.push(rowData[key]);
+
+						return total;
+					}, [ value, rowData.SEQ ]).join(':');
+				}).join('|')
+			}, function(resData, textStatus, jqXHR) {
+				resData = resData.XDataMap;
+				switch (resData.RESULT_CODE) {
+				case '0': // 정상
+					return result = true;
+				case '1': // 중복
+					fnDupCallback(resData.IDX, resData.SEQ);
+
+					return result = false;
+				default:
+					break;
+				}
+			}, {
+				async : false,
+				blockEl : window
+			});
+
+			return result;
+		},
+
+
+		/**
+		 * 프론트엔드와 백엔드 양쪽에서 모두 중복 검사(I && U) : 마스터노선 중복체크(1)-(동일노선그룹,노선명)
+		 */
+		doMstDupChkIU1 : function(objSheet, url, keyName) {
+
+			if (objSheet.RowCount('I') == 0 && objSheet.RowCount('U') == 0) { // 입력 데이터가 없으면
+				return true;
+			}
+
+			var fnDupCallback = function(idx, seq) {
+				objSheet.SetSelectRow(idx);
+
+				alert((idx-1) + '번째 줄에 [노선그룹,노선명]중복값이 있습니다.');
+			};
+
+			var copyKeyName = keyName.replace('CRUD|', '');
+
+			var idx = objSheet.ColValueDup(keyName);
+
+			/*if (idx != -1) { // 중복 데이터가 존재하면
+				fnDupCallback(idx, objSheet.GetCellValue(idx, 'SEQ'));
+
+				return false;
+			}*/
+
+			var result = false;
+
+			var keyNames = keyName.split('|');
+
+			common.doAjax(url, {
+				save_data : $.map(objSheet.FindStatusRow('I|U').split(';'), function(value, index) {
+					var rowData = objSheet.GetRowData(value);
+
+					return keyNames.reduce(function(total, key) {
+						total.push(rowData[key]);
+
+						return total;
+					}, [ value, rowData.SEQ ]).join(':');
+				}).join('|')
+			}, function(resData, textStatus, jqXHR) {
+				resData = resData.XDataMap;
+				switch (resData.RESULT_CODE) {
+				case '0': // 정상
+					return result = true;
+				case '1': // 중복
+					fnDupCallback(resData.IDX, resData.SEQ);
+
+					return result = false;
+				default:
+					break;
+				}
+			}, {
+				async : false,
+				blockEl : window
+			});
+
+			return result;
+		},
+
+		/**
+		 * 프론트엔드와 백엔드 양쪽에서 모두 중복 검사(I && U) : 마스터노선 중복체크(2)-(화주사,노선순서)
+		 */
+		doMstDupChkIU2 : function(objSheet, url, keyName) {
+
+			if (objSheet.RowCount('I') == 0 && objSheet.RowCount('U') == 0) { // 입력 데이터가 없으면
+				return true;
+			}
+
+			var fnDupCallback = function(idx, seq) {
+				objSheet.SetSelectRow(idx);
+
+				alert((idx-1) + '번째 줄에 [호차번호]중복값이 있습니다.');
+			};
+
+			var copyKeyName = keyName.replace('CRUD|', '');
+
+			var idx = objSheet.ColValueDup(keyName);
+
+			/*if (idx != -1) { // 중복 데이터가 존재하면
+				fnDupCallback(idx, objSheet.GetCellValue(idx, 'SEQ'));
+
+				return false;
+			}*/
+
+			var result = false;
+
+			var keyNames = keyName.split('|');
+
+			common.doAjax(url, {
+				save_data : $.map(objSheet.FindStatusRow('I|U').split(';'), function(value, index) {
+					var rowData = objSheet.GetRowData(value);
+
+					return keyNames.reduce(function(total, key) {
+						total.push(rowData[key]);
+
+						return total;
+					}, [ value, rowData.SEQ ]).join(':');
+				}).join('|')
+			}, function(resData, textStatus, jqXHR) {
+				resData = resData.XDataMap;
+				switch (resData.RESULT_CODE) {
+				case '0': // 정상
+					return result = true;
+				case '1': // 중복
+					fnDupCallback(resData.IDX, resData.SEQ);
+
+					return result = false;
+				default:
+					break;
+				}
+			}, {
+				async : false,
+				blockEl : window
+			});
+
+			return result;
+		},
+
+
+		/**
+		 * 프론트엔드와 백엔드 양쪽에서 모두 중복 검사(I && U) : 마스터노선 중복체크(3)-(노선그룹,노선배송일구분,차량)
+		 */
+		doMstDupChkIU3 : function(objSheet, url, keyName) {
+
+			if (objSheet.RowCount('I') == 0 && objSheet.RowCount('U') == 0) { // 입력 데이터가 없으면
+				return true;
+			}
+
+			var fnDupCallback = function(idx, seq) {
+				objSheet.SetSelectRow(idx);
+
+				alert((idx-1) + '번째 줄에 [노선그룹,노선배송일구분,차량]중복값이 있습니다.');
+			};
+
+			var copyKeyName = keyName.replace('CRUD|', '');
+
+			var idx = objSheet.ColValueDup(keyName);
+
+			/*if (idx != -1) { // 중복 데이터가 존재하면
+				fnDupCallback(idx, objSheet.GetCellValue(idx, 'SEQ'));
+
+				return false;
+			}*/
+
+			var result = false;
+
+			var keyNames = keyName.split('|');
+
+			common.doAjax(url, {
+				save_data : $.map(objSheet.FindStatusRow('I|U').split(';'), function(value, index) {
+					var rowData = objSheet.GetRowData(value);
+
+					return keyNames.reduce(function(total, key) {
+						total.push(rowData[key]);
+
+						return total;
+					}, [ value, rowData.SEQ ]).join(':');
+				}).join('|')
+			}, function(resData, textStatus, jqXHR) {
+				resData = resData.XDataMap;
+				switch (resData.RESULT_CODE) {
+				case '0': // 정상
+					return result = true;
+				case '1': // 중복
+					fnDupCallback(resData.IDX, resData.SEQ);
+
+					return result = false;
+				default:
+					break;
+				}
+			}, {
+				async : false,
+				blockEl : window
+			});
+
+			return result;
+		},
+
+
+		/**
+		 * 프론트엔드와 백엔드 양쪽에서 모두 중복 검사(I && U) : 노선점포매핑 사용여부 -노선점포매핑 노선 사용시 삭제 불가처리
+		 */
+		doMstUseChkIU : function(objSheet, url, keyName) {
+
+			if (objSheet.RowCount('U') == 0 && objSheet.RowCount('D') == 0) { // 입력 데이터가 없으면
+				return true;
+			}
+
+			var fnDupCallback = function(idx, seq) {
+				objSheet.SetSelectRow(idx);
+
+				alert((idx-1) + '번째 줄의 노선은 노선-점포매핑에 사용중입니다.');
+			};
+
+			var copyKeyName = keyName.replace('CRUD|', '');
+
+			var idx = objSheet.ColValueDup(keyName);
+
+			/*if (idx != -1) { // 중복 데이터가 존재하면
+				fnDupCallback(idx, objSheet.GetCellValue(idx, 'SEQ'));
+
+				return false;
+			}*/
+
+			var result = false;
+
+			var keyNames = keyName.split('|');
+
+			common.doAjax(url, {
+				save_data : $.map(objSheet.FindStatusRow('U|D').split(';'), function(value, index) {
+					var rowData = objSheet.GetRowData(value);
+
+					return keyNames.reduce(function(total, key) {
+						total.push(rowData[key]);
+
+						return total;
+					}, [ value, rowData.SEQ ]).join(':');
+				}).join('|')
+			}, function(resData, textStatus, jqXHR) {
+				resData = resData.XDataMap;
+				switch (resData.RESULT_CODE) {
+				case '0': // 정상
+					return result = true;
+				case '1': // 중복
+					fnDupCallback(resData.IDX, resData.SEQ);
+
+					return result = false;
+				default:
+					break;
+				}
+			}, {
+				async : false,
+				blockEl : window
+			});
+
+			return result;
+		},
+
+
+		/**
+		 * 프론트엔드와 백엔드 양쪽에서 모두 중복 검사(I && U) : 엑셀import -온도조건,차량번호,차량유형 맞는지 확인
+		 */
+		doCarUseChkIU : function(objSheet, url, keyName) {
+
+			if (objSheet.RowCount('I') == 0 && objSheet.RowCount('U') == 0) { // 입력 데이터가 없으면
+				return true;
+			}
+
+			var fnDupCallback = function(idx, seq) {
+				objSheet.SetSelectRow(idx);
+
+				alert((idx-1) + '번째 줄의 노선은 [온도조건,차량번호,차량유형]이 맞지않습니다.');
+			};
+
+			var copyKeyName = keyName.replace('CRUD|', '');
+
+			var idx = objSheet.ColValueDup(keyName);
+
+			/*if (idx != -1) { // 중복 데이터가 존재하면
+				fnDupCallback(idx, objSheet.GetCellValue(idx, 'SEQ'));
+
+				return false;
+			}*/
+
+			var result = false;
+
+			var keyNames = keyName.split('|');
+
+			common.doAjax(url, {
+				save_data : $.map(objSheet.FindStatusRow('I|U').split(';'), function(value, index) {
+					var rowData = objSheet.GetRowData(value);
+
+					return keyNames.reduce(function(total, key) {
+						total.push(rowData[key]);
+
+						return total;
+					}, [ value, rowData.SEQ ]).join(':');
+				}).join('@')
+			}, function(resData, textStatus, jqXHR) {
+				resData = resData.XDataMap;
+				switch (resData.RESULT_CODE) {
+				case '0': // 정상
+					return result = true;
+				case '1': // 중복
+					fnDupCallback(resData.IDX, resData.SEQ);
+
+					return result = false;
+				default:
+					break;
+				}
+			}, {
+				async : false,
+				blockEl : window
+			});
+
+			return result;
+		},
+
+
+		/**
+		 * 주문수정 시 주문상태 확인(U)
+		 *
+		 * @author LJH
+		 * @param objSheet
+		 *            {Object} IBSheet Object
+		 * @param url
+		 *            {String} 요청 URL
+		 * @param keyName
+		 *            {String} 키에 해당하는 SaveName을 구분자 '|'로 연결한 문자열
+		 */
+		doStatCheckU : function(objSheet, url, keyName) {
+
+			if (objSheet.RowCount('U') == 0) { // 입력 데이터가 없으면
+				return true;
+			}
+
+			var fnDupCallback = function(idx, seq) {
+				objSheet.SetSelectRow(idx);
+
+				alert((idx-1) + '번째 줄에 [주문수신]상태가 아닌 주문이 있습니다.');
+			};
+
+			var copyKeyName = keyName.replace('CRUD|', '');
+
+			var idx = objSheet.ColValueDup(keyName);
+
+			/*if (idx != -1) { // 중복 데이터가 존재하면
+				fnDupCallback(idx, objSheet.GetCellValue(idx, 'SEQ'));
+				return false;
+			}*/
+
+			var result = false;
+
+			var keyNames = keyName.split('|');
+
+			common.doAjax(url, {
+				save_data : $.map(objSheet.FindStatusRow('U').split(';'), function(value, index) {
+					var rowData = objSheet.GetRowData(value);
+
+					return keyNames.reduce(function(total, key) {
+						total.push(rowData[key]);
+
+						return total;
+					}, [ value, rowData.SEQ ]).join(':');
+				}).join('|')
+			}, function(resData, textStatus, jqXHR) {
+				resData = resData.XDataMap;
+				switch (resData.RESULT_CODE) {
+				case '0': // 정상
+					return result = true;
+				case '1': // 중복
+					fnDupCallback(resData.IDX, resData.SEQ);
+
+					return result = false;
+				default:
+					break;
+				}
+			}, {
+				async : false,
+				blockEl : window
+			});
+
+			return result;
+		},
+
+		/**
+		 * 노선배송처 저장시 배송그룹,마스터노선코드,배송순서 중복 확인(U)
+		 *
+		 * @author LJH
+		 * @param objSheet
+		 *            {Object} IBSheet Object
+		 * @param url
+		 *            {String} 요청 URL
+		 * @param keyName
+		 *            {String} 키에 해당하는 SaveName을 구분자 '|'로 연결한 문자열
+		 */
+		doPmDupCheckU : function(objSheet, url, keyName) {
+
+			if (objSheet.RowCount('U') == 0) { // 입력 데이터가 없으면
+				return true;
+			}
+
+			var fnDupCallback = function(idx, seq) {
+				objSheet.SetSelectRow(idx);
+
+				alert((idx-1) + '번째 줄에 [배송그룹,마스터노선,배송순서]중복값이 있습니다.');
+			};
+
+			var copyKeyName = keyName.replace('CRUD|', '');
+
+			var idx = objSheet.ColValueDup(keyName);
+
+			/*if (idx != -1) { // 중복 데이터가 존재하면
+				fnDupCallback(idx, objSheet.GetCellValue(idx, 'SEQ'));
+				return false;
+			}*/
+
+			var result = false;
+
+			var keyNames = keyName.split('|');
+
+			common.doAjax(url, {
+				save_data : $.map(objSheet.FindStatusRow('U').split(';'), function(value, index) {
+					var rowData = objSheet.GetRowData(value);
+
+					return keyNames.reduce(function(total, key) {
+						total.push(rowData[key]);
+
+						return total;
+					}, [ value, rowData.SEQ ]).join(':');
+				}).join('|')
+			}, function(resData, textStatus, jqXHR) {
+				resData = resData.XDataMap;
+				switch (resData.RESULT_CODE) {
+				case '0': // 정상
+					return result = true;
+				case '1': // 중복
+					fnDupCallback(resData.IDX, resData.SEQ);
+
+					return result = false;
+				default:
+					break;
+				}
+			}, {
+				async : false,
+				blockEl : window
+			});
+
+			return result;
+		},
+
+		/**
+		 * 주문수정 시 주문그룹코드 유효성 확인(U)
+		 *
+		 * @author LJH
+		 * @param objSheet
+		 *            {Object} IBSheet Object
+		 * @param url
+		 *            {String} 요청 URL
+		 * @param keyName
+		 *            {String} 키에 해당하는 SaveName을 구분자 '|'로 연결한 문자열
+		 */
+		doGrpCdCheckU : function(objSheet, url, keyName) {
+
+			if (objSheet.RowCount('U') == 0) { // 입력 데이터가 없으면
+				return true;
+			}
+
+			var fnDupCallback = function(idx, seq) {
+				objSheet.SetSelectRow(idx);
+
+				alert((idx-1) + '번째 줄에 미등록 [주문그룹코드]가 있습니다.');
+			};
+
+			var copyKeyName = keyName.replace('CRUD|', '');
+
+			var idx = objSheet.ColValueDup(keyName);
+
+			var result = false;
+
+			var keyNames = keyName.split('|');
+
+			common.doAjax(url, {
+				save_data : $.map(objSheet.FindStatusRow('U').split(';'), function(value, index) {
+					var rowData = objSheet.GetRowData(value);
+
+					return keyNames.reduce(function(total, key) {
+						total.push(rowData[key]);
+
+						return total;
+					}, [ value, rowData.SEQ ]).join(':');
+				}).join('|')
+			}, function(resData, textStatus, jqXHR) {
+				resData = resData.XDataMap;
+				switch (resData.RESULT_CODE) {
+				case '0': // 정상
+					return result = true;
+				case '1': // 중복
+					fnDupCallback(resData.IDX, resData.SEQ);
+
+					return result = false;
+				default:
+					break;
+				}
+			}, {
+				async : false,
+				blockEl : window
+			});
+
+			return result;
+		}
+
+	};
+
+})();
+
