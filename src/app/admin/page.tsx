@@ -39,6 +39,10 @@ type HolidayRow = {
 
 const CARD_MIN_H = 520;
 const WEATHER_MIN_H = 520;
+const HOME_NOTICE_CACHE_KEY = "admin-home-notices-v1";
+const HOME_WEATHER_CACHE_KEY = "admin-home-weather-v1";
+const HOME_OUTBOUND_CACHE_KEY = "admin-home-outbound-v1";
+const HOME_PENDING_SUMMARY_CACHE_KEY = "admin-home-pending-summary-v1";
 
 // 달력 크기는 유지하고, 공지 영역을 좌측으로 더 붙이기 위해 컬럼 폭 조정
 const LEFT_COL_W = 290;
@@ -265,6 +269,72 @@ function formatDeliveryDateLabel(value: string) {
   return String(value || "").trim() || "-";
 }
 
+function formatOutboundCount(value: number) {
+  return value === 0 ? "-" : value.toLocaleString("ko-KR");
+}
+
+function getHazardSummaryBadge(openCount: number, waitingCount: number) {
+  if (openCount > 0) {
+    return {
+      text: `위험요인 미처리 ${openCount}건`,
+      dot: "#DC2626",
+      glow: "0 0 0 3px rgba(220,38,38,0.15)",
+    };
+  }
+
+  if (waitingCount > 0) {
+    return {
+      text: `위험요인 처리대기 ${waitingCount}건`,
+      dot: "#F97316",
+      glow: "0 0 0 3px rgba(249,115,22,0.18)",
+    };
+  }
+
+  return {
+    text: "위험요인 미처리 0건",
+    dot: "#16A34A",
+    glow: "0 0 0 3px rgba(22,163,74,0.15)",
+  };
+}
+
+function getWeatherTextStyle(text: string | null | undefined) {
+  const length = String(text ?? "").trim().length;
+  if (length >= 8) {
+    return { fontSize: 14, lineHeight: 1.1 };
+  }
+  if (length >= 6) {
+    return { fontSize: 16, lineHeight: 1.1 };
+  }
+  return { fontSize: 18, lineHeight: 1.1 };
+}
+
+function readHomeCache<T>(key: string): T | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+function writeHomeCache<T>(key: string, value: T) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {}
+}
+
+function monthCacheKey(year: number, month: number) {
+  return `admin-home-calendar-${year}-${pad2(month)}`;
+}
+
+function shiftYearMonth(year: number, month: number, delta: number) {
+  const next = new Date(year, month - 1 + delta, 1);
+  return { y: next.getFullYear(), m: next.getMonth() + 1 };
+}
+
 async function copyElementAsImageToClipboard(element: HTMLElement) {
   const hasClipboardWrite = !!(navigator.clipboard as { write?: unknown })?.write;
   const hasClipboardItem = typeof (window as unknown as { ClipboardItem?: unknown }).ClipboardItem !== "undefined";
@@ -299,7 +369,7 @@ async function fetchVehicleSnapshotForHome() {
   const token = data.session?.access_token;
   if (!token) throw new Error("세션이 없습니다.");
 
-  const response = await fetch("/api/admin/vehicles/current", {
+  const response = await fetch("/api/admin/vehicles/current?includeSnapshot=1", {
     method: "GET",
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
@@ -309,11 +379,14 @@ async function fetchVehicleSnapshotForHome() {
     ok?: boolean;
     message?: string;
     snapshotUrl?: string | null;
+    snapshot?: VehicleSnapshot | null;
   };
 
   if (!response.ok || !payload.ok) {
     throw new Error(payload.message || "단품별 데이터를 불러오지 못했습니다.");
   }
+
+  if (payload.snapshot) return payload.snapshot;
 
   if (!payload.snapshotUrl) return null;
   const snapshot = (await fetch(payload.snapshotUrl, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null))) as VehicleSnapshot | null;
@@ -488,16 +561,16 @@ function NoticeMainCard() {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 7;
 
-  const load = async () => {
+  const load = async (options?: { keepVisible?: boolean }) => {
     setErr("");
-    setLoading(true);
+    if (!options?.keepVisible) setLoading(true);
     try {
       const { data: sessData, error: sessErr } = await supabase.auth.getSession();
       if (sessErr) throw sessErr;
       const token = sessData.session?.access_token;
       if (!token) throw new Error("Missing Authorization Bearer token");
 
-      const res = await fetch("/api/admin/notices/list", {
+      const res = await fetch("/api/admin/notices/list?limit=40", {
         cache: "no-store",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -508,6 +581,7 @@ function NoticeMainCard() {
       const list = (json.items ?? []) as Notice[];
       setItems(list);
       setPage(1);
+      writeHomeCache(HOME_NOTICE_CACHE_KEY, { items: list });
     } catch (e: any) {
       setErr(e?.message ?? String(e));
       setItems([]);
@@ -517,7 +591,14 @@ function NoticeMainCard() {
   };
 
   useEffect(() => {
-    load();
+    const cached = readHomeCache<{ items?: Notice[] }>(HOME_NOTICE_CACHE_KEY);
+    if (cached?.items?.length) {
+      setItems(cached.items);
+      setLoading(false);
+      void load({ keepVisible: true });
+      return;
+    }
+    void load();
   }, []);
 
   const filteredItems = useMemo(() => {
@@ -832,12 +913,13 @@ function WeatherCard() {
   const [loading, setLoading] = useState(true);
   const [w, setW] = useState<WeatherAPI | null>(null);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (options?: { keepVisible?: boolean }) => {
+    if (!options?.keepVisible) setLoading(true);
     try {
       const res = await fetch("/api/admin/weather", { cache: "no-store" });
       const json = (await res.json()) as WeatherAPI;
       setW(json);
+      writeHomeCache(HOME_WEATHER_CACHE_KEY, json);
     } catch (e: any) {
       setW({
         ok: false,
@@ -864,7 +946,14 @@ function WeatherCard() {
   };
 
   useEffect(() => {
-    load();
+    const cached = readHomeCache<WeatherAPI>(HOME_WEATHER_CACHE_KEY);
+    if (cached) {
+      setW(cached);
+      setLoading(false);
+      void load({ keepVisible: true });
+      return;
+    }
+    void load();
   }, []);
 
   const fmtMD = (d: string) => {
@@ -874,6 +963,7 @@ function WeatherCard() {
   const pm10Level = dustLevelPm10(w?.today.pm10 ?? null);
   const pm25Level = dustLevelPm25(w?.today.pm25 ?? null);
   const feelsLikeStatus = getFeelsLikeStatus(w?.today.feelsLike ?? null);
+  const weatherTextStyle = getWeatherTextStyle(w?.today.weatherText);
 
   return (
     <Card
@@ -883,7 +973,7 @@ function WeatherCard() {
       right={
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginTop: -2, gap: 4 }}>
           <button
-            onClick={load}
+            onClick={() => void load()}
             style={{
               height: 30,
               padding: "0 12px",
@@ -918,7 +1008,18 @@ function WeatherCard() {
                     <div style={{ fontSize: 52, fontWeight: 950, color: "#111827", lineHeight: 1 }}>
                       {w?.today.currentTemp == null ? "-" : `${Math.round(w.today.currentTemp)}°`}
                     </div>
-                    <div style={{ fontSize: 18, fontWeight: 950, color: "#111827" }}>{w?.today.weatherText ?? "-"}</div>
+                    <div
+                      style={{
+                        ...weatherTextStyle,
+                        fontWeight: 950,
+                        color: "#111827",
+                        whiteSpace: "nowrap",
+                        wordBreak: "keep-all",
+                        flexShrink: 1,
+                      }}
+                    >
+                      {w?.today.weatherText ?? "-"}
+                    </div>
                   </div>
                 </div>
                 <div
@@ -936,12 +1037,12 @@ function WeatherCard() {
                     justifyContent: "center",
                   }}
                 >
-                  <div style={{ fontSize: 14, fontWeight: 900, color: feelsLikeStatus.titleColor, letterSpacing: 0.2 }}>
+                  <div style={{ fontSize: 16, fontWeight: 950, color: feelsLikeStatus.titleColor, letterSpacing: 0.3 }}>
                     체감온도
                   </div>
                   <div
                     style={{
-                      marginTop: 6,
+                      marginTop: 8,
                       fontSize: 26,
                       lineHeight: 1,
                       fontWeight: 950,
@@ -951,7 +1052,7 @@ function WeatherCard() {
                   >
                     {w?.today.feelsLike == null ? "-" : `${Math.round(w.today.feelsLike)}°`}
                   </div>
-                  <div style={{ marginTop: 4, fontSize: 18, fontWeight: 1000, color: feelsLikeStatus.titleColor, lineHeight: 1.05, letterSpacing: 0.2 }}>
+                  <div style={{ marginTop: 10, fontSize: 18, fontWeight: 1000, color: feelsLikeStatus.titleColor, lineHeight: 1.05, letterSpacing: 0.2 }}>
                     {feelsLikeStatus.label}
                   </div>
                 </div>
@@ -1100,12 +1201,13 @@ function WorkTypeOutboundCard() {
   const [copyMessage, setCopyMessage] = useState("");
   const cardCaptureRef = useRef<HTMLDivElement | null>(null);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (options?: { keepVisible?: boolean }) => {
+    if (!options?.keepVisible) setLoading(true);
     setErr("");
     try {
       const snapshot = await fetchVehicleSnapshotForHome();
-      setDeliveryDate(snapshot?.productRows?.find((row) => String(row.delivery_date || "").trim())?.delivery_date ?? "");
+      const nextDeliveryDate = snapshot?.productRows?.find((row) => String(row.delivery_date || "").trim())?.delivery_date ?? "";
+      setDeliveryDate(nextDeliveryDate);
 
       const orderedLabels = ["박스수기", "박스존1", "올데이2L생수", "노브랜드2L생수", "이너존A", "슬라존A", "경량존A", "이형존A", "담배존", "담배수기", "유가증권"] as const;
       const grouped = new Map<string, SummaryRow>();
@@ -1167,6 +1269,7 @@ function WorkTypeOutboundCard() {
         }
       }
       setRows(nextRows);
+      writeHomeCache(HOME_OUTBOUND_CACHE_KEY, { rows: nextRows, deliveryDate: nextDeliveryDate });
     } catch (e: any) {
       setRows([]);
       setErr(e?.message ?? "작업구분별 출고배수를 불러오지 못했습니다.");
@@ -1176,7 +1279,15 @@ function WorkTypeOutboundCard() {
   };
 
   useEffect(() => {
-    load();
+    const cached = readHomeCache<{ rows?: SummaryRow[]; deliveryDate?: string }>(HOME_OUTBOUND_CACHE_KEY);
+    if (cached?.rows?.length) {
+      setRows(cached.rows);
+      setDeliveryDate(cached.deliveryDate ?? "");
+      setLoading(false);
+      void load({ keepVisible: true });
+      return;
+    }
+    void load();
   }, []);
 
   useEffect(() => {
@@ -1235,7 +1346,7 @@ function WorkTypeOutboundCard() {
                 {copying ? "복사중" : "복사"}
               </button>
               <button
-                onClick={load}
+                onClick={() => void load()}
                 style={{
                   height: 30,
                   padding: "0 12px",
@@ -1299,10 +1410,10 @@ function WorkTypeOutboundCard() {
                     return (
                       <tr key={row.label} style={{ borderTop, borderBottom, background }}>
                         <td style={{ padding: "9px 10px", fontSize: row.label === "올데이2L생수" || row.label === "노브랜드2L생수" ? 11.5 : 13, fontWeight: row.isSubtotal ? 950 : 800, color: "#0f2940", whiteSpace: "nowrap" }}>{row.label}</td>
-                        <td style={{ padding: "9px 8px", fontSize: 12.5, textAlign: "right", color: "#113247", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontWeight: row.isSubtotal ? 900 : 500 }}>{row.general ? row.general.toLocaleString("ko-KR") : ""}</td>
-                        <td style={{ padding: "9px 8px", fontSize: 12.5, textAlign: "right", color: "#113247", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontWeight: row.isSubtotal ? 900 : 500 }}>{row.newStore ? row.newStore.toLocaleString("ko-KR") : ""}</td>
-                        <td style={{ padding: "9px 8px", fontSize: 12.5, textAlign: "right", color: "#113247", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontWeight: row.isSubtotal ? 900 : 500 }}>{row.campus ? row.campus.toLocaleString("ko-KR") : ""}</td>
-                        <td style={{ padding: "9px 8px", fontSize: 12.5, textAlign: "right", color: "#111827", fontWeight: 900, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{row.total.toLocaleString("ko-KR")}</td>
+                        <td style={{ padding: "9px 8px", fontSize: 12.5, textAlign: "right", color: "#113247", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontWeight: row.isSubtotal ? 900 : 500 }}>{formatOutboundCount(row.general)}</td>
+                        <td style={{ padding: "9px 8px", fontSize: 12.5, textAlign: "right", color: "#113247", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontWeight: row.isSubtotal ? 900 : 500 }}>{formatOutboundCount(row.newStore)}</td>
+                        <td style={{ padding: "9px 8px", fontSize: 12.5, textAlign: "right", color: "#113247", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontWeight: row.isSubtotal ? 900 : 500 }}>{formatOutboundCount(row.campus)}</td>
+                        <td style={{ padding: "9px 8px", fontSize: 12.5, textAlign: "right", color: "#111827", fontWeight: 900, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{formatOutboundCount(row.total)}</td>
                       </tr>
                     );
                   })}
@@ -1322,10 +1433,10 @@ function WorkTypeOutboundCard() {
                 <tbody>
                   <tr>
                     <td style={{ padding: "6px 10px", fontSize: 13, fontWeight: 950, color: "#103b53", whiteSpace: "nowrap" }}>총합계</td>
-                    <td style={{ padding: "6px 8px", textAlign: "right", fontSize: 13, fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{sumGeneral.toLocaleString("ko-KR")}</td>
-                    <td style={{ padding: "6px 8px", textAlign: "right", fontSize: 13, fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{sumNewStore.toLocaleString("ko-KR")}</td>
-                    <td style={{ padding: "6px 8px", textAlign: "right", fontSize: 13, fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{sumCampus.toLocaleString("ko-KR")}</td>
-                    <td style={{ padding: "6px 8px", textAlign: "right", fontSize: 14, fontWeight: 950, color: "#0f2940", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{sumTotal.toLocaleString("ko-KR")}</td>
+                    <td style={{ padding: "6px 8px", textAlign: "right", fontSize: 13, fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{formatOutboundCount(sumGeneral)}</td>
+                    <td style={{ padding: "6px 8px", textAlign: "right", fontSize: 13, fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{formatOutboundCount(sumNewStore)}</td>
+                    <td style={{ padding: "6px 8px", textAlign: "right", fontSize: 13, fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{formatOutboundCount(sumCampus)}</td>
+                    <td style={{ padding: "6px 8px", textAlign: "right", fontSize: 14, fontWeight: 950, color: "#0f2940", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{formatOutboundCount(sumTotal)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -1466,6 +1577,7 @@ export default function AdminHomePage() {
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [pendingRedeliveryCount, setPendingRedeliveryCount] = useState(0);
   const [pendingHazardCount, setPendingHazardCount] = useState(0);
+  const [hazardWaitingCount, setHazardWaitingCount] = useState(0);
 
   const mounted = useRef(false);
 
@@ -1610,13 +1722,14 @@ export default function AdminHomePage() {
         throw new Error(payload.message || "달력 데이터를 불러오지 못했습니다.");
       }
 
-      setEvents(
-        (payload.events ?? []).map((event) => ({
-          ...event,
-          event_type: parseCalendarEventType(event.memo),
-        }))
-      );
-      setHolidays((payload.holidays ?? []) as HolidayRow[]);
+      const nextEvents = (payload.events ?? []).map((event) => ({
+        ...event,
+        event_type: parseCalendarEventType(event.memo),
+      }));
+      const nextHolidays = (payload.holidays ?? []) as HolidayRow[];
+      setEvents(nextEvents);
+      setHolidays(nextHolidays);
+      writeHomeCache(monthCacheKey(ym.y, ym.m), { events: nextEvents, holidays: nextHolidays });
     } catch {
       setEvents([]);
       setHolidays([]);
@@ -1642,22 +1755,102 @@ export default function AdminHomePage() {
     const payload = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
       pendingHazardCount?: number;
+      hazardWaitingCount?: number;
       pendingRedeliveryCount?: number;
     };
     if (!res.ok || !payload.ok) return;
 
     setPendingHazardCount(payload.pendingHazardCount ?? 0);
+    setHazardWaitingCount(payload.hazardWaitingCount ?? 0);
     setPendingRedeliveryCount(payload.pendingRedeliveryCount ?? 0);
+    writeHomeCache(HOME_PENDING_SUMMARY_CACHE_KEY, {
+      pendingHazardCount: payload.pendingHazardCount ?? 0,
+      hazardWaitingCount: payload.hazardWaitingCount ?? 0,
+      pendingRedeliveryCount: payload.pendingRedeliveryCount ?? 0,
+    });
   };
 
   useEffect(() => {
     if (!ready) return;
     if (checking) return;
     if (!isAdmin) return;
-    fetchMonthEvents();
-    fetchPendingSummary();
+    const cached = readHomeCache<{ events?: EventRow[]; holidays?: HolidayRow[] }>(monthCacheKey(ym.y, ym.m));
+    if (cached?.events && cached?.holidays) {
+      setEvents(cached.events);
+      setHolidays(cached.holidays);
+      void fetchMonthEvents();
+      return;
+    }
+    void fetchMonthEvents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, checking, isAdmin, ym.y, ym.m]);
+
+  useEffect(() => {
+    if (!ready || checking || !isAdmin) return;
+    let cancelled = false;
+
+    const preloadMonth = async (year: number, month: number) => {
+      if (readHomeCache(monthCacheKey(year, month))) return;
+      try {
+        const start = `${year}-${pad2(month)}-01`;
+        const end = `${year}-${pad2(month)}-${pad2(daysInMonth(year, month))}`;
+        const {
+          data: { session },
+          error: sessionErr,
+        } = await supabase.auth.getSession();
+        if (sessionErr) return;
+        const token = session?.access_token;
+        if (!token) return;
+
+        const res = await fetch(`/api/admin/calendar-month?from=${start}&to=${end}`, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        const payload = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          events?: EventRow[];
+          holidays?: HolidayRow[];
+        };
+        if (!res.ok || !payload.ok || cancelled) return;
+        writeHomeCache(monthCacheKey(year, month), {
+          events: (payload.events ?? []).map((event) => ({
+            ...event,
+            event_type: parseCalendarEventType(event.memo),
+          })),
+          holidays: (payload.holidays ?? []) as HolidayRow[],
+        });
+      } catch {}
+    };
+
+    const prev = shiftYearMonth(ym.y, ym.m, -1);
+    const next = shiftYearMonth(ym.y, ym.m, 1);
+    void Promise.all([preloadMonth(prev.y, prev.m), preloadMonth(next.y, next.m)]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, checking, isAdmin, ym.y, ym.m]);
+
+  useEffect(() => {
+    if (!ready) return;
+    if (checking) return;
+    if (!isAdmin) return;
+    const cached = readHomeCache<{
+      pendingHazardCount?: number;
+      hazardWaitingCount?: number;
+      pendingRedeliveryCount?: number;
+    }>(HOME_PENDING_SUMMARY_CACHE_KEY);
+    if (cached) {
+      setPendingHazardCount(cached.pendingHazardCount ?? 0);
+      setHazardWaitingCount(cached.hazardWaitingCount ?? 0);
+      setPendingRedeliveryCount(cached.pendingRedeliveryCount ?? 0);
+      void fetchPendingSummary();
+      return;
+    }
+    void fetchPendingSummary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, checking, isAdmin]);
 
   const eventsByDate = useMemo(() => {
     const map: Record<string, EventRow[]> = {};
@@ -1673,6 +1866,11 @@ export default function AdminHomePage() {
     for (const h of holidays) map[h.date] = h;
     return map;
   }, [holidays]);
+
+  const hazardSummaryBadge = useMemo(
+    () => getHazardSummaryBadge(pendingHazardCount, hazardWaitingCount),
+    [pendingHazardCount, hazardWaitingCount]
+  );
 
   const countFor = (ymd: string) => (eventsByDate[ymd] ?? []).length;
 
@@ -1982,18 +2180,17 @@ export default function AdminHomePage() {
                 }}
               >
               <span
-                style={{
+                  style={{
                     width: 9,
                     height: 9,
                   borderRadius: 999,
-                  background: pendingHazardCount > 0 ? "#DC2626" : "#16A34A",
-                  boxShadow:
-                    pendingHazardCount > 0 ? "0 0 0 3px rgba(220,38,38,0.15)" : "0 0 0 3px rgba(22,163,74,0.15)",
+                  background: hazardSummaryBadge.dot,
+                  boxShadow: hazardSummaryBadge.glow,
                   flex: "0 0 auto",
                 }}
               />
               <span style={{ flex: 1, color: "#113247" }}>
-                위험요인 미처리 {pendingHazardCount}건
+                {hazardSummaryBadge.text}
               </span>
               <Link
                 href="/admin/hazards"

@@ -23,25 +23,31 @@ export async function GET(req: NextRequest) {
     if (!guard.ok) return guard.res;
     const board = String(req.nextUrl.searchParams.get("board") ?? "").trim();
     const q = String(req.nextUrl.searchParams.get("q") ?? "").trim().toLowerCase();
+    const limitParam = Number(req.nextUrl.searchParams.get("limit") ?? "0");
+    const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 0;
 
     let rows: NoticeRow[] = [];
     let hasCreatedBy = true;
 
     {
-      const { data, error } = await guard.sbAdmin
+      let query = guard.sbAdmin
         .from("notices")
         .select("id, title, body, is_pinned, created_at, updated_at, created_by")
         .order("is_pinned", { ascending: false })
         .order("updated_at", { ascending: false });
+      if (limit > 0 && !q) query = query.limit(limit);
+      const { data, error } = await query;
 
       if (error) {
         hasCreatedBy = false;
 
-        const r2 = await guard.sbAdmin
+        let fallbackQuery = guard.sbAdmin
           .from("notices")
           .select("id, title, body, is_pinned, created_at, updated_at")
           .order("is_pinned", { ascending: false })
           .order("updated_at", { ascending: false });
+        if (limit > 0 && !q) fallbackQuery = fallbackQuery.limit(limit);
+        const r2 = await fallbackQuery;
 
         if (r2.error) throw r2.error;
         rows = (r2.data ?? []) as NoticeRow[];

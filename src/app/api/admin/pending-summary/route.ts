@@ -8,26 +8,23 @@ export async function GET(req: NextRequest) {
   if (!guard.ok) return guard.res;
 
   const sb = guard.sbAdmin;
+  const today = new Date().toISOString().slice(0, 10);
 
-  const [hazardReportsRes, hazardResolutionsRes, redeliveryPhotosRes, redeliveryDoneRes] = await Promise.all([
-    sb.from("hazard_reports").select("id"),
-    sb.from("hazard_report_resolutions").select("report_id, after_public_url"),
+  const [hazardReportsCountRes, hazardResolvedCountRes, hazardPendingCountRes, redeliveryPhotosRes, redeliveryDoneRes] = await Promise.all([
+    sb.from("hazard_reports").select("id", { count: "exact", head: true }),
+    sb.from("hazard_report_resolutions").select("report_id", { count: "exact", head: true }).not("after_public_url", "is", null),
+    sb.from("hazard_report_resolutions").select("report_id", { count: "exact", head: true }).is("after_public_url", null).gte("planned_due_date", today),
     sb.from("delivery_photos").select("id").ilike("path", "miochul/%").ilike("memo", "%재배송%"),
     sb.from("delivery_redelivery_done").select("photo_id"),
   ]);
 
-  if (hazardReportsRes.error) return json(false, hazardReportsRes.error.message, null, 500);
-  if (hazardResolutionsRes.error) return json(false, hazardResolutionsRes.error.message, null, 500);
+  if (hazardReportsCountRes.error) return json(false, hazardReportsCountRes.error.message, null, 500);
+  if (hazardResolvedCountRes.error) return json(false, hazardResolvedCountRes.error.message, null, 500);
+  if (hazardPendingCountRes.error) return json(false, hazardPendingCountRes.error.message, null, 500);
   if (redeliveryPhotosRes.error) return json(false, redeliveryPhotosRes.error.message, null, 500);
   if (redeliveryDoneRes.error) return json(false, redeliveryDoneRes.error.message, null, 500);
 
-  const hazardIds = (hazardReportsRes.data ?? []).map((r: { id: string }) => r.id);
-  const hazardDoneSet = new Set(
-    (hazardResolutionsRes.data ?? [])
-      .filter((r: { report_id: string; after_public_url: string | null }) => !!r.after_public_url)
-      .map((r: { report_id: string }) => r.report_id)
-  );
-  const pendingHazardCount = hazardIds.filter((id) => !hazardDoneSet.has(id)).length;
+  const pendingHazardCount = Math.max(0, (hazardReportsCountRes.count ?? 0) - (hazardResolvedCountRes.count ?? 0) - (hazardPendingCountRes.count ?? 0));
 
   const redeliveryIds = (redeliveryPhotosRes.data ?? []).map((r: { id: string }) => r.id);
   const redeliveryDoneSet = new Set((redeliveryDoneRes.data ?? []).map((r: { photo_id: string }) => r.photo_id));
@@ -35,6 +32,7 @@ export async function GET(req: NextRequest) {
 
   return json(true, undefined, {
     pendingHazardCount,
+    hazardWaitingCount: hazardPendingCountRes.count ?? 0,
     pendingRedeliveryCount,
   });
 }

@@ -520,23 +520,35 @@ export async function GET(req: NextRequest) {
   if (!guard.ok) return guard.res;
 
   try {
+    const includeSnapshot = req.nextUrl.searchParams.get("includeSnapshot") === "1";
+    const includeLimits = req.nextUrl.searchParams.get("includeLimits") === "1";
     const names = await getCurrentObjectNames(guard.sbAdmin);
     let snapshotUrl: string | null = null;
     let limitsUrl: string | null = null;
+    let snapshot: VehicleSnapshot | null = null;
+    let limits: VehicleLimitsSnapshot | null = null;
 
     if (names.has("latest.json")) {
-      const signed = await guard.sbAdmin.storage.from(BUCKET).createSignedUrl(CURRENT_PATH, 60);
-      if (signed.error) throw new Error(signed.error.message);
-      snapshotUrl = signed.data.signedUrl;
+      if (includeSnapshot) {
+        snapshot = await readCurrentSnapshot(guard.sbAdmin);
+      } else {
+        const signed = await guard.sbAdmin.storage.from(BUCKET).createSignedUrl(CURRENT_PATH, 60);
+        if (signed.error) throw new Error(signed.error.message);
+        snapshotUrl = signed.data.signedUrl;
+      }
     }
 
     if (names.has("limits.json")) {
-      const signed = await guard.sbAdmin.storage.from(BUCKET).createSignedUrl(LIMITS_PATH, 60);
-      if (signed.error) throw new Error(signed.error.message);
-      limitsUrl = signed.data.signedUrl;
+      if (includeLimits) {
+        limits = await readCurrentLimits(guard.sbAdmin);
+      } else {
+        const signed = await guard.sbAdmin.storage.from(BUCKET).createSignedUrl(LIMITS_PATH, 60);
+        if (signed.error) throw new Error(signed.error.message);
+        limitsUrl = signed.data.signedUrl;
+      }
     }
 
-    return json(true, undefined, { snapshotUrl, limitsUrl });
+    return json(true, undefined, { snapshotUrl, limitsUrl, snapshot, limits });
   } catch (e) {
     return json(false, e instanceof Error ? e.message : String(e), null, 500);
   }

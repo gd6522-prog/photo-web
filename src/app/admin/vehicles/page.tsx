@@ -284,7 +284,7 @@ async function getVehicleAdminToken() {
 
 async function fetchServerVehicleSnapshot() {
   const token = await getVehicleAdminToken();
-  const response = await fetch("/api/admin/vehicles/current", {
+  const response = await fetch("/api/admin/vehicles/current?includeSnapshot=1&includeLimits=1", {
     method: "GET",
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
@@ -295,19 +295,25 @@ async function fetchServerVehicleSnapshot() {
     message?: string;
     snapshotUrl?: string | null;
     limitsUrl?: string | null;
+    snapshot?: VehicleSnapshot | null;
+    limits?: VehicleLimitsSnapshot | null;
   };
 
   if (!response.ok || !payload?.ok) {
     throw new Error(payload?.message || "서버 저장 데이터를 불러오지 못했습니다.");
   }
 
-  const snapshot = payload.snapshotUrl
-    ? ((await fetch(payload.snapshotUrl, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null))) as VehicleSnapshot | null)
-    : null;
+  const snapshot =
+    payload.snapshot ??
+    (payload.snapshotUrl
+      ? ((await fetch(payload.snapshotUrl, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null))) as VehicleSnapshot | null)
+      : null);
 
-  const limits = payload.limitsUrl
-    ? ((await fetch(payload.limitsUrl, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null))) as VehicleLimitsSnapshot | null)
-    : null;
+  const limits =
+    payload.limits ??
+    (payload.limitsUrl
+      ? ((await fetch(payload.limitsUrl, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null))) as VehicleLimitsSnapshot | null)
+      : null);
 
   return { snapshot, limits };
 }
@@ -1654,6 +1660,28 @@ export function VehiclePageScreen({
     void (async () => {
       try {
         setLoadingState("restore");
+        const localSnapshot = await readVehicleSnapshot().catch(() => null);
+        const localLimits = await readVehicleLimitsSnapshot().catch(() => null);
+
+        if (localSnapshot) {
+          setFileName(localSnapshot.fileName ?? "");
+          setProductRows(Array.isArray(localSnapshot.productRows) ? localSnapshot.productRows : []);
+          setCargoRows(Array.isArray(localSnapshot.cargoRows) ? localSnapshot.cargoRows : []);
+          setCargoDirty(false);
+          lastServerSnapshotRef.current = JSON.stringify({
+            fileName: localSnapshot.fileName ?? "",
+            cargoRows: Array.isArray(localSnapshot.cargoRows) ? localSnapshot.cargoRows : [],
+          });
+        }
+
+        if (localLimits) {
+          setLargeLimit(localLimits.largeLimit ? String(localLimits.largeLimit) : "");
+          setSmallLimit(localLimits.smallLimit ? String(localLimits.smallLimit) : "");
+        }
+
+        setLoadingState("");
+        setStorageReady(true);
+
         const serverSaved = await fetchServerVehicleSnapshot().catch((error) => {
           setMessage((error as Error)?.message ?? "서버 저장 데이터를 불러오지 못했습니다.");
           return null;
@@ -1661,22 +1689,25 @@ export function VehiclePageScreen({
         if (serverSaved) {
           serverSyncEnabledRef.current = true;
         }
-        const saved = serverSaved?.snapshot ?? (await readVehicleSnapshot().catch(() => null));
-        if (saved) {
-          setFileName(saved.fileName ?? "");
-          setProductRows(Array.isArray(saved.productRows) ? saved.productRows : []);
-          setCargoRows(Array.isArray(saved.cargoRows) ? saved.cargoRows : []);
+
+        if (serverSaved?.snapshot) {
+          const nextSnapshot = serverSaved.snapshot;
+          setFileName(nextSnapshot.fileName ?? "");
+          setProductRows(Array.isArray(nextSnapshot.productRows) ? nextSnapshot.productRows : []);
+          setCargoRows(Array.isArray(nextSnapshot.cargoRows) ? nextSnapshot.cargoRows : []);
           setCargoDirty(false);
           lastServerSnapshotRef.current = JSON.stringify({
-            fileName: saved.fileName ?? "",
-            cargoRows: Array.isArray(saved.cargoRows) ? saved.cargoRows : [],
+            fileName: nextSnapshot.fileName ?? "",
+            cargoRows: Array.isArray(nextSnapshot.cargoRows) ? nextSnapshot.cargoRows : [],
           });
+          void writeVehicleSnapshot(nextSnapshot).catch(() => {});
         }
 
-        const savedLimits = serverSaved?.limits ?? (await readVehicleLimitsSnapshot().catch(() => null));
-        if (savedLimits) {
-          setLargeLimit(savedLimits.largeLimit ? String(savedLimits.largeLimit) : "");
-          setSmallLimit(savedLimits.smallLimit ? String(savedLimits.smallLimit) : "");
+        if (serverSaved?.limits) {
+          const nextLimits = serverSaved.limits;
+          setLargeLimit(nextLimits.largeLimit ? String(nextLimits.largeLimit) : "");
+          setSmallLimit(nextLimits.smallLimit ? String(nextLimits.smallLimit) : "");
+          void writeVehicleLimitsSnapshot(nextLimits).catch(() => {});
         }
       } finally {
         setLoadingState("");

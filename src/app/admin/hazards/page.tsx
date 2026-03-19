@@ -21,6 +21,7 @@ type ResolutionRow = {
   after_memo: string | null;
   improved_by: string | null;
   improved_at: string | null;
+  planned_due_date: string | null;
 };
 
 type ProfileRow = {
@@ -32,6 +33,14 @@ type HazardListItem = ReportRow & {
   creator_name: string | null;
   improver_name: string | null;
   resolution: ResolutionRow | null;
+};
+
+type HazardPagePayload = {
+  items?: HazardListItem[];
+  totalCount?: number | null;
+  unresolvedTotalCount?: number | null;
+  pendingTotalCount?: number | null;
+  resolvedTotalCount?: number | null;
 };
 
 const PAGE_SIZE = 4;
@@ -49,6 +58,50 @@ function toKstDate(iso: string) {
 function formatKST(ts: string | null) {
   if (!ts) return "-";
   return new Date(ts).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour12: false });
+}
+
+function todayYMD() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function formatDueDateLabel(value: string | null) {
+  if (!value) return "-";
+  const digits = String(value).replace(/\D/g, "");
+  if (digits.length >= 8) {
+    return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+  }
+  return value;
+}
+
+function getHazardStatus(resolution: ResolutionRow | null) {
+  if (resolution?.after_public_url) {
+    return {
+      key: "done" as const,
+      label: "처리완료",
+      background: "#DCFCE7",
+      color: "#166534",
+    };
+  }
+
+  if (resolution?.planned_due_date && resolution.planned_due_date >= todayYMD()) {
+    return {
+      key: "pending" as const,
+      label: "처리대기",
+      background: "#FEF3C7",
+      color: "#B45309",
+    };
+  }
+
+  return {
+    key: "open" as const,
+    label: "미처리",
+    background: "#FEE2E2",
+    color: "#B91C1C",
+  };
+}
+
+function getHazardImageUrl(_photoPath: string | null | undefined, photoUrl: string | null | undefined) {
+  return String(photoUrl || "").trim();
 }
 
 function extFromName(name: string) {
@@ -95,38 +148,91 @@ async function copyImageToClipboard(url: string) {
   if (!res.ok) throw new Error(`이미지 조회 실패: ${res.status}`);
   const blob = await res.blob();
 
-  const pngBlob = await (async () => {
-    if (typeof createImageBitmap === "undefined") return blob;
+  const clipboard = navigator.clipboard as unknown as { write: (items: unknown[]) => Promise<void> };
+  const clipboardCtor = window as unknown as {
+    ClipboardItem: (new (arg: Record<string, Blob>) => unknown) & { supports?: (type: string) => boolean };
+  };
+  const clipboardType = blob.type || "image/jpeg";
+  const supports =
+    typeof clipboardCtor.ClipboardItem?.supports === "function"
+      ? clipboardCtor.ClipboardItem.supports.bind(clipboardCtor.ClipboardItem)
+      : null;
+
+  const writeBlob = async (targetBlob: Blob) => {
+    const mime = targetBlob.type || "image/png";
+    const item = new clipboardCtor.ClipboardItem({ [mime]: targetBlob });
+    await clipboard.write([item]);
+  };
+
+  const toPngBlob = async () => {
+    if (typeof createImageBitmap === "undefined") return null;
     try {
       const bmp = await createImageBitmap(blob);
       const canvas = document.createElement("canvas");
       canvas.width = bmp.width;
       canvas.height = bmp.height;
       const ctx = canvas.getContext("2d");
-      if (!ctx) return blob;
+      if (!ctx) return null;
       ctx.drawImage(bmp, 0, 0);
-      const out: Blob = await new Promise((resolve) => canvas.toBlob((b) => resolve(b || blob), "image/png"));
-      return out;
+      return await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
     } catch {
-      return blob;
+      return null;
     }
-  })();
+  };
 
-  const item = new (window as unknown as { ClipboardItem: new (arg: Record<string, Blob>) => unknown }).ClipboardItem({
-    "image/png": pngBlob,
-  });
   try {
-    await (navigator.clipboard as unknown as { write: (items: unknown[]) => Promise<void> }).write([item]);
+    if (supports && !supports(clipboardType)) {
+      throw new Error("UNSUPPORTED_CLIPBOARD_TYPE");
+    }
+    await writeBlob(blob);
   } catch (e) {
-    const msg = String((e as Error)?.message ?? e ?? "");
-    if (msg.toLowerCase().includes("document is not focused")) {
+    const msg = String((e as Error)?.message ?? e ?? "").toLowerCase();
+    if (msg.includes("document is not focused")) {
       window.focus();
       await new Promise((r) => setTimeout(r, 120));
-      await (navigator.clipboard as unknown as { write: (items: unknown[]) => Promise<void> }).write([item]);
+      await writeBlob(blob);
       return;
     }
-    throw e;
+
+    const canRetryAsPng =
+      clipboardType !== "image/png" &&
+      (msg.includes("unsupported_clipboard_type") ||
+        msg.includes("type") ||
+        msg.includes("mime") ||
+        msg.includes("format") ||
+        msg.includes("support"));
+
+    if (canRetryAsPng) {
+      const pngBlob = await toPngBlob();
+      if (pngBlob) {
+        await writeBlob(pngBlob);
+        return;
+      }
+    }
+
+    if (msg.includes("clipboard")) {
+      throw new Error("복사에 실패했습니다. 현재 브라우저에서 이미지 복사를 지원하지 않거나 권한이 제한되었습니다.");
+    }
+
+    throw new Error("이미지 복사에 실패했습니다. 창을 한 번 클릭한 뒤 다시 시도해 주세요.");
   }
+}
+
+function showActionError(error: unknown, fallback: string) {
+  const rawMessage = String((error as Error)?.message ?? fallback ?? "");
+  const normalized = rawMessage.toLowerCase();
+
+  if (normalized.includes("document is not focused")) {
+    window.alert("복사에 실패했습니다.\n브라우저 창이나 팝업 안쪽을 한 번 클릭한 뒤 다시 시도해 주세요.");
+    return;
+  }
+
+  if (normalized.includes("clipboard")) {
+    window.alert("복사에 실패했습니다.\n현재 브라우저에서 클립보드 접근이 허용되지 않았거나, 창 포커스가 벗어났습니다.");
+    return;
+  }
+
+  window.alert(rawMessage || fallback);
 }
 
 export default function AdminHazardsPage() {
@@ -142,6 +248,9 @@ export default function AdminHazardsPage() {
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [unresolvedTotalCount, setUnresolvedTotalCount] = useState(0);
+  const [pendingTotalCount, setPendingTotalCount] = useState(0);
+  const [resolvedTotalCount, setResolvedTotalCount] = useState(0);
+  const [pageCache, setPageCache] = useState<Record<number, HazardPagePayload>>({});
 
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [resMap, setResMap] = useState<Record<string, ResolutionRow>>({});
@@ -149,6 +258,7 @@ export default function AdminHazardsPage() {
 
   const [afterMemoById, setAfterMemoById] = useState<Record<string, string>>({});
   const [afterFileById, setAfterFileById] = useState<Record<string, File | null>>({});
+  const [plannedDueDateById, setPlannedDueDateById] = useState<Record<string, string>>({});
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [previewReportId, setPreviewReportId] = useState<string | null>(null);
 
@@ -220,6 +330,78 @@ export default function AdminHazardsPage() {
     return { ok: true as const, admin };
   };
 
+  const applyHazardPayload = useCallback((payload: HazardPagePayload) => {
+    const repRows = (payload.items ?? []) as HazardListItem[];
+    setReports(repRows);
+    if (typeof payload.totalCount === "number") setTotalCount(payload.totalCount);
+    if (typeof payload.unresolvedTotalCount === "number") setUnresolvedTotalCount(payload.unresolvedTotalCount);
+    if (typeof payload.pendingTotalCount === "number") setPendingTotalCount(payload.pendingTotalCount);
+    if (typeof payload.resolvedTotalCount === "number") setResolvedTotalCount(payload.resolvedTotalCount);
+
+    const map: Record<string, ResolutionRow> = {};
+    const pMap: Record<string, ProfileRow> = {};
+    const dueMap: Record<string, string> = {};
+    for (const row of repRows) {
+      if (row.resolution) {
+        map[row.id] = row.resolution;
+        dueMap[row.id] = row.resolution.planned_due_date ?? "";
+      }
+      pMap[row.user_id] = { id: row.user_id, name: row.creator_name };
+      if (row.resolution?.improved_by) {
+        pMap[row.resolution.improved_by] = {
+          id: row.resolution.improved_by,
+          name: row.improver_name,
+        };
+      }
+    }
+    setResMap(map);
+    setProfilesById(pMap);
+    setPlannedDueDateById(dueMap);
+  }, []);
+
+  const fetchHazardPage = useCallback(async (targetPage: number, options?: { includeSummary?: boolean }) => {
+    const includeSummary = options?.includeSummary ?? (!(targetPage in pageCache) || totalCount === 0);
+    const {
+      data: { session },
+      error: sessionErr,
+    } = await supabase.auth.getSession();
+    if (sessionErr) throw sessionErr;
+    const token = session?.access_token;
+    if (!token) throw new Error("세션이 없습니다. 다시 로그인해 주세요.");
+
+    const search = new URLSearchParams({
+      page: String(targetPage),
+      pageSize: String(PAGE_SIZE),
+      includeSummary: includeSummary ? "1" : "0",
+    });
+    const resp = await fetch(`/api/admin/hazards/list?${search.toString()}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    });
+    const payload = (await resp.json().catch(() => ({}))) as {
+      ok?: boolean;
+      message?: string;
+      items?: HazardListItem[];
+      totalCount?: number | null;
+      unresolvedTotalCount?: number | null;
+      pendingTotalCount?: number | null;
+      resolvedTotalCount?: number | null;
+    };
+    if (!resp.ok || !payload.ok) {
+      throw new Error(payload.message || "위험요인 제보 조회에 실패했습니다.");
+    }
+    return {
+      items: payload.items ?? [],
+      totalCount: typeof payload.totalCount === "number" ? payload.totalCount : undefined,
+      unresolvedTotalCount: typeof payload.unresolvedTotalCount === "number" ? payload.unresolvedTotalCount : undefined,
+      pendingTotalCount: typeof payload.pendingTotalCount === "number" ? payload.pendingTotalCount : undefined,
+      resolvedTotalCount: typeof payload.resolvedTotalCount === "number" ? payload.resolvedTotalCount : undefined,
+    } satisfies HazardPagePayload;
+  }, [pageCache, totalCount]);
+
   const deleteReport = async (report: ReportRow) => {
     if (!isMainAdmin) return;
     const ok = window.confirm("이 위험요인 제보를 삭제하시겠습니까? 삭제 후 복구할 수 없습니다.");
@@ -248,7 +430,8 @@ export default function AdminHazardsPage() {
       if (!resp.ok || !payload.ok) throw new Error(payload.message || "삭제에 실패했습니다.");
 
       setMsg("위험요인 제보를 삭제했습니다.");
-      await loadRows();
+      setPageCache({});
+      await loadRows(true);
     } catch (e) {
       setMsg((e as Error)?.message ?? "삭제에 실패했습니다.");
     } finally {
@@ -256,66 +439,31 @@ export default function AdminHazardsPage() {
     }
   };
 
-  const loadRows = useCallback(async () => {
+  const loadRows = useCallback(async (forceRefresh = false) => {
     setLoading(true);
     setMsg("");
     try {
-      const {
-        data: { session },
-        error: sessionErr,
-      } = await supabase.auth.getSession();
-      if (sessionErr) throw sessionErr;
-      const token = session?.access_token;
-      if (!token) throw new Error("세션이 없습니다. 다시 로그인해 주세요.");
-
-      const resp = await fetch(`/api/admin/hazards/list?page=${page}&pageSize=${PAGE_SIZE}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        cache: "no-store",
-      });
-      const payload = (await resp.json().catch(() => ({}))) as {
-        ok?: boolean;
-        message?: string;
-        items?: HazardListItem[];
-        totalCount?: number;
-        unresolvedTotalCount?: number;
-      };
-      if (!resp.ok || !payload.ok) {
-        throw new Error(payload.message || "위험요인 제보 조회에 실패했습니다.");
+      if (!forceRefresh && pageCache[page]) {
+        applyHazardPayload(pageCache[page]);
+      } else {
+        const payload = await fetchHazardPage(page, { includeSummary: true });
+        setPageCache((prev) => ({ ...prev, [page]: payload }));
+        applyHazardPayload(payload);
       }
-
-      const repRows = (payload.items ?? []) as HazardListItem[];
-      setReports(repRows);
-      setTotalCount(payload.totalCount ?? 0);
-      setUnresolvedTotalCount(payload.unresolvedTotalCount ?? 0);
-
-      const map: Record<string, ResolutionRow> = {};
-      const pMap: Record<string, ProfileRow> = {};
-      for (const row of repRows) {
-        if (row.resolution) map[row.id] = row.resolution;
-        pMap[row.user_id] = { id: row.user_id, name: row.creator_name };
-        if (row.resolution?.improved_by) {
-          pMap[row.resolution.improved_by] = {
-            id: row.resolution.improved_by,
-            name: row.improver_name,
-          };
-        }
-      }
-      setResMap(map);
-      setProfilesById(pMap);
     } catch (e) {
       setMsg((e as Error)?.message ?? "위험요인 제보 조회에 실패했습니다.");
       setReports([]);
       setResMap({});
       setProfilesById({});
+      setPlannedDueDateById({});
       setTotalCount(0);
       setUnresolvedTotalCount(0);
+      setPendingTotalCount(0);
+      setResolvedTotalCount(0);
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [applyHazardPayload, fetchHazardPage, page, pageCache]);
 
   useEffect(() => {
     (async () => {
@@ -335,6 +483,28 @@ export default function AdminHazardsPage() {
   }, [checking, isAdmin, loadRows]);
 
   useEffect(() => {
+    if (checking || !isAdmin || totalCount <= 0) return;
+    const maxKnownPage = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+    const targets = [page - 1, page + 1].filter((value) => value >= 1 && value <= maxKnownPage && !pageCache[value]);
+    if (targets.length === 0) return;
+
+    let cancelled = false;
+    void Promise.all(
+      targets.map(async (targetPage) => {
+        try {
+          const payload = await fetchHazardPage(targetPage, { includeSummary: false });
+          if (cancelled) return;
+          setPageCache((prev) => (prev[targetPage] ? prev : { ...prev, [targetPage]: payload }));
+        } catch {}
+      })
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [checking, fetchHazardPage, isAdmin, page, pageCache, totalCount]);
+
+  useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setPreviewReportId(null);
     };
@@ -342,27 +512,50 @@ export default function AdminHazardsPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const sortedReports = useMemo(() => {
-    return [...reports].sort((a, b) => {
-      const aDone = !!resMap[a.id]?.after_public_url;
-      const bDone = !!resMap[b.id]?.after_public_url;
-      if (aDone !== bDone) return aDone ? 1 : -1; // 미처리 우선
-
-      // 같은 상태 내에서는 제보순(최신순)
-      const at = new Date(a.created_at).getTime();
-      const bt = new Date(b.created_at).getTime();
-      return bt - at;
-    });
-  }, [reports, resMap]);
-  const unresolvedVisibleCount = useMemo(() => {
-    return reports.reduce((count, report) => count + (resMap[report.id]?.after_public_url ? 0 : 1), 0);
-  }, [reports, resMap]);
   const previewReport = useMemo(() => reports.find((r) => r.id === previewReportId) ?? null, [reports, previewReportId]);
   const previewResolution = previewReport ? resMap[previewReport.id] : null;
+  const previewStatus = getHazardStatus(previewResolution);
   const previewCreator = previewReport ? profilesById[previewReport.user_id]?.name ?? previewReport.user_id.slice(0, 8) : "-";
   const previewImprover = previewResolution?.improved_by ? profilesById[previewResolution.improved_by]?.name ?? previewResolution.improved_by.slice(0, 8) : "-";
+  const previewBeforeImageUrl = previewReport ? getHazardImageUrl(previewReport.photo_path, previewReport.photo_url) : "";
+  const previewAfterImageUrl = previewResolution ? getHazardImageUrl(previewResolution.after_path, previewResolution.after_public_url) : "";
 
   const maxPage = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  const savePlannedDueDate = async (report: ReportRow) => {
+    const plannedDueDate = (plannedDueDateById[report.id] ?? "").trim();
+    if (!plannedDueDate) {
+      alert("개선예정일을 선택해 주세요.");
+      return;
+    }
+
+    setSavingAfterId(report.id);
+    setMsg("");
+    try {
+      const existing = resMap[report.id];
+      const { error } = await supabase.from("hazard_report_resolutions").upsert(
+        {
+          report_id: report.id,
+          after_path: existing?.after_path ?? null,
+          after_public_url: existing?.after_public_url ?? null,
+          after_memo: existing?.after_memo ?? null,
+          improved_by: sessionUid,
+          improved_at: existing?.after_public_url ? existing.improved_at : null,
+          planned_due_date: plannedDueDate,
+        },
+        { onConflict: "report_id" }
+      );
+      if (error) throw error;
+
+      setMsg(`개선예정일을 ${formatDueDateLabel(plannedDueDate)}로 저장했습니다.`);
+      setPageCache({});
+      await loadRows(true);
+    } catch (e) {
+      setMsg((e as Error)?.message ?? "개선예정일 저장에 실패했습니다.");
+    } finally {
+      setSavingAfterId(null);
+    }
+  };
 
   const uploadAfter = async (report: ReportRow) => {
     const file = afterFileById[report.id] ?? null;
@@ -398,6 +591,7 @@ export default function AdminHazardsPage() {
           after_memo: memo ? memo : null,
           improved_by: sessionUid,
           improved_at: new Date().toISOString(),
+          planned_due_date: null,
         },
         { onConflict: "report_id" }
       );
@@ -406,7 +600,8 @@ export default function AdminHazardsPage() {
       setAfterFileById((p) => ({ ...p, [report.id]: null }));
       setAfterMemoById((p) => ({ ...p, [report.id]: "" }));
       setMsg("개선사진 업로드 완료 (처리완료)");
-      await loadRows();
+      setPageCache({});
+      await loadRows(true);
     } catch (e) {
       setMsg((e as Error)?.message ?? "개선사진 업로드 실패");
     } finally {
@@ -444,7 +639,10 @@ export default function AdminHazardsPage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <div style={{ fontWeight: 900, color: unresolvedVisibleCount > 0 ? "#DC2626" : "#111827" }}>위험요인 미처리 {unresolvedVisibleCount}건</div>
+          <div style={{ fontWeight: 900, color: unresolvedTotalCount > 0 ? "#DC2626" : "#111827" }}>미처리 {unresolvedTotalCount}건</div>
+          <div style={{ fontWeight: 900, color: pendingTotalCount > 0 ? "#B45309" : "#64748B" }}>처리대기 {pendingTotalCount}건</div>
+          <div style={{ fontWeight: 900, color: resolvedTotalCount > 0 ? "#166534" : "#64748B" }}>처리완료 {resolvedTotalCount}건</div>
+          <div style={{ fontSize: 12, color: "#64748B" }}>전체 기준</div>
         </div>
 
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -466,7 +664,7 @@ export default function AdminHazardsPage() {
             다음
           </button>
           <button
-            onClick={loadRows}
+            onClick={() => loadRows(true)}
             disabled={loading}
             style={{ height: 32, padding: "0 10px", border: "1px solid #D1D5DB", borderRadius: 10, background: "white", fontWeight: 900 }}
           >
@@ -481,14 +679,19 @@ export default function AdminHazardsPage() {
         {reports.length === 0 ? (
           <div style={{ gridColumn: "1 / -1", border: "1px solid #DDE3EA", borderRadius: 16, background: "white", padding: 14, color: "#6B7280" }}>데이터가 없습니다.</div>
         ) : (
-          sortedReports.map((r) => {
+          reports.map((r, idx) => {
             const res = resMap[r.id];
-            const done = !!res?.after_public_url;
+            const status = getHazardStatus(res ?? null);
+            const done = status.key === "done";
             const creator = profilesById[r.user_id]?.name ?? r.user_id.slice(0, 8);
             const improver = res?.improved_by ? profilesById[res.improved_by]?.name ?? res.improved_by.slice(0, 8) : "-";
             const afterMemo = afterMemoById[r.id] ?? "";
             const selectedAfterFile = afterFileById[r.id] ?? null;
             const isDragOver = dragOverId === r.id;
+            const plannedDueDate = plannedDueDateById[r.id] ?? "";
+            const beforeThumbUrl = getHazardImageUrl(r.photo_path, r.photo_url);
+            const afterThumbUrl = getHazardImageUrl(res?.after_path, res?.after_public_url);
+            const eagerLoad = idx < 2;
 
             return (
               <div key={r.id} style={{ border: "1px solid #DDE3EA", borderRadius: 14, background: "white", padding: 10, boxShadow: "0 4px 14px rgba(15,23,42,0.05)" }}>
@@ -499,14 +702,15 @@ export default function AdminHazardsPage() {
                       fontWeight: 900,
                       borderRadius: 999,
                       padding: "3px 7px",
-                      background: done ? "#DCFCE7" : "#FEE2E2",
-                      color: done ? "#166534" : "#B91C1C",
+                      background: status.background,
+                      color: status.color,
                     }}
                   >
-                    {done ? "처리완료" : "미처리"}
+                    {status.label}
                   </span>
                   <span style={{ fontSize: 12, color: "#6B7280" }}>제보: {formatKST(r.created_at)} / {creator}</span>
                   <span style={{ fontSize: 12, color: "#6B7280" }}>개선: {formatKST(res?.improved_at ?? null)} / {improver}</span>
+                  {status.key === "pending" ? <span style={{ fontSize: 12, color: "#B45309", fontWeight: 800 }}>예정일: {formatDueDateLabel(res?.planned_due_date ?? null)}</span> : null}
                   {isMainAdmin ? (
                     <button
                       onClick={() => deleteReport(r)}
@@ -520,24 +724,24 @@ export default function AdminHazardsPage() {
 
                 <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 10, alignItems: "start" }}>
                   <div style={{ display: "grid", gap: 8 }}>
-                    <section style={{ border: "1px solid #E2E8F0", borderRadius: 10, background: "#FCFDFE", height: 138, boxSizing: "border-box", overflow: "hidden" }}>
+                    <section style={{ border: "1px solid #E2E8F0", borderRadius: 10, background: "#FFFFFF", height: 138, boxSizing: "border-box", overflow: "hidden" }}>
                       <button
                         onClick={() => setPreviewReportId(r.id)}
-                        style={{ width: "100%", height: 138, border: "none", padding: 0, background: "transparent", cursor: "pointer", display: "block" }}
+                        style={{ width: "100%", height: 138, border: "none", padding: 0, background: "#FFFFFF", cursor: "pointer", display: "block" }}
                         title="제보사진 크게 보기"
                       >
-                        <img src={r.photo_url} alt="before" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        <img src={beforeThumbUrl} alt="before" loading={eagerLoad ? "eager" : "lazy"} decoding="async" fetchPriority={eagerLoad ? "high" : "auto"} style={{ width: "100%", height: "100%", objectFit: "contain", background: "#FFFFFF" }} />
                       </button>
                     </section>
 
-                    <section style={{ border: "1px solid #BFDBFE", borderRadius: 10, background: "#EFF6FF", height: 138, boxSizing: "border-box", overflow: "hidden" }}>
+                    <section style={{ border: "1px solid #BFDBFE", borderRadius: 10, background: "#FFFFFF", height: 138, boxSizing: "border-box", overflow: "hidden" }}>
                       {res?.after_public_url ? (
                         <button
                           onClick={() => setPreviewReportId(r.id)}
-                          style={{ width: "100%", height: 138, border: "none", padding: 0, background: "transparent", cursor: "pointer", display: "block" }}
+                          style={{ width: "100%", height: 138, border: "none", padding: 0, background: "#FFFFFF", cursor: "pointer", display: "block" }}
                           title="개선사진 크게 보기"
                         >
-                          <img src={res.after_public_url} alt="after" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          <img src={afterThumbUrl} alt="after" loading={eagerLoad ? "eager" : "lazy"} decoding="async" fetchPriority={eagerLoad ? "high" : "auto"} style={{ width: "100%", height: "100%", objectFit: "contain", background: "#FFFFFF" }} />
                         </button>
                       ) : (
                         <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#6B7280", background: "white" }}>
@@ -645,7 +849,21 @@ export default function AdminHazardsPage() {
                             />
                           </div>
 
-                          <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}>
+                          <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+                            <input
+                              type="date"
+                              value={plannedDueDate}
+                              min={todayYMD()}
+                              onChange={(e) => setPlannedDueDateById((p) => ({ ...p, [r.id]: e.target.value }))}
+                              style={{ height: 32, padding: "0 10px", borderRadius: 8, border: "1px solid #CBD5E1", background: "white", color: "#0F172A" }}
+                            />
+                            <button
+                              onClick={() => savePlannedDueDate(r)}
+                              disabled={savingAfterId === r.id}
+                              style={{ height: 32, padding: "0 12px", border: "1px solid #F59E0B", borderRadius: 8, background: "#FFF7ED", color: "#B45309", fontWeight: 900 }}
+                            >
+                              {savingAfterId === r.id ? "저장 중..." : "처리대기 저장"}
+                            </button>
                             <button
                               onClick={() => uploadAfter(r)}
                               disabled={savingAfterId === r.id}
@@ -718,7 +936,7 @@ export default function AdminHazardsPage() {
                         try {
                           await forceDownload(previewReport.photo_url, `hazard_before_${previewReport.id}.jpg`);
                         } catch (e) {
-                          setMsg((e as Error)?.message ?? "다운로드에 실패했습니다.");
+                          showActionError(e, "다운로드에 실패했습니다.");
                         }
                       }}
                       style={{ height: 28, padding: "0 9px", borderRadius: 8, border: "1px solid #CBD5E1", background: "white", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
@@ -730,7 +948,7 @@ export default function AdminHazardsPage() {
                         try {
                           await copyImageToClipboard(previewReport.photo_url);
                         } catch (e) {
-                          setMsg((e as Error)?.message ?? "복사에 실패했습니다.");
+                          showActionError(e, "복사에 실패했습니다.");
                         }
                       }}
                       style={{ height: 28, padding: "0 9px", borderRadius: 8, border: "1px solid #CBD5E1", background: "white", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
@@ -740,7 +958,7 @@ export default function AdminHazardsPage() {
                   </div>
                 </div>
                 <div style={{ padding: 12 }}>
-                  <img src={previewReport.photo_url} alt="hazard-before" style={{ width: "100%", maxHeight: 420, objectFit: "contain", borderRadius: 10, border: "1px solid #E5E7EB", background: "white" }} />
+                  <img src={previewBeforeImageUrl} alt="hazard-before" loading="eager" decoding="async" fetchPriority="high" style={{ width: "100%", maxHeight: 420, objectFit: "contain", borderRadius: 10, border: "1px solid #E5E7EB", background: "white" }} />
                   <div style={{ marginTop: 10, border: "1px solid #E2E8F0", borderRadius: 10, background: "white", padding: 12 }}>
                     <div style={{ fontSize: 12, fontWeight: 900, color: "#1E3A8A", marginBottom: 6 }}>개선 전 설명</div>
                     <div style={{ fontSize: 15, lineHeight: 1.6, color: "#1F2937", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{previewReport.comment || "-"}</div>
@@ -753,7 +971,11 @@ export default function AdminHazardsPage() {
                   <div style={{ fontWeight: 900, color: "#0F172A" }}>
                     개선 후
                     <span style={{ marginLeft: 10, color: "#64748B", fontSize: 12, fontWeight: 700 }}>
-                      {previewResolution?.improved_at ? `${formatKST(previewResolution.improved_at)} / ${previewImprover}` : "미처리"}
+                      {previewStatus.key === "done"
+                        ? `${formatKST(previewResolution?.improved_at ?? null)} / ${previewImprover}`
+                        : previewStatus.key === "pending"
+                          ? `처리대기 / 예정일 ${formatDueDateLabel(previewResolution?.planned_due_date ?? null)}`
+                          : "미처리"}
                     </span>
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
@@ -763,7 +985,7 @@ export default function AdminHazardsPage() {
                         try {
                           await forceDownload(previewResolution.after_public_url, `hazard_after_${previewReport.id}.jpg`);
                         } catch (e) {
-                          setMsg((e as Error)?.message ?? "다운로드에 실패했습니다.");
+                          showActionError(e, "다운로드에 실패했습니다.");
                         }
                       }}
                       disabled={!previewResolution?.after_public_url}
@@ -787,7 +1009,7 @@ export default function AdminHazardsPage() {
                         try {
                           await copyImageToClipboard(previewResolution.after_public_url);
                         } catch (e) {
-                          setMsg((e as Error)?.message ?? "복사에 실패했습니다.");
+                          showActionError(e, "복사에 실패했습니다.");
                         }
                       }}
                       disabled={!previewResolution?.after_public_url}
@@ -810,8 +1032,11 @@ export default function AdminHazardsPage() {
                 <div style={{ padding: 12 }}>
                   {previewResolution?.after_public_url ? (
                     <img
-                      src={previewResolution.after_public_url}
+                      src={previewAfterImageUrl}
                       alt="hazard-after"
+                      loading="eager"
+                      decoding="async"
+                      fetchPriority="high"
                       style={{ width: "100%", maxHeight: 420, objectFit: "contain", borderRadius: 10, border: "1px solid #E5E7EB", background: "white" }}
                     />
                   ) : (

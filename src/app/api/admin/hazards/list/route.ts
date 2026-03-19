@@ -19,6 +19,13 @@ type ResolutionRow = {
   after_memo: string | null;
   improved_by: string | null;
   improved_at: string | null;
+  planned_due_date: string | null;
+};
+
+type HazardListItem = ReportRow & {
+  creator_name: string | null;
+  improver_name: string | null;
+  resolution: ResolutionRow | null;
 };
 
 function toInt(v: string | null, fallback: number) {
@@ -33,14 +40,13 @@ export async function GET(req: NextRequest) {
 
   const page = Math.max(1, toInt(req.nextUrl.searchParams.get("page"), 1));
   const pageSize = Math.min(50, Math.max(1, toInt(req.nextUrl.searchParams.get("pageSize"), 10)));
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
+  const includeSummary = req.nextUrl.searchParams.get("includeSummary") !== "0";
+  const today = new Date().toISOString().slice(0, 10);
 
   const { data: reportsData, count, error: reportsErr } = await guard.sbAdmin
     .from("hazard_reports")
     .select("id,user_id,comment,photo_path,photo_url,created_at", { count: "exact" })
-    .order("created_at", { ascending: false })
-    .range(from, to);
+    .order("created_at", { ascending: false });
   if (reportsErr) return json(false, reportsErr.message, null, 500);
 
   const reports = (reportsData ?? []) as ReportRow[];
@@ -50,7 +56,7 @@ export async function GET(req: NextRequest) {
   if (reportIds.length > 0) {
     const { data: resData, error: resErr } = await guard.sbAdmin
       .from("hazard_report_resolutions")
-      .select("report_id,after_path,after_public_url,after_memo,improved_by,improved_at")
+      .select("report_id,after_path,after_public_url,after_memo,improved_by,improved_at,planned_due_date")
       .in("report_id", reportIds);
     if (resErr) return json(false, resErr.message, null, 500);
     resolutions = (resData ?? []) as ResolutionRow[];
@@ -84,24 +90,49 @@ export async function GET(req: NextRequest) {
       creator_name: nameMap[r.user_id] ?? null,
       resolution,
       improver_name: resolution?.improved_by ? nameMap[resolution.improved_by] ?? null : null,
-    };
+    } satisfies HazardListItem;
   });
 
-  // 전체 미처리 건수 = 전체 제보 수 - 처리완료(개선사진 존재) 수
-  const { count: resolvedCount, error: resolvedCountErr } = await guard.sbAdmin
-    .from("hazard_report_resolutions")
-    .select("report_id", { count: "exact", head: true })
-    .not("after_public_url", "is", null);
-  if (resolvedCountErr) return json(false, resolvedCountErr.message, null, 500);
+  const statusOrder = { open: 0, pending: 1, done: 2 } as const;
+  const getStatusKey = (resolution: ResolutionRow | null) => {
+    if (resolution?.after_public_url) return "done" as const;
+    if (resolution?.planned_due_date && resolution.planned_due_date >= today) return "pending" as const;
+    return "open" as const;
+  };
 
-  const total = count ?? 0;
-  const unresolvedTotalCount = Math.max(0, total - (resolvedCount ?? 0));
+  const sortedItems = [...items].sort((a, b) => {
+    const aStatus = getStatusKey(a.resolution);
+    const bStatus = getStatusKey(b.resolution);
+    if (aStatus !== bStatus) return statusOrder[aStatus] - statusOrder[bStatus];
+
+    const at = new Date(a.created_at).getTime();
+    const bt = new Date(b.created_at).getTime();
+    return bt - at;
+  });
+
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize;
+  const pagedItems = sortedItems.slice(from, to);
+
+  let totalCount: number | null = null;
+  let unresolvedTotalCount: number | null = null;
+  let pendingTotalCount: number | null = null;
+  let resolvedTotalCount: number | null = null;
+  if (includeSummary) {
+    totalCount = sortedItems.length;
+    unresolvedTotalCount = sortedItems.reduce((sum, item) => sum + (getStatusKey(item.resolution) === "open" ? 1 : 0), 0);
+    pendingTotalCount = sortedItems.reduce((sum, item) => sum + (getStatusKey(item.resolution) === "pending" ? 1 : 0), 0);
+    resolvedTotalCount = sortedItems.reduce((sum, item) => sum + (getStatusKey(item.resolution) === "done" ? 1 : 0), 0);
+  }
 
   return json(true, undefined, {
-    items,
-    totalCount: count ?? 0,
+    items: pagedItems,
+    totalCount,
     unresolvedTotalCount,
+    pendingTotalCount,
+    resolvedTotalCount,
     page,
     pageSize,
+    includeSummary,
   });
 }

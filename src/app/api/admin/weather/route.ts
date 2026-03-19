@@ -49,7 +49,17 @@ export async function GET() {
       "&hourly=precipitation_probability" +
       "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code";
 
-    const wRes = await fetch(weatherUrl, { cache: "no-store" });
+    const [wRes, aRes] = await Promise.all([
+      fetch(weatherUrl, { cache: "no-store" }),
+      fetch(
+        "https://air-quality-api.open-meteo.com/v1/air-quality" +
+          `?latitude=${LAT}` +
+          `&longitude=${LON}` +
+          "&timezone=Asia%2FSeoul" +
+          "&hourly=pm10,pm2_5",
+        { cache: "no-store" }
+      ),
+    ]);
     if (!wRes.ok) {
       return NextResponse.json(
         {
@@ -76,14 +86,6 @@ export async function GET() {
     }
     const w = await wRes.json();
 
-    const airUrl =
-      "https://air-quality-api.open-meteo.com/v1/air-quality" +
-      `?latitude=${LAT}` +
-      `&longitude=${LON}` +
-      "&timezone=Asia%2FSeoul" +
-      "&hourly=pm10,pm2_5";
-
-    const aRes = await fetch(airUrl, { cache: "no-store" });
     let air: AirPayload | null = null;
     if (aRes.ok) air = (await aRes.json()) as AirPayload;
 
