@@ -354,6 +354,9 @@ export default function AdminHazardsPage() {
       return bt - at;
     });
   }, [reports, resMap]);
+  const unresolvedVisibleCount = useMemo(() => {
+    return reports.reduce((count, report) => count + (resMap[report.id]?.after_public_url ? 0 : 1), 0);
+  }, [reports, resMap]);
   const previewReport = useMemo(() => reports.find((r) => r.id === previewReportId) ?? null, [reports, previewReportId]);
   const previewResolution = previewReport ? resMap[previewReport.id] : null;
   const previewCreator = previewReport ? profilesById[previewReport.user_id]?.name ?? previewReport.user_id.slice(0, 8) : "-";
@@ -441,7 +444,7 @@ export default function AdminHazardsPage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <div style={{ fontWeight: 900, color: unresolvedTotalCount > 0 ? "#DC2626" : "#111827" }}>위험요인 미처리 {unresolvedTotalCount}건</div>
+          <div style={{ fontWeight: 900, color: unresolvedVisibleCount > 0 ? "#DC2626" : "#111827" }}>위험요인 미처리 {unresolvedVisibleCount}건</div>
         </div>
 
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>

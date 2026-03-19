@@ -43,6 +43,11 @@ function kstTodayYYYYMMDD() {
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   return `${kst.getUTCFullYear()}-${pad2(kst.getUTCMonth() + 1)}-${pad2(kst.getUTCDate())}`;
 }
+function kstAddDaysYYYYMMDD(baseYYYYMMDD: string, days: number) {
+  const base = new Date(`${baseYYYYMMDD}T00:00:00+09:00`);
+  const shifted = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
+  return `${shifted.getUTCFullYear()}-${pad2(shifted.getUTCMonth() + 1)}-${pad2(shifted.getUTCDate())}`;
+}
 function kstRangeToUtcRange(startYYYYMMDD: string, endYYYYMMDD: string) {
   const start = new Date(`${startYYYYMMDD}T00:00:00+09:00`);
   const endStart = new Date(`${endYYYYMMDD}T00:00:00+09:00`);
@@ -138,7 +143,8 @@ export default function AdminDeliveryPhotosPage() {
 
   // ---------- filters ----------
   const today = kstTodayYYYYMMDD();
-  const [dateFrom, setDateFrom] = useState(today);
+  const defaultDateFrom = kstAddDaysYYYYMMDD(today, -7);
+  const [dateFrom, setDateFrom] = useState(defaultDateFrom);
   const [dateTo, setDateTo] = useState(today);
 
   // ✅ 첫 진입 미오출
@@ -770,10 +776,6 @@ export default function AdminDeliveryPhotosPage() {
         >
           <div style={{ border: "1px solid #bdd0de", borderRadius: 18, padding: 14, background: "rgba(255,255,255,0.94)", boxShadow: "0 14px 30px rgba(2,32,46,0.10)" }}>
             <div style={{ fontWeight: 900, color: "#111827" }}>조회</div>
-            <div style={{ marginTop: 4, fontSize: 12, color: "#6B7280" }}>
-              기본: <span style={{ fontWeight: 900, color: "#111827" }}>미오출</span> · 결과 {photos.length}장
-            </div>
-
             <div style={{ height: 12 }} />
 
             <div style={{ fontSize: 12, fontWeight: 900, color: "#374151", marginBottom: 6 }}>조회구분</div>
@@ -840,9 +842,6 @@ export default function AdminDeliveryPhotosPage() {
                   })}
                 </div>
 
-                <div style={{ marginTop: 6, fontSize: 11, color: "#6B7280", lineHeight: 1.45 }}>
-                  ✅ <b>미오출 + 재배송 체크</b> 상태에서만 “재배송 미처리”가 위로 올라갑니다.
-                </div>
               </div>
             )}
 
@@ -953,7 +952,7 @@ export default function AdminDeliveryPhotosPage() {
 
                 <button
                   onClick={() => {
-                    setDateFrom(today);
+                    setDateFrom(defaultDateFrom);
                     setDateTo(today);
                     setDriverCategory("miochul");
                     setMiochulFlags({ redelivery: false, damage: false, other: false });
@@ -976,7 +975,6 @@ export default function AdminDeliveryPhotosPage() {
               </div>
             </div>
 
-            <div style={{ marginTop: 10, fontSize: 11, color: "#6B7280" }}>왼쪽 패널: 고정폭 + 독립 스크롤</div>
           </div>
         </div>
 

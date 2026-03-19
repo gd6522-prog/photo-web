@@ -1,4 +1,5 @@
-// src/app/admin/notice/calendar/layout.tsx
+import BoardsLayout from "../boards/layout";
+
 export default function NoticeCalendarLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return <BoardsLayout>{children}</BoardsLayout>;
 }

@@ -3,6 +3,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { toBlob as toImageBlob } from "html-to-image";
 import { supabase } from "@/lib/supabase";
 import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 import { getNoticeBoardDef, NOTICE_BOARD_ALL, NOTICE_BOARD_DEFS, type NoticeBoardFilter, type NoticePost } from "@/lib/notice-board";
@@ -120,6 +121,27 @@ type WeatherAPI = {
   message?: string;
 };
 
+type VehicleProductRow = {
+  car_no: string;
+  store_name: string;
+  delivery_date: string;
+  work_type: string;
+  product_code: string;
+  product_name: string;
+  facility_type: string;
+  original_qty: number;
+  current_qty: number;
+  assigned_qty: number;
+  confirmed_qty: number;
+  center_unit: number;
+};
+
+type VehicleSnapshot = {
+  fileName: string;
+  uploadedAt?: string;
+  productRows: VehicleProductRow[];
+};
+
 function getFeelsLikeStatus(feelsLike: number | null) {
   if (feelsLike == null) {
     return {
@@ -188,6 +210,114 @@ function getFeelsLikeStatus(feelsLike: number | null) {
 
 function hardToLogin() {
   window.location.replace("/login");
+}
+
+function qtyBase(row: VehicleProductRow) {
+  const assigned = row.assigned_qty || row.confirmed_qty || row.current_qty || row.original_qty || 0;
+  if (assigned <= 0) return 0;
+  if (row.center_unit > 0) return assigned / row.center_unit;
+  return assigned;
+}
+
+function normalizeWorkTypeLabel(value: string) {
+  return String(value || "").trim() || "-";
+}
+
+function normalizeSimpleText(value: string) {
+  return String(value || "").replace(/\s+/g, "").toLowerCase();
+}
+
+function getWorkTypeGroupLabel(row: VehicleProductRow) {
+  const workTypeText = normalizeSimpleText(row.work_type);
+  const productCode = String(row.product_code || "").trim();
+  const productNameText = normalizeSimpleText(row.product_name);
+
+  if (productCode === "8809169711091" || productNameText.includes("옐로우)올데이워터생수펫2l")) return "올데이2L생수";
+  if (productCode === "8809482500938" || productNameText.includes("노브랜드)미네랄워터펫2l(qr)")) return "노브랜드2L생수";
+
+  const text = workTypeText;
+  if (text.includes("박스수기")) return "박스수기";
+  if (text.includes("박스존1")) return "박스존1";
+  if (text.includes("이너존a")) return "이너존A";
+  if (text.includes("슬라존a")) return "슬라존A";
+  if (text.includes("경량존a")) return "경량존A";
+  if (text.includes("이형존")) return "이형존A";
+  if (text.includes("담배수기")) return "담배수기";
+  if (text.includes("담배존")) return "담배존";
+  if (text.includes("유가증권")) return "유가증권";
+  return null;
+}
+
+function getOutboundCategory(row: VehicleProductRow) {
+  const storeName = normalizeSimpleText(row.store_name);
+  const carNo = String(row.car_no || "").replace(/\s+/g, "");
+
+  if (storeName.includes("고덕삼성캠퍼스점")) return "campus" as const;
+  if (carNo === "1899") return "newStore" as const;
+  return "general" as const;
+}
+
+function formatDeliveryDateLabel(value: string) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (digits.length >= 8) {
+    return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+  }
+  return String(value || "").trim() || "-";
+}
+
+async function copyElementAsImageToClipboard(element: HTMLElement) {
+  const hasClipboardWrite = !!(navigator.clipboard as { write?: unknown })?.write;
+  const hasClipboardItem = typeof (window as unknown as { ClipboardItem?: unknown }).ClipboardItem !== "undefined";
+  if (!hasClipboardWrite || !hasClipboardItem) {
+    throw new Error("현재 브라우저는 이미지 클립보드를 지원하지 않습니다.");
+  }
+
+  if (!document.hasFocus()) {
+    window.focus();
+    await new Promise((resolve) => setTimeout(resolve, 80));
+  }
+
+  const pngBlob = await toImageBlob(element, {
+    cacheBust: true,
+    pixelRatio: 2,
+    backgroundColor: "#ffffff",
+    filter: (node) => !(node instanceof HTMLElement && node.dataset.copyHide === "true"),
+  });
+  if (!pngBlob) {
+    throw new Error("카드 이미지를 만들지 못했습니다.");
+  }
+
+  const item = new (window as unknown as { ClipboardItem: new (arg: Record<string, Blob>) => unknown }).ClipboardItem({
+    "image/png": pngBlob,
+  });
+  await (navigator.clipboard as unknown as { write: (items: unknown[]) => Promise<void> }).write([item]);
+}
+
+async function fetchVehicleSnapshotForHome() {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  const token = data.session?.access_token;
+  if (!token) throw new Error("세션이 없습니다.");
+
+  const response = await fetch("/api/admin/vehicles/current", {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as {
+    ok?: boolean;
+    message?: string;
+    snapshotUrl?: string | null;
+  };
+
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.message || "단품별 데이터를 불러오지 못했습니다.");
+  }
+
+  if (!payload.snapshotUrl) return null;
+  const snapshot = (await fetch(payload.snapshotUrl, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null))) as VehicleSnapshot | null;
+  return snapshot;
 }
 
 function Card({
@@ -782,24 +912,24 @@ function WeatherCard() {
           <>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <WeatherIcon code={w?.today.weatherCode ?? null} size={30} />
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-                    <div style={{ fontSize: 28, fontWeight: 950, color: "#111827" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <WeatherIcon code={w?.today.weatherCode ?? null} size={56} />
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
+                    <div style={{ fontSize: 52, fontWeight: 950, color: "#111827", lineHeight: 1 }}>
                       {w?.today.currentTemp == null ? "-" : `${Math.round(w.today.currentTemp)}°`}
                     </div>
-                    <div style={{ fontSize: 13, fontWeight: 950, color: "#111827" }}>{w?.today.weatherText ?? "-"}</div>
+                    <div style={{ fontSize: 18, fontWeight: 950, color: "#111827" }}>{w?.today.weatherText ?? "-"}</div>
                   </div>
                 </div>
                 <div
                   style={{
-                    minWidth: 92,
+                    minWidth: 104,
                     borderRadius: 14,
                     border: `1px solid ${feelsLikeStatus.borderColor}`,
                     background: feelsLikeStatus.background,
                     boxShadow: feelsLikeStatus.boxShadow,
-                    padding: "12px 10px 16px",
-                    minHeight: 98,
+                    padding: "12px 10px 14px",
+                    minHeight: 108,
                     textAlign: "center",
                     display: "flex",
                     flexDirection: "column",
@@ -807,11 +937,11 @@ function WeatherCard() {
                   }}
                 >
                   <div style={{ fontSize: 14, fontWeight: 900, color: feelsLikeStatus.titleColor, letterSpacing: 0.2 }}>
-                    체감온도({feelsLikeStatus.label})
+                    체감온도
                   </div>
                   <div
                     style={{
-                      marginTop: 2,
+                      marginTop: 6,
                       fontSize: 26,
                       lineHeight: 1,
                       fontWeight: 950,
@@ -820,6 +950,9 @@ function WeatherCard() {
                     }}
                   >
                     {w?.today.feelsLike == null ? "-" : `${Math.round(w.today.feelsLike)}°`}
+                  </div>
+                  <div style={{ marginTop: 4, fontSize: 18, fontWeight: 1000, color: feelsLikeStatus.titleColor, lineHeight: 1.05, letterSpacing: 0.2 }}>
+                    {feelsLikeStatus.label}
                   </div>
                 </div>
               </div>
@@ -954,6 +1087,253 @@ function WeatherCard() {
         )}
       </div>
     </Card>
+  );
+}
+
+function WorkTypeOutboundCard() {
+  type SummaryRow = { label: string; general: number; newStore: number; campus: number; total: number; isSubtotal?: boolean };
+  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<SummaryRow[]>([]);
+  const [deliveryDate, setDeliveryDate] = useState("");
+  const [err, setErr] = useState("");
+  const [copying, setCopying] = useState(false);
+  const [copyMessage, setCopyMessage] = useState("");
+  const cardCaptureRef = useRef<HTMLDivElement | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setErr("");
+    try {
+      const snapshot = await fetchVehicleSnapshotForHome();
+      setDeliveryDate(snapshot?.productRows?.find((row) => String(row.delivery_date || "").trim())?.delivery_date ?? "");
+
+      const orderedLabels = ["박스수기", "박스존1", "올데이2L생수", "노브랜드2L생수", "이너존A", "슬라존A", "경량존A", "이형존A", "담배존", "담배수기", "유가증권"] as const;
+      const grouped = new Map<string, SummaryRow>();
+      for (const label of orderedLabels) {
+        grouped.set(label, { label, general: 0, newStore: 0, campus: 0, total: 0 });
+      }
+
+      for (const row of snapshot?.productRows ?? []) {
+        const label = getWorkTypeGroupLabel(row);
+        if (!label) continue;
+        const qty = qtyBase(row);
+        if (qty <= 0) continue;
+
+        const current = grouped.get(label) ?? { label, general: 0, newStore: 0, campus: 0, total: 0 };
+        const category = getOutboundCategory(row);
+        if (category === "campus") current.campus += qty;
+        else if (category === "newStore") current.newStore += qty;
+        else current.general += qty;
+        current.total += qty;
+        grouped.set(label, current);
+      }
+
+      const baseRows = orderedLabels.map((label) => grouped.get(label)!).filter(Boolean);
+      const boxLabels = new Set(["박스수기", "박스존1", "올데이2L생수", "노브랜드2L생수"]);
+      const boxSubtotal = baseRows
+        .filter((row) => boxLabels.has(row.label))
+        .reduce(
+          (acc, row) => {
+            acc.general += row.general;
+            acc.newStore += row.newStore;
+            acc.campus += row.campus;
+            acc.total += row.total;
+            return acc;
+          },
+          { label: "박스합계", general: 0, newStore: 0, campus: 0, total: 0, isSubtotal: true } as SummaryRow,
+        );
+      const tobaccoLabels = new Set(["담배존", "담배수기"]);
+      const tobaccoSubtotal = baseRows
+        .filter((row) => tobaccoLabels.has(row.label))
+        .reduce(
+          (acc, row) => {
+            acc.general += row.general;
+            acc.newStore += row.newStore;
+            acc.campus += row.campus;
+            acc.total += row.total;
+            return acc;
+          },
+          { label: "담배합계", general: 0, newStore: 0, campus: 0, total: 0, isSubtotal: true } as SummaryRow,
+        );
+
+      const nextRows: SummaryRow[] = [];
+      for (const row of baseRows) {
+        nextRows.push(row);
+        if (row.label === "노브랜드2L생수") {
+          nextRows.push(boxSubtotal);
+        }
+        if (row.label === "담배수기") {
+          nextRows.push(tobaccoSubtotal);
+        }
+      }
+      setRows(nextRows);
+    } catch (e: any) {
+      setRows([]);
+      setErr(e?.message ?? "작업구분별 출고배수를 불러오지 못했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  useEffect(() => {
+    if (!copyMessage) return;
+    const timer = window.setTimeout(() => setCopyMessage(""), 2000);
+    return () => window.clearTimeout(timer);
+  }, [copyMessage]);
+
+  const sumGeneral = rows.reduce((sum, row) => sum + (row.isSubtotal ? 0 : row.general), 0);
+  const sumNewStore = rows.reduce((sum, row) => sum + (row.isSubtotal ? 0 : row.newStore), 0);
+  const sumCampus = rows.reduce((sum, row) => sum + (row.isSubtotal ? 0 : row.campus), 0);
+  const sumTotal = rows.reduce((sum, row) => sum + (row.isSubtotal ? 0 : row.total), 0);
+
+  const handleCopy = async () => {
+    if (!cardCaptureRef.current) return;
+    setCopying(true);
+    setCopyMessage("");
+    try {
+      await copyElementAsImageToClipboard(cardCaptureRef.current);
+      setCopyMessage("복사 완료");
+    } catch (e: any) {
+      setCopyMessage(e?.message ?? "복사 실패");
+    } finally {
+      setCopying(false);
+    }
+  };
+
+  return (
+    <div ref={cardCaptureRef}>
+      <Card
+        title="작업구분별 출고배수"
+        subtitle={`납품예정일: ${formatDeliveryDateLabel(deliveryDate)}`}
+        minHeight={WEATHER_MIN_H}
+        right={
+          <div data-copy-hide="true" style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button
+                onClick={handleCopy}
+                disabled={copying || loading || !!err || rows.length === 0}
+                style={{
+                  height: 30,
+                  padding: "0 12px",
+                  borderRadius: 999,
+                  border: "1px solid #b9cddd",
+                  background: copying || loading || !!err || rows.length === 0 ? "#e5edf3" : "#ffffff",
+                  color: copying || loading || !!err || rows.length === 0 ? "#90a4b4" : "#103b53",
+                  cursor: copying || loading || !!err || rows.length === 0 ? "default" : "pointer",
+                  fontWeight: 950,
+                  fontSize: 12,
+                  whiteSpace: "nowrap",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {copying ? "복사중" : "복사"}
+              </button>
+              <button
+                onClick={load}
+                style={{
+                  height: 30,
+                  padding: "0 12px",
+                  borderRadius: 999,
+                  border: "1px solid #0e7490",
+                  background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
+                  color: "white",
+                  cursor: "pointer",
+                  fontWeight: 950,
+                  fontSize: 12,
+                  whiteSpace: "nowrap",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 8px 18px rgba(16,59,83,0.20)",
+                }}
+              >
+                새로고침
+              </button>
+            </div>
+            {copyMessage ? <div style={{ maxWidth: 220, fontSize: 11.5, color: copyMessage === "복사 완료" ? "#0f766e" : "#b91c1c", fontWeight: 800, textAlign: "right", lineHeight: 1.2, wordBreak: "keep-all" }}>{copyMessage}</div> : null}
+          </div>
+        }
+      >
+        {loading ? (
+          <div style={{ color: "#6B7280", fontSize: 13 }}>불러오는 중...</div>
+        ) : err ? (
+          <div style={{ color: "#B91C1C", fontSize: 13 }}>{err}</div>
+        ) : rows.length === 0 ? (
+          <div style={{ color: "#6B7280", fontSize: 13 }}>단품별 최신 데이터가 없습니다.</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, minHeight: 0, height: "100%" }}>
+            <div style={{ border: "1px solid #d9e6ef", borderRadius: 12, overflow: "hidden", flex: 1, minHeight: 0, background: "#fff" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+                <colgroup>
+                  <col style={{ width: "31%" }} />
+                  <col style={{ width: "17.25%" }} />
+                  <col style={{ width: "17.25%" }} />
+                  <col style={{ width: "17.25%" }} />
+                  <col style={{ width: "17.25%" }} />
+                </colgroup>
+                <thead>
+                  <tr style={{ background: "#eef5fb" }}>
+                    <th style={{ textAlign: "left", padding: "10px 10px", fontSize: 12, fontWeight: 950, color: "#103b53", whiteSpace: "nowrap" }}>작업구분</th>
+                    <th style={{ textAlign: "right", padding: "10px 8px", fontSize: 11.5, fontWeight: 950, color: "#103b53", whiteSpace: "nowrap" }}>일반</th>
+                    <th style={{ textAlign: "right", padding: "10px 8px", fontSize: 11.5, fontWeight: 950, color: "#103b53", whiteSpace: "nowrap" }}>신규점</th>
+                    <th style={{ textAlign: "right", padding: "10px 8px", fontSize: 11.5, fontWeight: 950, color: "#103b53", whiteSpace: "nowrap" }}>캠퍼스</th>
+                    <th style={{ textAlign: "right", padding: "10px 8px", fontSize: 11.5, fontWeight: 950, color: "#103b53", whiteSpace: "nowrap" }}>총합계</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => {
+                    const isBoxBlockStart = row.label === "박스수기";
+                    const isBoxBlockEnd = row.label === "박스합계";
+                    const isTobaccoBlockStart = row.label === "담배존";
+                    const isTobaccoBlockEnd = row.label === "담배합계";
+                    const borderTop = isBoxBlockStart || isTobaccoBlockStart ? "2px solid #d6e6f2" : "1px solid #eef3f7";
+                    const borderBottom = isBoxBlockEnd || isTobaccoBlockEnd ? "2px solid #d6e6f2" : undefined;
+                    const background = row.isSubtotal ? "#f4f9fd" : "#fff";
+
+                    return (
+                      <tr key={row.label} style={{ borderTop, borderBottom, background }}>
+                        <td style={{ padding: "9px 10px", fontSize: row.label === "올데이2L생수" || row.label === "노브랜드2L생수" ? 11.5 : 13, fontWeight: row.isSubtotal ? 950 : 800, color: "#0f2940", whiteSpace: "nowrap" }}>{row.label}</td>
+                        <td style={{ padding: "9px 8px", fontSize: 12.5, textAlign: "right", color: "#113247", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontWeight: row.isSubtotal ? 900 : 500 }}>{row.general ? row.general.toLocaleString("ko-KR") : ""}</td>
+                        <td style={{ padding: "9px 8px", fontSize: 12.5, textAlign: "right", color: "#113247", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontWeight: row.isSubtotal ? 900 : 500 }}>{row.newStore ? row.newStore.toLocaleString("ko-KR") : ""}</td>
+                        <td style={{ padding: "9px 8px", fontSize: 12.5, textAlign: "right", color: "#113247", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontWeight: row.isSubtotal ? 900 : 500 }}>{row.campus ? row.campus.toLocaleString("ko-KR") : ""}</td>
+                        <td style={{ padding: "9px 8px", fontSize: 12.5, textAlign: "right", color: "#111827", fontWeight: 900, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{row.total.toLocaleString("ko-KR")}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ borderTop: "1px solid #d9e6ef", paddingTop: 10 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+                <colgroup>
+                  <col style={{ width: "31%" }} />
+                  <col style={{ width: "17.25%" }} />
+                  <col style={{ width: "17.25%" }} />
+                  <col style={{ width: "17.25%" }} />
+                  <col style={{ width: "17.25%" }} />
+                </colgroup>
+                <tbody>
+                  <tr>
+                    <td style={{ padding: "6px 10px", fontSize: 13, fontWeight: 950, color: "#103b53", whiteSpace: "nowrap" }}>총합계</td>
+                    <td style={{ padding: "6px 8px", textAlign: "right", fontSize: 13, fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{sumGeneral.toLocaleString("ko-KR")}</td>
+                    <td style={{ padding: "6px 8px", textAlign: "right", fontSize: 13, fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{sumNewStore.toLocaleString("ko-KR")}</td>
+                    <td style={{ padding: "6px 8px", textAlign: "right", fontSize: 13, fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{sumCampus.toLocaleString("ko-KR")}</td>
+                    <td style={{ padding: "6px 8px", textAlign: "right", fontSize: 14, fontWeight: 950, color: "#0f2940", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{sumTotal.toLocaleString("ko-KR")}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </Card>
+    </div>
   );
 }
 
@@ -1514,6 +1894,10 @@ export default function AdminHomePage() {
             <NoticeMainCard />
           </div>
 
+          <div className="summaryCol">
+            <WorkTypeOutboundCard />
+          </div>
+
           <div className="rightCol">
             <WeatherCard />
           </div>
@@ -1639,7 +2023,7 @@ export default function AdminHomePage() {
         <style jsx>{`
           .homeGrid {
             display: grid;
-            grid-template-columns: var(--leftColW) 1fr 360px;
+            grid-template-columns: var(--leftColW) minmax(0, 1fr) 330px 360px;
             column-gap: var(--colGap);
             row-gap: var(--rowGap);
             align-items: stretch;
@@ -1657,6 +2041,7 @@ export default function AdminHomePage() {
             max-width: var(--leftColW);
           }
           .midCol,
+          .summaryCol,
           .rightCol {
             display: flex;
             height: 100%;

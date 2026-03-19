@@ -9,6 +9,7 @@ import { getSettingsItems, findMenuKeyByPath } from "@/lib/menu-registry";
 import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 
 const MAX_W = 1700;
+const AUTO_LOGOUT_MS = 60 * 60 * 1000;
 
 type Profile = {
   name: string | null;
@@ -76,6 +77,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [workLogOpen, setWorkLogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const guardBootstrappedRef = useRef(false);
 
   const loggingOutRef = useRef(false);
 
@@ -95,6 +98,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     () => [
       { label: "단품별/물동량", href: "/admin/vehicles" },
       { label: "운행일보", href: "/admin/vehicles/report" },
+      { label: "점착", href: "/admin/vehicles/adhesion" },
+      { label: "CDC", href: "/admin/vehicles/cdc" },
     ],
     []
   );
@@ -129,12 +134,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     closeTimer.current = null;
   };
 
+  const clearInactivityTimer = () => {
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+    inactivityTimerRef.current = null;
+  };
+
   const closeAll = () => {
     setPhotosOpen(false);
     setVehicleOpen(false);
     setNoticeOpen(false);
     setWorkLogOpen(false);
     setSettingsOpen(false);
+  };
+
+  const redirectToLogin = (reason?: "timeout") => {
+    const next = reason ? `/login?reason=${reason}` : "/login";
+    window.location.replace(next);
   };
 
   const openDropdown = (which: "photos" | "vehicle" | "notice" | "worklog" | "settings") => {
@@ -274,11 +289,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       };
     }
 
-    const hardToLogin = () => window.location.replace("/login");
+    const hardToLogin = () => redirectToLogin();
 
-    const runGuard = async () => {
+    const runGuard = async (showBlocking = !guardBootstrappedRef.current) => {
       const my = ++runId;
-      setChecking(true);
+      if (showBlocking) setChecking(true);
 
       try {
         const session = await waitForSession();
@@ -336,14 +351,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           if (menuKey) {
             if (false && menuKey === "settings_driver_master") {
               router.replace("/admin");
-              router.refresh();
               return;
             }
             const access = (map?.[menuKey] ?? "hidden") as AccessLevel;
             const vendorOverride = false;
             if (access === "hidden" && !vendorOverride) {
               router.replace("/admin");
-              router.refresh();
               return;
             }
           }
@@ -353,13 +366,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         if (data?.session) {
           if (!mounted || runId !== my) return;
           guardRetryTimer = setTimeout(() => {
-            if (mounted) void runGuard();
+            if (mounted) void runGuard(showBlocking);
           }, 1500);
           return;
         }
         hardToLogin();
       } finally {
-        if (mounted && runId === my) setChecking(false);
+        if (mounted && runId === my) {
+          guardBootstrappedRef.current = true;
+          setChecking(false);
+        }
       }
     };
 
@@ -374,8 +390,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         return;
       }
 
-      runGuard();
-      router.refresh();
+      if (event === "TOKEN_REFRESHED") {
+        return;
+      }
+
+      if (event === "SIGNED_IN" || event === "USER_UPDATED") {
+        void runGuard(false);
+      }
     });
 
     return () => {
@@ -385,6 +406,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         sub.subscription.unsubscribe();
       } catch {}
       clearCloseTimer();
+      clearInactivityTimer();
     };
   }, [isAdminPath, pathname, router]);
 
@@ -397,7 +419,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (!menuKey) return;
     if (isCompanyAdmin && menuKey === "settings_driver_master") {
       router.replace("/admin");
-      router.refresh();
       return;
     }
 
@@ -405,9 +426,46 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const vendorOverride = isCompanyAdmin && (menuKey === "admin_work_log" || menuKey === "settings_user_master");
     if (access === "hidden" && !vendorOverride) {
       router.replace("/admin");
-      router.refresh();
     }
   }, [isAdminPath, pathname, checking, isMainAdmin, isCompanyAdmin, menuAccess, router]);
+
+  useEffect(() => {
+    if (!isAdminPath || checking) {
+      clearInactivityTimer();
+      return;
+    }
+
+    const kickByTimeout = async () => {
+      if (loggingOutRef.current) return;
+      loggingOutRef.current = true;
+      setChecking(true);
+      try {
+        await supabase.auth.signOut();
+      } catch {}
+      redirectToLogin("timeout");
+    };
+
+    const resetInactivityTimer = () => {
+      clearInactivityTimer();
+      inactivityTimerRef.current = setTimeout(() => {
+        void kickByTimeout();
+      }, AUTO_LOGOUT_MS);
+    };
+
+    const activityEvents: Array<keyof WindowEventMap> = ["pointerdown", "keydown", "scroll", "touchstart"];
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, resetInactivityTimer, { passive: true });
+    });
+
+    resetInactivityTimer();
+
+    return () => {
+      activityEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, resetInactivityTimer);
+      });
+      clearInactivityTimer();
+    };
+  }, [isAdminPath, checking]);
 
   const onLogout = async () => {
     if (loggingOutRef.current) return;
@@ -416,7 +474,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     try {
       await supabase.auth.signOut();
     } finally {
-      window.location.replace("/login");
+      redirectToLogin();
     }
   };
 
@@ -436,6 +494,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <AdminAccessProvider isMainAdmin={isMainAdmin} isGeneralAdmin={isGeneralAdmin} isCompanyAdmin={isCompanyAdmin} menuAccess={menuAccess}>
       <div className="ha-surface ha-admin" style={{ minHeight: "100vh", fontFamily: "Pretendard, system-ui, -apple-system, Segoe UI, sans-serif", position: "relative", overflow: "hidden" }}>
         <div
+          className="ha-admin-header"
           style={{
             position: "sticky",
             top: 0,
@@ -688,7 +747,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </div>
 
-        <div style={{ maxWidth: MAX_W, margin: "0 auto", padding: "18px 12px" }}>{children}</div>
+        <div className="ha-admin-content" style={{ maxWidth: MAX_W, margin: "0 auto", padding: "18px 12px" }}>{children}</div>
       </div>
     </AdminAccessProvider>
   );

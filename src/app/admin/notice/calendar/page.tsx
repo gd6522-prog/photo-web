@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 import {
@@ -67,33 +65,7 @@ function startWeekdayOfMonth(year: number, month1to12: number) {
   return new Date(`${year}-${pad2(month1to12)}-01T00:00:00+09:00`).getDay();
 }
 
-function TabLink({ href, label, active }: { href: string; label: string; active: boolean }) {
-  return (
-    <Link
-      href={href}
-      style={{
-        height: 36,
-        padding: "0 12px",
-        borderRadius: 999,
-        border: active ? "1px solid #111827" : "1px solid #E5E7EB",
-        background: active ? "#111827" : "white",
-        color: active ? "white" : "#111827",
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        textDecoration: "none",
-        fontWeight: 950,
-        fontSize: 13,
-      }}
-    >
-      {label}
-    </Link>
-  );
-}
-
 export default function AdminNoticeCalendarPage() {
-  const pathname = usePathname();
-
   const [ready, setReady] = useState(false);
   const [checking, setChecking] = useState(true);
   const [sessionEmail, setSessionEmail] = useState("");
@@ -374,10 +346,6 @@ export default function AdminNoticeCalendarPage() {
       setLoading(false);
     }
   };
-
-  const isNoticesActive = pathname === "/admin/notice/boards" || pathname.startsWith("/admin/notice/boards/");
-  const isCalendarActive = pathname === "/admin/notice/calendar" || pathname.startsWith("/admin/notice/calendar/");
-
   if (checking || !ready) return <div style={{ padding: 16, color: "#6B7280" }}>로딩...</div>;
 
   if (!isAdmin) {
@@ -388,41 +356,18 @@ export default function AdminNoticeCalendarPage() {
         <div style={{ marginTop: 10, fontSize: 12, color: "#374151" }}>
           현재 로그인: {sessionEmail || "-"} / UID: {sessionUid || "-"}
         </div>
-      </div>
+        </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto", padding: "18px 12px", fontFamily: "system-ui" }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
+    <div style={{ maxWidth: 1200, padding: "18px 12px", fontFamily: "system-ui" }}>
+      <div>
         <div>
           <div style={{ fontWeight: 950, fontSize: 20 }}>공지</div>
           <div style={{ marginTop: 6, color: "#6B7280", fontSize: 13 }}>관리자 계정은 일정 조회, 등록, 수정, 삭제가 가능합니다.</div>
-          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <TabLink href="/admin/notice/calendar" label="달력" active={isCalendarActive} />
-            <TabLink href="/admin/notice/boards?board=notice" label="게시판" active={isNoticesActive} />
-          </div>
-        </div>
-
-        <Link
-          href="/admin"
-          style={{
-            height: 40,
-            padding: "0 14px",
-            borderRadius: 12,
-            border: "1px solid #E5E7EB",
-            background: "white",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            textDecoration: "none",
-            fontWeight: 950,
-            color: "#111827",
-          }}
-        >
-          메인으로
-        </Link>
       </div>
+        </div>
 
       <div style={{ marginTop: 14, display: "flex", justifyContent: "center" }}>
         <div style={{ width: 980, maxWidth: "96vw", display: "grid", gridTemplateColumns: "360px 1fr", gap: 14 }}>

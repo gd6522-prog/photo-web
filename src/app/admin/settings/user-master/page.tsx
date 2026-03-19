@@ -121,7 +121,8 @@ function workTableShort(v: string | null): string {
 
 function workTableTimeOnly(v: string): string {
   const parts = v.split(" ");
-  return parts.slice(1).join(" ").trim() || v;
+  if (parts.length <= 1) return v;
+  return `${parts[0]} / ${parts.slice(1).join(" ").trim()}`;
 }
 
 function uniq(arr: string[]) {
@@ -499,7 +500,7 @@ export default function UserMasterPage() {
           display: "grid",
           gridTemplateColumns: "1.3fr 1fr 1fr 1.2fr auto",
           gap: 10,
-          alignItems: "end",
+          alignItems: "center",
         }}
       >
         <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -549,15 +550,16 @@ export default function UserMasterPage() {
           ...panelStyle,
           marginTop: 10,
           display: "grid",
-          gridTemplateColumns: "auto 1fr 1fr auto auto",
+          gridTemplateColumns: "auto auto 1fr 1fr auto auto",
           gap: 10,
-          alignItems: "end",
+          alignItems: "center",
           background: selectedCount > 0 ? "#FFF8EF" : "white",
         }}
       >
-        <div style={{ height: 40, padding: "0 12px", borderRadius: 10, border: "1px solid #E2E8F0", display: "flex", alignItems: "center", fontSize: 13, fontWeight: 800 }}>
-          선택 {selectedCount.toLocaleString()}명
+        <div style={{ fontWeight: 950, fontSize: 13, display: "flex", alignItems: "center", alignSelf: "center", height: 40 }}>
+          선택: <span style={{ fontSize: 14, marginLeft: 4 }}>{selectedCount.toLocaleString()}</span>명
         </div>
+        <div style={{ width: 1, height: 30, alignSelf: "center", background: "rgba(0,0,0,0.08)" }} />
         <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <span style={{ fontSize: 12, color: "#475467", fontWeight: 700 }}>회사명 일괄 변경</span>
           <select value={bulkCompany} onChange={(e) => setBulkCompany(e.target.value)} style={inputStyle(selectedCount === 0)}>

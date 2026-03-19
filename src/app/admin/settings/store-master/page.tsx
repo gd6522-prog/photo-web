@@ -8,6 +8,8 @@ type Row = {
   store_name: string;
   car_no: string;
   seq_no: number;
+  delivery_due_time?: string;
+  address?: string;
 };
 
 function normalizeHeader(value: unknown) {
@@ -108,6 +110,8 @@ export default function StoreMasterPage() {
     const idxSeq = findHeaderIndex(headers, ["배송순서", "순번"]);
     const idxCode = findHeaderIndex(headers, ["배송처코드", "점포코드"]);
     const idxName = findHeaderIndex(headers, ["배송처명", "점포명"]);
+    const idxDue = findHeaderIndex(headers, ["납기기준시간", "기준시간", "납품시간", "납품예정시간", "delivery_due_time"]);
+    const idxAddress = findHeaderIndex(headers, ["주소", "배송처주소", "address"]);
 
     if (idxCar < 0 || idxSeq < 0 || idxCode < 0 || idxName < 0) {
       setMessage("필수 컬럼을 찾지 못했습니다. 호차번호, 배송순서, 배송처코드, 배송처명이 필요합니다.");
@@ -133,6 +137,8 @@ export default function StoreMasterPage() {
         store_name,
         car_no,
         seq_no: Number.isFinite(seq_no) ? seq_no : 0,
+        delivery_due_time: idxDue >= 0 ? String(line[idxDue] ?? "").trim() : "",
+        address: idxAddress >= 0 ? String(line[idxAddress] ?? "").trim() : "",
       });
     }
 

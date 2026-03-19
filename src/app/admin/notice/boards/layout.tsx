@@ -22,8 +22,8 @@ function getActiveBoard(pathname: string, searchParams: URLSearchParams): Notice
 export default function BoardsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const activeBoard = getActiveBoard(pathname, searchParams);
   const isCalendarActive = pathname === "/admin/notice/calendar" || pathname.startsWith("/admin/notice/calendar/");
+  const activeBoard = isCalendarActive ? null : getActiveBoard(pathname, searchParams);
 
   return (
     <div style={boardPageShellStyle}>
@@ -72,9 +72,10 @@ export default function BoardsLayout({ children }: { children: React.ReactNode }
                   borderRadius: 16,
                   display: "block",
                   textDecoration: "none",
-                  border: isCalendarActive ? "1px solid #7dd3fc" : "1px solid #d9e6ef",
-                  background: isCalendarActive ? "#e0f2fe" : "#fbfdfe",
-                  color: isCalendarActive ? "#075985" : "#103b53",
+                  border: isCalendarActive ? "1px solid #c084fc" : "1px solid #d9e6ef",
+                  background: isCalendarActive ? "#f3e8ff" : "#fbfdfe",
+                  color: isCalendarActive ? "#7c3aed" : "#103b53",
+                  boxShadow: isCalendarActive ? "0 8px 18px rgba(124,58,237,0.14)" : "none",
                 }}
               >
                 <div style={{ fontWeight: 900, fontSize: 14 }}>일정 달력</div>

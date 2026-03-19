@@ -749,9 +749,6 @@ export default function AdminPhotosPage() {
                 </button>
               </div>
 
-              <div style={{ marginTop: 10, fontSize: 12, color: "#6B7280" }}>
-                정렬: <b>호차 오름차순</b> → <b>순번 오름차순</b>
-              </div>
             </div>
 
             {/* store list */}
@@ -892,10 +889,6 @@ export default function AdminPhotosPage() {
                   선택 삭제 ({selectedPhotoIds.size})
                 </button>
               </div>
-            </div>
-
-            <div style={{ marginTop: 10, fontSize: 12, color: "#6B7280" }}>
-              사진 클릭: 선택모드 OFF면 <b>미리보기(모달)</b> / ON이면 <b>선택·해제</b>
             </div>
 
             <div style={{ height: 12 }} />

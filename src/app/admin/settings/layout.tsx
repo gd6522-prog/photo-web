@@ -25,23 +25,27 @@ export default function AdminSettingsLayout({ children }: { children: React.Reac
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "260px minmax(0, 1fr)",
-        gap: 14,
+        gridTemplateColumns: "290px minmax(0, 1fr)",
+        gap: 18,
         alignItems: "start",
       }}
     >
-      {/* LEFT SIDEBAR */}
-      <div
+      <aside
         style={{
-          border: "1px solid #E5E7EB",
-          borderRadius: 16,
-          background: "white",
-          padding: 12,
+          border: "1px solid #c9d9e4",
+          borderRadius: 22,
+          background: "#ffffff",
+          boxShadow: "0 16px 34px rgba(2,32,46,0.08)",
+          overflow: "hidden",
+          position: "sticky",
+          top: 88,
         }}
       >
-        <div style={{ fontWeight: 950, color: "#111827", marginBottom: 10 }}>설정</div>
+        <div style={{ padding: 18, borderBottom: "1px solid #d9e6ef" }}>
+          <div style={{ fontSize: 15, fontWeight: 950, color: "#103b53", letterSpacing: 0.1 }}>설정</div>
+        </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 8 }}>
           {items.filter((it) => canShow(it)).map((it) => {
             const active = isActive(it.href);
             return (
@@ -50,13 +54,14 @@ export default function AdminSettingsLayout({ children }: { children: React.Reac
                 href={it.href}
                 style={{
                   textDecoration: "none",
-                  padding: "12px 12px",
-                  borderRadius: 14,
-                  border: "1px solid #E5E7EB",
-                  background: active ? "#111827" : "white",
-                  color: active ? "white" : "#111827",
+                  padding: "12px 14px",
+                  borderRadius: 16,
+                  border: active ? "1px solid #7dd3fc" : "1px solid #d9e6ef",
+                  background: active ? "#e0f2fe" : "#fbfdfe",
+                  color: active ? "#075985" : "#103b53",
+                  boxShadow: active ? "0 8px 18px rgba(16,59,83,0.10)" : "none",
                   fontWeight: 950,
-                  fontSize: 13,
+                  fontSize: 14,
                 }}
               >
                 {it.label}
@@ -64,14 +69,13 @@ export default function AdminSettingsLayout({ children }: { children: React.Reac
             );
           })}
         </div>
-      </div>
+      </aside>
 
-      {/* RIGHT CONTENT */}
       <div style={{ minWidth: 0 }}>{children}</div>
 
       <style jsx>{`
         @media (max-width: 1100px) {
-          div[style*="grid-template-columns: 260px minmax(0, 1fr)"] {
+          div[style*="grid-template-columns: 290px minmax(0, 1fr)"] {
             grid-template-columns: 1fr;
           }
         }

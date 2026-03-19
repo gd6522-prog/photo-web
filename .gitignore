@@ -1,2 +1,9 @@
 .automation/
 .codex-dev.log
+.next/
+.vercel/
+node_modules/
+tsconfig.tsbuildinfo
+.env.local
+.env*.local
+.vscode/

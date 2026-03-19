@@ -48,6 +48,7 @@ type ProductRow = {
 type CargoRow = {
   id: string;
   support_excluded?: boolean;
+  note?: string;
   car_no: string;
   seq_no: number;
   store_code: string;
@@ -89,6 +90,8 @@ type ReportGroup = {
   carNo: string;
   rows: CargoRow[];
   driver?: DriverProfile;
+  supportDriverName?: string;
+  supportStoreName?: string;
   totals: {
     large: number;
     small: number;
@@ -101,6 +104,7 @@ type ReportGroup = {
   };
 };
 
+
 const VEHICLE_DB_NAME = "han-admin-vehicles";
 const VEHICLE_STORE_NAME = "vehicle-page";
 const VEHICLE_STORE_KEY = "current";
@@ -110,11 +114,54 @@ type VehicleSnapshot = {
   fileName: string;
   productRows: ProductRow[];
   cargoRows: CargoRow[];
+  uploadedAt?: string;
+  uploadedBy?: string;
 };
 
 type VehicleLimitsSnapshot = {
   largeLimit?: number;
   smallLimit?: number;
+};
+
+type AdhesionDriverStat = {
+  name: string;
+  adhesionRate: string;
+  cumulativeRate: string;
+};
+
+type AdhesionStoreStat = {
+  storeName: string;
+  postGrade: string;
+  category: string;
+};
+
+type AdhesionSnapshot = {
+  fileName: string;
+  uploadedAt?: string;
+  uploadedBy?: string;
+  driverStats: AdhesionDriverStat[];
+  storeStats: AdhesionStoreStat[];
+};
+
+type CdcStoreStat = {
+  storeCode: string;
+  storeName: string;
+  maxBoxNo: number;
+};
+
+type CdcFullBoxStat = {
+  storeCode: string;
+  storeName: string;
+  maxBoxNo: number;
+};
+
+type CdcSnapshot = {
+  fileName: string;
+  fullBoxFileName?: string;
+  uploadedAt?: string;
+  uploadedBy?: string;
+  rows: CdcStoreStat[];
+  fullBoxRows?: CdcFullBoxStat[];
 };
 
 function openVehicleDb() {
@@ -223,6 +270,201 @@ async function clearVehicleSnapshot() {
   });
 }
 
+async function getVehicleAdminToken() {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    const token = data.session?.access_token;
+    if (token) return token;
+    await new Promise((resolve) => window.setTimeout(resolve, 250));
+  }
+
+  throw new Error("로그인 세션이 없습니다.");
+}
+
+async function fetchServerVehicleSnapshot() {
+  const token = await getVehicleAdminToken();
+  const response = await fetch("/api/admin/vehicles/current", {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as {
+    ok?: boolean;
+    message?: string;
+    snapshotUrl?: string | null;
+    limitsUrl?: string | null;
+  };
+
+  if (!response.ok || !payload?.ok) {
+    throw new Error(payload?.message || "서버 저장 데이터를 불러오지 못했습니다.");
+  }
+
+  const snapshot = payload.snapshotUrl
+    ? ((await fetch(payload.snapshotUrl, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null))) as VehicleSnapshot | null)
+    : null;
+
+  const limits = payload.limitsUrl
+    ? ((await fetch(payload.limitsUrl, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null))) as VehicleLimitsSnapshot | null)
+    : null;
+
+  return { snapshot, limits };
+}
+
+async function fetchVehicleAdhesionSnapshot() {
+  const token = await getVehicleAdminToken();
+  const response = await fetch("/api/admin/vehicles/adhesion", {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as {
+    ok?: boolean;
+    message?: string;
+    snapshot?: AdhesionSnapshot | null;
+  };
+
+  if (!response.ok || !payload?.ok) {
+    throw new Error(payload?.message || "점착 데이터를 불러오지 못했습니다.");
+  }
+
+  return payload.snapshot ?? null;
+}
+
+async function fetchVehicleCdcSnapshot() {
+  const token = await getVehicleAdminToken();
+  const response = await fetch("/api/admin/vehicles/cdc", {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as {
+    ok?: boolean;
+    message?: string;
+    snapshot?: CdcSnapshot | null;
+  };
+
+  if (!response.ok || !payload?.ok) {
+    throw new Error(payload?.message || "CDC 데이터를 불러오지 못했습니다.");
+  }
+
+  return payload.snapshot ?? null;
+}
+
+async function uploadVehicleFileToServer(file: File) {
+  const token = await getVehicleAdminToken();
+  const uploadUrlResponse = await fetch("/api/admin/vehicles/upload-url", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ fileName: file.name }),
+  });
+
+  const uploadUrlPayload = (await uploadUrlResponse.json().catch(() => ({}))) as {
+    ok?: boolean;
+    message?: string;
+    bucket?: string;
+    path?: string;
+    token?: string;
+  };
+
+  if (!uploadUrlResponse.ok || !uploadUrlPayload?.ok || !uploadUrlPayload.bucket || !uploadUrlPayload.path || !uploadUrlPayload.token) {
+    throw new Error(uploadUrlPayload?.message || "업로드 준비에 실패했습니다.");
+  }
+
+  const storageUpload = await supabase.storage
+    .from(uploadUrlPayload.bucket)
+    .uploadToSignedUrl(uploadUrlPayload.path, uploadUrlPayload.token, file);
+
+  if (storageUpload.error) {
+    throw new Error(storageUpload.error.message || "스토리지 업로드에 실패했습니다.");
+  }
+
+  const response = await fetch("/api/admin/vehicles/current", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      path: uploadUrlPayload.path,
+      fileName: file.name,
+    }),
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as {
+    ok?: boolean;
+    message?: string;
+    snapshot?: VehicleSnapshot;
+    matchedCount?: number;
+  };
+
+  if (!response.ok || !payload?.ok || !payload.snapshot) {
+    throw new Error(payload?.message || "서버 업로드에 실패했습니다.");
+  }
+
+  return {
+    snapshot: payload.snapshot,
+    matchedCount: Number(payload.matchedCount ?? 0),
+  };
+}
+
+async function clearServerVehicleSnapshot() {
+  const token = await getVehicleAdminToken();
+  const response = await fetch("/api/admin/vehicles/current", {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as {
+    ok?: boolean;
+    message?: string;
+  };
+
+  if (!response.ok || !payload?.ok) {
+    throw new Error(payload?.message || "서버 저장 데이터 초기화에 실패했습니다.");
+  }
+}
+
+async function saveServerVehicleSnapshot(fileName: string, cargoRows: CargoRow[]) {
+  const token = await getVehicleAdminToken();
+  const response = await fetch("/api/admin/vehicles/current", {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ fileName, cargoRows }),
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as { ok?: boolean; message?: string };
+  if (!response.ok || !payload?.ok) {
+    throw new Error(payload?.message || "서버 작업 데이터 저장에 실패했습니다.");
+  }
+}
+
+async function saveServerVehicleLimits(snapshot: VehicleLimitsSnapshot) {
+  const token = await getVehicleAdminToken();
+  const response = await fetch("/api/admin/vehicles/current", {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ limits: snapshot }),
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as { ok?: boolean; message?: string };
+  if (!response.ok || !payload?.ok) {
+    throw new Error(payload?.message || "서버 기준값 저장에 실패했습니다.");
+  }
+}
+
 
 const cargoColumns: Array<{ key: keyof CargoRow | "largeTotal" | "smallTotal" | "support"; label: string; width?: number }> = [
   { key: "support", label: "지원", width: 64 },
@@ -231,17 +473,18 @@ const cargoColumns: Array<{ key: keyof CargoRow | "largeTotal" | "smallTotal" | 
   { key: "store_code", label: "점포코드", width: 110 },
   { key: "store_name", label: "점포명", width: 180 },
   { key: "largeTotal", label: "대", width: 80 },
-  { key: "large_box", label: "박스", width: 80 },
-  { key: "large_inner", label: "이너팩", width: 80 },
+  { key: "large_box", label: "박스존", width: 80 },
+  { key: "large_inner", label: "이너존", width: 80 },
   { key: "large_other", label: "기타", width: 80 },
   { key: "large_day2l", label: "올데이 2L생수", width: 92 },
   { key: "large_nb2l", label: "노브랜드2L생수", width: 92 },
   { key: "smallTotal", label: "소", width: 80 },
-  { key: "small_low", label: "저회전", width: 80 },
-  { key: "small_high", label: "고회전", width: 80 },
+  { key: "small_low", label: "경량존", width: 80 },
+  { key: "small_high", label: "슬라존", width: 80 },
   { key: "event", label: "행사", width: 80 },
   { key: "tobacco", label: "담배", width: 80 },
   { key: "certificate", label: "유가증권", width: 90 },
+  { key: "note", label: "비고", width: 180 },
 ];
 
 const stickyCargoColumnKeys = ["support", "car_no", "seq_no", "store_code", "store_name"] as const;
@@ -369,6 +612,10 @@ function normalizeStoreName(value: unknown) {
   return toText(value).replace(/\s+/g, "").toLowerCase();
 }
 
+function normalizePersonName(value: unknown) {
+  return toText(value).replace(/\s+/g, "").toLowerCase();
+}
+
 function findHeaderIndex(headers: string[], labels: string[]) {
   for (const label of labels) {
     const index = headers.indexOf(normalizeHeader(label));
@@ -389,6 +636,37 @@ function cargoTotals(row: CargoRow) {
   const smallTotal = row.small_low + row.small_high;
   return { largeTotal, smallTotal };
 }
+
+const CargoNoteInput = React.memo(function CargoNoteInput({
+  value,
+  onCommit,
+}: {
+  value: string;
+  onCommit: (nextValue: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  return (
+    <input
+      value={draft}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => {
+        if (draft !== value) onCommit(draft);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          event.currentTarget.blur();
+        }
+      }}
+      style={{ width: "100%", minWidth: 120, height: 34, borderRadius: 10, border: "1px solid #d6e4ee", padding: "0 8px", outline: "none" }}
+    />
+  );
+});
 
 function parseProductRowsFromAOA(rows: unknown[][]) {
   if (!rows.length) return [];
@@ -640,6 +918,13 @@ function normalizeCarNo(value: unknown) {
   return toText(value).replace(/\s+/g, "");
 }
 
+function parseCarNoNumber(value: unknown) {
+  const digits = normalizeCarNo(value).replace(/\D/g, "");
+  if (!digits) return 0;
+  const parsed = Number(digits);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function normalizeStoreCode(value: unknown) {
   const raw = toText(value);
   const digits = raw.replace(/\D/g, "");
@@ -700,6 +985,18 @@ function formatDisplayDate(value: string) {
   return `${date.getFullYear()}년 ${String(date.getMonth() + 1).padStart(2, "0")}월 ${String(date.getDate()).padStart(2, "0")}일`;
 }
 
+function formatExportFileDate(value: string) {
+  if (!value) return "";
+  const digits = value.replace(/\D/g, "");
+  if (digits.length >= 8) return digits.slice(2, 8);
+
+  const compactMatch = value.match(/^(\d{4})(\d{2})(\d{2})$/);
+  const normalizedValue = compactMatch ? `${compactMatch[1]}-${compactMatch[2]}-${compactMatch[3]}` : value;
+  const date = new Date(`${normalizedValue}T00:00:00+09:00`);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${String(date.getFullYear()).slice(-2)}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
+}
+
 function addDaysYmd(value: string, days: number) {
   if (!value) return "";
   const date = new Date(`${value}T00:00:00+09:00`);
@@ -710,6 +1007,41 @@ function addDaysYmd(value: string, days: number) {
 
 function sumIncludedRows(rows: CargoRow[], selector: (row: CargoRow) => number) {
   return rows.reduce((sum, row) => sum + (row.support_excluded ? 0 : selector(row)), 0);
+}
+
+function getCdcStatForRow(cdcStoreMap: Map<string, CdcStoreStat>, row: Pick<CargoRow, "store_code" | "store_name">) {
+  return (
+    cdcStoreMap.get(`code:${toText(row.store_code)}`) ??
+    cdcStoreMap.get(`name:${normalizeStoreName(row.store_name || "")}`) ??
+    null
+  );
+}
+
+function getFullBoxStatForRow(fullBoxStoreMap: Map<string, CdcFullBoxStat>, row: Pick<CargoRow, "store_code" | "store_name">) {
+  return (
+    fullBoxStoreMap.get(`code:${toText(row.store_code)}`) ??
+    fullBoxStoreMap.get(`name:${normalizeStoreName(row.store_name || "")}`) ??
+    null
+  );
+}
+
+function getCombinedCdcCount(
+  cdcStoreMap: Map<string, CdcStoreStat>,
+  fullBoxStoreMap: Map<string, CdcFullBoxStat>,
+  row: Pick<CargoRow, "store_code" | "store_name">
+) {
+  return (
+    Number(getCdcStatForRow(cdcStoreMap, row)?.maxBoxNo ?? 0) +
+    Number(getFullBoxStatForRow(fullBoxStoreMap, row)?.maxBoxNo ?? 0)
+  );
+}
+
+function hasCdcValueForPrint(
+  cdcStoreMap: Map<string, CdcStoreStat>,
+  fullBoxStoreMap: Map<string, CdcFullBoxStat>,
+  group: ReportGroup
+) {
+  return group.rows.some((row) => getCombinedCdcCount(cdcStoreMap, fullBoxStoreMap, row) > 0);
 }
 
 function getFittedTextStyle(value: unknown, baseFontSize: number, options?: { minFontSize?: number; lineHeight?: number }) {
@@ -793,6 +1125,82 @@ function buildReportGroups(cargoRows: CargoRow[], driverIndex: Map<string, Drive
     });
 }
 
+function findSupportCargoRow(cargoRows: CargoRow[], storeName: string) {
+  const normalizedStoreQuery = normalizeStoreName(storeName);
+  if (!normalizedStoreQuery) return null;
+  return cargoRows.find((row) => normalizeStoreName(row.store_name) === normalizedStoreQuery) ?? null;
+}
+
+function buildSupportReportGroup(
+  matchedRows: Array<CargoRow | null>,
+  driverProfile: DriverProfile | undefined,
+  driverName: string,
+  storeInputs: string[]
+) {
+  const trimmedDriverName = driverName.trim();
+  const rows = matchedRows.map((row, index) => {
+    if (row) return { ...row, id: row.id || `support-${index}` };
+    return {
+      id: `support-${index}`,
+      support_excluded: false,
+      note: "",
+      car_no: "",
+      seq_no: 0,
+      store_code: "",
+      store_name: storeInputs[index] ?? "",
+      large_box: 0,
+      large_inner: 0,
+      large_other: 0,
+      large_day2l: 0,
+      large_nb2l: 0,
+      small_low: 0,
+      small_high: 0,
+      event: 0,
+      tobacco: 0,
+      certificate: 0,
+      cdc: 0,
+      pbox: 0,
+      standard_time: "",
+      address: "",
+    } satisfies CargoRow;
+  });
+
+  const populatedRows = rows.filter((row) => row.store_code || row.store_name);
+  const firstMatched = matchedRows.find((row) => Boolean(row)) ?? null;
+  const totals = rows.reduce(
+    (acc, row) => {
+      if (!row.store_code || row.support_excluded) return acc;
+      const sum = cargoTotals(row);
+      acc.large += sum.largeTotal;
+      acc.small += sum.smallTotal;
+      acc.event += row.event;
+      acc.tobacco += row.tobacco;
+      acc.certificate += row.certificate;
+      acc.cdc += row.cdc;
+      acc.pbox += row.pbox;
+      acc.water += row.large_day2l + row.large_nb2l;
+      return acc;
+    },
+    { large: 0, small: 0, event: 0, tobacco: 0, certificate: 0, cdc: 0, pbox: 0, water: 0 }
+  );
+
+  return {
+    carNo: firstMatched?.car_no ?? driverProfile?.car_no ?? "",
+    rows,
+    driver: driverProfile ?? {
+      name: trimmedDriverName,
+      phone: "",
+      car_no: firstMatched?.car_no ?? "",
+      vehicle_type: "",
+      carrier: "",
+      garage: "",
+    },
+    supportDriverName: trimmedDriverName,
+    supportStoreName: populatedRows[0]?.store_name ?? "",
+    totals,
+  } satisfies ReportGroup;
+}
+
 function updateCargoByProduct(target: CargoRow, row: ProductRow) {
   const qty = qtyBase(row);
   if (qty <= 0) return;
@@ -874,6 +1282,7 @@ function buildCargoDraft(rows: ProductRow[]) {
       {
         id: key,
         support_excluded: false,
+        note: "",
         car_no: row.car_no,
         seq_no: row.seq_no,
         store_code: row.store_code,
@@ -911,6 +1320,7 @@ function exportWorkbook(
   cargoRows: CargoRow[],
   reportGroups: ReportGroup[],
   reportDate: string,
+  reportFileDate: string,
   selectedReportCarNo?: string
 ) {
   const workbook = XLSX.utils.book_new();
@@ -935,16 +1345,126 @@ function exportWorkbook(
     ]),
   ];
 
-  const cargoSheetRows = [
-    ["호차", "순번", "점포코드", "점포명", "대", "박스", "이너팩", "기타", "올데이 2L생수", "노브랜드2L생수", "소", "저회전", "고회전", "행사", "담배", "유가증권"],
-    ...cargoRows.map((row) => {
-      const totals = cargoTotals(row);
-      return [
-        row.car_no, row.seq_no, row.store_code, row.store_name, totals.largeTotal, row.large_box, row.large_inner, row.large_other,
-        row.large_day2l, row.large_nb2l, totals.smallTotal, row.small_low, row.small_high, row.event, row.tobacco, row.certificate,
-      ];
-    }),
+  const cargoSheetRows: (string | number)[][] = [
+    ["지원", "호차", "순번", "점포코드", "점포명", "대", "박스존", "이너존", "기타", "올데이 2L생수", "노브랜드2L생수", "소", "경량존", "슬라존", "행사", "담배", "유가증권", "비고"],
   ];
+
+  let currentCargoCarNo = "";
+  let cargoSubtotal: CargoRow & { largeTotal: number; smallTotal: number } | null = null;
+
+  for (const row of cargoRows) {
+    if (currentCargoCarNo !== row.car_no) {
+      if (cargoSubtotal) {
+        cargoSheetRows.push([
+          "",
+          currentCargoCarNo,
+          "",
+          "",
+          `${currentCargoCarNo}호차 부분합`,
+          cargoSubtotal.largeTotal,
+          cargoSubtotal.large_box,
+          cargoSubtotal.large_inner,
+          cargoSubtotal.large_other,
+          cargoSubtotal.large_day2l,
+          cargoSubtotal.large_nb2l,
+          cargoSubtotal.smallTotal,
+          cargoSubtotal.small_low,
+          cargoSubtotal.small_high,
+          cargoSubtotal.event,
+          cargoSubtotal.tobacco,
+          cargoSubtotal.certificate,
+          "",
+        ]);
+      }
+
+      currentCargoCarNo = row.car_no;
+      cargoSubtotal = {
+        id: `subtotal-${row.car_no}`,
+        support_excluded: false,
+        note: "",
+        car_no: row.car_no,
+        seq_no: 0,
+        store_code: "",
+        store_name: `${row.car_no}호차 부분합`,
+        large_box: 0,
+        large_inner: 0,
+        large_other: 0,
+        large_day2l: 0,
+        large_nb2l: 0,
+        small_low: 0,
+        small_high: 0,
+        event: 0,
+        tobacco: 0,
+        certificate: 0,
+        cdc: 0,
+        pbox: 0,
+        standard_time: "",
+        address: "",
+        largeTotal: 0,
+        smallTotal: 0,
+      };
+    }
+
+    const totals = cargoTotals(row);
+    cargoSheetRows.push([
+      row.support_excluded ? "지원" : "",
+      row.car_no,
+      row.seq_no,
+      row.store_code,
+      row.store_name,
+      totals.largeTotal,
+      row.large_box,
+      row.large_inner,
+      row.large_other,
+      row.large_day2l,
+      row.large_nb2l,
+      totals.smallTotal,
+      row.small_low,
+      row.small_high,
+      row.event,
+      row.tobacco,
+      row.certificate,
+      row.note || "",
+    ]);
+
+    if (cargoSubtotal && !row.support_excluded) {
+      cargoSubtotal.large_box += row.large_box;
+      cargoSubtotal.large_inner += row.large_inner;
+      cargoSubtotal.large_other += row.large_other;
+      cargoSubtotal.large_day2l += row.large_day2l;
+      cargoSubtotal.large_nb2l += row.large_nb2l;
+      cargoSubtotal.small_low += row.small_low;
+      cargoSubtotal.small_high += row.small_high;
+      cargoSubtotal.event += row.event;
+      cargoSubtotal.tobacco += row.tobacco;
+      cargoSubtotal.certificate += row.certificate;
+      cargoSubtotal.largeTotal += totals.largeTotal;
+      cargoSubtotal.smallTotal += totals.smallTotal;
+    }
+  }
+
+  if (cargoSubtotal) {
+    cargoSheetRows.push([
+      "",
+      currentCargoCarNo,
+      "",
+      "",
+      `${currentCargoCarNo}호차 부분합`,
+      cargoSubtotal.largeTotal,
+      cargoSubtotal.large_box,
+      cargoSubtotal.large_inner,
+      cargoSubtotal.large_other,
+      cargoSubtotal.large_day2l,
+      cargoSubtotal.large_nb2l,
+      cargoSubtotal.smallTotal,
+      cargoSubtotal.small_low,
+      cargoSubtotal.small_high,
+      cargoSubtotal.event,
+      cargoSubtotal.tobacco,
+      cargoSubtotal.certificate,
+      "",
+    ]);
+  }
 
   const reportSheetRows: (string | number)[][] = [];
   const reportSheetMerges: XLSX.Range[] = [];
@@ -961,13 +1481,14 @@ function exportWorkbook(
     reportSheetRows.push(["", "차종", group.driver?.vehicle_type ?? "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]);
     reportSheetRows.push(["", "차고지", group.driver?.garage ?? "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]);
     reportSheetRows.push(["No", "점포명", "대", "", "", "", "", "", "소", "", "", "행사", "담배", "유가증권", "CDC", "피박스", "", "기준시간", "주소", "연락처", "전일점착(미스캔X)", "", ""]);
-    reportSheetRows.push(["", "", "계", "박스", "이너팩", "기타", "올데이 2L생수", "노브랜드2L생수", "계", "저회전", "고회전", "", "", "", "", "출고", "회수", "", "", "", "등급", "소명점포", "구분"]);
+    reportSheetRows.push(["", "", "계", "박스존", "이너존", "기타", "올데이 2L생수", "노브랜드2L생수", "계", "경량존", "슬라존", "", "", "", "", "출고", "회수", "", "", "", "등급", "소명점포", "구분"]);
 
     const printableRows = [...group.rows];
     while (printableRows.length < 20) {
       printableRows.push({
         id: `blank-${group.carNo}-${printableRows.length}`,
         support_excluded: false,
+        note: "",
         car_no: group.carNo,
         seq_no: 0,
         store_code: "",
@@ -1064,15 +1585,7 @@ function exportWorkbook(
 
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(productSheetRows), "단품별");
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(cargoSheetRows), "물동량");
-  const reportSheet = XLSX.utils.aoa_to_sheet(reportSheetRows);
-  reportSheet["!merges"] = reportSheetMerges;
-  reportSheet["!cols"] = [
-    { wch: 6 }, { wch: 24 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 10 },
-    { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 8 },
-    { wch: 8 }, { wch: 10 }, { wch: 28 }, { wch: 14 }, { wch: 8 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 8 }
-  ];
-  XLSX.utils.book_append_sheet(workbook, reportSheet, "운행일보");
-  XLSX.writeFile(workbook, `차량관리-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  XLSX.writeFile(workbook, `일일배차현황_납예${reportFileDate || "000000"}.xlsx`);
 }
 function cardStyle() {
   return {
@@ -1099,8 +1612,11 @@ export function VehiclePageScreen({
   const reportPreviewContainerRef = useRef<HTMLDivElement | null>(null);
   const reportPreviewContentRef = useRef<HTMLDivElement | null>(null);
   const driverFetchKeyRef = useRef("");
+  const serverSyncEnabledRef = useRef(false);
+  const lastServerSnapshotRef = useRef("");
 
   const [busy, setBusy] = useState(false);
+  const [loadingState, setLoadingState] = useState<"" | "restore" | "upload">("restore");
   const [message, setMessage] = useState("");
   const [fileName, setFileName] = useState("");
   const [productRows, setProductRows] = useState<ProductRow[]>([]);
@@ -1113,11 +1629,18 @@ export function VehiclePageScreen({
   const [largeLimit, setLargeLimit] = useState("");
   const [smallLimit, setSmallLimit] = useState("");
   const [limitsMessage, setLimitsMessage] = useState("");
+  const [cargoSaveBusy, setCargoSaveBusy] = useState(false);
+  const [cargoDirty, setCargoDirty] = useState(false);
+  const [adhesionSnapshot, setAdhesionSnapshot] = useState<AdhesionSnapshot | null>(null);
+  const [cdcSnapshot, setCdcSnapshot] = useState<CdcSnapshot | null>(null);
   const [inputPage, setInputPage] = useState(1);
   const [storageReady, setStorageReady] = useState(false);
   const [driverIndex, setDriverIndex] = useState<Map<string, DriverProfile>>(new Map());
   const [reportCarNoInput, setReportCarNoInput] = useState("");
   const [selectedReportCarNo, setSelectedReportCarNo] = useState("");
+  const [supportMode, setSupportMode] = useState(false);
+  const [supportDriverNameInput, setSupportDriverNameInput] = useState("");
+  const [supportStoreNameInputs, setSupportStoreNameInputs] = useState<string[]>(() => Array.from({ length: 20 }, () => ""));
   const [batchPrintMode, setBatchPrintMode] = useState<"" | "today" | "previous" | "next" | "all">("");
   const [reportPreviewScale, setReportPreviewScale] = useState(1);
   const [reportPreviewHeight, setReportPreviewHeight] = useState<number | null>(null);
@@ -1130,20 +1653,56 @@ export function VehiclePageScreen({
   useEffect(() => {
     void (async () => {
       try {
-        const saved = await readVehicleSnapshot();
+        setLoadingState("restore");
+        const serverSaved = await fetchServerVehicleSnapshot().catch((error) => {
+          setMessage((error as Error)?.message ?? "서버 저장 데이터를 불러오지 못했습니다.");
+          return null;
+        });
+        if (serverSaved) {
+          serverSyncEnabledRef.current = true;
+        }
+        const saved = serverSaved?.snapshot ?? (await readVehicleSnapshot().catch(() => null));
         if (saved) {
           setFileName(saved.fileName ?? "");
           setProductRows(Array.isArray(saved.productRows) ? saved.productRows : []);
           setCargoRows(Array.isArray(saved.cargoRows) ? saved.cargoRows : []);
+          setCargoDirty(false);
+          lastServerSnapshotRef.current = JSON.stringify({
+            fileName: saved.fileName ?? "",
+            cargoRows: Array.isArray(saved.cargoRows) ? saved.cargoRows : [],
+          });
         }
 
-        const savedLimits = await readVehicleLimitsSnapshot();
+        const savedLimits = serverSaved?.limits ?? (await readVehicleLimitsSnapshot().catch(() => null));
         if (savedLimits) {
           setLargeLimit(savedLimits.largeLimit ? String(savedLimits.largeLimit) : "");
           setSmallLimit(savedLimits.smallLimit ? String(savedLimits.smallLimit) : "");
         }
       } finally {
+        setLoadingState("");
         setStorageReady(true);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const saved = await fetchVehicleAdhesionSnapshot();
+        setAdhesionSnapshot(saved);
+      } catch {
+        setAdhesionSnapshot(null);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const saved = await fetchVehicleCdcSnapshot();
+        setCdcSnapshot(saved);
+      } catch {
+        setCdcSnapshot(null);
       }
     })();
   }, []);
@@ -1231,12 +1790,94 @@ export function VehiclePageScreen({
     return formatDisplayDate(baseDate);
   }, [productRows]);
 
+  const reportFileDate = useMemo(() => {
+    const baseDate = productRows.find((row) => row.delivery_date)?.delivery_date ?? "";
+    return formatExportFileDate(baseDate);
+  }, [productRows]);
+
   const reportGroups = useMemo(() => buildReportGroups(cargoRows, driverIndex), [cargoRows, driverIndex]);
+  const adhesionDriverMap = useMemo(() => {
+    const map = new Map<string, AdhesionDriverStat>();
+    for (const row of adhesionSnapshot?.driverStats ?? []) {
+      const key = normalizePersonName(row.name);
+      if (key) map.set(key, row);
+    }
+    return map;
+  }, [adhesionSnapshot]);
+
+  const adhesionStoreMap = useMemo(() => {
+    const map = new Map<string, AdhesionStoreStat>();
+    for (const row of adhesionSnapshot?.storeStats ?? []) {
+      const key = normalizeStoreName(row.storeName);
+      if (key) map.set(key, row);
+    }
+    return map;
+  }, [adhesionSnapshot]);
+
+  const cdcStoreMap = useMemo(() => {
+    const map = new Map<string, CdcStoreStat>();
+    for (const row of cdcSnapshot?.rows ?? []) {
+      const codeKey = toText(row.storeCode);
+      const nameKey = normalizeStoreName(row.storeName);
+      if (codeKey) map.set(`code:${codeKey}`, row);
+      if (nameKey) map.set(`name:${nameKey}`, row);
+    }
+    return map;
+  }, [cdcSnapshot]);
+
+  const fullBoxStoreMap = useMemo(() => {
+    const map = new Map<string, CdcFullBoxStat>();
+    for (const row of cdcSnapshot?.fullBoxRows ?? []) {
+      const codeKey = toText(row.storeCode);
+      const nameKey = normalizeStoreName(row.storeName);
+      if (codeKey) map.set(`code:${codeKey}`, row);
+      if (nameKey) map.set(`name:${nameKey}`, row);
+    }
+    return map;
+  }, [cdcSnapshot]);
+
   const selectedReportGroup = useMemo(() => {
     if (reportGroups.length === 0) return null;
     return reportGroups.find((group) => normalizeCarNo(group.carNo) === normalizeCarNo(selectedReportCarNo)) ?? reportGroups[0];
   }, [reportGroups, selectedReportCarNo]);
-  const visibleReportGroups = batchPrintMode ? reportGroups : selectedReportGroup ? [selectedReportGroup] : [];
+  const supportMatchedRows = useMemo(
+    () => supportStoreNameInputs.map((storeName) => findSupportCargoRow(cargoRows, storeName)),
+    [cargoRows, supportStoreNameInputs]
+  );
+  const supportDriverProfile = useMemo(() => {
+    const normalizedName = normalizePersonName(supportDriverNameInput);
+    if (!normalizedName) return undefined;
+    return [...driverIndex.values()].find((driver) => normalizePersonName(driver.name) === normalizedName);
+  }, [driverIndex, supportDriverNameInput]);
+  const supportReportGroup = useMemo(
+    () => (supportMode ? buildSupportReportGroup(supportMatchedRows, supportDriverProfile, supportDriverNameInput, supportStoreNameInputs) : null),
+    [supportDriverNameInput, supportDriverProfile, supportMatchedRows, supportMode, supportStoreNameInputs]
+  );
+  const updateSupportStoreNameInput = (index: number, value: string) => {
+    setSupportStoreNameInputs((current) => current.map((entry, entryIndex) => (entryIndex === index ? value : entry)));
+  };
+  const activeReportGroup = supportReportGroup ?? selectedReportGroup;
+  const visibleReportGroups = useMemo(() => {
+    if (!batchPrintMode) return activeReportGroup ? [activeReportGroup] : [];
+    if (batchPrintMode === "all") return reportGroups;
+    const hasUploadedCdcFile = Boolean(cdcSnapshot?.fileName);
+
+    return reportGroups.filter((group) => {
+      const carNo = parseCarNoNumber(group.carNo);
+      const cdcOverride = (carNo === 1823 || carNo === 1824) && hasUploadedCdcFile;
+
+      if (batchPrintMode === "today") {
+        return carNo >= 1801 && carNo <= 1833 && !cdcOverride;
+      }
+      if (batchPrintMode === "previous") {
+        return (carNo >= 1844 && carNo <= 1849) || cdcOverride;
+      }
+      if (batchPrintMode === "next") {
+        return carNo >= 1851 && carNo <= 1864;
+      }
+      return false;
+    });
+  }, [activeReportGroup, batchPrintMode, reportGroups, cdcSnapshot?.fileName]);
 
   const filteredProductRows = useMemo(() => {
     const query = normalizeStoreName(storeQuery);
@@ -1342,42 +1983,50 @@ export function VehiclePageScreen({
     const contentHeight = reportPreviewContentRef.current?.offsetHeight ?? 0;
     if (!contentHeight) return;
     setReportPreviewHeight(Math.ceil(contentHeight * reportPreviewScale));
-  }, [reportPreviewScale, selectedReportGroup, reportDate]);
+  }, [reportPreviewScale, activeReportGroup, reportDate]);
 
   const loadRows = async (file: File) => {
     setBusy(true);
+    setLoadingState("upload");
     setMessage("");
 
     try {
-      const rows = await parseWorkbookProductRows(file);
-      const storeMapIndex = await fetchStoreMapIndexByRows(rows);
-      const { mappedRows, matchedCount } = applyStoreMap(rows, storeMapIndex);
-      const draft = buildCargoDraft(mappedRows);
+      const { snapshot, matchedCount } = await uploadVehicleFileToServer(file);
+      const mappedRows = Array.isArray(snapshot.productRows) ? snapshot.productRows : [];
+      const draft = Array.isArray(snapshot.cargoRows) ? snapshot.cargoRows : [];
+      serverSyncEnabledRef.current = true;
+      lastServerSnapshotRef.current = JSON.stringify({
+        fileName: snapshot.fileName || file.name,
+        cargoRows: draft,
+      });
 
       setProductRows(mappedRows);
       setCargoRows(draft);
-      setFileName(file.name);
+      setFileName(snapshot.fileName || file.name);
       setStoreQuery("");
       setStoreQueryInput("");
       setCargoQuery("");
       setCargoQueryInput("");
       setInputPage(1);
       setTab("cargo");
-      setMessage(`점포명 기준 ${matchedCount}건 매칭, 단품별 ${mappedRows.length}건 / 물동량 ${draft.length}개 점포 초안 생성 완료`);
+      setCargoDirty(false);
+      setMessage(`서버 저장 완료: 점포명 기준 ${matchedCount}건 매칭, 단품별 ${mappedRows.length}건 / 물동량 ${draft.length}개 점포 초안 생성 완료`);
     } catch (error: any) {
       setProductRows([]);
       setCargoRows([]);
       setMessage(error?.message ?? "불러오기 실패");
     } finally {
+      setLoadingState("");
       setBusy(false);
     }
   };
 
   const updateCargoRow = (index: number, key: keyof CargoRow, value: string) => {
+    setCargoDirty(true);
     setCargoRows((prev) =>
       prev.map((row, rowIndex) => {
         if (rowIndex !== index) return row;
-        if (key === "standard_time") return { ...row, [key]: value };
+        if (key === "note") return { ...row, [key]: value };
         if (key === "car_no" || key === "store_code" || key === "store_name") return { ...row, [key]: value };
         return { ...row, [key]: toNumber(value) } as CargoRow;
       })
@@ -1385,9 +2034,31 @@ export function VehiclePageScreen({
   };
 
   const toggleCargoSupport = (index: number, checked: boolean) => {
+    setCargoDirty(true);
     setCargoRows((prev) =>
       prev.map((row, rowIndex) => (rowIndex === index ? { ...row, support_excluded: checked } : row))
     );
+  };
+
+  const saveCargoSettings = async () => {
+    if (!serverSyncEnabledRef.current || !fileName || cargoRows.length === 0) {
+      setMessage("먼저 단품별 파일을 업로드해 주세요.");
+      return;
+    }
+
+    setCargoSaveBusy(true);
+    setMessage("");
+
+    try {
+      await saveServerVehicleSnapshot(fileName, cargoRows);
+      lastServerSnapshotRef.current = JSON.stringify({ fileName, cargoRows });
+      setCargoDirty(false);
+      setMessage("물동량 지원표시와 수정값을 서버에 저장했습니다.");
+    } catch (error: any) {
+      setMessage(error?.message ?? "물동량 저장 실패");
+    } finally {
+      setCargoSaveBusy(false);
+    }
   };
 
   const cargoDisplayRows = useMemo(() => {
@@ -1469,6 +2140,9 @@ export function VehiclePageScreen({
     setCargoQueryInput("");
     setInputPage(1);
     setTab("input");
+    setCargoDirty(false);
+    lastServerSnapshotRef.current = "";
+    void clearServerVehicleSnapshot().catch(() => {});
     void clearVehicleSnapshot().catch(() => {});
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -1478,12 +2152,18 @@ export function VehiclePageScreen({
       largeLimit: Number(largeLimit || 0),
       smallLimit: Number(smallLimit || 0),
     })
-      .then(() => setLimitsMessage("기준값 저장됨"))
+      .then(async () => {
+        await saveServerVehicleLimits({
+          largeLimit: Number(largeLimit || 0),
+          smallLimit: Number(smallLimit || 0),
+        });
+        setLimitsMessage("기준값 저장됨");
+      })
       .catch(() => setLimitsMessage("기준값 저장 실패"));
   };
 
   const printSelectedReport = () => {
-    if (!selectedReportGroup) return;
+    if (!activeReportGroup) return;
     setBatchPrintMode("");
     window.print();
   };
@@ -1507,6 +2187,15 @@ export function VehiclePageScreen({
   return (
     <div style={{ display: "grid", gap: 16 }} className="vehicle-page">
       <style jsx global>{`
+        @keyframes vehicle-spin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
         @page {
           size: A4 landscape;
           margin: 0;
@@ -1523,26 +2212,40 @@ export function VehiclePageScreen({
             print-color-adjust: exact !important;
           }
 
-          body * {
-            visibility: hidden;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+          .ha-admin-header {
+            display: none !important;
           }
 
-          .report-print-shell, .report-print-shell * {
-            visibility: visible;
+          .ha-admin-content {
+            max-width: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
 
           .vehicle-page {
             display: block !important;
             gap: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
+          .vehicle-page > * {
+            display: none !important;
+          }
+
+          .vehicle-page > .report-print-list {
+            display: block !important;
+          }
+
+          .report-print-list > :not(.report-print-shell) {
+            display: none !important;
           }
 
           .report-print-shell {
-            position: fixed;
-            inset: 0;
+            position: relative !important;
             width: 297mm;
             height: 210mm;
+            min-height: 210mm;
             padding: 0 !important;
             margin: 0 !important;
             border: 0 !important;
@@ -1553,6 +2256,15 @@ export function VehiclePageScreen({
             justify-content: center !important;
             padding-left: 6mm !important;
             box-sizing: border-box !important;
+            break-after: page !important;
+            page-break-after: always !important;
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+
+          .report-print-shell:last-child {
+            break-after: auto !important;
+            page-break-after: auto !important;
           }
 
           .report-print-frame {
@@ -1631,7 +2343,7 @@ export function VehiclePageScreen({
               {busy ? "불러오는 중..." : "단품별 파일 불러오기"}
             </button>
             <button
-              onClick={() => exportWorkbook(productRows, cargoRows, reportGroups, reportDate, selectedReportGroup?.carNo)}
+              onClick={() => exportWorkbook(productRows, cargoRows, reportGroups, reportDate, reportFileDate, selectedReportGroup?.carNo)}
               disabled={cargoRows.length === 0}
               style={{
                 height: 42,
@@ -1679,6 +2391,36 @@ export function VehiclePageScreen({
         <div style={{ marginTop: 12, color: "#29485e", fontSize: 13, fontWeight: 700 }}>
           {fileName ? `현재 데이터: ${fileName}` : "단품별 파일만 올리면 됩니다."}
         </div>
+        {loadingState ? (
+          <div
+            style={{
+              marginTop: 10,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "10px 14px",
+              borderRadius: 12,
+              border: "1px solid #bfdbfe",
+              background: "#eff6ff",
+              color: "#1d4ed8",
+              fontSize: 13,
+              fontWeight: 800,
+            }}
+          >
+            <span
+              style={{
+                width: 14,
+                height: 14,
+                borderRadius: 999,
+                border: "2px solid rgba(29,78,216,0.25)",
+                borderTopColor: "#1d4ed8",
+                display: "inline-block",
+                animation: "vehicle-spin 0.8s linear infinite",
+              }}
+            />
+            {loadingState === "restore" ? "서버 저장 데이터를 불러오는 중입니다..." : "파일을 서버에 업로드하고 정리하는 중입니다..."}
+          </div>
+        ) : null}
         {message ? <div style={{ marginTop: 8, color: "#103b53", fontSize: 13, fontWeight: 700 }}>{message}</div> : null}
       </div>
 
@@ -2004,6 +2746,23 @@ export function VehiclePageScreen({
             >
               기준값 저장
             </button>
+            <button
+              onClick={() => void saveCargoSettings()}
+              disabled={cargoSaveBusy || cargoRows.length === 0 || !cargoDirty}
+              style={{
+                height: 42,
+                padding: "0 18px",
+                borderRadius: 12,
+                border: "1px solid #113247",
+                background: cargoSaveBusy || cargoRows.length === 0 || !cargoDirty ? "#cbd5e1" : "#113247",
+                color: "#fff",
+                fontWeight: 900,
+                cursor: cargoSaveBusy || cargoRows.length === 0 || !cargoDirty ? "not-allowed" : "pointer",
+                marginLeft: "auto",
+              }}
+            >
+              {cargoSaveBusy ? "저장 중..." : "저장"}
+            </button>
             {limitsMessage ? (
               <div style={{ color: "#486274", fontSize: 13, fontWeight: 700 }}>{limitsMessage}</div>
             ) : null}
@@ -2077,7 +2836,7 @@ export function VehiclePageScreen({
                 const row = entry.row;
                 const sum = cargoTotals(row);
                 return (
-                  <tr key={row.id} style={{ background: row.support_excluded ? "#c1121f" : index % 2 === 0 ? "#fff" : "#fbfdff", opacity: 1 }}>
+                  <tr key={row.id} style={{ background: row.support_excluded ? "#e5e7eb" : index % 2 === 0 ? "#fff" : "#fbfdff", opacity: 1 }}>
                     {cargoColumns.map((column) => {
                       const value =
                         column.key === "support"
@@ -2098,7 +2857,7 @@ export function VehiclePageScreen({
                             ...getCargoGroupStyle(String(column.key)),
                             ...getStickyCargoStyle(
                               String(column.key),
-                              row.support_excluded ? "#c1121f" : index % 2 === 0 ? "#fff" : "#fbfdff"
+                              row.support_excluded ? "#e5e7eb" : index % 2 === 0 ? "#fff" : "#fbfdff"
                             ),
                           }}
                         >
@@ -2110,6 +2869,11 @@ export function VehiclePageScreen({
                                 onChange={(event) => toggleCargoSupport(entry.sourceIndex, event.target.checked)}
                               />
                             </label>
+                          ) : column.key === "note" ? (
+                            <CargoNoteInput
+                              value={String(value ?? "")}
+                              onCommit={(nextValue) => updateCargoRow(entry.sourceIndex, "note", nextValue)}
+                            />
                           ) : editable ? (
                             <input
                               value={typeof value === "number" ? formatNumber(value) : String(value ?? "")}
@@ -2141,7 +2905,7 @@ export function VehiclePageScreen({
       ) : null}
 
       {tab === "report" ? (
-        <div style={{ display: "grid", gap: 20 }}>
+        <div className="report-print-list" style={{ display: "grid", gap: 20 }}>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ color: "#28485d", fontSize: 13, fontWeight: 800 }}>호차</div>
             <input
@@ -2149,6 +2913,7 @@ export function VehiclePageScreen({
               onChange={(event) => {
                 const nextValue = event.target.value.replace(/[^\d]/g, "");
                 setReportCarNoInput(nextValue);
+                setSupportMode(false);
 
                 const matchedGroup = reportGroups.find((group) => normalizeCarNo(group.carNo) === normalizeCarNo(nextValue));
                 if (matchedGroup) {
@@ -2158,6 +2923,7 @@ export function VehiclePageScreen({
               onKeyDown={(event) => {
                 if (event.key !== "Enter") return;
                 event.preventDefault();
+                setSupportMode(false);
                 const matchedGroup = reportGroups.find((group) => normalizeCarNo(group.carNo) === normalizeCarNo(reportCarNoInput));
                 if (matchedGroup) {
                   setSelectedReportCarNo(matchedGroup.carNo);
@@ -2179,16 +2945,16 @@ export function VehiclePageScreen({
             />
             <button
               onClick={printSelectedReport}
-              disabled={!selectedReportGroup}
+              disabled={!activeReportGroup || (supportMode && !supportDriverNameInput.trim())}
               style={{
                 height: 40,
                 padding: "0 16px",
                 borderRadius: 12,
                 border: "1px solid #0f766e",
-                background: selectedReportGroup ? "#0f766e" : "#cbd5e1",
+                background: !activeReportGroup || (supportMode && !supportDriverNameInput.trim()) ? "#cbd5e1" : "#0f766e",
                 color: "#fff",
                 fontWeight: 900,
-                cursor: selectedReportGroup ? "pointer" : "not-allowed",
+                cursor: !activeReportGroup || (supportMode && !supportDriverNameInput.trim()) ? "not-allowed" : "pointer",
               }}
             >
               출력
@@ -2219,24 +2985,25 @@ export function VehiclePageScreen({
             ))}
             <button
               onClick={() => {
-                const matchedGroup = reportGroups.find((group) => normalizeCarNo(group.carNo) === normalizeCarNo(reportCarNoInput));
-                if (matchedGroup) {
-                  setSelectedReportCarNo(matchedGroup.carNo);
-                }
+                setBatchPrintMode("");
+                setSupportMode(true);
+                setSupportDriverNameInput("");
+                setSupportStoreNameInputs(Array.from({ length: 20 }, () => ""));
+                setMessage("지원 모드로 전환했습니다. 운행일보 안에서 배송기사명과 점포명을 입력해 주세요.");
               }}
-              disabled={reportGroups.length === 0}
+              disabled={cargoRows.length === 0}
               style={{
                 height: 40,
                 padding: "0 16px",
                 borderRadius: 12,
                 border: "1px solid #113247",
-                background: reportGroups.length === 0 ? "#cbd5e1" : "#113247",
+                background: cargoRows.length === 0 ? "#cbd5e1" : supportMode ? "#0f766e" : "#113247",
                 color: "#fff",
                 fontWeight: 900,
-                cursor: reportGroups.length === 0 ? "not-allowed" : "pointer",
+                cursor: cargoRows.length === 0 ? "not-allowed" : "pointer",
               }}
             >
-              변경
+              지원
             </button>
           </div>
 
@@ -2246,14 +3013,23 @@ export function VehiclePageScreen({
             </div>
           ) : null}
 
-          {selectedReportGroup ? (
+          {activeReportGroup ? (
             <div className="report-screen-only" style={{ color: "#486274", fontSize: 13, fontWeight: 700 }}>
-              현재 표시: {selectedReportGroup.carNo}호차
-              {selectedReportGroup.driver?.name ? ` / ${selectedReportGroup.driver.name}` : ""}
+              현재 표시: {supportMode ? "지원 운행일보" : `${activeReportGroup.carNo}호차`}
+              {activeReportGroup.driver?.name ? ` / ${activeReportGroup.driver.name}` : ""}
+              {supportMode && supportMatchedRows.some((row) => Boolean(row))
+                ? ` / ${supportMatchedRows.filter((row): row is CargoRow => Boolean(row)).map((row) => row.store_name).join(", ")}`
+                : ""}
             </div>
           ) : null}
 
-          {visibleReportGroups.map((group) => (
+          {visibleReportGroups.map((group) => {
+            const driverAdhesion = adhesionDriverMap.get(normalizePersonName(group.driver?.name ?? ""));
+            const groupCdcTotal = group.rows.reduce((sum, row) => {
+              if (row.support_excluded) return sum;
+              return sum + getCombinedCdcCount(cdcStoreMap, fullBoxStoreMap, row);
+            }, 0);
+            return (
             <div key={group.carNo} className="report-print-shell" style={{ border: "2px solid #111", background: "#fff", overflow: "hidden", padding: 12 }}>
               <div
                 ref={reportPreviewContainerRef}
@@ -2296,7 +3072,26 @@ export function VehiclePageScreen({
                   <tr>
                     <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13 }}>배송기사명</td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", fontWeight: 800, textAlign: "center", ...getFittedTextStyle(group.driver?.name ?? "", 13, { minFontSize: 9 }) }}>
-                      {group.driver?.name ?? ""}
+                      {supportMode ? (
+                        <input
+                          value={supportDriverNameInput}
+                          onChange={(event) => setSupportDriverNameInput(event.target.value)}
+                          placeholder="배송기사명"
+                          style={{
+                            width: "100%",
+                            height: 28,
+                            border: "none",
+                            outline: "none",
+                            textAlign: "center",
+                            fontWeight: 800,
+                            fontSize: 13,
+                            background: "transparent",
+                            color: "#111827",
+                          }}
+                        />
+                      ) : (
+                        group.driver?.name ?? ""
+                      )}
                     </td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", fontWeight: 800, textAlign: "center", ...getFittedTextStyle(formatPhoneNumber(group.driver?.phone ?? ""), 13, { minFontSize: 9 }) }}>
                       {formatPhoneNumber(group.driver?.phone ?? "")}
@@ -2312,8 +3107,8 @@ export function VehiclePageScreen({
                     <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }}>막점</td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px" }}></td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", textAlign: "right", fontWeight: 800, fontSize: 13 }} colSpan={2}>km</td>
-                    <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 15, fontWeight: 900, textAlign: "center" }} rowSpan={4}>100.0%</td>
-                    <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 15, fontWeight: 900, textAlign: "center", background: "#f4d4d9", color: "#b91c1c" }} rowSpan={4}>100.0%</td>
+                    <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 15, fontWeight: 900, textAlign: "center" }} rowSpan={4}>{driverAdhesion?.adhesionRate || ""}</td>
+                    <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 15, fontWeight: 900, textAlign: "center", background: "#f4d4d9", color: "#b91c1c" }} rowSpan={4}>{driverAdhesion?.cumulativeRate || ""}</td>
                   </tr>
                   <tr>
                     <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13 }}>운수사</td>
@@ -2366,7 +3161,7 @@ export function VehiclePageScreen({
                     <th colSpan={3} style={{ border: "1px solid #666", padding: "7px 5px", fontSize: 13 }}>전일점착(미스캔X)</th>
                   </tr>
                   <tr style={{ background: "#f7f7f7" }}>
-                    {["계", "박스", "이너팩", "기타", "올데이 2L생수", "노브랜드2L생수", "계", "저회전", "고회전", "출고", "회수", "등급", "소명점포", "구분"].map((header, headerIndex) => (
+                    {["계", "박스존", "이너존", "기타", "올데이 2L생수", "노브랜드2L생수", "계", "경량존", "슬라존", "출고", "회수", "등급", "소명점포", "구분"].map((header, headerIndex) => (
                       <th
                         key={`${group.carNo}-${header}`}
                         className={[
@@ -2412,10 +3207,32 @@ export function VehiclePageScreen({
                     const sum = cargoTotals(row);
                     const reportRowBackground = row.support_excluded ? "#111" : "#fff";
                     const reportRowColor = row.support_excluded ? "#fff" : undefined;
+                    const storeAdhesion = adhesionStoreMap.get(normalizeStoreName(row.store_name || ""));
+                    const storeCdc = getCombinedCdcCount(cdcStoreMap, fullBoxStoreMap, row);
                     return (
                       <tr key={row.id || `${group.carNo}-${index}`} style={{ background: reportRowBackground, height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, lineHeight: 1 }}>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontWeight: 700, fontSize: 13, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(0) }}>{index + 1}</td>
-                        <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 7px", verticalAlign: "middle", overflow: "hidden", fontWeight: 800, color: reportRowColor, background: reportRowBackground, ...getFittedTextStyle(row.store_name || "", 13, { minFontSize: 9, lineHeight: 1 }), ...getReportMainCellWidth(1) }}>{row.store_name || ""}</td>
+                        <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 7px", verticalAlign: "middle", overflow: "hidden", fontWeight: 800, color: reportRowColor, background: reportRowBackground, ...getFittedTextStyle(row.store_name || "", 13, { minFontSize: 9, lineHeight: 1 }), ...getReportMainCellWidth(1) }}>
+                          {supportMode ? (
+                            <input
+                              value={supportStoreNameInputs[index] ?? ""}
+                              onChange={(event) => updateSupportStoreNameInput(index, event.target.value)}
+                              placeholder="점포명"
+                              style={{
+                                width: "100%",
+                                height: 28,
+                                border: "none",
+                                outline: "none",
+                                fontWeight: 800,
+                                fontSize: 13,
+                                background: "transparent",
+                                color: "#111827",
+                              }}
+                            />
+                          ) : (
+                            row.store_name || ""
+                          )}
+                        </td>
                         <td className="report-section-left report-section-right" style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontWeight: 900, fontSize: REPORT_NUMBER_FONT_SIZE, color: reportRowColor, background: reportRowBackground, ...getReportSectionStyle(2), ...getReportMainCellWidth(2) }}>{row.store_name ? formatReportCount(sum.largeTotal) : ""}</td>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: REPORT_NUMBER_FONT_SIZE, color: reportRowColor, background: reportRowBackground, ...getReportSectionStyle(3), ...getReportMainCellWidth(3) }}>{row.large_box ? formatNumber(row.large_box) : ""}</td>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: REPORT_NUMBER_FONT_SIZE, color: reportRowColor, background: reportRowBackground, ...getReportSectionStyle(4), ...getReportMainCellWidth(4) }}>{row.large_inner ? formatNumber(row.large_inner) : ""}</td>
@@ -2428,15 +3245,15 @@ export function VehiclePageScreen({
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: REPORT_NUMBER_FONT_SIZE, color: reportRowColor, background: reportRowBackground, ...getReportSectionStyle(11), ...getReportMainCellWidth(11) }}>{row.event ? formatNumber(row.event) : ""}</td>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: REPORT_NUMBER_FONT_SIZE, color: reportRowColor, background: reportRowBackground, ...getReportSectionStyle(12), ...getReportMainCellWidth(12) }}>{row.tobacco ? formatNumber(row.tobacco) : ""}</td>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: REPORT_NUMBER_FONT_SIZE, color: reportRowColor, background: reportRowBackground, ...getReportSectionStyle(13), ...getReportMainCellWidth(13) }}>{row.certificate ? formatNumber(row.certificate) : ""}</td>
-                        <td className="report-section-right" style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: REPORT_NUMBER_FONT_SIZE, color: reportRowColor, background: reportRowBackground, ...getReportSectionStyle(14), ...getReportMainCellWidth(14) }}>{row.cdc ? formatNumber(row.cdc) : ""}</td>
+                        <td className="report-section-right" style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: REPORT_NUMBER_FONT_SIZE, color: reportRowColor, background: reportRowBackground, ...getReportSectionStyle(14), ...getReportMainCellWidth(14) }}>{row.store_name && storeCdc > 0 ? formatNumber(storeCdc) : ""}</td>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: 13, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(15) }}>{row.pbox ? formatNumber(row.pbox) : ""}</td>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: 13, background: reportRowBackground, ...getReportMainCellWidth(16) }}></td>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: 16, fontWeight: 900, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(17) }}>{row.standard_time || ""}</td>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", verticalAlign: "middle", color: reportRowColor, background: reportRowBackground, ...getAddressTextStyle(row.address || ""), ...getReportMainCellWidth(18) }}>{row.address || ""}</td>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", verticalAlign: "middle", overflow: "hidden", fontSize: 13, background: reportRowBackground, ...getReportMainCellWidth(19) }}></td>
-                        <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "5px 4px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: 13, fontWeight: 900, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(20) }}>{row.store_name ? "C" : ""}</td>
+                        <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "5px 4px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: 13, fontWeight: 900, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(20) }}>{row.store_name ? (storeAdhesion?.postGrade || "") : ""}</td>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", verticalAlign: "middle", overflow: "hidden", fontSize: 13, background: reportRowBackground, ...getReportMainCellWidth(21) }}></td>
-                        <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: 13, fontWeight: row.support_excluded ? 900 : 400, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(22) }}>{row.store_name ? (row.support_excluded ? "지원제외" : "정상") : ""}</td>
+                        <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: 13, fontWeight: row.support_excluded ? 900 : 400, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(22) }}>{row.store_name ? (storeAdhesion?.category || "") : ""}</td>
                       </tr>
                     );
                   })}
@@ -2455,7 +3272,7 @@ export function VehiclePageScreen({
                     <td className="report-section-bottom" style={{ border: "1px solid #666", padding: "7px 5px", textAlign: "center", fontWeight: 900, fontSize: REPORT_NUMBER_FONT_SIZE, ...getReportSectionTotalStyle(11), ...getReportMainCellWidth(11) }}>{formatReportTotal(group.totals.event)}</td>
                     <td className="report-section-bottom" style={{ border: "1px solid #666", padding: "7px 5px", textAlign: "center", fontWeight: 900, fontSize: REPORT_NUMBER_FONT_SIZE, ...getReportSectionTotalStyle(12), ...getReportMainCellWidth(12) }}>{formatReportTotal(group.totals.tobacco)}</td>
                     <td className="report-section-bottom" style={{ border: "1px solid #666", padding: "7px 5px", textAlign: "center", fontWeight: 900, fontSize: REPORT_NUMBER_FONT_SIZE, ...getReportSectionTotalStyle(13), ...getReportMainCellWidth(13) }}>{formatReportTotal(group.totals.certificate)}</td>
-                    <td className="report-section-right report-section-bottom" style={{ border: "1px solid #666", padding: "7px 5px", textAlign: "center", fontWeight: 900, fontSize: REPORT_NUMBER_FONT_SIZE, ...getReportSectionTotalStyle(14), ...getReportMainCellWidth(14) }}>{formatReportTotal(group.totals.cdc)}</td>
+                    <td className="report-section-right report-section-bottom" style={{ border: "1px solid #666", padding: "7px 5px", textAlign: "center", fontWeight: 900, fontSize: REPORT_NUMBER_FONT_SIZE, ...getReportSectionTotalStyle(14), ...getReportMainCellWidth(14) }}>{groupCdcTotal > 0 ? formatReportTotal(groupCdcTotal) : ""}</td>
                     <td style={{ border: "1px solid #666", padding: "7px 5px", textAlign: "center", fontWeight: 900, fontSize: 13, ...getReportMainCellWidth(15) }}></td>
                     <td style={{ border: "1px solid #666", padding: "6px 4px", ...getReportMainCellWidth(16) }}></td>
                     <td style={{ border: "1px solid #666", padding: "6px 4px", ...getReportMainCellWidth(17) }}></td>
@@ -2470,7 +3287,7 @@ export function VehiclePageScreen({
               </div>
               </div>
             </div>
-          ))}
+          )})}
         </div>
       ) : null}
     </div>

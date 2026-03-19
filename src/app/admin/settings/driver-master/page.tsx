@@ -33,8 +33,24 @@ type ProfileRow = {
   created_at?: string | null;
 };
 
+type ShiftTodayRow = {
+  user_id: string;
+  clock_in_at: string | null;
+  clock_out_at: string | null;
+};
+
+type TodayShiftMap = Record<string, { inAt: string | null; outAt: string | null }>;
+
 const DELIVERY_OPTIONS = ["당일", "전일", "익일"] as const;
 const VEHICLE_OPTIONS = ["1.5T", "2.5T", "3.5T"] as const;
+
+const panelStyle: React.CSSProperties = {
+  padding: 14,
+  borderRadius: 16,
+  border: "1px solid #E2E8F0",
+  background: "white",
+  boxShadow: "0 12px 30px rgba(15, 23, 42, 0.06)",
+};
 
 function kstTodayYMD(): string {
   const now = new Date();
@@ -147,6 +163,63 @@ function normalizeApproval(v: string | null): "pending" | "approved" | "rejected
   return "pending";
 }
 
+function approvalLabel(status: "pending" | "approved" | "rejected"): string {
+  if (status === "approved") return "승인";
+  if (status === "rejected") return "거절";
+  return "승인대기";
+}
+
+function approvalBadgeStyle(status: "pending" | "approved" | "rejected"): React.CSSProperties {
+  if (status === "approved") {
+    return {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      minWidth: 72,
+      height: 34,
+      padding: "0 12px",
+      borderRadius: 999,
+      border: "1px solid rgba(34,197,94,0.28)",
+      background: "rgba(34,197,94,0.12)",
+      color: "#166534",
+      fontSize: 12,
+      fontWeight: 950,
+    };
+  }
+
+  if (status === "rejected") {
+    return {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      minWidth: 72,
+      height: 34,
+      padding: "0 12px",
+      borderRadius: 999,
+      border: "1px solid rgba(239,68,68,0.24)",
+      background: "rgba(239,68,68,0.10)",
+      color: "#b91c1c",
+      fontSize: 12,
+      fontWeight: 950,
+    };
+  }
+
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 72,
+    height: 34,
+    padding: "0 12px",
+    borderRadius: 999,
+    border: "1px solid rgba(245,158,11,0.26)",
+    background: "rgba(245,158,11,0.10)",
+    color: "#b45309",
+    fontSize: 12,
+    fontWeight: 950,
+  };
+}
+
 function isDriverPart(part: string | null | undefined): boolean {
   const s = String(part ?? "").trim();
   if (!s) return false;
@@ -187,6 +260,15 @@ function displayCarNo(carNo: string | null): string {
   return parts.join(" / ");
 }
 
+function primaryCarNo(carNo: string | null): number {
+  const values = String(carNo ?? "")
+    .split(",")
+    .map((x) => Number.parseInt(x.trim(), 10))
+    .filter((x) => Number.isFinite(x));
+  if (values.length === 0) return Number.MAX_SAFE_INTEGER;
+  return Math.min(...values);
+}
+
 function displayDeliveryTypes(row: ProfileRow): string {
   const values = [row.delivery_type, row.delivery_type_2, row.delivery_type_3, row.delivery_type_4]
     .map((value) => String(value ?? "").trim())
@@ -216,6 +298,7 @@ export default function DriverMasterPage() {
   // list & selection
   const [rows, setRows] = useState<ProfileRow[]>([]);
   const [selected, setSelected] = useState<ProfileRow | null>(null);
+  const [todayShiftMap, setTodayShiftMap] = useState<TodayShiftMap>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // bulk
@@ -343,22 +426,16 @@ export default function DriverMasterPage() {
         list = list.filter((r) => [r.delivery_type, r.delivery_type_2, r.delivery_type_3, r.delivery_type_4].some((value) => String(value ?? "").trim() === delivery));
       }
 
-      // 정렬: 운수사 → 차종 → 호차 → 이름
+      // 정렬: 호차 오름차순, 복수 호차는 가장 작은 호차 기준
       list.sort((a, b) => {
-        const ac = String(a.carrier ?? "").trim();
-        const bc = String(b.carrier ?? "").trim();
-        const c1 = ac.localeCompare(bc, "ko");
-        if (c1 !== 0) return c1;
+        const aCar = primaryCarNo(a.car_no);
+        const bCar = primaryCarNo(b.car_no);
+        if (aCar !== bCar) return aCar - bCar;
 
-        const av = String(a.vehicle_type ?? "").trim();
-        const bv = String(b.vehicle_type ?? "").trim();
-        const c2 = av.localeCompare(bv, "ko");
+        const ah = displayCarNo(a.car_no);
+        const bh = displayCarNo(b.car_no);
+        const c2 = ah.localeCompare(bh, "ko", { numeric: true });
         if (c2 !== 0) return c2;
-
-        const ah = String(a.car_no ?? "").trim();
-        const bh = String(b.car_no ?? "").trim();
-        const c3 = ah.localeCompare(bh, "ko");
-        if (c3 !== 0) return c3;
 
         const an = String(a.name ?? "").trim();
         const bn = String(b.name ?? "").trim();
@@ -366,9 +443,31 @@ export default function DriverMasterPage() {
       });
 
       setRows(list);
+      const ids = list.map((row) => row.id);
+      const nextShiftMap: TodayShiftMap = {};
+
+      if (ids.length > 0) {
+        const { data: shifts, error: shiftError } = await supabase
+          .from("work_shifts")
+          .select("user_id,clock_in_at,clock_out_at")
+          .eq("work_date", kstTodayYMD())
+          .in("user_id", ids);
+
+        if (shiftError) throw shiftError;
+
+        for (const shift of (shifts ?? []) as ShiftTodayRow[]) {
+          nextShiftMap[shift.user_id] = {
+            inAt: shift.clock_in_at,
+            outAt: shift.clock_out_at,
+          };
+        }
+      }
+
+      setTodayShiftMap(nextShiftMap);
     } catch (e: any) {
       setErr(String(e?.message ?? e ?? "불러오기 실패"));
       setRows([]);
+      setTodayShiftMap({});
     } finally {
       setLoading(false);
     }
@@ -513,34 +612,31 @@ export default function DriverMasterPage() {
       {/* Filters */}
       <div
         style={{
+          ...panelStyle,
           marginTop: 12,
-          padding: 12,
-          borderRadius: 14,
-          border: "1px solid rgba(0,0,0,0.08)",
-          background: "white",
-          display: "flex",
-          gap: 10,
-          flexWrap: "wrap",
-          alignItems: "center",
+          display: "grid",
+          gridTemplateColumns: "minmax(220px, 1.3fr) minmax(160px, 0.9fr) minmax(220px, 1.2fr) minmax(180px, 0.9fr) minmax(160px, 0.8fr) auto",
+          gap: 12,
+          alignItems: "end",
         }}
       >
-        <label style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 240, flex: 1 }}>
-          <span style={{ width: 60, fontSize: 13, opacity: 0.8 }}>이름</span>
+        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <span style={{ fontSize: 12, color: "#475467", fontWeight: 700 }}>이름</span>
           <input value={qName} onChange={(e) => setQName(e.target.value)} placeholder="기사 이름 검색" style={inputStyle()} />
         </label>
 
-        <label style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 200 }}>
-          <span style={{ width: 60, fontSize: 13, opacity: 0.8 }}>호차</span>
+        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <span style={{ fontSize: 12, color: "#475467", fontWeight: 700 }}>호차</span>
           <input value={qCarNo} onChange={(e) => setQCarNo(e.target.value)} placeholder="예: 1" style={inputStyle()} inputMode="numeric" />
         </label>
 
-        <label style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 260 }}>
-          <span style={{ width: 60, fontSize: 13, opacity: 0.8 }}>운수사</span>
+        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <span style={{ fontSize: 12, color: "#475467", fontWeight: 700 }}>운수사</span>
           <input value={qCarrier} onChange={(e) => setQCarrier(e.target.value)} placeholder="운수사 검색" style={inputStyle()} />
         </label>
 
-        <label style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 240 }}>
-          <span style={{ width: 80, fontSize: 13, opacity: 0.8 }}>배송구분</span>
+        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <span style={{ fontSize: 12, color: "#475467", fontWeight: 700 }}>배송구분</span>
           <select value={qDelivery} onChange={(e) => setQDelivery(e.target.value)} style={inputStyle()}>
             <option value="">전체</option>
             {DELIVERY_OPTIONS.map((x) => (
@@ -551,8 +647,8 @@ export default function DriverMasterPage() {
           </select>
         </label>
 
-        <label style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 220 }}>
-          <span style={{ width: 60, fontSize: 13, opacity: 0.8 }}>차종</span>
+        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <span style={{ fontSize: 12, color: "#475467", fontWeight: 700 }}>차종</span>
           <select value={qVehicle} onChange={(e) => setQVehicle(e.target.value)} style={inputStyle()}>
             <option value="">전체</option>
             {VEHICLE_OPTIONS.map((x) => (
@@ -563,7 +659,7 @@ export default function DriverMasterPage() {
           </select>
         </label>
 
-        <button onClick={load} style={buttonStyle(false)}>
+        <button onClick={load} style={buttonStyle(false, true)}>
           조회
         </button>
       </div>
@@ -644,14 +740,11 @@ export default function DriverMasterPage() {
               {[
                 "호차",
                 "이름",
-                "생년월일",
                 "나이",
                 "배송구분",
                 "전화번호",
                 "차종",
                 "운수사",
-                "입사일",
-                "퇴사일",
                 "차고지",
                 "하이패스",
                 "근속",
@@ -681,7 +774,7 @@ export default function DriverMasterPage() {
           <tbody>
             {rows.length === 0 && !loading ? (
               <tr>
-                <td colSpan={15} style={{ padding: 16, opacity: 0.7 }}>
+                <td colSpan={13} style={{ padding: 16, opacity: 0.7 }}>
                   데이터 없음
                 </td>
               </tr>
@@ -690,6 +783,7 @@ export default function DriverMasterPage() {
                 const ageV = calcAge(r.birthdate);
                 const tenDays = calcTenureDays(r.join_date, r.leave_date);
                 const ap = normalizeApproval(r.approval_status);
+                const working = ap === "approved" && !!todayShiftMap[r.id]?.inAt && !todayShiftMap[r.id]?.outAt;
 
                 return (
                   <tr key={r.id}>
@@ -699,38 +793,18 @@ export default function DriverMasterPage() {
 
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)", fontWeight: 950 }}>{displayCarNo(r.car_no)}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)", fontWeight: 950 }}>{r.name ?? "-"}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.birthdate ?? "-"}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{ageV == null ? "-" : `${ageV}세`}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{displayDeliveryTypes(r)}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{formatKRPhone(r.phone)}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.vehicle_type ?? "-"}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.carrier ?? "-"}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.join_date ?? "-"}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.leave_date ?? "-"}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.garage ?? "-"}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.hipass ?? "-"}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{tenurePretty(tenDays)}</td>
 
                     {/* 상태 */}
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-                      <select
-                        value={ap}
-                        onChange={(e) => updateApprovalInline(r.id, e.target.value as any)}
-                        style={{
-                          height: 34,
-                          padding: "0 10px",
-                          borderRadius: 10,
-                          border: "1px solid rgba(0,0,0,0.15)",
-                          background: ap === "pending" ? "rgba(255,170,0,0.08)" : ap === "rejected" ? "rgba(255,0,0,0.06)" : "white",
-                          fontWeight: 950,
-                          cursor: "pointer",
-                        }}
-                        title="상태를 눌러 승인/거절 선택"
-                      >
-                        <option value="pending">승인대기</option>
-                        <option value="approved">승인</option>
-                        <option value="rejected">거절</option>
-                      </select>
+                      {working ? <span style={approvalBadgeStyle("pending")}>근무중</span> : "-"}
                     </td>
 
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
