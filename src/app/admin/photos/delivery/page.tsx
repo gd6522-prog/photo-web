@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { AccessLevel } from "@/lib/admin-access";
 import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
+import { copyCompressedImageUrlToClipboard } from "@/lib/clipboard-image";
 
 type DeliveryPhotoRow = {
   id: string;
@@ -107,16 +108,7 @@ async function forceDownload(url: string, fileName: string) {
 }
 
 async function copyImageToClipboard(url: string) {
-  const hasClipboardWrite = !!(navigator.clipboard as any)?.write;
-  const hasClipboardItem = typeof (window as any).ClipboardItem !== "undefined";
-  if (!hasClipboardWrite || !hasClipboardItem) {
-    throw new Error("이 브라우저는 이미지 복사를 지원하지 않습니다. (Chrome/Edge 최신 권장)");
-  }
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`이미지 가져오기 실패: ${res.status}`);
-  const blob = await res.blob();
-  const item = new (window as any).ClipboardItem({ [blob.type || "image/jpeg"]: blob });
-  await (navigator.clipboard as any).write([item]);
+  await copyCompressedImageUrlToClipboard(url, { maxBytes: 1024 * 1024 });
 }
 
 export default function AdminDeliveryPhotosPage() {

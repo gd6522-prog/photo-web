@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { AccessLevel } from "@/lib/admin-access";
 import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
+import { copyCompressedImageUrlToClipboard } from "@/lib/clipboard-image";
 
 type ReportRow = {
   id: string;
@@ -29,10 +30,19 @@ type ProfileRow = {
   name: string | null;
 };
 
+type ExtraPhotoRow = {
+  id: string;
+  report_id: string;
+  photo_path: string | null;
+  photo_url: string | null;
+  created_at: string;
+};
+
 type HazardListItem = ReportRow & {
   creator_name: string | null;
   improver_name: string | null;
   resolution: ResolutionRow | null;
+  extra_photos: ExtraPhotoRow[];
 };
 
 type HazardPagePayload = {
@@ -104,6 +114,24 @@ function getHazardImageUrl(_photoPath: string | null | undefined, photoUrl: stri
   return String(photoUrl || "").trim();
 }
 
+function getReportBeforePhotos(report: HazardListItem | null | undefined) {
+  if (!report) return [];
+  const items: Array<{ url: string; path: string }> = [];
+  const firstUrl = getHazardImageUrl(report.photo_path, report.photo_url);
+  const firstPath = String(report.photo_path ?? "").trim();
+  if (firstUrl && firstPath) items.push({ url: firstUrl, path: firstPath });
+
+  for (const photo of report.extra_photos ?? []) {
+    const url = getHazardImageUrl(photo.photo_path, photo.photo_url);
+    const path = String(photo.photo_path ?? "").trim();
+    if (!url || !path) continue;
+    if (items.some((item) => item.path === path)) continue;
+    items.push({ url, path });
+  }
+
+  return items;
+}
+
 function extFromName(name: string) {
   const i = name.lastIndexOf(".");
   if (i < 0) return "jpg";
@@ -133,106 +161,127 @@ async function forceDownload(url: string, fileName: string) {
 }
 
 async function copyImageToClipboard(url: string) {
-  const hasClipboardWrite = !!(navigator.clipboard as { write?: unknown })?.write;
-  const hasClipboardItem = typeof (window as unknown as { ClipboardItem?: unknown }).ClipboardItem !== "undefined";
-  if (!hasClipboardWrite || !hasClipboardItem) {
-    throw new Error("현재 브라우저는 이미지 클립보드를 지원하지 않습니다.");
-  }
-
-  if (!document.hasFocus()) {
-    window.focus();
-    await new Promise((r) => setTimeout(r, 80));
-  }
-
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`이미지 조회 실패: ${res.status}`);
-  const blob = await res.blob();
-
-  const clipboard = navigator.clipboard as unknown as { write: (items: unknown[]) => Promise<void> };
-  const clipboardCtor = window as unknown as {
-    ClipboardItem: (new (arg: Record<string, Blob>) => unknown) & { supports?: (type: string) => boolean };
-  };
-  const clipboardType = blob.type || "image/jpeg";
-  const supports =
-    typeof clipboardCtor.ClipboardItem?.supports === "function"
-      ? clipboardCtor.ClipboardItem.supports.bind(clipboardCtor.ClipboardItem)
-      : null;
-
-  const writeBlob = async (targetBlob: Blob) => {
-    const mime = targetBlob.type || "image/png";
-    const item = new clipboardCtor.ClipboardItem({ [mime]: targetBlob });
-    await clipboard.write([item]);
-  };
-
-  const toPngBlob = async () => {
-    if (typeof createImageBitmap === "undefined") return null;
-    try {
-      const bmp = await createImageBitmap(blob);
-      const canvas = document.createElement("canvas");
-      canvas.width = bmp.width;
-      canvas.height = bmp.height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return null;
-      ctx.drawImage(bmp, 0, 0);
-      return await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
-    } catch {
-      return null;
-    }
-  };
-
-  try {
-    if (supports && !supports(clipboardType)) {
-      throw new Error("UNSUPPORTED_CLIPBOARD_TYPE");
-    }
-    await writeBlob(blob);
-  } catch (e) {
-    const msg = String((e as Error)?.message ?? e ?? "").toLowerCase();
-    if (msg.includes("document is not focused")) {
-      window.focus();
-      await new Promise((r) => setTimeout(r, 120));
-      await writeBlob(blob);
-      return;
-    }
-
-    const canRetryAsPng =
-      clipboardType !== "image/png" &&
-      (msg.includes("unsupported_clipboard_type") ||
-        msg.includes("type") ||
-        msg.includes("mime") ||
-        msg.includes("format") ||
-        msg.includes("support"));
-
-    if (canRetryAsPng) {
-      const pngBlob = await toPngBlob();
-      if (pngBlob) {
-        await writeBlob(pngBlob);
-        return;
-      }
-    }
-
-    if (msg.includes("clipboard")) {
-      throw new Error("복사에 실패했습니다. 현재 브라우저에서 이미지 복사를 지원하지 않거나 권한이 제한되었습니다.");
-    }
-
-    throw new Error("이미지 복사에 실패했습니다. 창을 한 번 클릭한 뒤 다시 시도해 주세요.");
-  }
+  await copyCompressedImageUrlToClipboard(url, { maxBytes: 1024 * 1024 });
 }
 
-function showActionError(error: unknown, fallback: string) {
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function printHazardResolutionSheet(params: {
+  reportId: string;
+  createdAt: string;
+  creator: string;
+  improvedAt: string | null;
+  improver: string;
+  beforeImageUrl: string;
+  afterImageUrl: string;
+  beforeMemo: string;
+  afterMemo: string;
+}) {
+  const popup = window.open("", "_blank", "width=960,height=1280");
+  if (!popup) throw new Error("출력 창을 열 수 없습니다. 팝업 차단을 해제해 주세요.");
+
+  const html = `<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>위험요인 처리완료 출력</title>
+    <style>
+      @page { size: A4 portrait; margin: 10mm; }
+      html, body { margin: 0; padding: 0; background: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-family: "Pretendard", "Malgun Gothic", sans-serif; color: #0f172a; }
+      body { padding: 10mm; }
+      .sheet { width: 100%; min-height: calc(297mm - 20mm); display: flex; flex-direction: column; gap: 12px; }
+      .title { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #cbd5e1; padding-bottom: 10px; }
+      .title h1 { margin: 0; font-size: 24px; }
+      .badge { background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 999px; padding: 6px 12px; font-size: 12px; font-weight: 800; }
+      .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .meta-box { border: 1px solid #dbe4ee; border-radius: 12px; padding: 10px 12px; background: #f8fafc; }
+      .meta-label { font-size: 11px; font-weight: 800; color: #64748b; margin-bottom: 4px; }
+      .meta-value { font-size: 14px; font-weight: 700; color: #0f172a; white-space: pre-wrap; word-break: break-word; }
+      .photos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .panel { border: 1px solid #dbe4ee; border-radius: 14px; overflow: hidden; background: #ffffff; }
+      .panel-head { padding: 10px 12px; font-size: 14px; font-weight: 900; border-bottom: 1px solid #e2e8f0; }
+      .panel-head.before { background: #eff6ff; color: #1d4ed8; }
+      .panel-head.after { background: #ecfdf5; color: #047857; }
+      .image-wrap { height: 340px; display: flex; align-items: center; justify-content: center; background: #ffffff; padding: 10px; }
+      .image-wrap img { max-width: 100%; max-height: 100%; object-fit: contain; }
+      .memo { border-top: 1px solid #e2e8f0; padding: 12px; min-height: 120px; background: #fcfdff; }
+      .memo-label { font-size: 12px; font-weight: 900; margin-bottom: 6px; color: #334155; }
+      .memo-text { font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+      .foot { margin-top: auto; display: flex; justify-content: flex-end; font-size: 11px; color: #64748b; }
+    </style>
+  </head>
+  <body>
+    <div class="sheet">
+      <div class="title">
+        <h1>위험요인 처리완료 보고서</h1>
+        <div class="badge">컬러 출력 / A4 세로</div>
+      </div>
+      <div class="meta">
+        <div class="meta-box">
+          <div class="meta-label">제보 정보</div>
+          <div class="meta-value">제보 ${escapeHtml(params.createdAt)} / ${escapeHtml(params.creator)}</div>
+        </div>
+        <div class="meta-box">
+          <div class="meta-label">처리 정보</div>
+          <div class="meta-value">처리 ${escapeHtml(params.improvedAt ?? "-")} / ${escapeHtml(params.improver)}</div>
+        </div>
+      </div>
+      <div class="photos">
+        <div class="panel">
+          <div class="panel-head before">개선 전</div>
+          <div class="image-wrap"><img src="${escapeHtml(params.beforeImageUrl)}" alt="before" /></div>
+          <div class="memo">
+            <div class="memo-label">개선 전 설명</div>
+            <div class="memo-text">${escapeHtml(params.beforeMemo || "-")}</div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head after">개선 후</div>
+          <div class="image-wrap"><img src="${escapeHtml(params.afterImageUrl)}" alt="after" /></div>
+          <div class="memo">
+            <div class="memo-label">개선 후 설명</div>
+            <div class="memo-text">${escapeHtml(params.afterMemo || "-")}</div>
+          </div>
+        </div>
+      </div>
+      <div class="foot">보고서 ID: ${escapeHtml(params.reportId)}</div>
+    </div>
+    <script>
+      window.onload = function () {
+        setTimeout(function () {
+          window.print();
+        }, 250);
+      };
+    </script>
+  </body>
+</html>`;
+
+  popup.document.open();
+  popup.document.write(html);
+  popup.document.close();
+  popup.focus();
+}
+
+function normalizeActionError(error: unknown, fallback: string) {
   const rawMessage = String((error as Error)?.message ?? fallback ?? "");
   const normalized = rawMessage.toLowerCase();
 
   if (normalized.includes("document is not focused")) {
-    window.alert("복사에 실패했습니다.\n브라우저 창이나 팝업 안쪽을 한 번 클릭한 뒤 다시 시도해 주세요.");
-    return;
+    return "복사에 실패했습니다. 브라우저 창이나 팝업 안쪽을 한 번 클릭한 뒤 다시 시도해 주세요.";
   }
 
   if (normalized.includes("clipboard")) {
-    window.alert("복사에 실패했습니다.\n현재 브라우저에서 클립보드 접근이 허용되지 않았거나, 창 포커스가 벗어났습니다.");
-    return;
+    return "복사에 실패했습니다. 현재 브라우저에서 클립보드 접근이 허용되지 않았거나, 창 포커스가 벗어났습니다.";
   }
 
-  window.alert(rawMessage || fallback);
+  return rawMessage || fallback;
 }
 
 export default function AdminHazardsPage() {
@@ -252,7 +301,7 @@ export default function AdminHazardsPage() {
   const [resolvedTotalCount, setResolvedTotalCount] = useState(0);
   const [pageCache, setPageCache] = useState<Record<number, HazardPagePayload>>({});
 
-  const [reports, setReports] = useState<ReportRow[]>([]);
+  const [reports, setReports] = useState<HazardListItem[]>([]);
   const [resMap, setResMap] = useState<Record<string, ResolutionRow>>({});
   const [profilesById, setProfilesById] = useState<Record<string, ProfileRow>>({});
 
@@ -261,8 +310,19 @@ export default function AdminHazardsPage() {
   const [plannedDueDateById, setPlannedDueDateById] = useState<Record<string, string>>({});
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [previewReportId, setPreviewReportId] = useState<string | null>(null);
+  const [previewBeforePhotoPath, setPreviewBeforePhotoPath] = useState<string | null>(null);
 
   const [msg, setMsg] = useState("");
+  const [toastMsg, setToastMsg] = useState("");
+  const [toastTone, setToastTone] = useState<"success" | "error">("success");
+  const toastTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const toast = useCallback((message: string, tone: "success" | "error" = "success") => {
+    setToastTone(tone);
+    setToastMsg(message);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToastMsg(""), 1700);
+  }, []);
 
   const setAfterFile = (reportId: string, file: File | null) => {
     if (!file) return;
@@ -506,7 +566,10 @@ export default function AdminHazardsPage() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setPreviewReportId(null);
+      if (e.key === "Escape") {
+        setPreviewReportId(null);
+        setPreviewBeforePhotoPath(null);
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -517,8 +580,15 @@ export default function AdminHazardsPage() {
   const previewStatus = getHazardStatus(previewResolution);
   const previewCreator = previewReport ? profilesById[previewReport.user_id]?.name ?? previewReport.user_id.slice(0, 8) : "-";
   const previewImprover = previewResolution?.improved_by ? profilesById[previewResolution.improved_by]?.name ?? previewResolution.improved_by.slice(0, 8) : "-";
-  const previewBeforeImageUrl = previewReport ? getHazardImageUrl(previewReport.photo_path, previewReport.photo_url) : "";
+  const previewBeforePhotos = useMemo(() => getReportBeforePhotos(previewReport), [previewReport]);
+  const selectedPreviewBeforePhoto =
+    previewBeforePhotos.find((photo) => photo.path === previewBeforePhotoPath) ?? previewBeforePhotos[0] ?? null;
+  const previewBeforeImageUrl = selectedPreviewBeforePhoto?.url ?? "";
   const previewAfterImageUrl = previewResolution ? getHazardImageUrl(previewResolution.after_path, previewResolution.after_public_url) : "";
+
+  useEffect(() => {
+    setPreviewBeforePhotoPath(previewBeforePhotos[0]?.path ?? null);
+  }, [previewReportId, previewBeforePhotos]);
 
   const maxPage = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
@@ -689,7 +759,8 @@ export default function AdminHazardsPage() {
             const selectedAfterFile = afterFileById[r.id] ?? null;
             const isDragOver = dragOverId === r.id;
             const plannedDueDate = plannedDueDateById[r.id] ?? "";
-            const beforeThumbUrl = getHazardImageUrl(r.photo_path, r.photo_url);
+            const beforePhotos = getReportBeforePhotos(r);
+            const beforeThumbUrl = beforePhotos[0]?.url ?? getHazardImageUrl(r.photo_path, r.photo_url);
             const afterThumbUrl = getHazardImageUrl(res?.after_path, res?.after_public_url);
             const eagerLoad = idx < 2;
 
@@ -709,6 +780,7 @@ export default function AdminHazardsPage() {
                     {status.label}
                   </span>
                   <span style={{ fontSize: 12, color: "#6B7280" }}>제보: {formatKST(r.created_at)} / {creator}</span>
+                  <span style={{ fontSize: 12, color: "#6B7280" }}>사진 {beforePhotos.length}장</span>
                   <span style={{ fontSize: 12, color: "#6B7280" }}>개선: {formatKST(res?.improved_at ?? null)} / {improver}</span>
                   {status.key === "pending" ? <span style={{ fontSize: 12, color: "#B45309", fontWeight: 800 }}>예정일: {formatDueDateLabel(res?.planned_due_date ?? null)}</span> : null}
                   {isMainAdmin ? (
@@ -726,14 +798,16 @@ export default function AdminHazardsPage() {
                   <div style={{ display: "grid", gap: 8 }}>
                     <section style={{ border: "1px solid #E2E8F0", borderRadius: 10, background: "#FFFFFF", height: 138, boxSizing: "border-box", overflow: "hidden" }}>
                       <button
-                        onClick={() => setPreviewReportId(r.id)}
+                        onClick={() => {
+                          setPreviewReportId(r.id);
+                          setPreviewBeforePhotoPath(beforePhotos[0]?.path ?? null);
+                        }}
                         style={{ width: "100%", height: 138, border: "none", padding: 0, background: "#FFFFFF", cursor: "pointer", display: "block" }}
                         title="제보사진 크게 보기"
                       >
                         <img src={beforeThumbUrl} alt="before" loading={eagerLoad ? "eager" : "lazy"} decoding="async" fetchPriority={eagerLoad ? "high" : "auto"} style={{ width: "100%", height: "100%", objectFit: "contain", background: "#FFFFFF" }} />
                       </button>
                     </section>
-
                     <section style={{ border: "1px solid #BFDBFE", borderRadius: 10, background: "#FFFFFF", height: 138, boxSizing: "border-box", overflow: "hidden" }}>
                       {res?.after_public_url ? (
                         <button
@@ -887,7 +961,10 @@ export default function AdminHazardsPage() {
       {previewReport && (
         <div
           onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setPreviewReportId(null);
+            if (e.target === e.currentTarget) {
+              setPreviewReportId(null);
+              setPreviewBeforePhotoPath(null);
+            }
           }}
           style={{
             position: "fixed",
@@ -905,12 +982,37 @@ export default function AdminHazardsPage() {
               width: "min(1180px, 100%)",
               maxHeight: "90vh",
               overflow: "auto",
+              position: "relative",
               background: "white",
               borderRadius: 16,
               border: "1px solid #DDE3EA",
               boxShadow: "0 30px 60px rgba(2,6,23,0.35)",
             }}
           >
+            {toastMsg ? (
+              <div
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  transform: "translate(-50%, -50%)",
+                  zIndex: 10050,
+                  padding: "12px 18px",
+                  borderRadius: 999,
+                  background: toastTone === "success" ? "rgba(15,23,42,0.86)" : "rgba(127,29,29,0.92)",
+                  color: "#fff",
+                  fontSize: 14,
+                  fontWeight: 700,
+                  boxShadow: "0 10px 30px rgba(2,6,23,0.22)",
+                  pointerEvents: "none",
+                  maxWidth: "min(72vw, 420px)",
+                  textAlign: "center",
+                  backdropFilter: "blur(6px)",
+                }}
+              >
+                {toastMsg}
+              </div>
+            ) : null}
             <div style={{ padding: "12px 14px", borderBottom: "1px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ fontWeight: 900, color: "#0F172A" }}>
                 위험요인 비교 보기
@@ -918,25 +1020,55 @@ export default function AdminHazardsPage() {
                   제보 {formatKST(previewReport.created_at)} / {previewCreator}
                 </span>
               </div>
-              <button
-                onClick={() => setPreviewReportId(null)}
-                style={{ width: 30, height: 30, borderRadius: 999, border: "1px solid #CBD5E1", background: "white", cursor: "pointer", fontWeight: 900 }}
-              >
-                ×
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {previewStatus.key === "done" && previewBeforeImageUrl && previewAfterImageUrl ? (
+                  <button
+                    onClick={() => {
+                      try {
+                        printHazardResolutionSheet({
+                          reportId: previewReport.id,
+                          createdAt: formatKST(previewReport.created_at),
+                          creator: previewCreator,
+                          improvedAt: formatKST(previewResolution?.improved_at ?? null),
+                          improver: previewImprover,
+                          beforeImageUrl: previewBeforeImageUrl,
+                          afterImageUrl: previewAfterImageUrl,
+                          beforeMemo: previewReport.comment || "-",
+                          afterMemo: previewResolution?.after_memo || "개선 설명이 입력되지 않았습니다.",
+                        });
+                      } catch (e) {
+                        toast(normalizeActionError(e, "출력에 실패했습니다."), "error");
+                      }
+                    }}
+                    style={{ height: 32, padding: "0 12px", borderRadius: 10, border: "1px solid #1D4ED8", background: "#EFF6FF", color: "#1D4ED8", cursor: "pointer", fontSize: 12, fontWeight: 900 }}
+                  >
+                    출력
+                  </button>
+                ) : null}
+                <button
+                  onClick={() => {
+                    setPreviewReportId(null);
+                    setPreviewBeforePhotoPath(null);
+                  }}
+                  style={{ width: 30, height: 30, borderRadius: 999, border: "1px solid #CBD5E1", background: "white", cursor: "pointer", fontWeight: 900 }}
+                >
+                  ×
+                </button>
+              </div>
             </div>
 
             <div style={{ padding: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <section style={{ border: "1px solid #E2E8F0", borderRadius: 12, overflow: "hidden", background: "#FCFDFE" }}>
                 <div style={{ padding: "10px 12px", borderBottom: "1px solid #E2E8F0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                  <div style={{ fontWeight: 900, color: "#0F172A" }}>개선 전 (위험제보)</div>
+                  <div style={{ fontWeight: 900, color: "#0F172A" }}>개선 전 (위험제보 {previewBeforePhotos.length}장)</div>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button
                       onClick={async () => {
                         try {
-                          await forceDownload(previewReport.photo_url, `hazard_before_${previewReport.id}.jpg`);
+                          if (!previewBeforeImageUrl) return;
+                          await forceDownload(previewBeforeImageUrl, `hazard_before_${previewReport.id}.jpg`);
                         } catch (e) {
-                          showActionError(e, "다운로드에 실패했습니다.");
+                          toast(normalizeActionError(e, "다운로드에 실패했습니다."), "error");
                         }
                       }}
                       style={{ height: 28, padding: "0 9px", borderRadius: 8, border: "1px solid #CBD5E1", background: "white", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
@@ -946,9 +1078,11 @@ export default function AdminHazardsPage() {
                     <button
                       onClick={async () => {
                         try {
-                          await copyImageToClipboard(previewReport.photo_url);
+                          if (!previewBeforeImageUrl) return;
+                          await copyImageToClipboard(previewBeforeImageUrl);
+                          toast("클립보드에 이미지가 복사되었습니다.");
                         } catch (e) {
-                          showActionError(e, "복사에 실패했습니다.");
+                          toast(normalizeActionError(e, "복사에 실패했습니다."), "error");
                         }
                       }}
                       style={{ height: 28, padding: "0 9px", borderRadius: 8, border: "1px solid #CBD5E1", background: "white", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
@@ -959,6 +1093,31 @@ export default function AdminHazardsPage() {
                 </div>
                 <div style={{ padding: 12 }}>
                   <img src={previewBeforeImageUrl} alt="hazard-before" loading="eager" decoding="async" fetchPriority="high" style={{ width: "100%", maxHeight: 420, objectFit: "contain", borderRadius: 10, border: "1px solid #E5E7EB", background: "white" }} />
+                  {previewBeforePhotos.length > 1 ? (
+                    <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {previewBeforePhotos.map((photo, idx) => (
+                        <button
+                          key={photo.path}
+                          onClick={() => setPreviewBeforePhotoPath(photo.path)}
+                          style={{
+                            width: 72,
+                            height: 72,
+                            borderRadius: 10,
+                            overflow: "hidden",
+                            border: photo.path === selectedPreviewBeforePhoto?.path ? "3px solid #1D4ED8" : "1px solid #CBD5E1",
+                            background: "#fff",
+                            display: "block",
+                            padding: 0,
+                            cursor: "pointer",
+                            boxShadow: photo.path === selectedPreviewBeforePhoto?.path ? "0 0 0 2px rgba(29,78,216,0.12)" : "none",
+                          }}
+                          title={`제보사진 ${idx + 1} 보기`}
+                        >
+                          <img src={photo.url} alt={`preview-before-${idx + 1}`} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", background: "#FFFFFF" }} />
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                   <div style={{ marginTop: 10, border: "1px solid #E2E8F0", borderRadius: 10, background: "white", padding: 12 }}>
                     <div style={{ fontSize: 12, fontWeight: 900, color: "#1E3A8A", marginBottom: 6 }}>개선 전 설명</div>
                     <div style={{ fontSize: 15, lineHeight: 1.6, color: "#1F2937", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{previewReport.comment || "-"}</div>
@@ -985,7 +1144,7 @@ export default function AdminHazardsPage() {
                         try {
                           await forceDownload(previewResolution.after_public_url, `hazard_after_${previewReport.id}.jpg`);
                         } catch (e) {
-                          showActionError(e, "다운로드에 실패했습니다.");
+                          toast(normalizeActionError(e, "다운로드에 실패했습니다."), "error");
                         }
                       }}
                       disabled={!previewResolution?.after_public_url}
@@ -1008,8 +1167,9 @@ export default function AdminHazardsPage() {
                         if (!previewResolution?.after_public_url) return;
                         try {
                           await copyImageToClipboard(previewResolution.after_public_url);
+                          toast("클립보드에 이미지가 복사되었습니다.");
                         } catch (e) {
-                          showActionError(e, "복사에 실패했습니다.");
+                          toast(normalizeActionError(e, "복사에 실패했습니다."), "error");
                         }
                       }}
                       disabled={!previewResolution?.after_public_url}

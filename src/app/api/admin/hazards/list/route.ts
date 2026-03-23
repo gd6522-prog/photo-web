@@ -22,10 +22,19 @@ type ResolutionRow = {
   planned_due_date: string | null;
 };
 
+type ExtraPhotoRow = {
+  id: string;
+  report_id: string;
+  photo_path: string | null;
+  photo_url: string | null;
+  created_at: string;
+};
+
 type HazardListItem = ReportRow & {
   creator_name: string | null;
   improver_name: string | null;
   resolution: ResolutionRow | null;
+  extra_photos: ExtraPhotoRow[];
 };
 
 function toInt(v: string | null, fallback: number) {
@@ -53,6 +62,7 @@ export async function GET(req: NextRequest) {
   const reportIds = reports.map((r) => r.id);
 
   let resolutions: ResolutionRow[] = [];
+  let extraPhotos: ExtraPhotoRow[] = [];
   if (reportIds.length > 0) {
     const { data: resData, error: resErr } = await guard.sbAdmin
       .from("hazard_report_resolutions")
@@ -60,10 +70,23 @@ export async function GET(req: NextRequest) {
       .in("report_id", reportIds);
     if (resErr) return json(false, resErr.message, null, 500);
     resolutions = (resData ?? []) as ResolutionRow[];
+
+    const { data: extraData, error: extraErr } = await guard.sbAdmin
+      .from("hazard_report_photos")
+      .select("id,report_id,photo_path,photo_url,created_at")
+      .in("report_id", reportIds)
+      .order("created_at", { ascending: false });
+    if (extraErr) return json(false, extraErr.message, null, 500);
+    extraPhotos = (extraData ?? []) as ExtraPhotoRow[];
   }
 
   const resMap: Record<string, ResolutionRow> = {};
   for (const r of resolutions) resMap[r.report_id] = r;
+  const extraPhotoMap: Record<string, ExtraPhotoRow[]> = {};
+  for (const photo of extraPhotos) {
+    if (!extraPhotoMap[photo.report_id]) extraPhotoMap[photo.report_id] = [];
+    extraPhotoMap[photo.report_id].push(photo);
+  }
 
   const userIds = Array.from(
     new Set(
@@ -90,6 +113,7 @@ export async function GET(req: NextRequest) {
       creator_name: nameMap[r.user_id] ?? null,
       resolution,
       improver_name: resolution?.improved_by ? nameMap[resolution.improved_by] ?? null : null,
+      extra_photos: extraPhotoMap[r.id] ?? [],
     } satisfies HazardListItem;
   });
 
@@ -104,6 +128,19 @@ export async function GET(req: NextRequest) {
     const aStatus = getStatusKey(a.resolution);
     const bStatus = getStatusKey(b.resolution);
     if (aStatus !== bStatus) return statusOrder[aStatus] - statusOrder[bStatus];
+
+    if (aStatus === "done" && bStatus === "done") {
+      const aImprovedAt = new Date(a.resolution?.improved_at ?? "").getTime();
+      const bImprovedAt = new Date(b.resolution?.improved_at ?? "").getTime();
+      const aHasImprovedAt = Number.isFinite(aImprovedAt);
+      const bHasImprovedAt = Number.isFinite(bImprovedAt);
+      if (aHasImprovedAt && bHasImprovedAt && aImprovedAt !== bImprovedAt) {
+        return bImprovedAt - aImprovedAt;
+      }
+      if (aHasImprovedAt !== bHasImprovedAt) {
+        return aHasImprovedAt ? -1 : 1;
+      }
+    }
 
     const at = new Date(a.created_at).getTime();
     const bt = new Date(b.created_at).getTime();
