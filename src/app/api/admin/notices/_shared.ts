@@ -12,6 +12,10 @@ function norm(v: any) {
   return String(v ?? "").trim();
 }
 
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export function json(ok: boolean, message?: string, extra?: any, status = 200) {
   return NextResponse.json({ ok, ...(message ? { message } : {}), ...(extra ?? {}) }, { status });
 }
@@ -25,12 +29,22 @@ export async function requireAdmin(req: NextRequest): Promise<
 
   const auth = req.headers.get("authorization") ?? "";
   const token = auth.startsWith("Bearer ") ? auth.slice("Bearer ".length) : "";
-  if (!token) return { ok: false, res: json(false, "Unauthorized (missing token)", null, 401) };
+  if (!token) {
+    return { ok: false, res: json(false, "로그인 정보가 없습니다. 새로고침 후 다시 로그인해 주세요.", null, 401) };
+  }
 
   // 1) 토큰 검증은 anon client로
   const sbAnon = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
-  const { data: userData, error: uErr } = await sbAnon.auth.getUser(token);
-  if (uErr || !userData?.user) return { ok: false, res: json(false, "Unauthorized (bad token)", null, 401) };
+  let { data: userData, error: uErr } = await sbAnon.auth.getUser(token);
+  if (uErr || !userData?.user) {
+    await delay(250);
+    const retry = await sbAnon.auth.getUser(token);
+    userData = retry.data;
+    uErr = retry.error;
+  }
+  if (uErr || !userData?.user) {
+    return { ok: false, res: json(false, "로그인 정보가 만료되었습니다. 잠시 후 다시 시도해 주세요.", null, 401) };
+  }
 
   const uid = userData.user.id;
   const email = userData.user.email ?? "";

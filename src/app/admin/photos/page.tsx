@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { DayPicker, type DateRange } from "react-day-picker";
 import { supabase } from "@/lib/supabase";
 import type { AccessLevel } from "@/lib/admin-access";
 import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
@@ -71,14 +70,6 @@ function formatKST(ts: string) {
   return `${yyyy}-${mm}-${dd} ${HH}:${MI}:${SS}`;
 }
 
-function ymdToDate(value: string) {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, (month || 1) - 1, day || 1);
-}
-
-function dateToYmd(date: Date) {
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
-}
 
 // ✅ 강제 다운로드
 async function forceDownload(url: string, fileName: string) {
@@ -124,17 +115,12 @@ export default function AdminPhotosPage() {
   const [workPart, setWorkPart] = useState<string>("ALL");
   const [carNo, setCarNo] = useState<string>("ALL");
   const [searchText, setSearchText] = useState<string>("");
-  const [calendarMonth, setCalendarMonth] = useState<Date>(() => ymdToDate(kstTodayYYYYMMDD()));
 
   useEffect(() => {
     if (dateFrom > dateTo) {
       setDateTo(dateFrom);
     }
   }, [dateFrom, dateTo]);
-
-  useEffect(() => {
-    setCalendarMonth(ymdToDate(dateFrom));
-  }, [dateFrom]);
 
   // ---------- data ----------
   const [loading, setLoading] = useState(false);
@@ -590,124 +576,41 @@ export default function AdminPhotosPage() {
               {/* ✅ 여기서 TopModeButtons 제거 */}
               <div style={{ fontWeight: 900, marginBottom: 10 }}>조회 조건</div>
 
-              <div style={{ position: "relative" }}>
-                <div style={{ fontSize: 12, fontWeight: 900, color: "#374151", marginBottom: 6 }}>기간</div>
-                <div
-                  style={{
-                    border: "1px solid #E6EAF0",
-                    borderRadius: 20,
-                    background: "#FFFFFF",
-                    padding: 12,
-                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.8)",
-                  }}
-                >
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-                    <div style={{ gridColumn: "1 / -1", borderRadius: 14, background: "#F8FAFC", padding: "11px 14px", border: "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: 12, fontWeight: 900, color: "#111827" }}>시작일 {dateFrom}</span>
-                      <span style={{ fontSize: 13, fontWeight: 800, color: "#94A3B8" }}>~</span>
-                      <span style={{ fontSize: 12, fontWeight: 900, color: "#111827" }}>종료일 {dateTo}</span>
-                    </div>
-                  </div>
-
-                  <div
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 900, color: "#374151", marginBottom: 6 }}>시작일</div>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
                     style={{
-                      borderRadius: 18,
-                      padding: 6,
-                      background: "#FFFFFF",
+                      width: "100%",
+                      height: 40,
+                      borderRadius: 12,
+                      border: "1px solid #E5E7EB",
+                      padding: "0 12px",
+                      fontWeight: 700,
+                      outline: "none",
                     }}
-                  >
-                    <DayPicker
-                      className="field-photo-range-picker"
-                      components={{
-                        Chevron: ({ orientation }) => (
-                          <span style={{ fontSize: 28, fontWeight: 700, color: "#111827", lineHeight: 1 }}>
-                            {orientation === "left" ? "<" : ">"}
-                          </span>
-                        ),
-                      }}
-                      mode="range"
-                      selected={{ from: ymdToDate(dateFrom), to: ymdToDate(dateTo) }}
-                      month={calendarMonth}
-                      onMonthChange={setCalendarMonth}
-                      onSelect={(range?: DateRange) => {
-                        if (!range?.from) return;
-                        const nextFrom = dateToYmd(range.from);
-                        const nextTo = dateToYmd(range.to ?? range.from);
-                        setDateFrom(nextFrom);
-                        setDateTo(nextTo);
-                      }}
-                      showOutsideDays
-                      weekStartsOn={0}
-                      formatters={{
-                        formatCaption: (date) => `${date.getFullYear()}년 ${String(date.getMonth() + 1).padStart(2, "0")}월`,
-                        formatWeekdayName: (date) => ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"][date.getDay()] ?? "",
-                      }}
-                      styles={{
-                        root: { width: "100%", position: "relative" },
-                        month: { width: "100%", margin: 0 },
-                        month_grid: { width: "100%", borderCollapse: "collapse" },
-                        caption: { display: "flex", alignItems: "center", justifyContent: "center", padding: "0 38px 10px", color: "#111827", fontWeight: 700, fontSize: 18, position: "relative" },
-                        caption_label: { flex: 1, textAlign: "center", whiteSpace: "nowrap" },
-                        nav: { display: "flex", alignItems: "center", justifyContent: "space-between", position: "absolute", top: 0, left: 0, right: 0 },
-                        button_previous: { border: "none", background: "transparent", cursor: "pointer", padding: 0, width: 28, height: 28, lineHeight: 1, display: "inline-flex", alignItems: "center", justifyContent: "center" },
-                        button_next: { border: "none", background: "transparent", cursor: "pointer", padding: 0, width: 28, height: 28, lineHeight: 1, display: "inline-flex", alignItems: "center", justifyContent: "center" },
-                        weekdays: { marginBottom: 4 },
-                        weekday: { color: "#AEB8C7", fontSize: 12, fontWeight: 700, padding: "4px 0 8px" },
-                        week: { height: 44 },
-                        day: { width: 38, height: 38, fontSize: 14, fontWeight: 700, color: "#111827", textAlign: "center", padding: 0, position: "relative", overflow: "visible" },
-                        day_button: { width: 38, height: 38, borderRadius: 999, border: "none", background: "transparent", cursor: "pointer", fontSize: 14, fontWeight: 700, color: "inherit", padding: 0 },
-                        outside: { color: "#D6DDEA" },
-                        today: { color: "#7C3AED", fontWeight: 700 },
-                        range_start: { background: "#EFE7FF", borderRadius: "999px 0 0 999px" },
-                        range_middle: { background: "#EFE7FF" },
-                        range_end: { background: "#EFE7FF", borderRadius: "0 999px 999px 0" },
-                      }}
-                      modifiersStyles={{
-                        selected: { background: "#6D3DF5", color: "#FFFFFF", fontWeight: 800, borderRadius: 999 },
-                        range_start: { background: "#6D3DF5", color: "#FFFFFF", fontWeight: 800, borderRadius: 999 },
-                        range_middle: { background: "#EFE7FF", color: "#111827", borderRadius: 0 },
-                        range_end: { background: "#6D3DF5", color: "#FFFFFF", fontWeight: 800, borderRadius: 999 },
-                      }}
-                    />
-                    <style jsx global>{`
-                      .field-photo-range-picker .rdp-range_start,
-                      .field-photo-range-picker .rdp-range_middle,
-                      .field-photo-range-picker .rdp-range_end {
-                        background: #efe7ff;
-                      }
+                  />
+                </div>
 
-                      .field-photo-range-picker .rdp-range_start {
-                        border-radius: 999px 0 0 999px;
-                      }
-
-                      .field-photo-range-picker .rdp-range_end {
-                        border-radius: 0 999px 999px 0;
-                      }
-
-                      .field-photo-range-picker .rdp-range_start .rdp-day_button,
-                      .field-photo-range-picker .rdp-range_end .rdp-day_button,
-                      .field-photo-range-picker .rdp-selected .rdp-day_button {
-                        background: #6d3df5;
-                        color: #fff;
-                        font-weight: 800;
-                        border-radius: 999px;
-                        position: relative;
-                        z-index: 2;
-                      }
-
-                      .field-photo-range-picker .rdp-day {
-                        padding: 0;
-                      }
-
-                      .field-photo-range-picker .rdp-day_button {
-                        position: relative;
-                        z-index: 1;
-                      }
-                    `}</style>
-                  </div>
-                  <div style={{ marginTop: 10, fontSize: 12, color: "#64748B", fontWeight: 700 }}>
-                    먼저 시작일을 누르고, 다음으로 종료일을 누르면 기간이 선택됩니다.
-                  </div>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 900, color: "#374151", marginBottom: 6 }}>종료일</div>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    style={{
+                      width: "100%",
+                      height: 40,
+                      borderRadius: 12,
+                      border: "1px solid #E5E7EB",
+                      padding: "0 12px",
+                      fontWeight: 700,
+                      outline: "none",
+                    }}
+                  />
                 </div>
               </div>
 

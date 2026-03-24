@@ -1001,10 +1001,10 @@ function WeatherCard() {
         ) : (
           <>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ display: "flex", alignItems: "stretch", justifyContent: "space-between", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14, flex: 1, minWidth: 0 }}>
                   <WeatherIcon code={w?.today.weatherCode ?? null} size={56} />
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 4, minWidth: 0, flex: 1 }}>
                     <div style={{ fontSize: 52, fontWeight: 950, color: "#111827", lineHeight: 1 }}>
                       {w?.today.currentTemp == null ? "-" : `${Math.round(w.today.currentTemp)}°`}
                     </div>
@@ -1013,9 +1013,9 @@ function WeatherCard() {
                         ...weatherTextStyle,
                         fontWeight: 950,
                         color: "#111827",
-                        whiteSpace: "nowrap",
+                        whiteSpace: "normal",
                         wordBreak: "keep-all",
-                        flexShrink: 1,
+                        lineHeight: 1.15,
                       }}
                     >
                       {w?.today.weatherText ?? "-"}
