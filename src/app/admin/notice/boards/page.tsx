@@ -62,17 +62,17 @@ export default function BoardListPage() {
           cache: "no-store",
         });
         const json = (await res.json().catch(() => ({}))) as ListResponse;
-        if (!res.ok || !json.ok) throw new Error(json.message || "게시글 조회 실패");
+        if (!res.ok || !json.ok) throw new Error(json.message || "게시글 조회에 실패했습니다.");
         setItems((json.items ?? []) as NoticePost[]);
       } catch (e: unknown) {
-        setErr(e instanceof Error ? e.message : "게시글 조회 실패");
+        setErr(e instanceof Error ? e.message : "게시글 조회에 실패했습니다.");
         setItems([]);
       } finally {
         setLoading(false);
       }
     };
 
-    load();
+    void load();
   }, [board, qParam]);
 
   const visibleItems = useMemo(() => items.slice(0, pageSize), [items, pageSize]);
@@ -87,19 +87,15 @@ export default function BoardListPage() {
   return (
     <div style={boardPageShellStyle}>
       <section style={boardCardStyle}>
-        <div style={{ padding: 20, borderBottom: "1px solid #d9e6ef", display: "grid", gap: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-            <div>
-              <h1 style={{ margin: 0, fontSize: 34, lineHeight: 1.08, color: "#103b53" }}>{boardDef.label}</h1>
-            </div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <Link href={`/admin/notice/boards/write?board=${board}`} style={boardPrimaryButtonStyle}>
-                글쓰기
-              </Link>
-              <Link href="/admin/notice/calendar" style={boardGhostButtonStyle}>
-                일정
-              </Link>
-            </div>
+        <div style={{ padding: 20, borderBottom: "1px solid #d9e6ef", display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+          <h1 style={{ margin: 0, fontSize: 34, lineHeight: 1.08, color: "#103b53" }}>{boardDef.label}</h1>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <Link href={`/admin/notice/boards/write?board=${board}`} style={boardPrimaryButtonStyle}>
+              글쓰기
+            </Link>
+            <Link href="/admin/notice/calendar" style={boardGhostButtonStyle}>
+              일정
+            </Link>
           </div>
         </div>
 
@@ -112,8 +108,8 @@ export default function BoardListPage() {
             <div
               style={{
                 border: "1px solid #d9e6ef",
-                borderRadius: 18,
-                background: "#fbfdfe",
+                borderRadius: 12,
+                background: "#ffffff",
                 padding: "28px 20px",
                 display: "grid",
                 gap: 14,
@@ -131,18 +127,21 @@ export default function BoardListPage() {
               </div>
             </div>
           ) : (
-            <div style={{ display: "grid", gap: 12 }}>
+            <div style={{ border: "1px solid #dde6ee", borderRadius: 10, overflow: "hidden", background: "#fff" }}>
               <div
+                className="board-table-head"
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "96px minmax(0, 1fr) 140px 120px",
-                  gap: 12,
-                  padding: "0 16px",
-                  color: "#557186",
-                  fontSize: 12,
+                  gridTemplateColumns: "88px minmax(0, 1fr) 140px 120px",
+                  alignItems: "center",
+                  minHeight: 44,
+                  padding: "0 18px",
+                  borderBottom: "1px solid #dde6ee",
+                  background: "#fbfcfd",
+                  color: "#355468",
+                  fontSize: 13,
                   fontWeight: 900,
                 }}
-                className="board-table-head"
               >
                 <div>구분</div>
                 <div>제목</div>
@@ -150,37 +149,35 @@ export default function BoardListPage() {
                 <div>작성일</div>
               </div>
 
-              <div style={{ display: "grid", gap: 10 }}>
-                {visibleItems.map((item) => {
+              <div>
+                {visibleItems.map((item, index) => {
                   const itemBoard = getNoticeBoardDef(item.board_key);
                   return (
                     <Link
                       key={item.id}
                       href={`/admin/notice/boards/${item.id}`}
+                      className="board-row"
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "96px minmax(0, 1fr) 140px 120px",
-                        gap: 12,
+                        gridTemplateColumns: "88px minmax(0, 1fr) 140px 120px",
                         alignItems: "center",
-                        padding: "16px",
-                        borderRadius: 18,
-                        border: item.is_pinned ? `1px solid ${itemBoard.tone.border}` : "1px solid #d9e6ef",
-                        background: item.is_pinned ? "linear-gradient(135deg,#ffffff 0%,#f8fbfc 100%)" : "#ffffff",
+                        minHeight: 40,
+                        padding: "0 18px",
                         textDecoration: "none",
                         color: "#103b53",
-                        boxShadow: item.is_pinned ? "0 10px 24px rgba(16,59,83,0.08)" : "0 6px 16px rgba(2,32,46,0.04)",
+                        borderBottom: index === visibleItems.length - 1 ? "none" : "1px solid #eef3f6",
+                        background: "#ffffff",
                       }}
-                      className="board-row"
                     >
-                      <div>
+                      <div style={{ display: "flex", alignItems: "center" }}>
                         <span
                           style={{
                             display: "inline-flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            minWidth: 58,
-                            height: 28,
-                            padding: "0 10px",
+                            minWidth: 46,
+                            height: 24,
+                            padding: "0 8px",
                             borderRadius: 999,
                             background: itemBoard.tone.bg,
                             color: itemBoard.tone.text,
@@ -189,37 +186,14 @@ export default function BoardListPage() {
                             fontWeight: 900,
                           }}
                         >
-                          {item.is_pinned ? "고정" : itemBoard.shortLabel}
+                          {item.is_pinned ? "공지" : itemBoard.shortLabel}
                         </span>
                       </div>
-
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                          <div style={{ minWidth: 0, fontWeight: 950, fontSize: 15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.title}</div>
-                          {item.is_pinned ? (
-                            <span
-                              style={{
-                                flex: "0 0 auto",
-                                padding: "3px 8px",
-                                borderRadius: 999,
-                                border: "1px solid #8dd3cc",
-                                background: "#ecfdf5",
-                                color: "#0f766e",
-                                fontSize: 11,
-                                fontWeight: 900,
-                              }}
-                            >
-                              상단고정
-                            </span>
-                          ) : null}
-                        </div>
-                        <div style={{ marginTop: 6, fontSize: 13, color: "#557186", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {item.excerpt || item.body}
-                        </div>
+                      <div style={{ minWidth: 0, fontSize: 14, fontWeight: item.is_pinned ? 900 : 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {item.title}
                       </div>
-
-                      <div style={{ fontSize: 13, color: "#103b53", fontWeight: 800 }}>{item.author_name ?? "-"}</div>
-                      <div style={{ fontSize: 13, color: "#557186", fontWeight: 800 }}>{formatDate(item.updated_at)}</div>
+                      <div style={{ fontSize: 13, color: "#103b53", fontWeight: 700 }}>{item.author_name ?? "-"}</div>
+                      <div style={{ fontSize: 13, color: "#557186", fontWeight: 700 }}>{formatDate(item.updated_at)}</div>
                     </Link>
                   );
                 })}
@@ -234,11 +208,10 @@ export default function BoardListPage() {
               gridTemplateColumns: "minmax(0, 1fr) auto auto",
               gap: 10,
               alignItems: "center",
-              paddingTop: 4,
             }}
             className="board-search-grid"
           >
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="제목, 내용, 작성자 검색" style={boardInputStyle} />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="제목, 작성자 검색" style={boardInputStyle} />
             <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} style={{ ...boardInputStyle, width: 110 }}>
               {PAGE_SIZE_OPTIONS.map((option) => (
                 <option key={option} value={option}>
@@ -255,12 +228,10 @@ export default function BoardListPage() {
 
       <style jsx>{`
         .board-row {
-          transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+          transition: background-color 0.15s ease;
         }
         .board-row:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 16px 28px rgba(16, 59, 83, 0.1);
-          border-color: #9fc0d3;
+          background: #f8fbfd !important;
         }
         @media (max-width: 900px) {
           .board-table-head,
@@ -270,6 +241,10 @@ export default function BoardListPage() {
           }
           .board-table-head {
             display: none !important;
+          }
+          .board-row {
+            gap: 6px;
+            padding: 12px 16px !important;
           }
         }
       `}</style>

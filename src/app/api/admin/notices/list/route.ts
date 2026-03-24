@@ -1,6 +1,6 @@
 ﻿import { NextRequest } from "next/server";
 import { json, requireAdmin } from "../_shared";
-import { isNoticeBoardKey, makeNoticeExcerpt, parseNoticeBoardBody } from "@/lib/notice-board";
+import { extractNoticeText, isNoticeBoardKey, makeNoticeExcerpt, parseNoticeBoardBody } from "@/lib/notice-board";
 
 type NoticeRow = {
   id: string;
@@ -71,10 +71,12 @@ export async function GET(req: NextRequest) {
     const items = rows
       .map((r) => {
         const parsed = parseNoticeBoardBody(r.body);
+        const searchableBody = extractNoticeText(parsed.body);
         return {
           id: r.id,
           title: r.title,
           body: parsed.body,
+          searchableBody,
           board_key: parsed.boardKey,
           excerpt: makeNoticeExcerpt(parsed.body),
           is_pinned: !!r.is_pinned,
@@ -87,7 +89,7 @@ export async function GET(req: NextRequest) {
       .filter((item) => {
         if (isNoticeBoardKey(board) && item.board_key !== board) return false;
         if (!q) return true;
-        return [item.title, item.body, item.author_name ?? ""].some((value) => String(value).toLowerCase().includes(q));
+        return [item.title, item.searchableBody, item.author_name ?? ""].some((value) => String(value).toLowerCase().includes(q));
       });
 
     return json(true, undefined, { items, canManageAll: guard.isMainAdmin });
