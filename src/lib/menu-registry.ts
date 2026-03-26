@@ -27,6 +27,7 @@ export const MENU_REGISTRY: MenuItem[] = [
   { key: "settings_inspection_stores", label: "검수점포", href: "/admin/settings/inspection-stores", group: "settings", order: 120 },
   { key: "settings_user_master", label: "운영/현장 사용자마스터", href: "/admin/settings/user-master", group: "settings", order: 140 },
   { key: "settings_driver_master", label: "기사 사용자마스터", href: "/admin/settings/driver-master", group: "settings", order: 145 },
+  { key: "settings_store_contacts", label: "점포 연락처", href: "/admin/settings/store-contacts", group: "settings", order: 148 },
   { key: "settings_permissions", label: "권한 설정", href: "/admin/settings/permissions", group: "settings", order: 150, mainOnly: true },
   { key: "settings_holidays", label: "공휴일 동기화", href: "/admin/settings/holidays", group: "settings", order: 160, mainOnly: true },
 ];

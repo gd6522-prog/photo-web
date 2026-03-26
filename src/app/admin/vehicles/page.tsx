@@ -84,6 +84,7 @@ type DriverProfile = {
   vehicle_type: string;
   carrier: string;
   garage: string;
+  vehicle_number: string;
 };
 
 type ReportGroup = {
@@ -495,29 +496,29 @@ const cargoColumns: Array<{ key: keyof CargoRow | "largeTotal" | "smallTotal" | 
 
 const stickyCargoColumnKeys = ["support", "car_no", "seq_no", "store_code", "store_name"] as const;
 const reportMainColumnWidths = [
-  42,
-  180,
-  56,
-  56,
-  56,
-  56,
-  56,
-  56,
-  56,
-  56,
-  56,
-  58,
-  58,
-  72,
-  56,
-  44,
-  44,
-  84,
-  200,
-  90,
-  54,
-  54,
-  78,
+  42,   // 0  No
+  180,  // 1  점포명
+  56,   // 2
+  56,   // 3
+  56,   // 4
+  56,   // 5
+  56,   // 6
+  56,   // 7
+  56,   // 8
+  56,   // 9
+  56,   // 10
+  58,   // 11 행사
+  58,   // 12 담배
+  58,   // 13 유가증권 (72→58)
+  58,   // 14 CDC (56→58)
+  50,   // 15 피박스출고 (44→50)
+  50,   // 16 피박스회수 (44→50)
+  84,   // 17 기준시간
+  216,  // 18 주소
+  130,  // 19 연락처 (90→130, 소명점포 제거분)
+  54,   // 20 등급
+  54,   // 21 (소명점포 제거됨, colgroup 렌더링 skip)
+  78,   // 22 구분
 ] as const;
 
 function getReportMainCellWidth(index: number) {
@@ -964,7 +965,7 @@ async function fetchDriverProfileIndex(carNos: string[]) {
   const carNoFilter = normalizedCarNos.map((carNo) => `car_no.ilike.%${carNo}%`).join(",");
   const { data, error } = await supabase
     .from("profiles")
-    .select("name,phone,car_no,vehicle_type,carrier,garage")
+    .select("name,phone,car_no,vehicle_type,carrier,garage,vehicle_number")
     .ilike("work_part", "%기사%")
     .or(carNoFilter);
 
@@ -982,11 +983,36 @@ async function fetchDriverProfileIndex(carNos: string[]) {
         vehicle_type: toText((row as any).vehicle_type),
         carrier: toText((row as any).carrier),
         garage: toText((row as any).garage),
+        vehicle_number: toText((row as any).vehicle_number),
       });
     }
   }
 
   return index;
+}
+
+async function fetchStoreContactIndex() {
+  const { data, error } = await supabase
+    .from("store_contacts")
+    .select("store_name,phone");
+
+  if (error) return new Map<string, string>();
+
+  const index = new Map<string, string>();
+  for (const row of data ?? []) {
+    if (row.store_name && row.phone && !index.has(row.store_name)) {
+      index.set(row.store_name, row.phone);
+    }
+  }
+  return index;
+}
+
+function formatPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 11) return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  if (digits.length === 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  if (digits.length === 9) return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5)}`;
+  return raw;
 }
 
 function formatDisplayDate(value: string) {
@@ -1207,6 +1233,7 @@ function buildSupportReportGroup(
       vehicle_type: "",
       carrier: "",
       garage: "",
+      vehicle_number: "",
     },
     supportDriverName: trimmedDriverName,
     supportStoreName: populatedRows[0]?.store_name ?? "",
@@ -1334,7 +1361,8 @@ function exportWorkbook(
   reportGroups: ReportGroup[],
   reportDate: string,
   reportFileDate: string,
-  selectedReportCarNo?: string
+  selectedReportCarNo?: string,
+  storeContactIndex?: Map<string, string>
 ) {
   const workbook = XLSX.utils.book_new();
   const normalizedSelectedCarNo = normalizeCarNo(selectedReportCarNo ?? "");
@@ -1489,12 +1517,12 @@ function exportWorkbook(
 
     reportSheetRows.push(["", "납품예정일(D+1)", reportDate, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "대분", group.totals.large, "점착률", "100.0%"]);
     reportSheetRows.push(["", "배송기사명", group.driver?.name ?? "", "연락처", formattedDriverPhone, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "소분", group.totals.small, "누계", "100.0%"]);
-    reportSheetRows.push(["", "호차/차량번호", group.carNo, group.driver?.vehicle_type ?? "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]);
+    reportSheetRows.push(["", "호차/차량번호", group.carNo, group.driver?.vehicle_number ?? "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]);
     reportSheetRows.push(["", "운수사", group.driver?.carrier ?? "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]);
     reportSheetRows.push(["", "차종", group.driver?.vehicle_type ?? "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]);
     reportSheetRows.push(["", "차고지", group.driver?.garage ?? "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]);
-    reportSheetRows.push(["No", "점포명", "대", "", "", "", "", "", "소", "", "", "행사", "담배", "유가증권", "CDC", "피박스", "", "기준시간", "주소", "연락처", "전일점착(미스캔X)", "", ""]);
-    reportSheetRows.push(["", "", "계", "박스존", "이너존", "기타", "올데이 2L생수", "노브랜드2L생수", "계", "경량존", "슬라존", "", "", "", "", "출고", "회수", "", "", "", "등급", "소명점포", "구분"]);
+    reportSheetRows.push(["No", "점포명", "대", "", "", "", "", "", "소", "", "", "행사", "담배", "유가증권", "CDC", "피박스", "", "기준시간", "주소", "연락처", "전일점착(미스캔X)", ""]);
+    reportSheetRows.push(["", "", "계", "박스존", "이너존", "기타", "올데이 2L생수", "노브랜드2L생수", "계", "경량존", "슬라존", "", "", "", "", "출고", "회수", "", "", "", "등급", "구분"]);
 
     const printableRows = [...group.rows];
     while (printableRows.length < 20) {
@@ -1545,8 +1573,7 @@ function exportWorkbook(
         "",
         row.standard_time || "",
         row.address || "",
-        "",
-        "",
+        row.store_name ? formatPhone(storeContactIndex?.get(row.store_name) ?? "") : "",
         "",
         "",
       ]);
@@ -1649,6 +1676,7 @@ export function VehiclePageScreen({
   const [inputPage, setInputPage] = useState(1);
   const [storageReady, setStorageReady] = useState(false);
   const [driverIndex, setDriverIndex] = useState<Map<string, DriverProfile>>(new Map());
+  const [storeContactIndex, setStoreContactIndex] = useState<Map<string, string>>(new Map());
   const [reportCarNoInput, setReportCarNoInput] = useState("");
   const [selectedReportCarNo, setSelectedReportCarNo] = useState("");
   const [supportMode, setSupportMode] = useState(false);
@@ -1805,6 +1833,13 @@ export function VehiclePageScreen({
       .then((result) => setDriverIndex(result))
       .catch(() => setDriverIndex(new Map()));
   }, [cargoRows, tab]);
+
+  useEffect(() => {
+    if (tab !== "report") return;
+    void fetchStoreContactIndex()
+      .then((result) => setStoreContactIndex(result))
+      .catch(() => setStoreContactIndex(new Map()));
+  }, [tab]);
 
   const totals = useMemo(
     () =>
@@ -2382,7 +2417,7 @@ export function VehiclePageScreen({
               {busy ? "불러오는 중..." : "단품별 파일 불러오기"}
             </button>
             <button
-              onClick={() => exportWorkbook(productRows, cargoRows, reportGroups, reportDate, reportFileDate, selectedReportGroup?.carNo)}
+              onClick={() => exportWorkbook(productRows, cargoRows, reportGroups, reportDate, reportFileDate, selectedReportGroup?.carNo, storeContactIndex)}
               disabled={cargoRows.length === 0}
               style={{
                 height: 42,
@@ -2836,8 +2871,8 @@ export function VehiclePageScreen({
             <tbody>
               {cargoDisplayRows.map((entry, index) => {
                 if (entry.kind === "subtotal") {
-                  const overLarge = Number(largeLimit || 0) > 0 && entry.total.largeTotal > Number(largeLimit || 0);
-                  const overSmall = Number(smallLimit || 0) > 0 && entry.total.smallTotal > Number(smallLimit || 0);
+                  const overLarge = Number(largeLimit || 0) > 0 && entry.total.largeTotal >= Number(largeLimit || 0);
+                  const overSmall = Number(smallLimit || 0) > 0 && entry.total.smallTotal >= Number(smallLimit || 0);
                   const subtotalBackground = overLarge || overSmall ? "#fee2e2" : "#eef6fb";
                   const subtotalBorder = overLarge || overSmall ? "#fecaca" : "#d7e4ee";
 
@@ -3091,23 +3126,29 @@ export function VehiclePageScreen({
                 }}
               >
               <table style={{ width: REPORT_PREVIEW_BASE_WIDTH, borderCollapse: "collapse", tableLayout: "fixed" }}>
+                <colgroup>
+                  {/* 12 cols summing to REPORT_PREVIEW_BASE_WIDTH=1620, right edge 맞춤용 */}
+                  {[120, 268, 130, 156, 68, 102, 192, 74, 74, 196, 120, 120].map((w, i) => (
+                    <col key={`info-col-${i}`} style={{ width: w }} />
+                  ))}
+                </colgroup>
                 <tbody>
                   <tr>
-                    <td style={{ width: 120, border: "1px solid #666", background: "#f1f1f1" }} rowSpan={6}></td>
-                    <td style={{ width: 228, border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13 }}>납품예정일(D+1)</td>
-                    <td style={{ width: 212, border: "1px solid #666", padding: "6px 8px", fontSize: 18, fontWeight: 950, textAlign: "center", letterSpacing: -0.2 }} colSpan={2}>{reportDate}</td>
-                    <td style={{ width: 68, border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }} rowSpan={6}>주행<br />거리</td>
+                    <td style={{ border: "1px solid #666", background: "#f1f1f1" }} rowSpan={6}></td>
+                    <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13 }}>납품예정일(D+1)</td>
+                    <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 18, fontWeight: 950, textAlign: "center", letterSpacing: -0.2 }} colSpan={2}>{reportDate}</td>
+                    <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }} rowSpan={6}>주행<br />거리</td>
                     <td style={{ width: 72, border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }}>차고지</td>
                     <td style={{ width: 146, border: "1px solid #666", padding: "6px 8px" }}></td>
                     <td
-                      style={{ width: 148, border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }}
+                      style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }}
                       colSpan={2}
                     >
                       이동거리
                     </td>
-                    <td style={{ width: 132, border: "1px solid #666", padding: "6px 8px", fontSize: 20, fontWeight: 950, lineHeight: 1.35, letterSpacing: -0.2 }} rowSpan={3}>대분 : {formatNumber(group.totals.large)}개</td>
-                    <td style={{ width: 94, border: "1px solid #666", padding: "6px 8px", fontSize: 15, fontWeight: 900, textAlign: "center" }} rowSpan={2}>점착률</td>
-                    <td style={{ width: 94, border: "1px solid #666", padding: "6px 8px", fontSize: 15, fontWeight: 900, textAlign: "center", background: "#f4d4d9" }} rowSpan={2}>누계</td>
+                    <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 20, fontWeight: 950, lineHeight: 1.35, letterSpacing: -0.2 }} rowSpan={3}>대분 : {formatNumber(group.totals.large)}개</td>
+                    <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 13, fontWeight: 900, textAlign: "center" }} rowSpan={2}>점착률</td>
+                    <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 13, fontWeight: 900, textAlign: "center", background: "#f4d4d9" }} rowSpan={2}>누계</td>
                   </tr>
                   <tr>
                     <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13 }}>배송기사명</td>
@@ -3118,10 +3159,13 @@ export function VehiclePageScreen({
                           onChange={(event) => setSupportDriverNameInput(event.target.value)}
                           placeholder="배송기사명"
                           style={{
+                            display: "block",
                             width: "100%",
-                            height: 28,
+                            height: 24,
+                            boxSizing: "border-box",
                             border: "none",
                             outline: "none",
+                            padding: "0 2px",
                             textAlign: "center",
                             fontWeight: 800,
                             fontSize: 13,
@@ -3143,7 +3187,7 @@ export function VehiclePageScreen({
                   <tr>
                     <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13 }}>호차/차량번호</td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 15, fontWeight: 900, textAlign: "center" }}>{group.carNo}</td>
-                    <td style={{ border: "1px solid #666", padding: "6px 8px" }}></td>
+                    <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 15, fontWeight: 900, textAlign: "center" }}>{group.driver?.vehicle_number ?? ""}</td>
                     <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }}>막점</td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px" }}></td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", textAlign: "right", fontWeight: 800, fontSize: 13 }} colSpan={2}>km</td>
@@ -3180,9 +3224,9 @@ export function VehiclePageScreen({
 
               <table style={{ width: REPORT_PREVIEW_BASE_WIDTH, borderCollapse: "collapse", tableLayout: "fixed" }}>
                 <colgroup>
-                  {reportMainColumnWidths.map((width, index) => (
-                    <col key={`${group.carNo}-col-${index}`} style={{ width }} />
-                  ))}
+                  {reportMainColumnWidths.map((width, index) =>
+                    index === 21 ? null : <col key={`${group.carNo}-col-${index}`} style={{ width }} />
+                  )}
                 </colgroup>
                 <thead>
                   <tr style={{ background: "#f1f1f1" }}>
@@ -3192,18 +3236,23 @@ export function VehiclePageScreen({
                     <th className="report-section-top report-section-left report-section-right" colSpan={3} style={{ border: "1px solid #666", borderLeft: REPORT_SECTION_BORDER, borderRight: REPORT_SECTION_BORDER, borderTop: REPORT_SECTION_BORDER, padding: "7px 5px", fontSize: 13 }}>소</th>
                     <th className="report-section-top report-section-left" rowSpan={2} style={{ border: "1px solid #666", borderLeft: REPORT_SECTION_BORDER, borderTop: REPORT_SECTION_BORDER, padding: "7px 5px", fontSize: 13, ...getReportMainCellWidth(11) }}>행사</th>
                     <th className="report-section-top" rowSpan={2} style={{ border: "1px solid #666", borderTop: REPORT_SECTION_BORDER, padding: "7px 5px", fontSize: 13, ...getReportMainCellWidth(12) }}>담배</th>
-                    <th className="report-section-top" rowSpan={2} style={{ border: "1px solid #666", borderTop: REPORT_SECTION_BORDER, padding: "7px 5px", fontSize: 13, ...getReportMainCellWidth(13) }}>유가증권</th>
+                    <th className="report-section-top" rowSpan={2} style={{ border: "1px solid #666", borderTop: REPORT_SECTION_BORDER, padding: "7px 5px", fontSize: 13, lineHeight: 1.3, ...getReportMainCellWidth(13) }}>유가<br/>증권</th>
                     <th className="report-section-top report-section-right" rowSpan={2} style={{ border: "1px solid #666", borderRight: REPORT_SECTION_BORDER, borderTop: REPORT_SECTION_BORDER, padding: "7px 5px", fontSize: 13, ...getReportMainCellWidth(14) }}>CDC</th>
                     <th colSpan={2} style={{ border: "1px solid #666", padding: "7px 5px", fontSize: 13 }}>피박스</th>
                     <th rowSpan={2} style={{ border: "1px solid #666", padding: "7px 5px", fontSize: 13, ...getReportMainCellWidth(17) }}>기준시간</th>
                     <th rowSpan={2} style={{ border: "1px solid #666", padding: "7px 5px", fontSize: 13, ...getReportMainCellWidth(18) }}>주소</th>
                     <th rowSpan={2} style={{ border: "1px solid #666", padding: "7px 5px", fontSize: 13, ...getReportMainCellWidth(19) }}>연락처</th>
-                    <th colSpan={3} style={{ border: "1px solid #666", padding: "7px 5px", fontSize: 13 }}>전일점착(미스캔X)</th>
+                    <th colSpan={2} style={{ border: "1px solid #666", padding: "7px 5px", fontSize: 13 }}>전일점착(미스캔X)</th>
                   </tr>
                   <tr style={{ background: "#f7f7f7" }}>
-                    {["계", "박스존", "이너존", "기타", "올데이 2L생수", "노브랜드2L생수", "계", "경량존", "슬라존", "출고", "회수", "등급", "소명점포", "구분"].map((header, headerIndex) => (
+                    {([
+                      [2, "계"], [3, "박스존"], [4, "이너존"], [5, "기타"], [6, "올데이 2L생수"], [7, "노브랜드2L생수"],
+                      [8, "계"], [9, "경량존"], [10, "슬라존"],
+                      [15, "출고"], [16, "회수"],
+                      [20, "등급"], [22, "구분"],
+                    ] as [number, string][]).map(([colIdx, header], headerIndex) => (
                       <th
-                        key={`${group.carNo}-${header}`}
+                        key={`${group.carNo}-${header}-${colIdx}`}
                         className={[
                           headerIndex === 0 || headerIndex === 6 ? "report-section-top" : "",
                           headerIndex === 0 || headerIndex === 6 ? "report-section-left report-section-right" : "",
@@ -3213,28 +3262,20 @@ export function VehiclePageScreen({
                           border: "1px solid #666",
                           padding: "7px 5px",
                           whiteSpace: "normal",
-                          wordBreak: header === "올데이 2L생수" || header === "노브랜드2L생수" ? "keep-all" : "keep-all",
-                          fontSize: header === "올데이 2L생수" || header === "노브랜드2L생수" ? 10 : header === "소명점포" ? 10 : 13,
+                          wordBreak: "keep-all",
+                          fontSize: header === "올데이 2L생수" || header === "노브랜드2L생수" ? 10 : 13,
                           lineHeight: 1.25,
                           borderTop: headerIndex === 0 || headerIndex === 6 ? REPORT_SECTION_BORDER : undefined,
                           borderBottom: "1px solid #666",
                           borderLeft: headerIndex === 0 || headerIndex === 6 ? REPORT_SECTION_BORDER : "1px solid #666",
                           borderRight: headerIndex === 0 || headerIndex === 6 || headerIndex === 8 ? REPORT_SECTION_BORDER : "1px solid #666",
-                          ...getReportMainCellWidth(headerIndex + 2),
+                          ...getReportMainCellWidth(colIdx),
                         }}
                       >
                         {header === "올데이 2L생수" ? (
-                          <>
-                            올데이
-                            <br />
-                            2L생수
-                          </>
+                          <>올데이<br />2L생수</>
                         ) : header === "노브랜드2L생수" ? (
-                          <>
-                            노브랜드
-                            <br />
-                            2L생수
-                          </>
+                          <>노브랜드<br />2L생수</>
                         ) : (
                           header
                         )}
@@ -3252,21 +3293,27 @@ export function VehiclePageScreen({
                     return (
                       <tr key={row.id || `${group.carNo}-${index}`} style={{ background: reportRowBackground, height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, lineHeight: 1 }}>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontWeight: 700, fontSize: 13, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(0) }}>{index + 1}</td>
-                        <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 7px", verticalAlign: "middle", overflow: "hidden", fontWeight: 800, color: reportRowColor, background: reportRowBackground, ...getFittedTextStyle(row.store_name || "", 13, { minFontSize: 9, lineHeight: 1 }), ...getReportMainCellWidth(1) }}>
+                        <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: supportMode ? 0 : "6px 7px", verticalAlign: "middle", overflow: "hidden", fontWeight: 800, color: reportRowColor, background: reportRowBackground, ...getFittedTextStyle(row.store_name || "", 13, { minFontSize: 9, lineHeight: 1 }), ...getReportMainCellWidth(1) }}>
                           {supportMode ? (
                             <input
                               value={supportStoreNameInputs[index] ?? ""}
                               onChange={(event) => updateSupportStoreNameInput(index, event.target.value)}
                               placeholder="점포명"
                               style={{
+                                display: "block",
                                 width: "100%",
-                                height: 28,
+                                height: REPORT_BODY_ROW_HEIGHT,
+                                boxSizing: "border-box",
                                 border: "none",
                                 outline: "none",
+                                padding: "0 7px",
+                                margin: 0,
                                 fontWeight: 800,
                                 fontSize: 13,
                                 background: "transparent",
                                 color: "#111827",
+                                WebkitAppearance: "none",
+                                appearance: "none",
                               }}
                             />
                           ) : (
@@ -3290,9 +3337,8 @@ export function VehiclePageScreen({
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: 13, background: reportRowBackground, ...getReportMainCellWidth(16) }}></td>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: 16, fontWeight: 900, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(17) }}>{row.standard_time || ""}</td>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", verticalAlign: "middle", color: reportRowColor, background: reportRowBackground, ...getAddressTextStyle(row.address || ""), ...getReportMainCellWidth(18) }}>{row.address || ""}</td>
-                        <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", verticalAlign: "middle", overflow: "hidden", fontSize: 13, background: reportRowBackground, ...getReportMainCellWidth(19) }}></td>
+                        <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", whiteSpace: "nowrap", fontSize: 13, background: reportRowBackground, ...getReportMainCellWidth(19) }}>{row.store_name ? formatPhone(storeContactIndex.get(row.store_name) ?? "") : ""}</td>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "5px 4px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: 13, fontWeight: 900, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(20) }}>{row.store_name ? (storeAdhesion?.postGrade || "") : ""}</td>
-                        <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", verticalAlign: "middle", overflow: "hidden", fontSize: 13, background: reportRowBackground, ...getReportMainCellWidth(21) }}></td>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: 13, fontWeight: row.support_excluded ? 900 : 400, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(22) }}>{row.store_name ? (storeAdhesion?.category || "") : ""}</td>
                       </tr>
                     );
@@ -3319,8 +3365,7 @@ export function VehiclePageScreen({
                     <td style={{ border: "1px solid #666", padding: "6px 4px", ...getReportMainCellWidth(18) }}></td>
                     <td style={{ border: "1px solid #666", padding: "6px 4px", ...getReportMainCellWidth(19) }}></td>
                     <td style={{ border: "1px solid #666", padding: "6px 4px", ...getReportMainCellWidth(20) }}></td>
-                    <td style={{ border: "1px solid #666", borderLeft: "1px solid #666", borderRight: "1px solid #666", padding: "6px 4px", ...getReportMainCellWidth(21) }}></td>
-                    <td style={{ border: "1px solid #666", borderRight: "1px solid #666", padding: "6px 4px", ...getReportMainCellWidth(22) }}></td>
+                    <td style={{ border: "1px solid #666", padding: "6px 4px", ...getReportMainCellWidth(22) }}></td>
                   </tr>
                 </tbody>
               </table>

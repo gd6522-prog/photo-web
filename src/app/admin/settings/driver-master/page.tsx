@@ -25,6 +25,7 @@ type ProfileRow = {
   carrier: string | null; // 운수사
   garage: string | null; // 차고지
   hipass: string | null; // 하이패스
+  vehicle_number: string | null; // 차량번호판 (예: 경기12가3456)
 
   company_name: string | null; // 기존 데이터 호환용
   join_date: string | null;
@@ -33,13 +34,6 @@ type ProfileRow = {
   created_at?: string | null;
 };
 
-type ShiftTodayRow = {
-  user_id: string;
-  clock_in_at: string | null;
-  clock_out_at: string | null;
-};
-
-type TodayShiftMap = Record<string, { inAt: string | null; outAt: string | null }>;
 
 const DELIVERY_OPTIONS = ["당일", "전일", "익일"] as const;
 const VEHICLE_OPTIONS = ["1.5T", "2.5T", "3.5T"] as const;
@@ -315,7 +309,6 @@ export default function DriverMasterPage() {
   // list & selection
   const [rows, setRows] = useState<ProfileRow[]>([]);
   const [selected, setSelected] = useState<ProfileRow | null>(null);
-  const [todayShiftMap, setTodayShiftMap] = useState<TodayShiftMap>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // bulk
@@ -345,6 +338,7 @@ export default function DriverMasterPage() {
     leave_date: "",
     garage: "",
     hipass: "",
+    vehicle_number: "",
 
     approval_status: "pending" as "pending" | "approved" | "rejected",
   });
@@ -402,6 +396,7 @@ export default function DriverMasterPage() {
       leave_date: r.leave_date ?? "",
       garage: r.garage ?? "",
       hipass: r.hipass ?? "",
+      vehicle_number: r.vehicle_number ?? "",
 
       approval_status: ap,
     });
@@ -418,7 +413,7 @@ export default function DriverMasterPage() {
       let q = supabase
         .from("profiles")
         .select(
-          "id,approval_status,name,phone,birthdate,work_part,car_no,car_no_2,car_no_3,car_no_4,delivery_type,delivery_type_2,delivery_type_3,delivery_type_4,vehicle_type,carrier,join_date,leave_date,garage,hipass,created_at"
+          "id,approval_status,name,phone,birthdate,work_part,car_no,car_no_2,car_no_3,car_no_4,delivery_type,delivery_type_2,delivery_type_3,delivery_type_4,vehicle_type,carrier,join_date,leave_date,garage,hipass,vehicle_number,created_at"
         )
         .ilike("work_part", "%기사%");
 
@@ -469,31 +464,9 @@ export default function DriverMasterPage() {
       });
 
       setRows(list);
-      const ids = list.map((row) => row.id);
-      const nextShiftMap: TodayShiftMap = {};
-
-      if (ids.length > 0) {
-        const { data: shifts, error: shiftError } = await supabase
-          .from("work_shifts")
-          .select("user_id,clock_in_at,clock_out_at")
-          .eq("work_date", kstTodayYMD())
-          .in("user_id", ids);
-
-        if (shiftError) throw shiftError;
-
-        for (const shift of (shifts ?? []) as ShiftTodayRow[]) {
-          nextShiftMap[shift.user_id] = {
-            inAt: shift.clock_in_at,
-            outAt: shift.clock_out_at,
-          };
-        }
-      }
-
-      setTodayShiftMap(nextShiftMap);
     } catch (e: any) {
       setErr(String(e?.message ?? e ?? "불러오기 실패"));
       setRows([]);
-      setTodayShiftMap({});
     } finally {
       setLoading(false);
     }
@@ -555,6 +528,7 @@ export default function DriverMasterPage() {
         leave_date: f.leave_date || null,
         garage: normalizePick(f.garage),
         hipass: normalizePick(f.hipass),
+        vehicle_number: f.vehicle_number.trim() || null,
 
         approval_status: f.approval_status || "pending",
       };
@@ -611,20 +585,6 @@ export default function DriverMasterPage() {
     }
   };
 
-  const updateApprovalInline = async (id: string, next: "pending" | "approved" | "rejected") => {
-    setErr(null);
-    try {
-      if (next === "rejected") {
-        await rejectAndDeleteUser(id);
-      } else {
-        const { error } = await supabase.from("profiles").update({ approval_status: next }).eq("id", id);
-        if (error) throw error;
-      }
-      await load();
-    } catch (e: any) {
-      setErr(String(e?.message ?? e ?? "상태 변경 실패"));
-    }
-  };
 
   return (
     <div style={{ padding: 16, maxWidth: 1600, margin: "0 auto", fontFamily: "system-ui" }}>
@@ -765,16 +725,13 @@ export default function DriverMasterPage() {
 
               {[
                 "이름",
-                "나이",
-                "호차(구분)",
-                "전화번호",
+                "호차",
+                "차량번호",
                 "차종",
                 "운수사",
+                "전화번호",
                 "차고지",
-                "하이패스",
-                "근속",
-                "상태",
-                "관리",
+                "상세",
               ].map((h) => (
                 <th
                   key={h}
@@ -799,17 +756,12 @@ export default function DriverMasterPage() {
           <tbody>
             {rows.length === 0 && !loading ? (
               <tr>
-                <td colSpan={13} style={{ padding: 16, opacity: 0.7 }}>
+                <td colSpan={9} style={{ padding: 16, opacity: 0.7 }}>
                   데이터 없음
                 </td>
               </tr>
             ) : (
               rows.map((r) => {
-                const ageV = calcAge(r.birthdate);
-                const tenDays = calcTenureDays(r.join_date, r.leave_date);
-                const ap = normalizeApproval(r.approval_status);
-                const approved = ap === "approved";
-                const working = approved && !!todayShiftMap[r.id]?.inAt && !todayShiftMap[r.id]?.outAt;
                 return (
                   <tr key={r.id}>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
@@ -817,19 +769,12 @@ export default function DriverMasterPage() {
                     </td>
 
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)", fontWeight: 950 }}>{r.name ?? "-"}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{ageV == null ? "-" : String(ageV) + "세"}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)", fontWeight: 800 }}>{displayCarWithDelivery(r)}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{formatKRPhone(r.phone)}</td>
+                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.vehicle_number ?? "-"}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.vehicle_type ?? "-"}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.carrier ?? "-"}</td>
+                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{formatKRPhone(r.phone)}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.garage ?? "-"}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.hipass ?? "-"}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{tenurePretty(tenDays)}</td>
-
-                    {/* 상태 */}
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-                      {!approved ? (<select value={ap} onChange={(e) => updateApprovalInline(r.id, e.target.value as "pending" | "approved" | "rejected")} style={{ height: 32, padding: "0 10px", borderRadius: 8, border: "1px solid #D7DCE2", fontWeight: 700 }}><option value="pending">승인대기</option><option value="approved">승인</option><option value="rejected">반려</option></select>) : working ? (<span style={{ padding: "5px 10px", borderRadius: 999, border: "1px solid #FDBA74", background: "#FFF7ED", color: "#9A3412", fontWeight: 800, fontSize: 12 }}>근무중</span>) : ("-")}
-                    </td>
 
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
                       <button
@@ -882,6 +827,11 @@ export default function DriverMasterPage() {
                 </div>
 
                 <div>
+                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>차량번호</div>
+                  <input value={f.vehicle_number} onChange={(e) => setF((p) => ({ ...p, vehicle_number: e.target.value }))} style={inputStyle()} placeholder="예: 경기12가3456" />
+                </div>
+
+                <div>
                   <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>작업파트(기사)</div>
                   <input value={f.work_part} onChange={(e) => setF((p) => ({ ...p, work_part: e.target.value }))} style={inputStyle()} placeholder="기사" />
                   <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>* 저장 시 기사로 자동 보정됩니다.</div>
@@ -889,7 +839,7 @@ export default function DriverMasterPage() {
 
                 {/* 차량 */}
                 <div style={{ gridColumn: "1 / -1" }}>
-                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>차량번호 (최대 4대)</div>
+                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>호차 (최대 4대)</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                     <input value={f.car_no_1} onChange={(e) => setF((p) => ({ ...p, car_no_1: e.target.value }))} style={inputStyle()} placeholder="차량1 (예: 1)" inputMode="numeric" />
                     <input value={f.car_no_2} onChange={(e) => setF((p) => ({ ...p, car_no_2: e.target.value }))} style={inputStyle()} placeholder="차량2" inputMode="numeric" />
