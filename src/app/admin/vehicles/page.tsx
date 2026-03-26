@@ -2572,7 +2572,7 @@ export function VehiclePageScreen({
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 980 }}>
               <thead>
                 <tr style={{ background: "#f8fbfd" }}>
-                  {["호차", "순번", "점포코드", "점포명", "작업구분", "셀", "상품코드", "상품명", "출고배수"].map((header) => (
+                  {["호차", "순번", "점포코드", "점포명", "작업구분", "셀", "상품코드", "상품명", "출고수량", "출고배수"].map((header) => (
                     <th key={header} style={{ textAlign: "left", padding: 12, borderBottom: "1px solid #e6eef4", fontSize: 13 }}>
                       {header}
                     </th>
@@ -2590,12 +2590,13 @@ export function VehiclePageScreen({
                     <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{row.cell_name}</td>
                     <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{row.product_code}</td>
                     <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{row.product_name}</td>
+                    <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{formatNumber(row.assigned_qty || row.confirmed_qty || row.current_qty || row.original_qty)}</td>
                     <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{formatNumber(qtyBase(row))}</td>
                   </tr>
                 ))}
                 {pagedProductRows.length === 0 ? (
                   <tr>
-                    <td colSpan={9} style={{ padding: 18, color: "#6b7280" }}>
+                    <td colSpan={10} style={{ padding: 18, color: "#6b7280" }}>
                       {productRows.length === 0 ? "아직 불러온 단품별 데이터가 없습니다." : "검색된 점포 발주현황이 없습니다."}
                     </td>
                   </tr>
