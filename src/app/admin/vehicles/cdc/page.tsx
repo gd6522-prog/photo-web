@@ -373,13 +373,18 @@ export default function VehicleCdcPage() {
       .sort(([a], [b]) => a.localeCompare(b, "ko", { numeric: true }))
       .map(([carNo, rows]) => ({
         carNo,
-        rows: rows.sort((a, b) => {
-          const seqDiff = a.seqNo - b.seqNo;
-          if (seqDiff !== 0) return seqDiff;
-          const codeDiff = a.storeCode.localeCompare(b.storeCode, "ko", { numeric: true });
-          if (codeDiff !== 0) return codeDiff;
-          return a.storeName.localeCompare(b.storeName, "ko");
-        }),
+        rows: rows
+          .sort((a, b) => {
+            const seqDiff = a.seqNo - b.seqNo;
+            if (seqDiff !== 0) return seqDiff;
+            const codeDiff = a.storeCode.localeCompare(b.storeCode, "ko", { numeric: true });
+            if (codeDiff !== 0) return codeDiff;
+            return a.storeName.localeCompare(b.storeName, "ko");
+          })
+          .filter((row, idx, arr) => {
+            const nameKey = normalizeStoreName(row.storeName);
+            return arr.findIndex((r) => normalizeStoreName(r.storeName) === nameKey) === idx;
+          }),
       }));
   }, [cdcValueMap, fullBoxMap, normalizedCdcRows, storeMapRows]);
 
