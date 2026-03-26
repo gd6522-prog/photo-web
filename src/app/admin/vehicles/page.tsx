@@ -2591,7 +2591,7 @@ export function VehiclePageScreen({
                     <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{row.product_code}</td>
                     <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{row.product_name}</td>
                     <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{formatNumber(row.assigned_qty)}</td>
-                    <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{formatNumber(qtyBase(row))}</td>
+                    <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{formatNumber(row.product_name.replace(/\s+/g, "").includes("공박스") ? row.assigned_qty / 5 : qtyBase(row))}</td>
                   </tr>
                 ))}
                 {pagedProductRows.length === 0 ? (
