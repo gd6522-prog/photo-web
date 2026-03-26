@@ -93,6 +93,17 @@ async function copyImageToClipboard(url: string) {
   await copyCompressedImageUrlToClipboard(url, { maxBytes: 1024 * 1024 });
 }
 
+const WORK_PART_OPTIONS = [
+  { label: "전체", value: "ALL" },
+  { label: "박스존", value: "박스존" },
+  { label: "이너존", value: "이너존" },
+  { label: "슬라존", value: "슬라존" },
+  { label: "경량존", value: "경량존" },
+  { label: "이형존", value: "이형존" },
+  { label: "담배존", value: "담배존" },
+  { label: "배송", value: "배송" },
+];
+
 export default function AdminPhotosPage() {
   // ---------- auth ----------
   const [checking, setChecking] = useState(true);
@@ -158,20 +169,6 @@ export default function AdminPhotosPage() {
     return ["ALL", ...arr];
   }, [stores]);
 
-  const workPartOptions = useMemo(() => {
-    return [
-      { label: "전체", value: "ALL" },
-      { label: "박스존", value: "박스존" },
-      { label: "이너존", value: "이너존" },
-      { label: "슬라존", value: "슬라존" },
-      { label: "경량존", value: "경량존" },
-      { label: "이형존", value: "이형존" },
-      { label: "담배존", value: "담배존" },
-      // ⚠️ 현장사진에서는 '배송' 필터가 있어도 기사 업로드는 무조건 숨김
-      { label: "배송", value: "배송" },
-    ];
-  }, []);
-
   const photosByStore = useMemo(() => {
     const groups: Record<string, PhotoRow[]> = {};
     for (const p of photos) {
@@ -189,17 +186,10 @@ export default function AdminPhotosPage() {
     return photosByStore[selectedStoreCode] ?? [];
   }, [photosByStore, selectedStoreCode]);
 
-  const selectedStoreTitle = useMemo(() => {
-    if (!selectedStore) return "선택 점포 사진";
-    return `선택 점포 사진`;
-  }, [selectedStore]);
-
-  const selectedStoreSubTitle = useMemo(() => {
-    if (!selectedStore) return "점포를 선택하세요";
-    return `[${selectedStore.store_code}] ${selectedStore.store_name} (호차 ${selectedStore.car_no ?? "-"} / 순번 ${
-      selectedStore.seq_no ?? "-"
-    })`;
-  }, [selectedStore]);
+  const selectedStoreTitle = "선택 점포 사진";
+  const selectedStoreSubTitle = selectedStore
+    ? `[${selectedStore.store_code}] ${selectedStore.store_name} (호차 ${selectedStore.car_no ?? "-"} / 순번 ${selectedStore.seq_no ?? "-"})`
+    : "점포를 선택하세요";
 
   // ---------- auth check ----------
   const loadAdmin = async () => {
@@ -410,8 +400,7 @@ export default function AdminPhotosPage() {
       next.delete(p.id);
       return next;
     });
-
-    await fetchData();
+    setPhotos((prev) => prev.filter((ph) => ph.id !== p.id));
   };
 
   const onToggleSelect = (photoId: string) => {
@@ -451,8 +440,9 @@ export default function AdminPhotosPage() {
     const { error: delErr } = await supabase.from("photos").delete().in("id", ids);
     if (delErr) return alert(`DB 삭제 오류: ${delErr.message}`);
 
+    const deletedSet = new Set(ids);
     onClearSelect();
-    await fetchData();
+    setPhotos((prev) => prev.filter((ph) => !deletedSet.has(ph.id)));
   };
 
   const onBulkDownload = async () => {
@@ -657,7 +647,7 @@ export default function AdminPhotosPage() {
                       background: "white",
                     }}
                   >
-                    {workPartOptions.map((o) => (
+                    {WORK_PART_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
                         {o.label}
                       </option>
@@ -922,7 +912,7 @@ export default function AdminPhotosPage() {
                             justifyContent: "center",
                           }}
                         >
-                          <img src={p.original_url} alt="photo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                          <img src={p.original_url} alt="photo" loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
                         </div>
                       </button>
 
@@ -1108,6 +1098,7 @@ export default function AdminPhotosPage() {
               <img
                 src={previewPhoto.original_url}
                 alt="preview"
+                decoding="async"
                 style={{
                   maxWidth: "100%",
                   maxHeight: "100%",

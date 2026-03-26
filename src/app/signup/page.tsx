@@ -94,14 +94,20 @@ export default function SignupPage() {
     if (!token) return;
 
     try {
-      await fetch("/api/signup/cleanup-incomplete", {
+      const res = await fetch("/api/signup/cleanup-incomplete", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
       });
-    } catch {}
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error("[signup] cleanup failed:", res.status, data?.message);
+      }
+    } catch (e) {
+      console.error("[signup] cleanup error:", e);
+    }
   };
 
   const onCheckPhone = async () => {
@@ -216,21 +222,30 @@ export default function SignupPage() {
       });
       if (upErr) throw upErr;
 
-      // profiles upsert
-      const { error: profErr } = await supabase.from("profiles").upsert(
-        {
-          id: userId,
+      // updateUser 후 세션이 갱신될 수 있으므로 최신 토큰을 가져온다.
+      const { data: freshSession } = await supabase.auth.getSession();
+      const freshToken = freshSession?.session?.access_token ?? cleanupToken;
+
+      // profiles upsert는 서버 API(service role)로 처리 → RLS·세션 타이밍 문제 방지
+      const completeRes = await fetch("/api/signup/complete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${freshToken}`,
+        },
+        body: JSON.stringify({
           phone: e164Fixed,
           name: name.trim(),
           work_part: workPart.trim(),
           birthdate: birthdateDashed,
           nationality: nationality.trim(),
           language: "ko",
-          phone_verified: true,
-        },
-        { onConflict: "id" }
-      );
-      if (profErr) throw profErr;
+        }),
+      });
+      if (!completeRes.ok) {
+        const errData = await completeRes.json().catch(() => ({}));
+        throw new Error(errData?.message ?? "프로필 저장에 실패했습니다.");
+      }
 
       await hardSignOut();
       alert("회원가입이 완료되었습니다. 로그인 화면으로 이동합니다.");

@@ -6,6 +6,51 @@ import type { AccessLevel } from "@/lib/admin-access";
 import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 import { copyCompressedImageUrlToClipboard } from "@/lib/clipboard-image";
 
+// ✅ 같은 날짜(KST) + 같은 점포 기준으로 사진을 묶은 그룹 타입
+type GroupedPhoto = {
+  key: string; // "YYYY-MM-DD|store_code"
+  dateKST: string; // "YYYY-MM-DD"
+  store_code: string;
+  store_name: string | null;
+  car_no: string | null;
+  photos: DeliveryPhotoRow[]; // 가장 최신 순
+};
+
+// ✅ photos 배열을 날짜(KST) + 점포 기준으로 그룹핑
+function groupPhotosByDateAndStore(photos: DeliveryPhotoRow[]): GroupedPhoto[] {
+  const map = new Map<string, GroupedPhoto>();
+
+  for (const p of photos) {
+    // KST 날짜 추출 (UTC 시간 + 9시간)
+    const d = new Date(p.created_at);
+    const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+    const dateKST = `${kst.getUTCFullYear()}-${String(kst.getUTCMonth() + 1).padStart(2, "0")}-${String(kst.getUTCDate()).padStart(2, "0")}`;
+    const key = `${dateKST}|${p.store_code}`;
+
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        dateKST,
+        store_code: p.store_code,
+        store_name: p.store_name ?? null,
+        car_no: p.car_no ?? null,
+        photos: [],
+      });
+    }
+    map.get(key)!.photos.push(p);
+  }
+
+  // 각 그룹 내 사진은 최신 순 정렬
+  for (const g of map.values()) {
+    g.photos.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
+  // 그룹 목록은 그룹 대표 사진(첫번째) 기준 최신 순
+  return Array.from(map.values()).sort((a, b) =>
+    new Date(b.photos[0].created_at).getTime() - new Date(a.photos[0].created_at).getTime()
+  );
+}
+
 type DeliveryPhotoRow = {
   id: string;
   created_by: string;
@@ -171,7 +216,10 @@ export default function AdminDeliveryPhotosPage() {
 
   // ---------- preview ----------
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewIndex, setPreviewIndex] = useState(0);
+  // 그룹 인덱스 (어떤 점포/날짜 그룹인지)
+  const [previewGroupIndex, setPreviewGroupIndex] = useState(0);
+  // 그룹 내 슬라이드 인덱스 (몇 번째 사진인지)
+  const [previewSlideIndex, setPreviewSlideIndex] = useState(0);
 
   const loadAdmin = async () => {
     const { data, error } = await supabase.auth.getSession();
@@ -474,7 +522,7 @@ export default function AdminDeliveryPhotosPage() {
     const { error: delErr } = await supabase.from("delivery_photos").delete().eq("id", p.id);
     if (delErr) return alert(`DB 삭제 오류: ${delErr.message}`);
 
-    await fetchFirstPage();
+    setPhotos((prev) => prev.filter((ph) => ph.id !== p.id));
   };
 
   const toggleRedeliveryDone = async (photo: DeliveryPhotoRow) => {
@@ -485,14 +533,21 @@ export default function AdminDeliveryPhotosPage() {
     if (!cur) {
       const { error } = await supabase.from("delivery_redelivery_done").insert({ photo_id: photo.id, done_by: myProfile.id });
       if (error) return alert(`처리완료 저장 오류: ${error.message}`);
+      setRedeliveryDoneByPhotoId((prev) => ({
+        ...prev,
+        [photo.id]: { photo_id: photo.id, done_by: myProfile.id, done_at: new Date().toISOString() },
+      }));
       toast("재배송 처리완료 체크됨");
     } else {
       const { error } = await supabase.from("delivery_redelivery_done").delete().eq("photo_id", photo.id);
       if (error) return alert(`처리완료 해제 오류: ${error.message}`);
+      setRedeliveryDoneByPhotoId((prev) => {
+        const next = { ...prev };
+        delete next[photo.id];
+        return next;
+      });
       toast("재배송 처리완료 해제됨");
     }
-    // 현재 페이지 상태 유지하며 재조회(첫페이지로 리셋하지 않기 위해 현재까지 로드된 범위 재구성)
-    await fetchFirstPage();
   };
 
   const onToggleSelect = (photoId: string) => {
@@ -531,8 +586,9 @@ export default function AdminDeliveryPhotosPage() {
     const { error: delErr } = await supabase.from("delivery_photos").delete().in("id", ids);
     if (delErr) return alert(`DB 삭제 오류: ${delErr.message}`);
 
+    const deletedSet = new Set(ids);
     onClearSelect();
-    await fetchFirstPage();
+    setPhotos((prev) => prev.filter((ph) => !deletedSet.has(ph.id)));
   };
 
   const onBulkDownload = async () => {
@@ -552,24 +608,36 @@ export default function AdminDeliveryPhotosPage() {
     toast(`선택 ${selected.length}개 복사(마지막 이미지가 남습니다)`);
   };
 
-  const openPreview = (index: number) => {
-    setPreviewIndex(index);
+  // ✅ 그룹핑된 사진 목록
+  const groupedPhotos = useMemo(() => groupPhotosByDateAndStore(photos), [photos]);
+
+  // 현재 열린 그룹 및 그룹 내 슬라이드 사진
+  const previewGroup = groupedPhotos[previewGroupIndex] ?? null;
+  const previewPhoto = previewGroup?.photos[previewSlideIndex] ?? null;
+
+  const openPreview = (groupIndex: number, slideIndex = 0) => {
+    setPreviewGroupIndex(groupIndex);
+    setPreviewSlideIndex(slideIndex);
     setPreviewOpen(true);
   };
 
   const closePreview = () => setPreviewOpen(false);
-  const previewPhoto = photos[previewIndex];
 
+  // 그룹 내 이전/다음 슬라이드
+  const goPrevSlide = () => setPreviewSlideIndex((v) => Math.max(0, v - 1));
+  const goNextSlide = () => setPreviewSlideIndex((v) => Math.min((previewGroup?.photos.length ?? 1) - 1, v + 1));
+
+  // 키보드 단축키: 좌우 = 슬라이드 이동
   useEffect(() => {
     if (!previewOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") closePreview();
-      if (e.key === "ArrowLeft") setPreviewIndex((v) => Math.max(0, v - 1));
-      if (e.key === "ArrowRight") setPreviewIndex((v) => Math.min(photos.length - 1, v + 1));
+      if (e.key === "ArrowLeft") goPrevSlide();
+      if (e.key === "ArrowRight") goNextSlide();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [previewOpen, photos.length]);
+  }, [previewOpen, previewGroup?.photos.length]);
 
   if (checking) return <div style={{ padding: 24, fontFamily: "system-ui" }}>로그인 확인 중...</div>;
 
@@ -722,7 +790,9 @@ export default function AdminDeliveryPhotosPage() {
   );
 
   const doneRowForPreview = previewPhoto ? redeliveryDoneByPhotoId[previewPhoto.id] : undefined;
-  const doneByNameForPreview = doneRowForPreview ? profilesById[doneRowForPreview.done_by]?.name?.trim() || doneRowForPreview.done_by : "";
+  const doneByNameForPreview = doneRowForPreview
+    ? profilesById[doneRowForPreview.done_by]?.name?.trim() || doneRowForPreview.done_by
+    : "";
 
   return (
     <div
@@ -1000,32 +1070,61 @@ export default function AdminDeliveryPhotosPage() {
               <div style={{ padding: 14, color: "#6B7280" }}>{loading ? "불러오는 중..." : "해당 조건의 사진이 없습니다."}</div>
             ) : (
               <div style={{ padding: 12 }}>
+                {/* ✅ 그룹(날짜+점포) 단위 카드 그리드 */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
-                  {photos.map((p, idx) => {
-                    const prof = profilesById[p.created_by];
+                  {groupedPhotos.map((group, gIdx) => {
+                    // 대표 사진: 그룹 내 첫 번째(최신)
+                    const rep = group.photos[0];
+                    const prof = profilesById[rep.created_by];
                     const uploader = prof?.name?.trim() ? prof.name.trim() : "-";
-                    const isSel = selectedPhotoIds.has(p.id);
+                    const isSel = group.photos.some((p) => selectedPhotoIds.has(p.id));
+                    const photoCount = group.photos.length;
 
-                    const isRedelivery = isRedeliveryMemo(p.memo);
-                    const doneRow = redeliveryDoneByPhotoId[p.id];
+                    // 재배송 여부: 그룹 내 하나라도 재배송이면 표시
+                    const isRedelivery = group.photos.some((p) => isRedeliveryMemo(p.memo));
+                    const doneRow = redeliveryDoneByPhotoId[rep.id];
                     const doneByName = doneRow ? profilesById[doneRow.done_by]?.name?.trim() || doneRow.done_by : "";
 
                     return (
-                      <div key={p.id} style={{ border: "1px solid #d9e6ef", borderRadius: 16, overflow: "hidden", background: "rgba(255,255,255,0.94)", boxShadow: "0 10px 22px rgba(2,32,46,0.10)" }}>
+                      <div key={group.key} style={{ border: "1px solid #d9e6ef", borderRadius: 16, overflow: "hidden", background: "rgba(255,255,255,0.94)", boxShadow: "0 10px 22px rgba(2,32,46,0.10)" }}>
                         <div style={{ position: "relative", background: "#0B1220" }}>
+                          {/* ✅ 클릭 시 해당 그룹의 첫 사진 슬라이드로 모달 열기 */}
                           <button
-                            onClick={() => openPreview(idx)}
+                            onClick={() => openPreview(gIdx, 0)}
                             style={{ width: "100%", border: "none", padding: 0, margin: 0, background: "transparent", cursor: "pointer" }}
                           >
-                            <img src={p.public_url} alt={p.id} style={{ width: "100%", height: 170, objectFit: "cover", display: "block" }} />
+                            <img src={rep.public_url} alt={rep.id} loading="lazy" decoding="async" style={{ width: "100%", height: 170, objectFit: "cover", display: "block" }} />
                           </button>
 
-                          {selectMode && (
-                            <button
-                              onClick={() => onToggleSelect(p.id)}
+                          {/* ✅ 사진 장수 배지: 2장 이상일 때만 표시 */}
+                          {photoCount > 1 && (
+                            <div
                               style={{
                                 position: "absolute",
                                 left: 10,
+                                bottom: 10,
+                                height: 26,
+                                padding: "0 10px",
+                                borderRadius: 999,
+                                background: "rgba(17,24,39,0.75)",
+                                color: "white",
+                                fontWeight: 900,
+                                fontSize: 12,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                              }}
+                            >
+                              📷 {photoCount}장
+                            </div>
+                          )}
+
+                          {selectMode && (
+                            <button
+                              onClick={() => group.photos.forEach((p) => onToggleSelect(p.id))}
+                              style={{
+                                position: "absolute",
+                                right: 10,
                                 top: 10,
                                 height: 30,
                                 padding: "0 10px",
@@ -1047,7 +1146,7 @@ export default function AdminDeliveryPhotosPage() {
                               style={{
                                 position: "absolute",
                                 right: 10,
-                                top: 10,
+                                bottom: 10,
                                 height: 28,
                                 padding: "0 10px",
                                 borderRadius: 999,
@@ -1066,16 +1165,16 @@ export default function AdminDeliveryPhotosPage() {
                         </div>
 
                         <div style={{ padding: 10 }}>
-                          <div style={{ fontWeight: 900, fontSize: 12, color: "#111827" }}>{formatKST(p.created_at)}</div>
+                          <div style={{ fontWeight: 900, fontSize: 12, color: "#111827" }}>{group.dateKST}</div>
                           <div style={{ marginTop: 3, fontSize: 12, color: "#6B7280" }}>
-                            [{p.store_code}] {p.store_name ?? ""} {p.car_no ? `· 호차 ${p.car_no}` : ""}
+                            [{group.store_code}] {group.store_name ?? ""} {group.car_no ? `· 호차 ${group.car_no}` : ""}
                           </div>
                           <div style={{ marginTop: 3, fontSize: 12, color: "#6B7280" }}>업로더: {uploader}</div>
 
                           {isRedelivery && (
                             <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                               <button
-                                onClick={() => toggleRedeliveryDone(p)}
+                                onClick={() => toggleRedeliveryDone(rep)}
                                 style={{
                                   height: 28,
                                   padding: "0 10px",
@@ -1100,7 +1199,7 @@ export default function AdminDeliveryPhotosPage() {
                             </div>
                           )}
 
-                          {p.memo && (
+                          {rep.memo && (
                             <div
                               style={{
                                 marginTop: 8,
@@ -1111,15 +1210,15 @@ export default function AdminDeliveryPhotosPage() {
                                 overflow: "hidden",
                                 textOverflow: "ellipsis",
                               }}
-                              title={p.memo}
+                              title={rep.memo}
                             >
-                              메모: {p.memo}
+                              메모: {rep.memo}
                             </div>
                           )}
 
                           <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
                             <button
-                              onClick={() => onDownloadPhoto(p)}
+                              onClick={() => onDownloadPhoto(rep)}
                               style={{
                                 height: 30,
                                 padding: "0 10px",
@@ -1136,7 +1235,7 @@ export default function AdminDeliveryPhotosPage() {
                             </button>
 
                             <button
-                              onClick={() => onCopyPhoto(p)}
+                              onClick={() => onCopyPhoto(rep)}
                               style={{
                                 height: 30,
                                 padding: "0 10px",
@@ -1152,7 +1251,7 @@ export default function AdminDeliveryPhotosPage() {
                             </button>
 
                             <button
-                              onClick={() => onDeletePhoto(p)}
+                              onClick={() => onDeletePhoto(rep)}
                               style={{
                                 height: 30,
                                 padding: "0 10px",
@@ -1202,8 +1301,8 @@ export default function AdminDeliveryPhotosPage() {
         </div>
       </div>
 
-      {/* Preview Modal */}
-      {previewOpen && previewPhoto && (
+      {/* ✅ Preview Modal - 그룹 내 슬라이드 방식 */}
+      {previewOpen && previewPhoto && previewGroup && (
         <div
           onClick={(e) => {
             if (e.target === e.currentTarget) closePreview();
@@ -1231,6 +1330,7 @@ export default function AdminDeliveryPhotosPage() {
               boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
             }}
           >
+            {/* 헤더 */}
             <div
               style={{
                 padding: 12,
@@ -1244,11 +1344,12 @@ export default function AdminDeliveryPhotosPage() {
             >
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 900, color: "#111827" }}>
-                  [{previewPhoto.store_code}] {previewPhoto.store_name ?? ""}
-                  {previewPhoto.car_no ? ` · 호차 ${previewPhoto.car_no}` : ""}
+                  [{previewGroup.store_code}] {previewGroup.store_name ?? ""}
+                  {previewGroup.car_no ? ` · 호차 ${previewGroup.car_no}` : ""}
                 </div>
+                {/* 날짜 + 슬라이드 인덱스 표시 */}
                 <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>
-                  {formatKST(previewPhoto.created_at)} · {previewIndex + 1} / {photos.length}
+                  {formatKST(previewPhoto.created_at)} · {previewSlideIndex + 1} / {previewGroup.photos.length}장
                 </div>
 
                 {isRedeliveryMemo(previewPhoto.memo) && (
@@ -1282,33 +1383,34 @@ export default function AdminDeliveryPhotosPage() {
               </div>
 
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                {/* ✅ 그룹 내 슬라이드 이전/다음 */}
                 <button
-                  onClick={() => setPreviewIndex((v) => Math.max(0, v - 1))}
-                  disabled={previewIndex === 0}
+                  onClick={goPrevSlide}
+                  disabled={previewSlideIndex === 0}
                   style={{
                     height: 34,
                     padding: "0 12px",
                     borderRadius: 12,
                     border: "1px solid #E5E7EB",
-                    background: previewIndex === 0 ? "#F3F4F6" : "white",
+                    background: previewSlideIndex === 0 ? "#F3F4F6" : "white",
                     fontWeight: 900,
-                    cursor: previewIndex === 0 ? "not-allowed" : "pointer",
+                    cursor: previewSlideIndex === 0 ? "not-allowed" : "pointer",
                   }}
                 >
                   ← 이전
                 </button>
 
                 <button
-                  onClick={() => setPreviewIndex((v) => Math.min(photos.length - 1, v + 1))}
-                  disabled={previewIndex >= photos.length - 1}
+                  onClick={goNextSlide}
+                  disabled={previewSlideIndex >= previewGroup.photos.length - 1}
                   style={{
                     height: 34,
                     padding: "0 12px",
                     borderRadius: 12,
                     border: "1px solid #E5E7EB",
-                    background: previewIndex >= photos.length - 1 ? "#F3F4F6" : "white",
+                    background: previewSlideIndex >= previewGroup.photos.length - 1 ? "#F3F4F6" : "white",
                     fontWeight: 900,
-                    cursor: previewIndex >= photos.length - 1 ? "not-allowed" : "pointer",
+                    cursor: previewSlideIndex >= previewGroup.photos.length - 1 ? "not-allowed" : "pointer",
                   }}
                 >
                   다음 →
@@ -1348,7 +1450,8 @@ export default function AdminDeliveryPhotosPage() {
                 <button
                   onClick={async () => {
                     await onDeletePhoto(previewPhoto);
-                    setPreviewIndex((v) => Math.max(0, Math.min(v, photos.length - 2)));
+                    // 삭제 후 슬라이드 인덱스 보정
+                    setPreviewSlideIndex((v) => Math.max(0, Math.min(v, (previewGroup.photos.length || 1) - 2)));
                   }}
                   style={{
                     height: 34,
@@ -1381,11 +1484,106 @@ export default function AdminDeliveryPhotosPage() {
               </div>
             </div>
 
-            <div style={{ background: "#0B1220", overflow: "hidden" }}>
-              <img src={previewPhoto.public_url} alt="preview" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+            {/* 사진 영역 */}
+            <div style={{ background: "#0B1220", overflow: "hidden", position: "relative" }}>
+              <img
+                key={previewPhoto.id}
+                src={previewPhoto.public_url}
+                alt="preview"
+                decoding="async"
+                style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+              />
+
+              {/* ✅ 좌우 화살표 오버레이 버튼 (사진이 2장 이상일 때) */}
+              {previewGroup.photos.length > 1 && (
+                <>
+                  <button
+                    onClick={goPrevSlide}
+                    disabled={previewSlideIndex === 0}
+                    style={{
+                      position: "absolute",
+                      left: 12,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      width: 44,
+                      height: 44,
+                      borderRadius: 999,
+                      border: "none",
+                      background: previewSlideIndex === 0 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.85)",
+                      color: previewSlideIndex === 0 ? "rgba(0,0,0,0.3)" : "#111827",
+                      fontWeight: 900,
+                      fontSize: 20,
+                      cursor: previewSlideIndex === 0 ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+                    }}
+                  >
+                    ‹
+                  </button>
+
+                  <button
+                    onClick={goNextSlide}
+                    disabled={previewSlideIndex >= previewGroup.photos.length - 1}
+                    style={{
+                      position: "absolute",
+                      right: 12,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      width: 44,
+                      height: 44,
+                      borderRadius: 999,
+                      border: "none",
+                      background: previewSlideIndex >= previewGroup.photos.length - 1 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.85)",
+                      color: previewSlideIndex >= previewGroup.photos.length - 1 ? "rgba(0,0,0,0.3)" : "#111827",
+                      fontWeight: 900,
+                      fontSize: 20,
+                      cursor: previewSlideIndex >= previewGroup.photos.length - 1 ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+                    }}
+                  >
+                    ›
+                  </button>
+
+                  {/* 하단 인디케이터 점 */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: 12,
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      display: "flex",
+                      gap: 6,
+                    }}
+                  >
+                    {previewGroup.photos.map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setPreviewSlideIndex(i)}
+                        style={{
+                          width: i === previewSlideIndex ? 20 : 8,
+                          height: 8,
+                          borderRadius: 999,
+                          border: "none",
+                          background: i === previewSlideIndex ? "white" : "rgba(255,255,255,0.45)",
+                          cursor: "pointer",
+                          padding: 0,
+                          transition: "width 0.2s",
+                        }}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
-            <div style={{ padding: 10, borderTop: "1px solid #E5E7EB", fontSize: 12, color: "#6B7280" }}>단축키: ← / → 이동 · Esc 닫기</div>
+            <div style={{ padding: 10, borderTop: "1px solid #E5E7EB", fontSize: 12, color: "#6B7280" }}>
+              단축키: ← / → 이동 · Esc 닫기
+            </div>
           </div>
         </div>
       )}

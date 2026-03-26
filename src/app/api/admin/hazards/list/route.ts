@@ -10,6 +10,7 @@ type ReportRow = {
   photo_path: string;
   photo_url: string;
   created_at: string;
+  sort_key: number;
 };
 
 type ResolutionRow = {
@@ -50,121 +51,108 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, toInt(req.nextUrl.searchParams.get("page"), 1));
   const pageSize = Math.min(50, Math.max(1, toInt(req.nextUrl.searchParams.get("pageSize"), 10)));
   const includeSummary = req.nextUrl.searchParams.get("includeSummary") !== "0";
-  const today = new Date().toISOString().slice(0, 10);
 
-  const { data: reportsData, count, error: reportsErr } = await guard.sbAdmin
-    .from("hazard_reports")
-    .select("id,user_id,comment,photo_path,photo_url,created_at", { count: "exact" })
-    .order("created_at", { ascending: false });
-  if (reportsErr) return json(false, reportsErr.message, null, 500);
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
 
-  const reports = (reportsData ?? []) as ReportRow[];
+  // Phase 1: 페이지 데이터와 카운트 병렬 조회
+  const [reportsResult, countsResult] = await Promise.all([
+    guard.sbAdmin
+      .from("hazard_reports")
+      .select("id,user_id,comment,photo_path,photo_url,created_at,sort_key", { count: "exact" })
+      .order("sort_key", { ascending: true })
+      .order("created_at", { ascending: false })
+      .range(from, to),
+    includeSummary
+      ? guard.sbAdmin
+          .from("hazard_reports")
+          .select("sort_key")
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+
+  if (reportsResult.error) return json(false, reportsResult.error.message, null, 500);
+
+  const reports = (reportsResult.data ?? []) as ReportRow[];
+  const totalCount = reportsResult.count ?? 0;
   const reportIds = reports.map((r) => r.id);
+  const creatorIds = Array.from(new Set(reports.map((r) => r.user_id)));
 
-  let resolutions: ResolutionRow[] = [];
-  let extraPhotos: ExtraPhotoRow[] = [];
-  if (reportIds.length > 0) {
-    const { data: resData, error: resErr } = await guard.sbAdmin
-      .from("hazard_report_resolutions")
-      .select("report_id,after_path,after_public_url,after_memo,improved_by,improved_at,planned_due_date")
-      .in("report_id", reportIds);
-    if (resErr) return json(false, resErr.message, null, 500);
-    resolutions = (resData ?? []) as ResolutionRow[];
-
-    const { data: extraData, error: extraErr } = await guard.sbAdmin
-      .from("hazard_report_photos")
-      .select("id,report_id,photo_path,photo_url,created_at")
-      .in("report_id", reportIds)
-      .order("created_at", { ascending: false });
-    if (extraErr) return json(false, extraErr.message, null, 500);
-    extraPhotos = (extraData ?? []) as ExtraPhotoRow[];
+  // 요약 카운트 집계 (sort_key 기준)
+  let unresolvedTotalCount: number | null = null;
+  let pendingTotalCount: number | null = null;
+  let resolvedTotalCount: number | null = null;
+  if (includeSummary && countsResult.data) {
+    const rows = countsResult.data as { sort_key: number }[];
+    unresolvedTotalCount = rows.filter((r) => r.sort_key === 0).length;
+    pendingTotalCount    = rows.filter((r) => r.sort_key === 1).length;
+    resolvedTotalCount   = rows.filter((r) => r.sort_key === 2).length;
   }
+
+  // Phase 2: 현재 페이지 항목에 대한 상세 데이터 병렬 조회 (최대 pageSize건)
+  const [resResult, extraResult, profilesResult] = await Promise.all([
+    reportIds.length > 0
+      ? guard.sbAdmin
+          .from("hazard_report_resolutions")
+          .select("report_id,after_path,after_public_url,after_memo,improved_by,improved_at,planned_due_date")
+          .in("report_id", reportIds)
+      : Promise.resolve({ data: [] as ResolutionRow[], error: null }),
+    reportIds.length > 0
+      ? guard.sbAdmin
+          .from("hazard_report_photos")
+          .select("id,report_id,photo_path,photo_url,created_at")
+          .in("report_id", reportIds)
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] as ExtraPhotoRow[], error: null }),
+    creatorIds.length > 0
+      ? guard.sbAdmin.from("profiles").select("id,name").in("id", creatorIds)
+      : Promise.resolve({ data: [] as { id: string; name: string | null }[], error: null }),
+  ]);
+
+  if (resResult.error) return json(false, resResult.error.message, null, 500);
+  if (extraResult.error) return json(false, extraResult.error.message, null, 500);
+
+  const resolutions = (resResult.data ?? []) as ResolutionRow[];
+  const extraPhotos = (extraResult.data ?? []) as ExtraPhotoRow[];
 
   const resMap: Record<string, ResolutionRow> = {};
   for (const r of resolutions) resMap[r.report_id] = r;
+
   const extraPhotoMap: Record<string, ExtraPhotoRow[]> = {};
   for (const photo of extraPhotos) {
     if (!extraPhotoMap[photo.report_id]) extraPhotoMap[photo.report_id] = [];
     extraPhotoMap[photo.report_id].push(photo);
   }
 
-  const userIds = Array.from(
-    new Set(
-      reports
-        .flatMap((r) => [r.user_id, resMap[r.id]?.improved_by ?? null])
-        .filter((v): v is string => !!v)
-    )
-  );
+  const nameMap: Record<string, string | null> = {};
+  for (const p of (profilesResult.data ?? []) as { id: string; name: string | null }[]) {
+    nameMap[p.id] = p.name;
+  }
 
-  let nameMap: Record<string, string | null> = {};
-  if (userIds.length > 0) {
-    const { data: profilesData, error: profilesErr } = await guard.sbAdmin.from("profiles").select("id,name").in("id", userIds);
-    if (!profilesErr) {
-      const map: Record<string, string | null> = {};
-      for (const p of profilesData ?? []) map[(p as { id: string }).id] = (p as { name: string | null }).name;
-      nameMap = map;
+  // 처리자(improved_by) 중 아직 조회되지 않은 ID만 추가 조회
+  const improverIds = Array.from(
+    new Set(resolutions.map((r) => r.improved_by).filter((v): v is string => !!v && !(v in nameMap)))
+  );
+  if (improverIds.length > 0) {
+    const { data: improverData } = await guard.sbAdmin.from("profiles").select("id,name").in("id", improverIds);
+    for (const p of (improverData ?? []) as { id: string; name: string | null }[]) {
+      nameMap[p.id] = p.name;
     }
   }
 
-  const items = reports.map((r) => {
+  const items: HazardListItem[] = reports.map((r) => {
     const resolution = resMap[r.id] ?? null;
     return {
       ...r,
       creator_name: nameMap[r.user_id] ?? null,
       resolution,
-      improver_name: resolution?.improved_by ? nameMap[resolution.improved_by] ?? null : null,
+      improver_name: resolution?.improved_by ? (nameMap[resolution.improved_by] ?? null) : null,
       extra_photos: extraPhotoMap[r.id] ?? [],
-    } satisfies HazardListItem;
+    };
   });
-
-  const statusOrder = { open: 0, pending: 1, done: 2 } as const;
-  const getStatusKey = (resolution: ResolutionRow | null) => {
-    if (resolution?.after_public_url) return "done" as const;
-    if (resolution?.planned_due_date && resolution.planned_due_date >= today) return "pending" as const;
-    return "open" as const;
-  };
-
-  const sortedItems = [...items].sort((a, b) => {
-    const aStatus = getStatusKey(a.resolution);
-    const bStatus = getStatusKey(b.resolution);
-    if (aStatus !== bStatus) return statusOrder[aStatus] - statusOrder[bStatus];
-
-    if (aStatus === "done" && bStatus === "done") {
-      const aImprovedAt = new Date(a.resolution?.improved_at ?? "").getTime();
-      const bImprovedAt = new Date(b.resolution?.improved_at ?? "").getTime();
-      const aHasImprovedAt = Number.isFinite(aImprovedAt);
-      const bHasImprovedAt = Number.isFinite(bImprovedAt);
-      if (aHasImprovedAt && bHasImprovedAt && aImprovedAt !== bImprovedAt) {
-        return bImprovedAt - aImprovedAt;
-      }
-      if (aHasImprovedAt !== bHasImprovedAt) {
-        return aHasImprovedAt ? -1 : 1;
-      }
-    }
-
-    const at = new Date(a.created_at).getTime();
-    const bt = new Date(b.created_at).getTime();
-    return bt - at;
-  });
-
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize;
-  const pagedItems = sortedItems.slice(from, to);
-
-  let totalCount: number | null = null;
-  let unresolvedTotalCount: number | null = null;
-  let pendingTotalCount: number | null = null;
-  let resolvedTotalCount: number | null = null;
-  if (includeSummary) {
-    totalCount = sortedItems.length;
-    unresolvedTotalCount = sortedItems.reduce((sum, item) => sum + (getStatusKey(item.resolution) === "open" ? 1 : 0), 0);
-    pendingTotalCount = sortedItems.reduce((sum, item) => sum + (getStatusKey(item.resolution) === "pending" ? 1 : 0), 0);
-    resolvedTotalCount = sortedItems.reduce((sum, item) => sum + (getStatusKey(item.resolution) === "done" ? 1 : 0), 0);
-  }
 
   return json(true, undefined, {
-    items: pagedItems,
-    totalCount,
+    items,
+    totalCount: includeSummary ? totalCount : null,
     unresolvedTotalCount,
     pendingTotalCount,
     resolvedTotalCount,

@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -23,7 +24,7 @@ type PermRow = {
   general_access: AccessLevel;
 };
 
-async function waitForSession(retry = 20, delayMs = 500) {
+async function waitForSession(retry = 6, delayMs = 500) {
   for (let i = 0; i < retry; i++) {
     const { data, error } = await supabase.auth.getSession();
     if (error) throw error;
@@ -33,7 +34,7 @@ async function waitForSession(retry = 20, delayMs = 500) {
   return null;
 }
 
-async function readProfileWithRetry(uid: string, retry = 20, delayMs = 500) {
+async function readProfileWithRetry(uid: string, retry = 6, delayMs = 500) {
   let lastError: unknown = null;
   for (let i = 0; i < retry; i++) {
     const { data, error } = await supabase
@@ -517,7 +518,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           >
             <div style={{ display: "flex", alignItems: "center", minWidth: 0, gap: 10 }}>
               <Link href="/admin" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
-                <img src="/logo.png" alt="logo" style={{ height: 26, width: "auto", display: "block" }} />
+                <Image src="/logo.png" alt="logo" width={108} height={26} priority style={{ width: "auto", height: 26 }} />
               </Link>
             </div>
 

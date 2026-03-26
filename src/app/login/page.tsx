@@ -77,19 +77,31 @@ function toKoreanErrorMessage(e: unknown): string {
 async function attemptPasswordLogin(e164: string, password: string) {
   const email = phoneToEmail(e164);
 
-  const emailResult = await withTimeout(
+  // 이메일/전화 방식을 병렬로 시도해 먼저 성공한 결과를 반환
+  const emailPromise = withTimeout(
     supabase.auth.signInWithPassword({ email, password }),
     10000,
     "Email login request timed out"
   );
-  if (!emailResult.error) return emailResult;
-
-  const phoneResult = await withTimeout(
+  const phonePromise = withTimeout(
     supabase.auth.signInWithPassword({ phone: e164, password }),
-    20000,
+    10000,
     "Phone login request timed out"
   );
-  return phoneResult;
+
+  const [emailResult, phoneResult] = await Promise.allSettled([emailPromise, phonePromise]);
+
+  const emailValue = emailResult.status === "fulfilled" ? emailResult.value : null;
+  const phoneValue = phoneResult.status === "fulfilled" ? phoneResult.value : null;
+
+  // 성공한 결과 우선 반환
+  if (emailValue && !emailValue.error) return emailValue;
+  if (phoneValue && !phoneValue.error) return phoneValue;
+
+  // 둘 다 실패 — phone 에러 메시지가 더 구체적이므로 우선 반환
+  if (phoneValue) return phoneValue;
+  if (emailValue) return emailValue;
+  throw new Error("로그인 요청에 실패했습니다. 네트워크를 확인해 주세요.");
 }
 
 function toKoreanResetErrorMessage(e: unknown): string {
