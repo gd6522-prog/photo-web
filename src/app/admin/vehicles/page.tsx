@@ -637,6 +637,13 @@ function qtyBase(row: ProductRow) {
   return assigned;
 }
 
+function effectiveQty(row: ProductRow) {
+  if (row.product_name.replace(/\s+/g, "").includes("공박스")) {
+    return Math.ceil(row.assigned_qty / 5);
+  }
+  return qtyBase(row);
+}
+
 function cargoTotals(row: CargoRow) {
   const largeTotal = row.large_box + row.large_inner + row.large_other + row.large_day2l + row.large_nb2l;
   const smallTotal = row.small_low + row.small_high;
@@ -1208,7 +1215,7 @@ function buildSupportReportGroup(
 }
 
 function updateCargoByProduct(target: CargoRow, row: ProductRow) {
-  const qty = qtyBase(row);
+  const qty = effectiveQty(row);
   if (qty <= 0) return;
 
   const workType = row.work_type.replace(/\s+/g, "").toLowerCase();
@@ -2591,7 +2598,7 @@ export function VehiclePageScreen({
                     <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{row.product_code}</td>
                     <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{row.product_name}</td>
                     <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{formatNumber(row.assigned_qty)}</td>
-                    <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{formatNumber(row.product_name.replace(/\s+/g, "").includes("공박스") ? Math.ceil(row.assigned_qty / 5) : qtyBase(row))}</td>
+                    <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{formatNumber(effectiveQty(row))}</td>
                   </tr>
                 ))}
                 {pagedProductRows.length === 0 ? (
