@@ -623,14 +623,14 @@ export default function VehicleCdcPage() {
             .page:last-child { page-break-after: auto; break-after: auto; }
             .page-inner { width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
             .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; width: 100%; margin-bottom: 24px; }
-            .title { font-size: 54px; font-weight: 900; }
-            .sub { margin-top: 10px; font-size: 24px; font-weight: 700; color: #475569; }
+            .title { font-size: 42px; font-weight: 900; }
+            .sub { margin-top: 8px; font-size: 18px; font-weight: 700; color: #475569; }
             .summary { margin-left: auto; text-align: right; display: flex; flex-direction: column; align-items: flex-end; }
-            .car { font-size: 48px; font-weight: 900; color: #0f2940; }
-            .sumtext { margin-top: 10px; font-size: 24px; font-weight: 700; color: #475569; white-space: nowrap; }
+            .car { font-size: 36px; font-weight: 900; color: #0f2940; }
+            .sumtext { margin-top: 8px; font-size: 18px; font-weight: 700; color: #475569; white-space: nowrap; }
             .print-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-            .print-table th { text-align: left; font-size: 22px; font-weight: 900; color: #26465a; border-bottom: 1px solid #e5edf3; background: #f8fbfd; white-space: nowrap; vertical-align: middle; padding: 16px 1.2cm 16px 0; }
-            .print-table td { font-size: 22px; color: #113247; border-bottom: 1px solid #eef3f7; white-space: nowrap; vertical-align: middle; padding: 15px 1.2cm 15px 0; }
+            .print-table th { text-align: left; font-size: 17px; font-weight: 900; color: #26465a; border-bottom: 1px solid #e5edf3; background: #f8fbfd; white-space: nowrap; vertical-align: middle; padding: 13px 1.2cm 13px 0; }
+            .print-table td { font-size: 17px; color: #113247; border-bottom: 1px solid #eef3f7; white-space: nowrap; vertical-align: middle; padding: 12px 1.2cm 12px 0; }
             .print-table th:nth-child(4), .print-table td:nth-child(4) { padding-right: 6cm; overflow: hidden; text-overflow: ellipsis; }
             .print-table th:last-child, .print-table td:last-child { padding-right: 0; }
             .num { text-align: right; font-weight: 900; }
@@ -638,7 +638,7 @@ export default function VehicleCdcPage() {
             .fullbox-row { background: #d1d5db; }
             .total-row td { border-top: 2px solid #94a3b8; border-bottom: 2px solid #94a3b8; background: #fff; font-weight: 900; color: #1e293b; }
             .total-label { text-align: center; }
-            .total-num { font-size: 24px; }
+            .total-num { font-size: 18px; }
           </style>
         </head>
         <body>${pagesHtml}</body>
