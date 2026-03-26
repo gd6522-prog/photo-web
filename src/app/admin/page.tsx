@@ -2085,7 +2085,7 @@ export default function AdminHomePage() {
               </div>
 
               <div style={{ marginTop: 0, flex: 1, minHeight: 0, paddingBottom: 4 }}>
-                <div style={{ height: "100%", overflow: "hidden" }}>
+                <div style={{ height: "100%", overflow: "hidden", paddingBottom: 3 }}>
                   <ThreeDayPreview baseYMD={selectedYMD} events={events} holidaysByDate={holidaysByDate} />
                 </div>
               </div>
