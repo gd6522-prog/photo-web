@@ -851,6 +851,7 @@ export default function AdminDeliveryPhotosPage() {
                     onClick={() => {
                       setDriverCategory(c);
                       if (c !== "miochul") setMiochulFlags({ redelivery: false, damage: false, other: false });
+                      if (c === "bottle") { setDateFrom(today); setDateTo(today); }
                       setCarNo("ALL");
                       setSearchText("");
                     }}
