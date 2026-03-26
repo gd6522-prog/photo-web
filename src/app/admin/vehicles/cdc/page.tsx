@@ -616,29 +616,29 @@ export default function VehicleCdcPage() {
           <meta charset="utf-8" />
           <title>CDC 출력</title>
           <style>
-            @page { size: A4 landscape; margin: 10mm 30mm; }
+            @page { size: A4 landscape; margin: 10mm 20mm; }
             html, body { margin: 0; padding: 0; font-family: Arial, "Malgun Gothic", sans-serif; color: #111827; }
             body { background: #fff; }
             .page { box-sizing: border-box; width: 100%; min-height: 190mm; display: flex; align-items: center; justify-content: center; page-break-after: always; break-after: page; }
             .page:last-child { page-break-after: auto; break-after: auto; }
             .page-inner { width: max-content; max-width: 100%; display: flex; flex-direction: column; justify-content: center; }
-            .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; width: 100%; margin-bottom: 16px; }
-            .title { font-size: 36px; font-weight: 900; }
-            .sub { margin-top: 7px; font-size: 16px; font-weight: 700; color: #475569; }
+            .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; width: 100%; margin-bottom: 20px; }
+            .title { font-size: 46px; font-weight: 900; }
+            .sub { margin-top: 8px; font-size: 20px; font-weight: 700; color: #475569; }
             .summary { margin-left: auto; text-align: right; display: flex; flex-direction: column; align-items: flex-end; }
-            .car { font-size: 31px; font-weight: 900; color: #0f2940; }
-            .sumtext { margin-top: 7px; font-size: 16px; font-weight: 700; color: #475569; white-space: nowrap; }
+            .car { font-size: 40px; font-weight: 900; color: #0f2940; }
+            .sumtext { margin-top: 8px; font-size: 20px; font-weight: 700; color: #475569; white-space: nowrap; }
             .print-table { width: auto; border-collapse: collapse; table-layout: fixed; }
-            .print-table th { text-align: left; font-size: 15px; font-weight: 900; color: #26465a; border-bottom: 1px solid #e5edf3; background: #f8fbfd; white-space: nowrap; vertical-align: middle; padding: 12px 1cm 12px 0; }
-            .print-table td { font-size: 15px; color: #113247; border-bottom: 1px solid #eef3f7; white-space: nowrap; vertical-align: middle; padding: 11px 1cm 11px 0; }
-            .print-table th:nth-child(4), .print-table td:nth-child(4) { padding-right: 15cm; overflow: hidden; text-overflow: ellipsis; }
+            .print-table th { text-align: left; font-size: 19px; font-weight: 900; color: #26465a; border-bottom: 1px solid #e5edf3; background: #f8fbfd; white-space: nowrap; vertical-align: middle; padding: 15px 1cm 15px 0; }
+            .print-table td { font-size: 19px; color: #113247; border-bottom: 1px solid #eef3f7; white-space: nowrap; vertical-align: middle; padding: 14px 1cm 14px 0; }
+            .print-table th:nth-child(4), .print-table td:nth-child(4) { padding-right: 10cm; overflow: hidden; text-overflow: ellipsis; }
             .print-table th:last-child, .print-table td:last-child { padding-right: 0; }
             .num { text-align: right; font-weight: 900; }
             .store-name { overflow: hidden; text-overflow: ellipsis; }
             .fullbox-row { background: #d1d5db; }
             .total-row td { border-top: 2px solid #94a3b8; border-bottom: 2px solid #94a3b8; background: #fff; font-weight: 900; color: #1e293b; }
             .total-label { text-align: center; }
-            .total-num { font-size: 16px; }
+            .total-num { font-size: 20px; }
           </style>
         </head>
         <body>${pagesHtml}</body>
