@@ -1920,6 +1920,7 @@ export function VehiclePageScreen({
             row.store_name,
             row.cell_name,
             row.product_code,
+            row.product_name,
           ].map((value) => normalizeStoreName(value));
 
           return targets.some((value) => value.includes(query));
