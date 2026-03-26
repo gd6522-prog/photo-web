@@ -1,7 +1,9 @@
 import { NextRequest } from "next/server";
 import { json, requireAdmin } from "../../notices/_shared";
+import { isCompanyAdminFlag, isCompanyAdminWorkPart } from "@/lib/admin-role";
+import { isMissingColumnError } from "@/lib/supabase-compat";
 
-const BLOCKED_COMPANY = "한익스프레스";
+const BLOCKED_COMPANY = "\uD55C\uC775\uC2A4\uD504\uB808\uC2A4";
 
 type ProfileRow = {
   id: string;
@@ -15,6 +17,8 @@ type ProfileRow = {
   join_date: string | null;
   leave_date: string | null;
   is_admin?: boolean | null;
+  is_general_admin?: boolean | null;
+  is_company_admin?: boolean | null;
 };
 
 type ShiftTodayRow = {
@@ -29,12 +33,8 @@ function kstTodayYMD(): string {
   return kst.toISOString().slice(0, 10);
 }
 
-function isCompanyAdminWorkPart(workPart: string | null | undefined) {
-  return String(workPart ?? "").trim() === "업체관리자";
-}
-
 function displayWorkPart(workPart: string | null): string | null {
-  return String(workPart ?? "").trim() === "업체관리자" ? "관리자" : workPart;
+  return isCompanyAdminWorkPart(workPart) ? "\uAD00\uB9AC\uC790" : workPart;
 }
 
 export async function GET(req: NextRequest) {
@@ -46,27 +46,71 @@ export async function GET(req: NextRequest) {
   const qCompany = (req.nextUrl.searchParams.get("qCompany") ?? "").trim();
   const qWorkTable = (req.nextUrl.searchParams.get("qWorkTable") ?? "").trim();
 
-  const { data: myProf, error: meErr } = await guard.sbAdmin.from("profiles").select("work_part").eq("id", guard.uid).maybeSingle();
-  if (meErr) return json(false, meErr.message, null, 500);
+  let myProf:
+    | {
+        work_part?: string | null;
+        is_company_admin?: boolean | null;
+      }
+    | null = null;
+  let meErr: unknown = null;
+  {
+    const result = await guard.sbAdmin.from("profiles").select("work_part,is_company_admin").eq("id", guard.uid).maybeSingle();
+    myProf = result.data;
+    meErr = result.error;
+  }
+  if (isMissingColumnError(meErr, "is_company_admin")) {
+    const retry = await guard.sbAdmin.from("profiles").select("work_part").eq("id", guard.uid).maybeSingle();
+    myProf = retry.data;
+    meErr = retry.error;
+  }
+  if (meErr) {
+    const message = meErr instanceof Error ? meErr.message : String(meErr);
+    return json(false, message, null, 500);
+  }
 
-  const isCompanyAdminRole = isCompanyAdminWorkPart((myProf as { work_part?: string | null } | null)?.work_part);
+  const isCompanyAdminRole =
+    isCompanyAdminFlag(myProf?.is_company_admin) || isCompanyAdminWorkPart((myProf as { work_part?: string | null } | null)?.work_part);
   const effectiveCompany = isCompanyAdminRole && qCompany === BLOCKED_COMPANY ? "" : qCompany;
 
-  let q = guard.sbAdmin
-    .from("profiles")
-    .select("id,approval_status,name,phone,birthdate,work_part,company_name,work_table,join_date,leave_date,is_admin")
-    .not("work_part", "ilike", "%기사%");
+  const loadProfiles = async (includeRoleFlags: boolean) => {
+    const columns = [
+      "id",
+      "approval_status",
+      "name",
+      "phone",
+      "birthdate",
+      "work_part",
+      "company_name",
+      "work_table",
+      "join_date",
+      "leave_date",
+      "is_admin",
+    ];
+    if (includeRoleFlags) {
+      columns.push("is_general_admin", "is_company_admin");
+    }
 
-  if (qName) q = q.ilike("name", `%${qName}%`);
-  if (qPart) q = q.eq("work_part", qPart);
-  if (isCompanyAdminRole) q = q.neq("company_name", BLOCKED_COMPANY);
-  if (effectiveCompany) q = q.eq("company_name", effectiveCompany);
-  if (qWorkTable) q = q.eq("work_table", qWorkTable);
+    let q = guard.sbAdmin
+      .from("profiles")
+      .select(columns.join(","))
+      .not("work_part", "ilike", "%\uAE30\uC0AC%");
 
-  const { data, error } = await q;
+    if (qName) q = q.ilike("name", `%${qName}%`);
+    if (qPart) q = q.eq("work_part", qPart);
+    if (isCompanyAdminRole) q = q.neq("company_name", BLOCKED_COMPANY);
+    if (effectiveCompany) q = q.eq("company_name", effectiveCompany);
+    if (qWorkTable) q = q.eq("work_table", qWorkTable);
+
+    return await q;
+  };
+
+  let { data, error } = await loadProfiles(true);
+  if (isMissingColumnError(error, "is_general_admin") || isMissingColumnError(error, "is_company_admin")) {
+    ({ data, error } = await loadProfiles(false));
+  }
   if (error) return json(false, error.message, null, 500);
 
-  const rows = ((data ?? []) as ProfileRow[]).map((row) => ({
+  const rows = ((data ?? []) as unknown as ProfileRow[]).map((row) => ({
     ...row,
     work_part: displayWorkPart(row.work_part),
   }));

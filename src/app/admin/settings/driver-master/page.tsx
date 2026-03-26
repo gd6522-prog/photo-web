@@ -12,7 +12,7 @@ type ProfileRow = {
   birthdate: string | null;
   work_part: string | null;
 
-  // ✅ 기사 전용
+  // 기사 전용
   car_no: string | null; // "1" or "1,2"
   delivery_type: string | null; // 당일/전일/익일
   car_no_2?: string | null;
@@ -26,7 +26,7 @@ type ProfileRow = {
   garage: string | null; // 차고지
   hipass: string | null; // 하이패스
 
-  company_name: string | null; // 운수사와 별개로 유지(필요 없으면 나중에 제거 가능)
+  company_name: string | null; // 기존 데이터 호환용
   join_date: string | null;
   leave_date: string | null;
 
@@ -165,7 +165,7 @@ function normalizeApproval(v: string | null): "pending" | "approved" | "rejected
 
 function approvalLabel(status: "pending" | "approved" | "rejected"): string {
   if (status === "approved") return "승인";
-  if (status === "rejected") return "거절";
+  if (status === "rejected") return "반려";
   return "승인대기";
 }
 
@@ -226,7 +226,7 @@ function isDriverPart(part: string | null | undefined): boolean {
   return s === "기사" || s.includes("기사");
 }
 
-// ✅ 호차 정규화: 숫자만, 1~2개, 중복 제거, 오름차순 => "1" or "1,2" or null
+// 차량번호는 숫자만 허용하고 중복 제거 후 오름차순 정렬
 function normalizeCarNoInput(...rawValues: string[]): string | null {
   const cleanOne = (v: string) => String(v ?? "").replace(/[^\d]/g, "").trim();
   const nums = rawValues
@@ -275,6 +275,23 @@ function displayDeliveryTypes(row: ProfileRow): string {
     .filter(Boolean);
 
   return values.length ? values.join(" / ") : "-";
+}
+
+function displayCarWithDelivery(row: ProfileRow): string {
+  const cars = String(row.car_no ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const deliveries = [row.delivery_type, row.delivery_type_2, row.delivery_type_3, row.delivery_type_4].map((value) =>
+    String(value ?? "").trim()
+  );
+
+  const parts = cars.map((car, index) => {
+    const delivery = deliveries[index];
+    return delivery ? `${car}(${delivery})` : car;
+  });
+
+  return parts.length ? parts.join(" / ") : "-";
 }
 
 function normalizePick(v: string): string | null {
@@ -397,7 +414,7 @@ export default function DriverMasterPage() {
     setErr(null);
 
     try {
-      // ✅ 기사만
+      // 기사만 조회
       let q = supabase
         .from("profiles")
         .select(
@@ -426,8 +443,20 @@ export default function DriverMasterPage() {
         list = list.filter((r) => [r.delivery_type, r.delivery_type_2, r.delivery_type_3, r.delivery_type_4].some((value) => String(value ?? "").trim() === delivery));
       }
 
-      // 정렬: 호차 오름차순, 복수 호차는 가장 작은 호차 기준
+      // 정렬: 승인대기 우선, 그 안에서는 이름 오름차순
       list.sort((a, b) => {
+        const aApproval = normalizeApproval(a.approval_status);
+        const bApproval = normalizeApproval(b.approval_status);
+        if (aApproval !== bApproval) {
+          if (aApproval === "pending") return -1;
+          if (bApproval === "pending") return 1;
+        }
+
+        const an = String(a.name ?? "").trim();
+        const bn = String(b.name ?? "").trim();
+        const byName = an.localeCompare(bn, "ko");
+        if (byName !== 0) return byName;
+
         const aCar = primaryCarNo(a.car_no);
         const bCar = primaryCarNo(b.car_no);
         if (aCar !== bCar) return aCar - bCar;
@@ -436,10 +465,7 @@ export default function DriverMasterPage() {
         const bh = displayCarNo(b.car_no);
         const c2 = ah.localeCompare(bh, "ko", { numeric: true });
         if (c2 !== 0) return c2;
-
-        const an = String(a.name ?? "").trim();
-        const bn = String(b.name ?? "").trim();
-        return an.localeCompare(bn, "ko");
+        return String(a.id).localeCompare(String(b.id));
       });
 
       setRows(list);
@@ -493,7 +519,7 @@ export default function DriverMasterPage() {
     });
 
     const payload = await res.json().catch(() => ({}));
-    if (!res.ok || !payload?.ok) throw new Error(payload?.message || "반려 삭제에 실패했습니다.");
+    if (!res.ok || !payload?.ok) throw new Error(payload?.message || "반려 및 삭제 처리에 실패했습니다.");
   };
 
   const save = async () => {
@@ -505,7 +531,7 @@ export default function DriverMasterPage() {
       const phoneDigits = toKRLocalDigits(f.phone);
       const phoneToSave = phoneDigits ? phoneDigits : null;
 
-      // 기사 마스터이므로 기사로 보정
+      // 기사 마스터이므로 work_part는 기사로 보정
       const workPartToSave = isDriverPart(f.work_part) ? f.work_part.trim() : "기사";
       const carNoToSave = normalizeCarNoInput(f.car_no_1, f.car_no_2, f.car_no_3, f.car_no_4);
 
@@ -626,7 +652,7 @@ export default function DriverMasterPage() {
         </label>
 
         <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 12, color: "#475467", fontWeight: 700 }}>호차</span>
+          <span style={{ fontSize: 12, color: "#475467", fontWeight: 700 }}>차량번호</span>
           <input value={qCarNo} onChange={(e) => setQCarNo(e.target.value)} placeholder="예: 1" style={inputStyle()} inputMode="numeric" />
         </label>
 
@@ -738,10 +764,9 @@ export default function DriverMasterPage() {
               </th>
 
               {[
-                "호차",
                 "이름",
                 "나이",
-                "배송구분",
+                "호차(구분)",
                 "전화번호",
                 "차종",
                 "운수사",
@@ -783,18 +808,17 @@ export default function DriverMasterPage() {
                 const ageV = calcAge(r.birthdate);
                 const tenDays = calcTenureDays(r.join_date, r.leave_date);
                 const ap = normalizeApproval(r.approval_status);
-                const working = ap === "approved" && !!todayShiftMap[r.id]?.inAt && !todayShiftMap[r.id]?.outAt;
-
+                const approved = ap === "approved";
+                const working = approved && !!todayShiftMap[r.id]?.inAt && !todayShiftMap[r.id]?.outAt;
                 return (
                   <tr key={r.id}>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
                       <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleOne(r.id)} />
                     </td>
 
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)", fontWeight: 950 }}>{displayCarNo(r.car_no)}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)", fontWeight: 950 }}>{r.name ?? "-"}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{ageV == null ? "-" : `${ageV}세`}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{displayDeliveryTypes(r)}</td>
+                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{ageV == null ? "-" : String(ageV) + "세"}</td>
+                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)", fontWeight: 800 }}>{displayCarWithDelivery(r)}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{formatKRPhone(r.phone)}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.vehicle_type ?? "-"}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.carrier ?? "-"}</td>
@@ -804,13 +828,13 @@ export default function DriverMasterPage() {
 
                     {/* 상태 */}
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-                      {working ? <span style={approvalBadgeStyle("pending")}>근무중</span> : "-"}
+                      {!approved ? (<select value={ap} onChange={(e) => updateApprovalInline(r.id, e.target.value as "pending" | "approved" | "rejected")} style={{ height: 32, padding: "0 10px", borderRadius: 8, border: "1px solid #D7DCE2", fontWeight: 700 }}><option value="pending">승인대기</option><option value="approved">승인</option><option value="rejected">반려</option></select>) : working ? (<span style={{ padding: "5px 10px", borderRadius: 999, border: "1px solid #FDBA74", background: "#FFF7ED", color: "#9A3412", fontWeight: 800, fontSize: 12 }}>근무중</span>) : ("-")}
                     </td>
 
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
                       <button
                         onClick={() => openEdit(r)}
-                        style={{ height: 32, padding: "0 12px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)", background: "white", fontWeight: 950, cursor: "pointer" }}
+                        style={{ height: 32, padding: "0 12px", borderRadius: 8, border: "1px solid #CBD5E1", background: "white", fontWeight: 800, cursor: "pointer" }}
                       >
                         수정
                       </button>
@@ -829,17 +853,17 @@ export default function DriverMasterPage() {
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) closeEdit();
           }}
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 9999 }}
+          style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.42)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 9999 }}
         >
-          <div style={{ width: "100%", maxWidth: 860, background: "white", borderRadius: 18, overflow: "hidden" }}>
-            <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(0,0,0,0.08)", display: "flex", justifyContent: "space-between" }}>
+          <div style={{ width: "100%", maxWidth: 860, maxHeight: "88vh", display: "flex", flexDirection: "column", background: "white", borderRadius: 18, overflow: "hidden", boxShadow: "0 30px 60px rgba(2,6,23,0.25)" }}>
+            <div style={{ padding: "16px 18px", borderBottom: "1px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%)" }}>
               <div style={{ fontWeight: 950, fontSize: 16 }}>기사 사용자 수정</div>
-              <button onClick={closeEdit} style={{ border: "none", background: "transparent", fontSize: 18, cursor: "pointer", opacity: 0.7 }}>
-                ✕
+              <button onClick={closeEdit} style={{ width: 32, height: 32, borderRadius: 999, border: "1px solid #CBD5E1", background: "white", fontSize: 18, lineHeight: 1, cursor: "pointer", color: "#64748B" }}>
+                ×
               </button>
             </div>
 
-            <div style={{ padding: 16 }}>
+            <div style={{ padding: 16, overflowY: "auto" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
                   <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>이름</div>
@@ -847,7 +871,7 @@ export default function DriverMasterPage() {
                 </div>
 
                 <div>
-                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>전화번호(010…)</div>
+                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>전화번호(010만 입력)</div>
                   <input value={f.phone} onChange={(e) => setF((p) => ({ ...p, phone: e.target.value }))} style={inputStyle()} placeholder="01099237924" />
                   <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>표시: {formatKRPhone(f.phone)}</div>
                 </div>
@@ -860,55 +884,55 @@ export default function DriverMasterPage() {
                 <div>
                   <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>작업파트(기사)</div>
                   <input value={f.work_part} onChange={(e) => setF((p) => ({ ...p, work_part: e.target.value }))} style={inputStyle()} placeholder="기사" />
-                  <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>* 저장 시 기사로 보정됩니다.</div>
+                  <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>* 저장 시 기사로 자동 보정됩니다.</div>
                 </div>
 
-                {/* 호차 */}
+                {/* 차량 */}
                 <div style={{ gridColumn: "1 / -1" }}>
-                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>호차 (1개 또는 2개)</div>
+                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>차량번호 (최대 4대)</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                    <input value={f.car_no_1} onChange={(e) => setF((p) => ({ ...p, car_no_1: e.target.value }))} style={inputStyle()} placeholder="호차1 (예: 1)" inputMode="numeric" />
-                    <input value={f.car_no_2} onChange={(e) => setF((p) => ({ ...p, car_no_2: e.target.value }))} style={inputStyle()} placeholder="호차2 (선택, 예: 2)" inputMode="numeric" />
-                    <input value={f.car_no_3} onChange={(e) => setF((p) => ({ ...p, car_no_3: e.target.value }))} style={inputStyle()} placeholder="호차3 (선택, 예: 3)" inputMode="numeric" />
-                    <input value={f.car_no_4} onChange={(e) => setF((p) => ({ ...p, car_no_4: e.target.value }))} style={inputStyle()} placeholder="호차4 (선택, 예: 4)" inputMode="numeric" />
+                    <input value={f.car_no_1} onChange={(e) => setF((p) => ({ ...p, car_no_1: e.target.value }))} style={inputStyle()} placeholder="차량1 (예: 1)" inputMode="numeric" />
+                    <input value={f.car_no_2} onChange={(e) => setF((p) => ({ ...p, car_no_2: e.target.value }))} style={inputStyle()} placeholder="차량2" inputMode="numeric" />
+                    <input value={f.car_no_3} onChange={(e) => setF((p) => ({ ...p, car_no_3: e.target.value }))} style={inputStyle()} placeholder="차량3" inputMode="numeric" />
+                    <input value={f.car_no_4} onChange={(e) => setF((p) => ({ ...p, car_no_4: e.target.value }))} style={inputStyle()} placeholder="차량4" inputMode="numeric" />
                   </div>
                   <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>
-                    저장값: <b>{displayCarNo(normalizeCarNoInput(f.car_no_1, f.car_no_2, f.car_no_3, f.car_no_4))}</b>
+                    표시값: <b>{displayCarNo(normalizeCarNoInput(f.car_no_1, f.car_no_2, f.car_no_3, f.car_no_4))}</b>
                   </div>
                 </div>
 
                 {/* 배송구분 / 차종 / 운수사 */}
                 <div style={{ gridColumn: "1 / -1" }}>
-                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>배송구분 (호차별 설정)</div>
+                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>배송구분</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                     <select value={f.delivery_type} onChange={(e) => setF((p) => ({ ...p, delivery_type: e.target.value }))} style={inputStyle()}>
-                      <option value="">호차1 -</option>
+                      <option value="">차량1 -</option>
                       {DELIVERY_OPTIONS.map((x) => (
-                        <option key={`delivery-1-${x}`} value={x}>
+                        <option key={"delivery1-" + x} value={x}>
                           {x}
                         </option>
                       ))}
                     </select>
                     <select value={f.delivery_type_2} onChange={(e) => setF((p) => ({ ...p, delivery_type_2: e.target.value }))} style={inputStyle()}>
-                      <option value="">호차2 -</option>
+                      <option value="">차량2 -</option>
                       {DELIVERY_OPTIONS.map((x) => (
-                        <option key={`delivery-2-${x}`} value={x}>
+                        <option key={"delivery2-" + x} value={x}>
                           {x}
                         </option>
                       ))}
                     </select>
                     <select value={f.delivery_type_3} onChange={(e) => setF((p) => ({ ...p, delivery_type_3: e.target.value }))} style={inputStyle()}>
-                      <option value="">호차3 -</option>
+                      <option value="">차량3 -</option>
                       {DELIVERY_OPTIONS.map((x) => (
-                        <option key={`delivery-3-${x}`} value={x}>
+                        <option key={"delivery3-" + x} value={x}>
                           {x}
                         </option>
                       ))}
                     </select>
                     <select value={f.delivery_type_4} onChange={(e) => setF((p) => ({ ...p, delivery_type_4: e.target.value }))} style={inputStyle()}>
-                      <option value="">호차4 -</option>
+                      <option value="">차량4 -</option>
                       {DELIVERY_OPTIONS.map((x) => (
-                        <option key={`delivery-4-${x}`} value={x}>
+                        <option key={"delivery4-" + x} value={x}>
                           {x}
                         </option>
                       ))}
@@ -930,7 +954,7 @@ export default function DriverMasterPage() {
 
                 <div>
                   <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>운수사</div>
-                  <input value={f.carrier} onChange={(e) => setF((p) => ({ ...p, carrier: e.target.value }))} style={inputStyle()} placeholder="예: 한익/경산 등" />
+                  <input value={f.carrier} onChange={(e) => setF((p) => ({ ...p, carrier: e.target.value }))} style={inputStyle()} placeholder="예: 동진 / 경산" />
                 </div>
 
                 <div>
@@ -940,10 +964,10 @@ export default function DriverMasterPage() {
 
                 <div>
                   <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>하이패스</div>
-                  <input value={f.hipass} onChange={(e) => setF((p) => ({ ...p, hipass: e.target.value }))} style={inputStyle()} placeholder="예: O / 카드번호 / 비고" />
+                  <input value={f.hipass} onChange={(e) => setF((p) => ({ ...p, hipass: e.target.value }))} style={inputStyle()} placeholder="예: 카드번호 / 비고" />
                 </div>
 
-                {/* 입/퇴사 */}
+                {/* 입퇴사 */}
                 <div>
                   <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>입사일</div>
                   <input value={f.join_date} onChange={(e) => setF((p) => ({ ...p, join_date: e.target.value }))} style={inputStyle()} type="date" />
@@ -957,7 +981,7 @@ export default function DriverMasterPage() {
                 <div style={{ gridColumn: "1 / -1", paddingTop: 6 }}>
                   <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 13 }}>
                     <div>
-                      나이: <b>{age == null ? "-" : `${age}세`}</b>
+                      나이: <b>{age == null ? "-" : String(age) + "세"}</b>
                     </div>
                     <div>
                       근속: <b>{tenureText}</b>
@@ -967,11 +991,11 @@ export default function DriverMasterPage() {
 
                 {/* 승인 */}
                 <div style={{ gridColumn: "1 / -1", marginTop: 6, paddingTop: 10, borderTop: "1px solid rgba(0,0,0,0.08)" }}>
-                  <div style={{ fontWeight: 950, fontSize: 13, marginBottom: 8 }}>가입 승인</div>
+                  <div style={{ fontWeight: 950, fontSize: 13, marginBottom: 8 }}>승인 상태</div>
                   <select value={f.approval_status} onChange={(e) => setF((p) => ({ ...p, approval_status: e.target.value as any }))} style={inputStyle()}>
                     <option value="pending">승인대기</option>
                     <option value="approved">승인</option>
-                    <option value="rejected">거절</option>
+                    <option value="rejected">반려</option>
                   </select>
                 </div>
               </div>
@@ -985,7 +1009,7 @@ export default function DriverMasterPage() {
                 </button>
               </div>
 
-              <div style={{ marginTop: 10, fontSize: 12, opacity: 0.65 }}>* 이 페이지는 work_part에 “기사”가 포함된 사용자만 표시됩니다.</div>
+              <div style={{ marginTop: 10, fontSize: 12, opacity: 0.65 }}>* 승인된 기사만 근무중 상태가 표시됩니다.</div>
             </div>
           </div>
         </div>

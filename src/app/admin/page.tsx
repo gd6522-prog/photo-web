@@ -1475,9 +1475,9 @@ function ThreeDayPreview({
   }, [events, days]);
 
   return (
-    <div style={{ marginTop: 2 }}>
+    <div style={{ marginTop: 2, height: "100%", display: "flex", flexDirection: "column" }}>
       <div style={{ fontWeight: 950, fontSize: 13, color: "#103b53", marginBottom: 7 }}>3일 미리보기</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1, minHeight: 0 }}>
         {days.map((ymd) => {
           const list = grouped[ymd] ?? [];
           const holidayName = holidayDisplayName(ymd, holidaysByDate);
@@ -1491,6 +1491,10 @@ function ThreeDayPreview({
                 background: "#fff",
                 overflow: "hidden",
                 boxShadow: "0 6px 14px rgba(2,32,46,0.06)",
+                flex: "1 1 0",
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
               }}
             >
               <div style={{ fontWeight: 950, fontSize: 13, color: "#113247" }}>
@@ -1503,7 +1507,7 @@ function ThreeDayPreview({
               {list.length === 0 ? (
                 <div style={{ marginTop: 6, color: "#5a7588", fontSize: 12 }}>등록된 일정 없음</div>
               ) : (
-                <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 6, minHeight: 0 }}>
                   {list.slice(0, 3).map((e) => (
                     <div
                       key={e.id}
@@ -2080,8 +2084,8 @@ export default function AdminHomePage() {
                 </div>
               </div>
 
-              <div style={{ marginTop: 0, minHeight: 0 }}>
-                <div style={{ maxHeight: 250, overflowY: "auto", paddingRight: 2 }}>
+              <div style={{ marginTop: 0, flex: 1, minHeight: 0 }}>
+                <div style={{ height: "100%", overflow: "hidden" }}>
                   <ThreeDayPreview baseYMD={selectedYMD} events={events} holidaysByDate={holidaysByDate} />
                 </div>
               </div>

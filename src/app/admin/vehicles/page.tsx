@@ -638,7 +638,7 @@ function qtyBase(row: ProductRow) {
 }
 
 function cargoTotals(row: CargoRow) {
-  const largeTotal = row.large_box + row.large_inner + row.large_other;
+  const largeTotal = row.large_box + row.large_inner + row.large_other + row.large_day2l + row.large_nb2l;
   const smallTotal = row.small_low + row.small_high;
   return { largeTotal, smallTotal };
 }
