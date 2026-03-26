@@ -1491,8 +1491,7 @@ function ThreeDayPreview({
                 background: "#fff",
                 overflow: "hidden",
                 boxShadow: "0 6px 14px rgba(2,32,46,0.06)",
-                flex: "1 1 0",
-                minHeight: 0,
+                flex: "1 1 auto",
                 display: "flex",
                 flexDirection: "column",
               }}
