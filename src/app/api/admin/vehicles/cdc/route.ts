@@ -112,30 +112,18 @@ function normalizeStoreName(value: unknown) {
   return String(value ?? "").trim().replace(/\s+/g, "").toLowerCase();
 }
 
-function chunkValues<T>(values: T[], size: number) {
-  const chunks: T[][] = [];
-  for (let i = 0; i < values.length; i += size) chunks.push(values.slice(i, i + size));
-  return chunks;
-}
-
-function mergeStoreMapRows(index: Map<string, StoreMapRow>, rows: any[]) {
-  for (const row of rows ?? []) {
-    const payload = {
-      storeCode: String((row as any).store_code ?? "").trim(),
-      storeName: String((row as any).store_name ?? "").trim(),
-      carNo: String((row as any).car_no ?? "").trim(),
-      seqNo: Number((row as any).seq_no ?? 0) || 0,
-    } satisfies StoreMapRow;
-
-    if (payload.storeCode) index.set(`code:${payload.storeCode}`, payload);
-    if (payload.storeName) index.set(`name:${normalizeStoreName(payload.storeName)}`, payload);
-  }
+function normalizeStoreCode(value: unknown) {
+  const raw = String(value ?? "").trim();
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return raw;
+  return digits.length < 5 ? digits.padStart(5, "0") : digits.slice(0, 5);
 }
 
 async function fetchStoreMapRowsForSnapshot(sbAdmin: any, snapshot: CdcSnapshot | null) {
   if (!snapshot) return [] as StoreMapRow[];
 
-  const index = new Map<string, StoreMapRow>();
+  // 점포명 기준 중복 시 store_code 높은 것만 유지
+  const byName = new Map<string, StoreMapRow>();
   let from = 0;
   const pageSize = 1000;
 
@@ -149,13 +137,30 @@ async function fetchStoreMapRowsForSnapshot(sbAdmin: any, snapshot: CdcSnapshot 
       .range(from, to);
     if (error) throw new Error(error.message);
 
-    const rows = data ?? [];
-    mergeStoreMapRows(index, rows);
-    if (rows.length < pageSize) break;
+    for (const row of (data ?? []) as any[]) {
+      const nameKey = normalizeStoreName(row.store_name);
+      if (!nameKey) continue;
+      const payload: StoreMapRow = {
+        storeCode: String(row.store_code ?? "").trim(),
+        storeName: String(row.store_name ?? "").trim(),
+        carNo: String(row.car_no ?? "").trim(),
+        seqNo: Number(row.seq_no ?? 0) || 0,
+      };
+      const existing = byName.get(nameKey);
+      if (!existing) {
+        byName.set(nameKey, payload);
+      } else {
+        const existingNum = parseInt(normalizeStoreCode(existing.storeCode), 10) || 0;
+        const newNum = parseInt(normalizeStoreCode(payload.storeCode), 10) || 0;
+        if (newNum > existingNum) byName.set(nameKey, payload);
+      }
+    }
+
+    if ((data ?? []).length < pageSize) break;
     from += pageSize;
   }
 
-  return [...new Map([...index.values()].map((row) => [`${row.storeCode}__${row.storeName}`, row])).values()].sort((a, b) => {
+  return [...byName.values()].sort((a, b) => {
     const carDiff = a.carNo.localeCompare(b.carNo, "ko", { numeric: true });
     if (carDiff !== 0) return carDiff;
     const seqDiff = a.seqNo - b.seqNo;
