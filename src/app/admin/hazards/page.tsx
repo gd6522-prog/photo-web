@@ -218,7 +218,7 @@ function printHazardResolutionSheet(params: {
       .memo { border-top: 1px solid #c8c8c8; padding: 10px 12px; min-height: 60px; background: #f7f7f7; }
       .memo-label { font-size: 12px; font-weight: 900; margin-bottom: 4px; color: #374151; }
       .memo-text { font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
-      .law { border: 1px solid #c8c8c8; border-radius: 0; overflow: hidden; page-break-inside: avoid; }
+      .law { border: 1px solid #c8c8c8; border-radius: 0; overflow: hidden; page-break-inside: avoid; margin-top: 24px; }
       .law-title { background: #e0e0e0; padding: 8px 14px; font-size: 12px; font-weight: 900; color: #1f2937; border-bottom: 1px solid #c8c8c8; }
       .law-body { padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; }
       .law-item { display: flex; gap: 10px; align-items: flex-start; }
