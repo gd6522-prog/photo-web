@@ -2401,6 +2401,69 @@ export function VehiclePageScreen({
               transform-origin: top left !important;
             }
 
+            .report-print-frame table {
+              border-collapse: collapse !important;
+            }
+
+            .report-print-frame table:first-of-type td {
+              padding-top: 4px !important;
+              padding-bottom: 4px !important;
+              line-height: 1 !important;
+            }
+
+            .report-print-frame table:first-of-type td[style*="font-size: 20px"] {
+              font-size: 18px !important;
+              line-height: 1.2 !important;
+            }
+
+            .report-print-frame table:first-of-type td[style*="font-size: 18px"] {
+              font-size: 16px !important;
+            }
+
+            .report-print-frame table:first-of-type td[style*="font-size: 15px"] {
+              font-size: 14px !important;
+            }
+
+            .report-print-frame table:nth-of-type(2) thead th {
+              padding-top: 5px !important;
+              padding-bottom: 5px !important;
+              font-size: 12px !important;
+              line-height: 1.15 !important;
+            }
+
+            .report-print-frame table:nth-of-type(2) tbody tr {
+              height: 31px !important;
+              min-height: 31px !important;
+              max-height: 31px !important;
+              line-height: 1 !important;
+            }
+
+            .report-print-frame table:nth-of-type(2) tbody td {
+              height: 31px !important;
+              min-height: 31px !important;
+              max-height: 31px !important;
+              padding-top: 3px !important;
+              padding-bottom: 3px !important;
+              line-height: 1 !important;
+            }
+
+            .report-print-frame table:nth-of-type(2) tbody td[style*="font-size: 16px"] {
+              font-size: 15px !important;
+            }
+
+            .report-print-frame table:nth-of-type(2) tbody td[style*="font-size: 14px"] {
+              font-size: 13px !important;
+            }
+
+            .report-print-frame table:nth-of-type(2) tbody td[style*="font-size: 13px"] {
+              font-size: 12px !important;
+            }
+
+            .report-print-frame input,
+            .report-print-frame span {
+              line-height: 1 !important;
+            }
+
             .report-print-frame .report-section-top {
               border-top: ${REPORT_PRINT_SECTION_BORDER} !important;
               box-shadow: none !important;
