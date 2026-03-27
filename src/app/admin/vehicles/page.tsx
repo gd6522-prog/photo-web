@@ -2251,9 +2251,27 @@ export function VehiclePageScreen({
   };
 
   useEffect(() => {
-    const handleAfterPrint = () => setBatchPrintMode("");
+    const handleBeforePrint = () => {
+      let style = document.getElementById("force-print-bg") as HTMLStyleElement | null;
+      if (!style) {
+        style = document.createElement("style");
+        style.id = "force-print-bg";
+        document.head.appendChild(style);
+      }
+      style.textContent =
+        "html,body,*,*::before,*::after{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}";
+    };
+    const handleAfterPrint = () => {
+      setBatchPrintMode("");
+      const style = document.getElementById("force-print-bg");
+      if (style) style.remove();
+    };
+    window.addEventListener("beforeprint", handleBeforePrint);
     window.addEventListener("afterprint", handleAfterPrint);
-    return () => window.removeEventListener("afterprint", handleAfterPrint);
+    return () => {
+      window.removeEventListener("beforeprint", handleBeforePrint);
+      window.removeEventListener("afterprint", handleAfterPrint);
+    };
   }, []);
 
   const topCardStyle = cardStyle();
