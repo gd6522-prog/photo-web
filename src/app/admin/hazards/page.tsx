@@ -199,10 +199,10 @@ function printHazardResolutionSheet(params: {
       .sheet { width: 100%; display: flex; flex-direction: column; gap: 12px; }
       .title-row { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #cbd5e1; padding-bottom: 10px; }
       .title-row h1 { margin: 0; font-size: 22px; align-self: center; }
-      .stamp { display: flex; border: 1px solid #94a3b8; border-radius: 3px; overflow: hidden; font-size: 11px; }
-      .stamp-cell { display: flex; flex-direction: column; align-items: center; border-left: 1px solid #94a3b8; min-width: 58px; }
+      .stamp { display: flex; border: 1px solid #d1d5db; border-radius: 3px; overflow: hidden; font-size: 11px; }
+      .stamp-cell { display: flex; flex-direction: column; align-items: center; border-left: 1px solid #d1d5db; min-width: 58px; }
       .stamp-cell:first-child { border-left: none; }
-      .stamp-role { background: #f1f5f9; width: 100%; text-align: center; padding: 3px 0; font-weight: 900; color: #334155; border-bottom: 1px solid #94a3b8; }
+      .stamp-role { background: #e5e7eb; width: 100%; text-align: center; padding: 3px 0; font-weight: 900; color: #374151; border-bottom: 1px solid #d1d5db; }
       .stamp-sign { height: 44px; width: 100%; }
       .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
       .meta-box { border: 1px solid #d1d5db; border-radius: 3px; padding: 10px 12px; background: #f3f4f6; }
