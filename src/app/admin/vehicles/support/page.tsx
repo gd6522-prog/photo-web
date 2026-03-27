@@ -274,7 +274,7 @@ function DriverMessageCardHorizontal({
         {/* 기존기사 */}
         {origDriver && (
           <div style={{ background: "#fef9ec", borderRadius: 6, padding: "4px 8px", marginBottom: 6, fontSize: 10, fontWeight: 700 }}>
-            <span style={{ color: "#92400e" }}>기존기사 </span>
+            <span style={{ color: "#92400e" }}>본기사 </span>
             <strong style={{ color: "#78350f" }}>{origDriver.name}</strong>
             {origDriver.phone && <span style={{ color: "#92400e" }}> · {formatPhone(origDriver.phone)}</span>}
           </div>
@@ -386,7 +386,12 @@ export default function SupportPage() {
   const [error, setError] = useState("");
   const [copyStatus, setCopyStatus] = useState<Record<string, "copying" | "done" | "error">>({});
   // 회전 입력: rowId → round number string
-  const [roundInputs, setRoundInputs] = useState<Record<string, string>>({});
+  const [roundInputs, setRoundInputs] = useState<Record<string, string>>(() => {
+    try {
+      const saved = localStorage.getItem("support-round-inputs");
+      return saved ? (JSON.parse(saved) as Record<string, string>) : {};
+    } catch { return {}; }
+  });
 
   const storeCardRefs = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
   const driverCardRefs = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
@@ -574,7 +579,11 @@ export default function SupportPage() {
                         value={roundVal}
                         onChange={(e) => {
                           const v = e.target.value.replace(/[^\d]/g, "");
-                          setRoundInputs((prev) => ({ ...prev, [row.id]: v }));
+                          setRoundInputs((prev) => {
+                            const next = { ...prev, [row.id]: v };
+                            try { localStorage.setItem("support-round-inputs", JSON.stringify(next)); } catch {}
+                            return next;
+                          });
                         }}
                         placeholder="–"
                         inputMode="numeric"
