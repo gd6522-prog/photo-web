@@ -1833,18 +1833,19 @@ export function VehiclePageScreen({
 
   useEffect(() => {
     if (tab !== "cargo") return;
-    supabase
-      .from("profiles")
-      .select("name")
-      .ilike("work_part", "%기사%")
-      .then(({ data }) => {
+    void (async () => {
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("name")
+          .ilike("work_part", "%기사%");
         const names = (data ?? [])
           .map((r) => toText((r as Record<string, unknown>).name))
           .filter(Boolean)
           .sort((a, b) => a.localeCompare(b, "ko"));
         setAllDriverNames(names);
-      })
-      .catch(() => {});
+      } catch {}
+    })();
   }, [tab]);
 
   useEffect(() => {
