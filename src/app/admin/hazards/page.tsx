@@ -199,17 +199,17 @@ function printHazardResolutionSheet(params: {
       .sheet { width: 100%; display: flex; flex-direction: column; gap: 12px; }
       .title-row { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #cbd5e1; padding-bottom: 10px; }
       .title-row h1 { margin: 0; font-size: 22px; align-self: center; }
-      .stamp { display: flex; border: 1px solid #c8c8c8; border-radius: 3px; overflow: hidden; font-size: 11px; }
+      .stamp { display: flex; border: 1px solid #c8c8c8; border-radius: 0; overflow: hidden; font-size: 11px; }
       .stamp-cell { display: flex; flex-direction: column; align-items: center; border-left: 1px solid #c8c8c8; min-width: 58px; }
       .stamp-cell:first-child { border-left: none; }
       .stamp-role { background: #e0e0e0; width: 100%; text-align: center; padding: 3px 0; font-weight: 900; color: #374151; border-bottom: 1px solid #c8c8c8; }
       .stamp-sign { height: 44px; width: 100%; }
       .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-      .meta-box { border: 1px solid #c8c8c8; border-radius: 3px; padding: 10px 12px; background: #f2f2f2; }
+      .meta-box { border: 1px solid #c8c8c8; border-radius: 0; padding: 10px 12px; background: #f2f2f2; }
       .meta-label { font-size: 11px; font-weight: 800; color: #6b7280; margin-bottom: 4px; }
       .meta-value { font-size: 14px; font-weight: 700; color: #0f172a; white-space: pre-wrap; word-break: break-word; }
       .photos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-      .panel { border: 1px solid #c8c8c8; border-radius: 3px; overflow: hidden; background: #ffffff; }
+      .panel { border: 1px solid #c8c8c8; border-radius: 0; overflow: hidden; background: #ffffff; }
       .panel-head { padding: 10px 12px; font-size: 14px; font-weight: 900; border-bottom: 1px solid #c8c8c8; }
       .panel-head.before { background: #e0e0e0; color: #1f2937; }
       .panel-head.after { background: #e0e0e0; color: #1f2937; }
@@ -218,11 +218,11 @@ function printHazardResolutionSheet(params: {
       .memo { border-top: 1px solid #c8c8c8; padding: 10px 12px; min-height: 60px; background: #f7f7f7; }
       .memo-label { font-size: 12px; font-weight: 900; margin-bottom: 4px; color: #374151; }
       .memo-text { font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
-      .law { border: 1px solid #c8c8c8; border-radius: 3px; overflow: hidden; page-break-inside: avoid; }
+      .law { border: 1px solid #c8c8c8; border-radius: 0; overflow: hidden; page-break-inside: avoid; }
       .law-title { background: #e0e0e0; padding: 8px 14px; font-size: 12px; font-weight: 900; color: #1f2937; border-bottom: 1px solid #c8c8c8; }
       .law-body { padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; }
       .law-item { display: flex; gap: 10px; align-items: flex-start; }
-      .law-tag { flex-shrink: 0; width: 82px; text-align: center; background: #e0e0e0; color: #374151; border-radius: 3px; padding: 2px 0; font-size: 10px; font-weight: 800; white-space: nowrap; margin-top: 2px; }
+      .law-tag { flex-shrink: 0; width: 82px; text-align: center; background: #e0e0e0; color: #374151; border-radius: 0; padding: 2px 0; font-size: 10px; font-weight: 800; white-space: nowrap; margin-top: 2px; }
       .law-text { font-size: 11px; color: #374151; line-height: 1.65; }
     </style>
   </head>
@@ -733,7 +733,7 @@ export default function AdminHazardsPage() {
         style={{
           marginTop: 8,
           border: "1px solid #DDE3EA",
-          borderRadius: 16,
+          borderRadius: 0,
           background: "white",
           boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
           padding: 12,
@@ -755,7 +755,7 @@ export default function AdminHazardsPage() {
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1}
-            style={{ height: 32, padding: "0 10px", border: "1px solid #D1D5DB", borderRadius: 10, background: "white", fontWeight: 900 }}
+            style={{ height: 32, padding: "0 10px", border: "1px solid #D1D5DB", borderRadius: 0, background: "white", fontWeight: 900 }}
           >
             이전
           </button>
@@ -765,25 +765,25 @@ export default function AdminHazardsPage() {
           <button
             onClick={() => setPage((p) => Math.min(maxPage, p + 1))}
             disabled={page >= maxPage}
-            style={{ height: 32, padding: "0 10px", border: "1px solid #D1D5DB", borderRadius: 10, background: "white", fontWeight: 900 }}
+            style={{ height: 32, padding: "0 10px", border: "1px solid #D1D5DB", borderRadius: 0, background: "white", fontWeight: 900 }}
           >
             다음
           </button>
           <button
             onClick={() => loadRows(true)}
             disabled={loading}
-            style={{ height: 32, padding: "0 10px", border: "1px solid #D1D5DB", borderRadius: 10, background: "white", fontWeight: 900 }}
+            style={{ height: 32, padding: "0 10px", border: "1px solid #D1D5DB", borderRadius: 0, background: "white", fontWeight: 900 }}
           >
             {loading ? "불러오는 중..." : "조회"}
           </button>
         </div>
       </div>
 
-      {msg ? <div style={{ marginTop: 10, padding: 10, borderRadius: 10, background: "#F8FAFC", border: "1px solid #E2E8F0" }}>{msg}</div> : null}
+      {msg ? <div style={{ marginTop: 10, padding: 10, borderRadius: 0, background: "#F8FAFC", border: "1px solid #E2E8F0" }}>{msg}</div> : null}
 
       <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
         {reports.length === 0 ? (
-          <div style={{ gridColumn: "1 / -1", border: "1px solid #DDE3EA", borderRadius: 16, background: "white", padding: 14, color: "#6B7280" }}>데이터가 없습니다.</div>
+          <div style={{ gridColumn: "1 / -1", border: "1px solid #DDE3EA", borderRadius: 0, background: "white", padding: 14, color: "#6B7280" }}>데이터가 없습니다.</div>
         ) : (
           reports.map((r, idx) => {
             const res = resMap[r.id];
@@ -801,13 +801,13 @@ export default function AdminHazardsPage() {
             const eagerLoad = idx < 2;
 
             return (
-              <div key={r.id} style={{ border: "1px solid #DDE3EA", borderRadius: 14, background: "white", padding: 10, boxShadow: "0 4px 14px rgba(15,23,42,0.05)" }}>
+              <div key={r.id} style={{ border: "1px solid #DDE3EA", borderRadius: 0, background: "white", padding: 10, boxShadow: "0 4px 14px rgba(15,23,42,0.05)" }}>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 6 }}>
                   <span
                     style={{
                       fontSize: 11,
                       fontWeight: 900,
-                      borderRadius: 999,
+                      borderRadius: 4,
                       padding: "3px 7px",
                       background: status.background,
                       color: status.color,
@@ -823,7 +823,7 @@ export default function AdminHazardsPage() {
                     <button
                       onClick={() => deleteReport(r)}
                       disabled={deletingReportId === r.id}
-                      style={{ marginLeft: "auto", height: 28, padding: "0 10px", border: "1px solid #FCA5A5", borderRadius: 8, background: "#FEF2F2", color: "#B91C1C", fontWeight: 900, fontSize: 12 }}
+                      style={{ marginLeft: "auto", height: 28, padding: "0 10px", border: "1px solid #FCA5A5", borderRadius: 4, background: "#FEF2F2", color: "#B91C1C", fontWeight: 900, fontSize: 12 }}
                     >
                       {deletingReportId === r.id ? "삭제 중..." : "삭제"}
                     </button>
@@ -832,7 +832,7 @@ export default function AdminHazardsPage() {
 
                 <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 10, alignItems: "start" }}>
                   <div style={{ display: "grid", gap: 8 }}>
-                    <section style={{ border: "1px solid #E2E8F0", borderRadius: 10, background: "#FFFFFF", height: 138, boxSizing: "border-box", overflow: "hidden" }}>
+                    <section style={{ border: "1px solid #E2E8F0", borderRadius: 0, background: "#FFFFFF", height: 138, boxSizing: "border-box", overflow: "hidden" }}>
                       <button
                         onClick={() => {
                           setPreviewReportId(r.id);
@@ -844,7 +844,7 @@ export default function AdminHazardsPage() {
                         <img src={beforeThumbUrl} alt="before" loading={eagerLoad ? "eager" : "lazy"} decoding="async" fetchPriority={eagerLoad ? "high" : "auto"} style={{ width: "100%", height: "100%", objectFit: "contain", background: "#FFFFFF" }} />
                       </button>
                     </section>
-                    <section style={{ border: "1px solid #BFDBFE", borderRadius: 10, background: "#FFFFFF", height: 138, boxSizing: "border-box", overflow: "hidden" }}>
+                    <section style={{ border: "1px solid #BFDBFE", borderRadius: 0, background: "#FFFFFF", height: 138, boxSizing: "border-box", overflow: "hidden" }}>
                       {res?.after_public_url ? (
                         <button
                           onClick={() => setPreviewReportId(r.id)}
@@ -863,20 +863,20 @@ export default function AdminHazardsPage() {
 
                   <div>
                     <div style={{ display: "grid", gap: 8 }}>
-                      <section style={{ border: "1px solid #E2E8F0", borderRadius: 10, background: "#F8FAFC", padding: 10, height: 138, boxSizing: "border-box", overflow: "auto" }}>
+                      <section style={{ border: "1px solid #E2E8F0", borderRadius: 0, background: "#F8FAFC", padding: 10, height: 138, boxSizing: "border-box", overflow: "auto" }}>
                         <div style={{ fontSize: 12, fontWeight: 900, color: "#1E3A8A", marginBottom: 6 }}>개선 전 설명</div>
                         <div style={{ fontSize: 14, lineHeight: 1.55, color: "#1F2937", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{r.comment ?? "-"}</div>
                       </section>
 
                       {res?.after_public_url ? (
-                        <section style={{ border: "1px solid #BFDBFE", borderRadius: 10, background: "#EFF6FF", padding: 10, height: 138, boxSizing: "border-box", overflow: "auto" }}>
+                        <section style={{ border: "1px solid #BFDBFE", borderRadius: 0, background: "#EFF6FF", padding: 10, height: 138, boxSizing: "border-box", overflow: "auto" }}>
                           <div style={{ fontSize: 12, fontWeight: 900, color: "#1D4ED8", marginBottom: 6 }}>개선 후 설명</div>
                           <div style={{ fontSize: 14, lineHeight: 1.55, color: "#1F2937", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                             {res.after_memo ?? "개선 설명이 입력되지 않았습니다."}
                           </div>
                         </section>
                       ) : (
-                        <section style={{ border: "1px solid #E2E8F0", borderRadius: 10, background: "#F8FAFC", padding: 10 }}>
+                        <section style={{ border: "1px solid #E2E8F0", borderRadius: 0, background: "#F8FAFC", padding: 10 }}>
                           <div style={{ fontSize: 13, fontWeight: 900, color: "#0F172A", marginBottom: 8 }}>개선 등록</div>
 
                           <input
@@ -909,7 +909,7 @@ export default function AdminHazardsPage() {
                             }}
                             style={{
                               border: isDragOver ? "2px solid #2563EB" : "2px dashed #CBD5E1",
-                              borderRadius: 10,
+                              borderRadius: 0,
                               background: isDragOver ? "#EFF6FF" : "white",
                               padding: 12,
                               fontSize: 12,
@@ -939,7 +939,7 @@ export default function AdminHazardsPage() {
                                 height: 32,
                                 padding: "0 12px",
                                 border: "1px solid #CBD5E1",
-                                borderRadius: 8,
+                                borderRadius: 4,
                                 background: "white",
                                 fontSize: 12,
                                 fontWeight: 900,
@@ -955,7 +955,7 @@ export default function AdminHazardsPage() {
                               value={afterMemo}
                               onChange={(e) => setAfterMemoById((p) => ({ ...p, [r.id]: e.target.value }))}
                               placeholder="개선내용 입력 (예: 정리 완료, 안전표지 부착)"
-                              style={{ flex: 1, minWidth: 220, height: 32, padding: "0 10px", borderRadius: 8, border: "1px solid #CBD5E1", background: "white" }}
+                              style={{ flex: 1, minWidth: 220, height: 32, padding: "0 10px", borderRadius: 4, border: "1px solid #CBD5E1", background: "white" }}
                             />
                           </div>
 
@@ -965,19 +965,19 @@ export default function AdminHazardsPage() {
                               value={plannedDueDate}
                               min={todayYMD()}
                               onChange={(e) => setPlannedDueDateById((p) => ({ ...p, [r.id]: e.target.value }))}
-                              style={{ height: 32, padding: "0 10px", borderRadius: 8, border: "1px solid #CBD5E1", background: "white", color: "#0F172A" }}
+                              style={{ height: 32, padding: "0 10px", borderRadius: 4, border: "1px solid #CBD5E1", background: "white", color: "#0F172A" }}
                             />
                             <button
                               onClick={() => savePlannedDueDate(r)}
                               disabled={savingAfterId === r.id}
-                              style={{ height: 32, padding: "0 12px", border: "1px solid #F59E0B", borderRadius: 8, background: "#FFF7ED", color: "#B45309", fontWeight: 900 }}
+                              style={{ height: 32, padding: "0 12px", border: "1px solid #F59E0B", borderRadius: 4, background: "#FFF7ED", color: "#B45309", fontWeight: 900 }}
                             >
                               {savingAfterId === r.id ? "저장 중..." : "처리대기 저장"}
                             </button>
                             <button
                               onClick={() => uploadAfter(r)}
                               disabled={savingAfterId === r.id}
-                              style={{ height: 32, padding: "0 12px", border: "1px solid #111827", borderRadius: 8, background: "white", fontWeight: 900 }}
+                              style={{ height: 32, padding: "0 12px", border: "1px solid #111827", borderRadius: 4, background: "white", fontWeight: 900 }}
                             >
                               {savingAfterId === r.id ? "업로드 중..." : "처리완료 등록"}
                             </button>
@@ -1020,7 +1020,7 @@ export default function AdminHazardsPage() {
               overflow: "auto",
               position: "relative",
               background: "white",
-              borderRadius: 16,
+              borderRadius: 0,
               border: "1px solid #DDE3EA",
               boxShadow: "0 30px 60px rgba(2,6,23,0.35)",
             }}
@@ -1034,7 +1034,7 @@ export default function AdminHazardsPage() {
                   transform: "translate(-50%, -50%)",
                   zIndex: 10050,
                   padding: "12px 18px",
-                  borderRadius: 999,
+                  borderRadius: 4,
                   background: toastTone === "success" ? "rgba(15,23,42,0.86)" : "rgba(127,29,29,0.92)",
                   color: "#fff",
                   fontSize: 14,
@@ -1076,7 +1076,7 @@ export default function AdminHazardsPage() {
                         toast(normalizeActionError(e, "출력에 실패했습니다."), "error");
                       }
                     }}
-                    style={{ height: 32, padding: "0 12px", borderRadius: 10, border: "1px solid #1D4ED8", background: "#EFF6FF", color: "#1D4ED8", cursor: "pointer", fontSize: 12, fontWeight: 900 }}
+                    style={{ height: 32, padding: "0 12px", borderRadius: 0, border: "1px solid #1D4ED8", background: "#EFF6FF", color: "#1D4ED8", cursor: "pointer", fontSize: 12, fontWeight: 900 }}
                   >
                     출력
                   </button>
@@ -1086,7 +1086,7 @@ export default function AdminHazardsPage() {
                     setPreviewReportId(null);
                     setPreviewBeforePhotoPath(null);
                   }}
-                  style={{ width: 30, height: 30, borderRadius: 999, border: "1px solid #CBD5E1", background: "white", cursor: "pointer", fontWeight: 900 }}
+                  style={{ width: 30, height: 30, borderRadius: 4, border: "1px solid #CBD5E1", background: "white", cursor: "pointer", fontWeight: 900 }}
                 >
                   ×
                 </button>
@@ -1094,7 +1094,7 @@ export default function AdminHazardsPage() {
             </div>
 
             <div style={{ padding: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <section style={{ border: "1px solid #E2E8F0", borderRadius: 12, overflow: "hidden", background: "#FCFDFE" }}>
+              <section style={{ border: "1px solid #E2E8F0", borderRadius: 0, overflow: "hidden", background: "#FCFDFE" }}>
                 <div style={{ padding: "10px 12px", borderBottom: "1px solid #E2E8F0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                   <div style={{ fontWeight: 900, color: "#0F172A" }}>개선 전 (위험제보 {previewBeforePhotos.length}장)</div>
                   <div style={{ display: "flex", gap: 6 }}>
@@ -1107,7 +1107,7 @@ export default function AdminHazardsPage() {
                           toast(normalizeActionError(e, "다운로드에 실패했습니다."), "error");
                         }
                       }}
-                      style={{ height: 28, padding: "0 9px", borderRadius: 8, border: "1px solid #CBD5E1", background: "white", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
+                      style={{ height: 28, padding: "0 9px", borderRadius: 4, border: "1px solid #CBD5E1", background: "white", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
                     >
                       다운로드
                     </button>
@@ -1121,14 +1121,14 @@ export default function AdminHazardsPage() {
                           toast(normalizeActionError(e, "복사에 실패했습니다."), "error");
                         }
                       }}
-                      style={{ height: 28, padding: "0 9px", borderRadius: 8, border: "1px solid #CBD5E1", background: "white", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
+                      style={{ height: 28, padding: "0 9px", borderRadius: 4, border: "1px solid #CBD5E1", background: "white", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
                     >
                       복사
                     </button>
                   </div>
                 </div>
                 <div style={{ padding: 12 }}>
-                  <img src={previewBeforeImageUrl} alt="hazard-before" loading="eager" decoding="async" fetchPriority="high" style={{ width: "100%", maxHeight: 420, objectFit: "contain", borderRadius: 10, border: "1px solid #E5E7EB", background: "white" }} />
+                  <img src={previewBeforeImageUrl} alt="hazard-before" loading="eager" decoding="async" fetchPriority="high" style={{ width: "100%", maxHeight: 420, objectFit: "contain", borderRadius: 0, border: "1px solid #E5E7EB", background: "white" }} />
                   {previewBeforePhotos.length > 1 ? (
                     <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
                       {previewBeforePhotos.map((photo, idx) => (
@@ -1138,7 +1138,7 @@ export default function AdminHazardsPage() {
                           style={{
                             width: 72,
                             height: 72,
-                            borderRadius: 10,
+                            borderRadius: 0,
                             overflow: "hidden",
                             border: photo.path === selectedPreviewBeforePhoto?.path ? "3px solid #1D4ED8" : "1px solid #CBD5E1",
                             background: "#fff",
@@ -1154,14 +1154,14 @@ export default function AdminHazardsPage() {
                       ))}
                     </div>
                   ) : null}
-                  <div style={{ marginTop: 10, border: "1px solid #E2E8F0", borderRadius: 10, background: "white", padding: 12 }}>
+                  <div style={{ marginTop: 10, border: "1px solid #E2E8F0", borderRadius: 0, background: "white", padding: 12 }}>
                     <div style={{ fontSize: 12, fontWeight: 900, color: "#1E3A8A", marginBottom: 6 }}>개선 전 설명</div>
                     <div style={{ fontSize: 15, lineHeight: 1.6, color: "#1F2937", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{previewReport.comment || "-"}</div>
                   </div>
                 </div>
               </section>
 
-              <section style={{ border: "1px solid #E2E8F0", borderRadius: 12, overflow: "hidden", background: "#FCFDFE" }}>
+              <section style={{ border: "1px solid #E2E8F0", borderRadius: 0, overflow: "hidden", background: "#FCFDFE" }}>
                 <div style={{ padding: "10px 12px", borderBottom: "1px solid #E2E8F0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                   <div style={{ fontWeight: 900, color: "#0F172A" }}>
                     개선 후
@@ -1187,7 +1187,7 @@ export default function AdminHazardsPage() {
                       style={{
                         height: 28,
                         padding: "0 9px",
-                        borderRadius: 8,
+                        borderRadius: 4,
                         border: "1px solid #CBD5E1",
                         background: previewResolution?.after_public_url ? "white" : "#F3F4F6",
                         color: previewResolution?.after_public_url ? "#111827" : "#9CA3AF",
@@ -1212,7 +1212,7 @@ export default function AdminHazardsPage() {
                       style={{
                         height: 28,
                         padding: "0 9px",
-                        borderRadius: 8,
+                        borderRadius: 4,
                         border: "1px solid #CBD5E1",
                         background: previewResolution?.after_public_url ? "white" : "#F3F4F6",
                         color: previewResolution?.after_public_url ? "#111827" : "#9CA3AF",
@@ -1233,14 +1233,14 @@ export default function AdminHazardsPage() {
                       loading="eager"
                       decoding="async"
                       fetchPriority="high"
-                      style={{ width: "100%", maxHeight: 420, objectFit: "contain", borderRadius: 10, border: "1px solid #E5E7EB", background: "white" }}
+                      style={{ width: "100%", maxHeight: 420, objectFit: "contain", borderRadius: 0, border: "1px solid #E5E7EB", background: "white" }}
                     />
                   ) : (
-                    <div style={{ height: 260, border: "1px dashed #CBD5E1", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", color: "#64748B", fontSize: 13 }}>
+                    <div style={{ height: 260, border: "1px dashed #CBD5E1", borderRadius: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#64748B", fontSize: 13 }}>
                       아직 개선사진이 등록되지 않았습니다.
                     </div>
                   )}
-                  <div style={{ marginTop: 10, border: "1px solid #BFDBFE", borderRadius: 10, background: "#EFF6FF", padding: 12 }}>
+                  <div style={{ marginTop: 10, border: "1px solid #BFDBFE", borderRadius: 0, background: "#EFF6FF", padding: 12 }}>
                     <div style={{ fontSize: 12, fontWeight: 900, color: "#1D4ED8", marginBottom: 6 }}>개선 후 설명</div>
                     <div style={{ fontSize: 15, lineHeight: 1.6, color: "#1F2937", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                       {previewResolution?.after_memo || "개선 설명이 입력되지 않았습니다."}

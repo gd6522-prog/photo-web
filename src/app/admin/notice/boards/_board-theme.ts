@@ -19,7 +19,7 @@ export const boardHeroAccentStyle: CSSProperties = {
   inset: "auto -60px -90px auto",
   width: 220,
   height: 220,
-  borderRadius: 999,
+  borderRadius: 4,
   background: "radial-gradient(circle at center, rgba(15,118,110,0.22) 0%, rgba(15,118,110,0.08) 42%, rgba(15,118,110,0) 72%)",
   pointerEvents: "none",
 };
@@ -48,7 +48,7 @@ export const boardSectionSubtleStyle: CSSProperties = {
 export const boardPrimaryButtonStyle: CSSProperties = {
   height: 42,
   padding: "0 16px",
-  borderRadius: 12,
+  borderRadius: 0,
   border: "1px solid #0e7490",
   background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
   color: "#ffffff",
@@ -64,7 +64,7 @@ export const boardPrimaryButtonStyle: CSSProperties = {
 export const boardGhostButtonStyle: CSSProperties = {
   height: 42,
   padding: "0 16px",
-  borderRadius: 12,
+  borderRadius: 0,
   border: "1px solid #c4d5e3",
   background: "#ffffff",
   color: "#103b53",
@@ -79,7 +79,7 @@ export const boardGhostButtonStyle: CSSProperties = {
 export const boardDangerButtonStyle: CSSProperties = {
   height: 42,
   padding: "0 16px",
-  borderRadius: 12,
+  borderRadius: 0,
   border: "1px solid #f5b7b7",
   background: "#fff5f5",
   color: "#b42318",
@@ -94,7 +94,7 @@ export const boardDangerButtonStyle: CSSProperties = {
 export const boardInputStyle: CSSProperties = {
   width: "100%",
   height: 44,
-  borderRadius: 12,
+  borderRadius: 0,
   border: "1px solid #c4d5e3",
   padding: "0 14px",
   background: "#ffffff",
@@ -106,7 +106,7 @@ export const boardInputStyle: CSSProperties = {
 
 export const boardTextareaStyle: CSSProperties = {
   width: "100%",
-  borderRadius: 16,
+  borderRadius: 0,
   border: "1px solid #c4d5e3",
   padding: 16,
   background: "#ffffff",

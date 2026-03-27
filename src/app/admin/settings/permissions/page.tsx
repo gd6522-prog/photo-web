@@ -216,7 +216,7 @@ export default function PermissionsPage() {
   };
 
   return (
-    <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 16, padding: 16 }}>
+    <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 0, padding: 16 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <div>
           <div style={{ fontWeight: 950, fontSize: 18 }}>일반관리자 메뉴 권한 설정</div>
@@ -231,7 +231,7 @@ export default function PermissionsPage() {
           style={{
             height: 38,
             padding: "0 12px",
-            borderRadius: 12,
+            borderRadius: 0,
             border: "1px solid #111827",
             background: syncing ? "#CBD5E1" : "#111827",
             color: "white",
@@ -271,7 +271,7 @@ export default function PermissionsPage() {
                   gap: 10,
                   padding: 12,
                   border: "1px solid #E5E7EB",
-                  borderRadius: 12,
+                  borderRadius: 0,
                   alignItems: "center",
                 }}
               >
@@ -283,7 +283,7 @@ export default function PermissionsPage() {
                   disabled={savingKey === r.menu_key}
                   style={{
                     height: 38,
-                    borderRadius: 10,
+                    borderRadius: 0,
                     border: "1px solid #D1D5DB",
                     padding: "0 10px",
                     fontWeight: 900,

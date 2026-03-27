@@ -371,14 +371,14 @@ export default function AdminNoticeCalendarPage() {
 
       <div style={{ marginTop: 14, display: "flex", justifyContent: "center" }}>
         <div style={{ width: 980, maxWidth: "96vw", display: "grid", gridTemplateColumns: "360px 1fr", gap: 14 }}>
-          <div style={{ border: "1px solid #E5E7EB", borderRadius: 14, background: "white", overflow: "hidden" }}>
+          <div style={{ border: "1px solid #E5E7EB", borderRadius: 0, background: "white", overflow: "hidden" }}>
             <div style={{ padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #E5E7EB" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <div style={{ fontWeight: 900, fontSize: 15 }}>{monthLabel}</div>
-                <button onClick={goPrev} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid #E5E7EB", background: "white", cursor: "pointer", fontWeight: 900, lineHeight: 1 }} aria-label="prev">{"<"}</button>
-                <button onClick={goNext} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid #E5E7EB", background: "white", cursor: "pointer", fontWeight: 900, lineHeight: 1 }} aria-label="next">{">"}</button>
+                <button onClick={goPrev} style={{ width: 28, height: 28, borderRadius: 4, border: "1px solid #E5E7EB", background: "white", cursor: "pointer", fontWeight: 900, lineHeight: 1 }} aria-label="prev">{"<"}</button>
+                <button onClick={goNext} style={{ width: 28, height: 28, borderRadius: 4, border: "1px solid #E5E7EB", background: "white", cursor: "pointer", fontWeight: 900, lineHeight: 1 }} aria-label="next">{">"}</button>
               </div>
-              <button onClick={goToday} style={{ height: 28, padding: "0 10px", borderRadius: 8, border: "1px solid #E5E7EB", background: "white", cursor: "pointer", fontWeight: 900, fontSize: 12 }}>오늘</button>
+              <button onClick={goToday} style={{ height: 28, padding: "0 10px", borderRadius: 4, border: "1px solid #E5E7EB", background: "white", cursor: "pointer", fontWeight: 900, fontSize: 12 }}>오늘</button>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", padding: "6px 8px", borderBottom: "1px solid #F3F4F6" }}>
@@ -405,10 +405,10 @@ export default function AdminNoticeCalendarPage() {
 
                   return (
                     <button key={idx} disabled={c.day == null} onClick={() => c.ymd && setSelectedYMD(c.ymd)} style={{ height: 34, border: "none", background: "transparent", cursor: c.day != null ? "pointer" : "default", padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <div style={{ width: 30, height: 30, borderRadius: 999, background: isSelected ? "#111827" : "transparent", color: textColor, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 12, position: "relative", border: c.isToday && !isSelected ? "1px solid #CBD5E1" : "1px solid transparent" }}>
+                      <div style={{ width: 30, height: 30, borderRadius: 4, background: isSelected ? "#111827" : "transparent", color: textColor, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 12, position: "relative", border: c.isToday && !isSelected ? "1px solid #CBD5E1" : "1px solid transparent" }}>
                         {c.day ?? ""}
                         {count > 0 && (
-                          <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 999, background: isSelected ? "white" : badgeBg, color: mixedBadge ? "#6B7280" : CALENDAR_EVENT_TYPE_BADGE[dominantType].text, border: `1px solid ${badgeBorder}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, lineHeight: 1 }}>
+                          <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 4, background: isSelected ? "white" : badgeBg, color: mixedBadge ? "#6B7280" : CALENDAR_EVENT_TYPE_BADGE[dominantType].text, border: `1px solid ${badgeBorder}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, lineHeight: 1 }}>
                             {badgeText}
                           </span>
                         )}
@@ -420,7 +420,7 @@ export default function AdminNoticeCalendarPage() {
             </div>
           </div>
 
-          <div style={{ border: "1px solid #E5E7EB", borderRadius: 14, background: "white", overflow: "hidden" }}>
+          <div style={{ border: "1px solid #E5E7EB", borderRadius: 0, background: "white", overflow: "hidden" }}>
             <div style={{ padding: "12px 12px", borderBottom: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", gap: 10 }}>
               <div>
                 <div style={{ fontWeight: 900, fontSize: 15 }}>일정</div>
@@ -429,7 +429,7 @@ export default function AdminNoticeCalendarPage() {
               </div>
 
               {isAdmin ? (
-                <button onClick={openCreate} style={{ height: 34, padding: "0 12px", borderRadius: 10, border: "1px solid #111827", background: "#111827", color: "white", fontWeight: 900, cursor: "pointer", whiteSpace: "nowrap" }}>
+                <button onClick={openCreate} style={{ height: 34, padding: "0 12px", borderRadius: 0, border: "1px solid #111827", background: "#111827", color: "white", fontWeight: 900, cursor: "pointer", whiteSpace: "nowrap" }}>
                   일정 등록
                 </button>
               ) : null}
@@ -443,14 +443,14 @@ export default function AdminNoticeCalendarPage() {
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {selectedEvents.map((e) => (
-                    <div key={e.id} style={{ border: "1px solid #E5E7EB", borderRadius: 12, padding: 12, background: "white" }}>
+                    <div key={e.id} style={{ border: "1px solid #E5E7EB", borderRadius: 0, padding: 12, background: "white" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                             <span
                               style={{
                                 padding: "3px 8px",
-                                borderRadius: 999,
+                                borderRadius: 4,
                                 fontSize: 11,
                                 fontWeight: 900,
                                 background: CALENDAR_EVENT_TYPE_BADGE[e.event_type].bg,
@@ -466,8 +466,8 @@ export default function AdminNoticeCalendarPage() {
                         </div>
                         {isAdmin ? (
                           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                            <button onClick={() => openEdit(e)} style={{ height: 32, padding: "0 10px", borderRadius: 10, border: "1px solid #E5E7EB", background: "white", fontWeight: 900, cursor: "pointer" }}>수정</button>
-                            <button onClick={() => deleteEvent(e)} style={{ height: 32, padding: "0 10px", borderRadius: 10, border: "1px solid #EF4444", background: "#FEE2E2", color: "#EF4444", fontWeight: 900, cursor: "pointer" }}>삭제</button>
+                            <button onClick={() => openEdit(e)} style={{ height: 32, padding: "0 10px", borderRadius: 0, border: "1px solid #E5E7EB", background: "white", fontWeight: 900, cursor: "pointer" }}>수정</button>
+                            <button onClick={() => deleteEvent(e)} style={{ height: 32, padding: "0 10px", borderRadius: 0, border: "1px solid #EF4444", background: "#FEE2E2", color: "#EF4444", fontWeight: 900, cursor: "pointer" }}>삭제</button>
                           </div>
                         ) : null}
                       </div>
@@ -482,20 +482,20 @@ export default function AdminNoticeCalendarPage() {
 
       {modalOpen && (
         <div onClick={closeModal} style={{ position: "fixed", inset: 0, background: "rgba(17, 24, 39, 0.55)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: "min(520px, 96vw)", background: "white", borderRadius: 14, border: "1px solid #E5E7EB", overflow: "hidden" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: "min(520px, 96vw)", background: "white", borderRadius: 0, border: "1px solid #E5E7EB", overflow: "hidden" }}>
             <div style={{ padding: "12px 14px", borderBottom: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ fontWeight: 900 }}>{editing ? "일정 수정" : "일정 등록"}</div>
-              <button onClick={closeModal} style={{ width: 34, height: 34, borderRadius: 10, border: "1px solid #E5E7EB", background: "white", fontWeight: 900, cursor: "pointer" }} aria-label="close">X</button>
+              <button onClick={closeModal} style={{ width: 34, height: 34, borderRadius: 0, border: "1px solid #E5E7EB", background: "white", fontWeight: 900, cursor: "pointer" }} aria-label="close">X</button>
             </div>
 
             <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 900, color: "#374151", marginBottom: 6 }}>날짜</div>
-                <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} style={{ width: "100%", height: 40, borderRadius: 12, border: "1px solid #E5E7EB", padding: "0 12px", fontWeight: 800, outline: "none" }} />
+                <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} style={{ width: "100%", height: 40, borderRadius: 0, border: "1px solid #E5E7EB", padding: "0 12px", fontWeight: 800, outline: "none" }} />
               </div>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 900, color: "#374151", marginBottom: 6 }}>제목</div>
-                <input value={formTitle} onChange={(e) => setFormTitle(e.target.value)} placeholder="센터 업무 / 회의 / 입고" style={{ width: "100%", height: 40, borderRadius: 12, border: "1px solid #E5E7EB", padding: "0 12px", fontWeight: 800, outline: "none" }} />
+                <input value={formTitle} onChange={(e) => setFormTitle(e.target.value)} placeholder="센터 업무 / 회의 / 입고" style={{ width: "100%", height: 40, borderRadius: 0, border: "1px solid #E5E7EB", padding: "0 12px", fontWeight: 800, outline: "none" }} />
               </div>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 900, color: "#374151", marginBottom: 8 }}>일정 유형</div>
@@ -511,7 +511,7 @@ export default function AdminNoticeCalendarPage() {
                         style={{
                           height: 34,
                           padding: "0 12px",
-                          borderRadius: 999,
+                          borderRadius: 4,
                           border: `1px solid ${tone.border}`,
                           background: active ? tone.bg : "white",
                           color: active ? tone.text : tone.border,
@@ -527,13 +527,13 @@ export default function AdminNoticeCalendarPage() {
               </div>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 900, color: "#374151", marginBottom: 6 }}>메모</div>
-                <textarea value={formMemo} onChange={(e) => setFormMemo(e.target.value)} rows={5} style={{ width: "100%", borderRadius: 12, border: "1px solid #E5E7EB", padding: "10px 12px", fontWeight: 700, outline: "none", resize: "vertical" }} />
+                <textarea value={formMemo} onChange={(e) => setFormMemo(e.target.value)} rows={5} style={{ width: "100%", borderRadius: 0, border: "1px solid #E5E7EB", padding: "10px 12px", fontWeight: 700, outline: "none", resize: "vertical" }} />
               </div>
             </div>
 
             <div style={{ padding: 14, borderTop: "1px solid #E5E7EB", display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button onClick={closeModal} style={{ height: 40, padding: "0 14px", borderRadius: 12, border: "1px solid #E5E7EB", background: "white", fontWeight: 900, cursor: "pointer" }}>취소</button>
-              <button onClick={saveEvent} disabled={loading} style={{ height: 40, padding: "0 14px", borderRadius: 12, border: "1px solid #111827", background: loading ? "#CBD5E1" : "#111827", color: "white", fontWeight: 900, cursor: loading ? "not-allowed" : "pointer" }}>{editing ? "수정 저장" : "등록"}</button>
+              <button onClick={closeModal} style={{ height: 40, padding: "0 14px", borderRadius: 0, border: "1px solid #E5E7EB", background: "white", fontWeight: 900, cursor: "pointer" }}>취소</button>
+              <button onClick={saveEvent} disabled={loading} style={{ height: 40, padding: "0 14px", borderRadius: 0, border: "1px solid #111827", background: loading ? "#CBD5E1" : "#111827", color: "white", fontWeight: 900, cursor: loading ? "not-allowed" : "pointer" }}>{editing ? "수정 저장" : "등록"}</button>
             </div>
           </div>
         </div>

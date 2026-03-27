@@ -218,7 +218,7 @@ export default function StoreMasterPage() {
         <b>점포코드 중복이 있으면 반영이 막히고 오류로 표시됩니다.</b>
       </p>
 
-      <div style={{ marginTop: 16, border: "1px solid #E5E7EB", borderRadius: 12, padding: 12 }}>
+      <div style={{ marginTop: 16, border: "1px solid #E5E7EB", borderRadius: 0, padding: 12 }}>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <input
             type="file"
@@ -234,7 +234,7 @@ export default function StoreMasterPage() {
         </div>
 
         {duplicates.length > 0 && (
-          <div style={{ marginTop: 10, background: "#FEF2F2", border: "1px solid #FCA5A5", padding: 10, borderRadius: 10 }}>
+          <div style={{ marginTop: 10, background: "#FEF2F2", border: "1px solid #FCA5A5", padding: 10, borderRadius: 0 }}>
             <div style={{ fontWeight: 900, color: "#B91C1C" }}>중복 점포코드 목록(일부)</div>
             <div style={{ marginTop: 6, color: "#B91C1C" }}>
               {duplicates.slice(0, 50).join(", ")}
@@ -253,7 +253,7 @@ export default function StoreMasterPage() {
             marginTop: 12,
             height: 40,
             padding: "0 14px",
-            borderRadius: 10,
+            borderRadius: 0,
             border: "1px solid #111827",
             background: duplicates.length > 0 ? "#E5E7EB" : "#111827",
             color: "#fff",
@@ -267,7 +267,7 @@ export default function StoreMasterPage() {
 
       <div style={{ marginTop: 16 }}>
         <h3 style={{ fontWeight: 900, fontSize: 16 }}>미리보기 (상위 200건)</h3>
-        <div style={{ overflow: "auto", border: "1px solid #E5E7EB", borderRadius: 12 }}>
+        <div style={{ overflow: "auto", border: "1px solid #E5E7EB", borderRadius: 0 }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#F9FAFB" }}>

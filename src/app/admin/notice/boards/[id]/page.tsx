@@ -103,11 +103,11 @@ export default function BoardDetailPage() {
         <div style={{ padding: "18px 22px", borderBottom: "1px solid #d9e6ef", display: "flex", justifyContent: "space-between", gap: 14, flexWrap: "wrap", alignItems: "flex-start" }}>
           <div style={{ minWidth: 0, display: "grid", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ padding: "5px 10px", borderRadius: 999, background: board.tone.bg, color: board.tone.text, border: `1px solid ${board.tone.border}`, fontSize: 12, fontWeight: 900 }}>
+              <span style={{ padding: "5px 10px", borderRadius: 4, background: board.tone.bg, color: board.tone.text, border: `1px solid ${board.tone.border}`, fontSize: 12, fontWeight: 900 }}>
                 {board.label}
               </span>
               {item.is_pinned ? (
-                <span style={{ padding: "5px 10px", borderRadius: 999, border: "1px solid #8dd3cc", background: "#ecfdf5", color: "#0f766e", fontSize: 12, fontWeight: 900 }}>
+                <span style={{ padding: "5px 10px", borderRadius: 4, border: "1px solid #8dd3cc", background: "#ecfdf5", color: "#0f766e", fontSize: 12, fontWeight: 900 }}>
                   상단 고정
                 </span>
               ) : null}
@@ -148,7 +148,7 @@ export default function BoardDetailPage() {
             style={{
               minHeight: 380,
               border: "1px solid #e3ebf2",
-              borderRadius: 14,
+              borderRadius: 0,
               background: "#ffffff",
               padding: "28px 26px",
               color: "#223f52",
@@ -220,7 +220,7 @@ export default function BoardDetailPage() {
           width: 100%;
           max-width: 100%;
           height: auto;
-          border-radius: 14px;
+          border-radius: 0;
           border: 1px solid #d9e6ef;
           background: #fff;
         }

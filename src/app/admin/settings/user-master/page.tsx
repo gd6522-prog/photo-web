@@ -142,7 +142,7 @@ function isWorkingNow(today: { inAt: string | null; outAt: string | null } | und
 
 const panelStyle: React.CSSProperties = {
   padding: 14,
-  borderRadius: 14,
+  borderRadius: 0,
   border: "1px solid #E2E8F0",
   background: "white",
   boxShadow: "0 8px 20px rgba(15,23,42,0.04)",
@@ -153,7 +153,7 @@ function inputStyle(disabled?: boolean): React.CSSProperties {
     width: "100%",
     height: 40,
     padding: "0 12px",
-    borderRadius: 10,
+    borderRadius: 0,
     border: "1px solid #D7DCE2",
     background: disabled ? "#F3F4F6" : "white",
     fontSize: 13,
@@ -165,7 +165,7 @@ function buttonStyle(disabled?: boolean, dark?: boolean): React.CSSProperties {
   return {
     height: 38,
     padding: "0 14px",
-    borderRadius: 10,
+    borderRadius: 0,
     border: dark ? "1px solid #111827" : "1px solid #D7DCE2",
     background: dark ? "#0F172A" : "white",
     color: dark ? "white" : "#111827",
@@ -183,7 +183,7 @@ function fieldLabelStyle(): React.CSSProperties {
 function sectionStyle(): React.CSSProperties {
   return {
     border: "1px solid #E2E8F0",
-    borderRadius: 12,
+    borderRadius: 0,
     padding: 12,
     background: "#FCFDFE",
   };
@@ -591,7 +591,7 @@ export default function UserMasterPage() {
       </div>
 
       {err && (
-        <div style={{ marginTop: 12, padding: 12, borderRadius: 10, background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: 13, fontWeight: 700 }}>
+        <div style={{ marginTop: 12, padding: 12, borderRadius: 0, background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: 13, fontWeight: 700 }}>
           {err}
         </div>
       )}
@@ -643,19 +643,19 @@ export default function UserMasterPage() {
                     <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>{tenurePretty(tenureValue)}</td>
                     <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>
                       {!approved ? (
-                        <select value={ap} onChange={(e) => updateApprovalInline(r.id, e.target.value as "pending" | "approved" | "rejected")} style={{ height: 32, padding: "0 10px", borderRadius: 8, border: "1px solid #D7DCE2", fontWeight: 700 }}>
+                        <select value={ap} onChange={(e) => updateApprovalInline(r.id, e.target.value as "pending" | "approved" | "rejected")} style={{ height: 32, padding: "0 10px", borderRadius: 4, border: "1px solid #D7DCE2", fontWeight: 700 }}>
                           <option value="pending">확인대기</option>
                           <option value="approved">승인</option>
                           <option value="rejected">반려</option>
                         </select>
                       ) : working ? (
-                        <span style={{ padding: "5px 10px", borderRadius: 999, border: "1px solid #FDBA74", background: "#FFF7ED", color: "#9A3412", fontWeight: 800, fontSize: 12 }}>근무중</span>
+                        <span style={{ padding: "5px 10px", borderRadius: 4, border: "1px solid #FDBA74", background: "#FFF7ED", color: "#9A3412", fontWeight: 800, fontSize: 12 }}>근무중</span>
                       ) : (
                         "-"
                       )}
                     </td>
                     <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>
-                      <button onClick={() => openEdit(r)} style={{ height: 32, padding: "0 12px", borderRadius: 8, border: "1px solid #CBD5E1", background: "white", fontWeight: 800, cursor: "pointer" }}>
+                      <button onClick={() => openEdit(r)} style={{ height: 32, padding: "0 12px", borderRadius: 4, border: "1px solid #CBD5E1", background: "white", fontWeight: 800, cursor: "pointer" }}>
                         수정
                       </button>
                     </td>
@@ -674,13 +674,13 @@ export default function UserMasterPage() {
           }}
           style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.42)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 9999 }}
         >
-          <div style={{ width: "100%", maxWidth: 860, maxHeight: "88vh", display: "flex", flexDirection: "column", background: "white", borderRadius: 18, overflow: "hidden", boxShadow: "0 30px 60px rgba(2,6,23,0.25)" }}>
+          <div style={{ width: "100%", maxWidth: 860, maxHeight: "88vh", display: "flex", flexDirection: "column", background: "white", borderRadius: 0, overflow: "hidden", boxShadow: "0 30px 60px rgba(2,6,23,0.25)" }}>
             <div style={{ padding: "16px 18px", borderBottom: "1px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%)" }}>
               <div>
                 <div style={{ fontWeight: 900, fontSize: 17 }}>사용자 수정</div>
                 <div style={{ marginTop: 3, fontSize: 12, color: "#64748B" }}>{selected.name ?? "-"} / {selected.company_name ?? "-"}</div>
               </div>
-              <button onClick={closeEdit} style={{ width: 32, height: 32, borderRadius: 999, border: "1px solid #CBD5E1", background: "white", fontSize: 18, lineHeight: 1, cursor: "pointer", color: "#64748B" }}>
+              <button onClick={closeEdit} style={{ width: 32, height: 32, borderRadius: 4, border: "1px solid #CBD5E1", background: "white", fontSize: 18, lineHeight: 1, cursor: "pointer", color: "#64748B" }}>
                 ×
               </button>
             </div>
@@ -746,10 +746,10 @@ export default function UserMasterPage() {
                 </div>
 
                 <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <div style={{ border: "1px solid #DDE3EA", borderRadius: 999, padding: "6px 12px", fontSize: 12, fontWeight: 700, color: "#334155", background: "#FFFFFF" }}>
+                  <div style={{ border: "1px solid #DDE3EA", borderRadius: 4, padding: "6px 12px", fontSize: 12, fontWeight: 700, color: "#334155", background: "#FFFFFF" }}>
                     나이: {age == null ? "-" : `${age}세`}
                   </div>
-                  <div style={{ border: "1px solid #DDE3EA", borderRadius: 999, padding: "6px 12px", fontSize: 12, fontWeight: 700, color: "#334155", background: "#FFFFFF" }}>
+                  <div style={{ border: "1px solid #DDE3EA", borderRadius: 4, padding: "6px 12px", fontSize: 12, fontWeight: 700, color: "#334155", background: "#FFFFFF" }}>
                     근속: {tenureText}
                   </div>
                 </div>

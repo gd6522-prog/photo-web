@@ -40,7 +40,7 @@ const VEHICLE_OPTIONS = ["1.5T", "2.5T", "3.5T"] as const;
 
 const panelStyle: React.CSSProperties = {
   padding: 14,
-  borderRadius: 16,
+  borderRadius: 0,
   border: "1px solid #E2E8F0",
   background: "white",
   boxShadow: "0 12px 30px rgba(15, 23, 42, 0.06)",
@@ -129,7 +129,7 @@ function inputStyle(disabled?: boolean): React.CSSProperties {
   return {
     width: "100%",
     padding: "10px 12px",
-    borderRadius: 12,
+    borderRadius: 0,
     border: "1px solid rgba(0,0,0,0.15)",
     background: disabled ? "rgba(0,0,0,0.03)" : "white",
     outline: "none",
@@ -140,7 +140,7 @@ function buttonStyle(disabled?: boolean, dark?: boolean): React.CSSProperties {
   return {
     height: 40,
     padding: "0 14px",
-    borderRadius: 12,
+    borderRadius: 0,
     border: "1px solid rgba(0,0,0,0.15)",
     background: dark ? "black" : "white",
     color: dark ? "white" : "black",
@@ -172,7 +172,7 @@ function approvalBadgeStyle(status: "pending" | "approved" | "rejected"): React.
       minWidth: 72,
       height: 34,
       padding: "0 12px",
-      borderRadius: 999,
+      borderRadius: 4,
       border: "1px solid rgba(34,197,94,0.28)",
       background: "rgba(34,197,94,0.12)",
       color: "#166534",
@@ -189,7 +189,7 @@ function approvalBadgeStyle(status: "pending" | "approved" | "rejected"): React.
       minWidth: 72,
       height: 34,
       padding: "0 12px",
-      borderRadius: 999,
+      borderRadius: 4,
       border: "1px solid rgba(239,68,68,0.24)",
       background: "rgba(239,68,68,0.10)",
       color: "#b91c1c",
@@ -205,7 +205,7 @@ function approvalBadgeStyle(status: "pending" | "approved" | "rejected"): React.
     minWidth: 72,
     height: 34,
     padding: "0 12px",
-    borderRadius: 999,
+    borderRadius: 4,
     border: "1px solid rgba(245,158,11,0.26)",
     background: "rgba(245,158,11,0.10)",
     color: "#b45309",
@@ -655,7 +655,7 @@ export default function DriverMasterPage() {
         style={{
           marginTop: 10,
           padding: 12,
-          borderRadius: 14,
+          borderRadius: 0,
           border: "1px solid rgba(0,0,0,0.08)",
           background: selectedCount > 0 ? "#FFF7ED" : "white",
           display: "flex",
@@ -709,7 +709,7 @@ export default function DriverMasterPage() {
       </div>
 
       {err && (
-        <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.18)", color: "rgba(120,0,0,0.9)", fontSize: 13 }}>
+        <div style={{ marginTop: 12, padding: 12, borderRadius: 0, background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.18)", color: "rgba(120,0,0,0.9)", fontSize: 13 }}>
           {err}
         </div>
       )}
@@ -779,7 +779,7 @@ export default function DriverMasterPage() {
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
                       <button
                         onClick={() => openEdit(r)}
-                        style={{ height: 32, padding: "0 12px", borderRadius: 8, border: "1px solid #CBD5E1", background: "white", fontWeight: 800, cursor: "pointer" }}
+                        style={{ height: 32, padding: "0 12px", borderRadius: 4, border: "1px solid #CBD5E1", background: "white", fontWeight: 800, cursor: "pointer" }}
                       >
                         수정
                       </button>
@@ -800,10 +800,10 @@ export default function DriverMasterPage() {
           }}
           style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.42)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 9999 }}
         >
-          <div style={{ width: "100%", maxWidth: 860, maxHeight: "88vh", display: "flex", flexDirection: "column", background: "white", borderRadius: 18, overflow: "hidden", boxShadow: "0 30px 60px rgba(2,6,23,0.25)" }}>
+          <div style={{ width: "100%", maxWidth: 860, maxHeight: "88vh", display: "flex", flexDirection: "column", background: "white", borderRadius: 0, overflow: "hidden", boxShadow: "0 30px 60px rgba(2,6,23,0.25)" }}>
             <div style={{ padding: "16px 18px", borderBottom: "1px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%)" }}>
               <div style={{ fontWeight: 950, fontSize: 16 }}>기사 사용자 수정</div>
-              <button onClick={closeEdit} style={{ width: 32, height: 32, borderRadius: 999, border: "1px solid #CBD5E1", background: "white", fontSize: 18, lineHeight: 1, cursor: "pointer", color: "#64748B" }}>
+              <button onClick={closeEdit} style={{ width: 32, height: 32, borderRadius: 4, border: "1px solid #CBD5E1", background: "white", fontSize: 18, lineHeight: 1, cursor: "pointer", color: "#64748B" }}>
                 ×
               </button>
             </div>

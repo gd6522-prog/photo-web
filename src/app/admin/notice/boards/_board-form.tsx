@@ -569,7 +569,7 @@ export function BoardForm({ mode, initialBoard, initialItem }: BoardFormProps) {
 
         <div style={{ padding: 22, display: "grid", gap: 18 }}>
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.1fr) 240px", gap: 14 }} className="board-form-top-grid">
-            <section style={{ border: "1px solid #d9e6ef", borderRadius: 18, background: "#fbfdfe", padding: 18 }}>
+            <section style={{ border: "1px solid #d9e6ef", borderRadius: 0, background: "#fbfdfe", padding: 18 }}>
               <div style={boardSectionTitleStyle}>게시판 선택</div>
               <select
                 value={boardKey}
@@ -587,7 +587,7 @@ export function BoardForm({ mode, initialBoard, initialItem }: BoardFormProps) {
               </select>
             </section>
 
-            <section style={{ border: "1px solid #d9e6ef", borderRadius: 18, background: "#fbfdfe", padding: 18 }}>
+            <section style={{ border: "1px solid #d9e6ef", borderRadius: 0, background: "#fbfdfe", padding: 18 }}>
               <div style={boardSectionTitleStyle}>게시 상태</div>
               <label style={{ marginTop: 18, display: "flex", alignItems: "center", gap: 10, fontWeight: 900, color: "#103b53" }}>
                 <input type="checkbox" checked={isPinned} onChange={(e) => setIsPinned(e.target.checked)} />
@@ -596,12 +596,12 @@ export function BoardForm({ mode, initialBoard, initialItem }: BoardFormProps) {
             </section>
           </div>
 
-          <section style={{ border: "1px solid #d9e6ef", borderRadius: 18, background: "#ffffff", padding: 18 }}>
+          <section style={{ border: "1px solid #d9e6ef", borderRadius: 0, background: "#ffffff", padding: 18 }}>
             <div style={boardSectionTitleStyle}>제목</div>
             <input value={title} onChange={(e) => setTitle(e.target.value)} style={{ ...boardInputStyle, marginTop: 14 }} />
           </section>
 
-          <section style={{ border: "1px solid #d9e6ef", borderRadius: 18, background: "#ffffff", padding: 18 }}>
+          <section style={{ border: "1px solid #d9e6ef", borderRadius: 0, background: "#ffffff", padding: 18 }}>
             <div style={boardSectionTitleStyle}>본문</div>
             <div
               style={{
@@ -646,7 +646,7 @@ export function BoardForm({ mode, initialBoard, initialItem }: BoardFormProps) {
               style={{
                 marginTop: 14,
                 minHeight: 420,
-                borderRadius: 16,
+                borderRadius: 0,
                 border: "1px solid #c4d5e3",
                 padding: 18,
                 background: "#fff",

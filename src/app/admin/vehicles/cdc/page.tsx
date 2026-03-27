@@ -476,7 +476,7 @@ export default function VehicleCdcPage() {
 
   const cardStyle: React.CSSProperties = {
     border: "1px solid #d6e4ee",
-    borderRadius: 18,
+    borderRadius: 0,
     background: "#fff",
     padding: 20,
     boxShadow: "0 18px 34px rgba(15, 41, 64, 0.08)",
@@ -705,7 +705,7 @@ export default function VehicleCdcPage() {
               style={{
                 height: 44,
                 padding: "0 18px",
-                borderRadius: 14,
+                borderRadius: 0,
                 border: "1px solid #0f766e",
                 background: busy ? "#cbd5e1" : "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
                 color: "#fff",
@@ -721,7 +721,7 @@ export default function VehicleCdcPage() {
               style={{
                 height: 44,
                 padding: "0 18px",
-                borderRadius: 14,
+                borderRadius: 0,
                 border: "1px solid #7c3aed",
                 background: busy ? "#ddd6fe" : "#f5f3ff",
                 color: busy ? "#7c3aed" : "#5b21b6",
@@ -737,7 +737,7 @@ export default function VehicleCdcPage() {
               style={{
                 height: 44,
                 padding: "0 18px",
-                borderRadius: 14,
+                borderRadius: 0,
                 border: "1px solid #c7d6e3",
                 background: "#fff",
                 color: busy || (!snapshot?.fileName && !snapshot?.fullBoxFileName) ? "#9aa9b8" : "#113247",
@@ -775,7 +775,7 @@ export default function VehicleCdcPage() {
                 style={{
                   width: 110,
                   height: 40,
-                  borderRadius: 12,
+                  borderRadius: 0,
                   border: "1px solid #c7d6e3",
                   padding: "0 12px",
                   fontSize: 14,
@@ -792,7 +792,7 @@ export default function VehicleCdcPage() {
                 style={{
                   width: 110,
                   height: 40,
-                  borderRadius: 12,
+                  borderRadius: 0,
                   border: "1px solid #c7d6e3",
                   padding: "0 12px",
                   fontSize: 14,
@@ -809,7 +809,7 @@ export default function VehicleCdcPage() {
                 height: 44,
                 minWidth: 112,
                 padding: "0 20px",
-                borderRadius: 14,
+                borderRadius: 0,
                 border: "1px solid #103b53",
                 background: "#fff",
                 color: busy || printPages.length === 0 ? "#9aa9b8" : "#103b53",

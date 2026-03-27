@@ -504,7 +504,7 @@ export default function AdminPhotosPage() {
             style={{
               height: 34,
               padding: "0 12px",
-              borderRadius: 10,
+              borderRadius: 0,
               border: "1px solid #111827",
               background: "white",
               fontWeight: 800,
@@ -515,7 +515,7 @@ export default function AdminPhotosPage() {
           </button>
         </div>
 
-        <div style={{ marginTop: 14, border: "1px solid #E5E7EB", borderRadius: 14, padding: 14, background: "white" }}>
+        <div style={{ marginTop: 14, border: "1px solid #E5E7EB", borderRadius: 0, padding: 14, background: "white" }}>
           <div style={{ fontWeight: 900, color: "#111827" }}>권한이 없습니다.</div>
           <div style={{ marginTop: 6, color: "#6B7280", fontSize: 13 }}>관리자 계정으로 로그인해야 접근 가능합니다.</div>
           <div style={{ marginTop: 10, fontSize: 13, color: "#374151" }}>
@@ -547,7 +547,7 @@ export default function AdminPhotosPage() {
             background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
             color: "white",
             padding: "10px 12px",
-            borderRadius: 12,
+            borderRadius: 0,
             fontWeight: 900,
             fontSize: 13,
             boxShadow: "0 12px 26px rgba(16,59,83,0.30)",
@@ -562,7 +562,7 @@ export default function AdminPhotosPage() {
           {/* LEFT */}
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {/* filters */}
-            <div style={{ border: "1px solid #bdd0de", borderRadius: 18, padding: 14, background: "rgba(255,255,255,0.94)", boxShadow: "0 14px 30px rgba(2,32,46,0.10)" }}>
+            <div style={{ border: "1px solid #bdd0de", borderRadius: 0, padding: 14, background: "rgba(255,255,255,0.94)", boxShadow: "0 14px 30px rgba(2,32,46,0.10)" }}>
               {/* ✅ 여기서 TopModeButtons 제거 */}
               <div style={{ fontWeight: 900, marginBottom: 10 }}>조회 조건</div>
 
@@ -576,7 +576,7 @@ export default function AdminPhotosPage() {
                     style={{
                       width: "100%",
                       height: 40,
-                      borderRadius: 12,
+                      borderRadius: 0,
                       border: "1px solid #E5E7EB",
                       padding: "0 12px",
                       fontWeight: 700,
@@ -594,7 +594,7 @@ export default function AdminPhotosPage() {
                     style={{
                       width: "100%",
                       height: 40,
-                      borderRadius: 12,
+                      borderRadius: 0,
                       border: "1px solid #E5E7EB",
                       padding: "0 12px",
                       fontWeight: 700,
@@ -615,7 +615,7 @@ export default function AdminPhotosPage() {
                     style={{
                       width: "100%",
                       height: 40,
-                      borderRadius: 12,
+                      borderRadius: 0,
                       border: "1px solid #E5E7EB",
                       padding: "0 12px",
                       fontWeight: 700,
@@ -639,7 +639,7 @@ export default function AdminPhotosPage() {
                     style={{
                       width: "100%",
                       height: 40,
-                      borderRadius: 12,
+                      borderRadius: 0,
                       border: "1px solid #E5E7EB",
                       padding: "0 12px",
                       fontWeight: 700,
@@ -667,7 +667,7 @@ export default function AdminPhotosPage() {
                   style={{
                     width: "100%",
                     height: 40,
-                    borderRadius: 12,
+                    borderRadius: 0,
                     border: "1px solid #E5E7EB",
                     padding: "0 12px",
                     fontWeight: 700,
@@ -684,7 +684,7 @@ export default function AdminPhotosPage() {
                   disabled={loading}
                   style={{
                     height: 44,
-                    borderRadius: 12,
+                    borderRadius: 0,
                     border: "1px solid #0e7490",
                     background: loading ? "#9fb8c9" : "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
                     color: "white",
@@ -709,7 +709,7 @@ export default function AdminPhotosPage() {
                   disabled={loading}
                   style={{
                     height: 44,
-                    borderRadius: 12,
+                    borderRadius: 0,
                     border: "1px solid #c4d5e3",
                     background: "rgba(255,255,255,0.92)",
                     fontWeight: 900,
@@ -723,7 +723,7 @@ export default function AdminPhotosPage() {
             </div>
 
             {/* store list */}
-            <div style={{ border: "1px solid #bdd0de", borderRadius: 18, background: "rgba(255,255,255,0.94)", overflow: "hidden", boxShadow: "0 14px 30px rgba(2,32,46,0.10)" }}>
+            <div style={{ border: "1px solid #bdd0de", borderRadius: 0, background: "rgba(255,255,255,0.94)", overflow: "hidden", boxShadow: "0 14px 30px rgba(2,32,46,0.10)" }}>
               <div style={{ padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ fontWeight: 900 }}>점포 목록</div>
                 <div style={{ fontSize: 12, color: "#6B7280" }}>총 {storeCount}개</div>
@@ -769,7 +769,7 @@ export default function AdminPhotosPage() {
           </div>
 
           {/* RIGHT */}
-          <div style={{ border: "1px solid #bdd0de", borderRadius: 18, background: "rgba(255,255,255,0.94)", padding: 14, boxShadow: "0 14px 30px rgba(2,32,46,0.10)" }}>
+          <div style={{ border: "1px solid #bdd0de", borderRadius: 0, background: "rgba(255,255,255,0.94)", padding: 14, boxShadow: "0 14px 30px rgba(2,32,46,0.10)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
               <div>
                 <div style={{ fontWeight: 950, fontSize: 16, color: "#103b53" }}>{selectedStoreTitle}</div>
@@ -783,7 +783,7 @@ export default function AdminPhotosPage() {
                   style={{
                     height: 36,
                     padding: "0 12px",
-                    borderRadius: 12,
+                    borderRadius: 0,
                     border: "1px solid #c4d5e3",
                     background: "rgba(255,255,255,0.92)",
                     fontWeight: 900,
@@ -799,7 +799,7 @@ export default function AdminPhotosPage() {
                   style={{
                     height: 36,
                     padding: "0 12px",
-                    borderRadius: 12,
+                    borderRadius: 0,
                     border: "1px solid #c4d5e3",
                     background: "rgba(255,255,255,0.92)",
                     fontWeight: 900,
@@ -815,7 +815,7 @@ export default function AdminPhotosPage() {
                   style={{
                     height: 36,
                     padding: "0 12px",
-                    borderRadius: 12,
+                    borderRadius: 0,
                     border: "1px solid #c4d5e3",
                     background: selectMode ? "linear-gradient(135deg,#e8f3f8 0%,#e0f2f1 100%)" : "rgba(255,255,255,0.92)",
                     fontWeight: 900,
@@ -831,7 +831,7 @@ export default function AdminPhotosPage() {
                   style={{
                     height: 36,
                     padding: "0 12px",
-                    borderRadius: 12,
+                    borderRadius: 0,
                     border: "1px solid #c4d5e3",
                     background: selectedPhotoIds.size === 0 ? "#e9eef3" : "rgba(255,255,255,0.92)",
                     fontWeight: 900,
@@ -848,7 +848,7 @@ export default function AdminPhotosPage() {
                   style={{
                     height: 36,
                     padding: "0 12px",
-                    borderRadius: 12,
+                    borderRadius: 0,
                     border: "1px solid #EF4444",
                     background: selectedPhotoIds.size === 0 ? "#fee2e2" : "#fff5f5",
                     color: "#EF4444",
@@ -865,11 +865,11 @@ export default function AdminPhotosPage() {
             <div style={{ height: 12 }} />
 
             {!selectedStoreCode ? (
-              <div style={{ border: "1px solid #d3e1eb", borderRadius: 14, padding: 14, color: "#5b7386", background: "#f8fcff" }}>
+              <div style={{ border: "1px solid #d3e1eb", borderRadius: 0, padding: 14, color: "#5b7386", background: "#f8fcff" }}>
                 왼쪽 점포 목록에서 점포를 선택하세요.
               </div>
             ) : selectedStorePhotos.length === 0 ? (
-              <div style={{ border: "1px solid #d3e1eb", borderRadius: 14, padding: 14, color: "#5b7386", background: "#f8fcff" }}>
+              <div style={{ border: "1px solid #d3e1eb", borderRadius: 0, padding: 14, color: "#5b7386", background: "#f8fcff" }}>
                 선택 점포의 사진이 없습니다.
               </div>
             ) : (
@@ -884,7 +884,7 @@ export default function AdminPhotosPage() {
                       key={p.id}
                       style={{
                         border: selected ? "1px solid #0f766e" : "1px solid #d9e6ef",
-                        borderRadius: 16,
+                        borderRadius: 0,
                         overflow: "hidden",
                         background: selected ? "linear-gradient(135deg,#e8f3f8 0%,#e0f2f1 100%)" : "rgba(255,255,255,0.94)",
                         boxShadow: "0 10px 22px rgba(2,32,46,0.10)",
@@ -938,7 +938,7 @@ export default function AdminPhotosPage() {
                             }}
                             style={{
                               height: 36,
-                              borderRadius: 12,
+                              borderRadius: 0,
                               border: "1px solid #E5E7EB",
                               background: "white",
                               fontWeight: 900,
@@ -956,7 +956,7 @@ export default function AdminPhotosPage() {
                             }}
                             style={{
                               height: 36,
-                              borderRadius: 12,
+                              borderRadius: 0,
                               border: "1px solid #E5E7EB",
                               background: "white",
                               fontWeight: 900,
@@ -976,7 +976,7 @@ export default function AdminPhotosPage() {
                             }}
                             style={{
                               height: 36,
-                              borderRadius: 12,
+                              borderRadius: 0,
                               border: "1px solid #111827",
                               background: selected ? "#111827" : "white",
                               color: selected ? "white" : "#111827",
@@ -999,7 +999,7 @@ export default function AdminPhotosPage() {
                           style={{
                             width: "100%",
                             height: 38,
-                            borderRadius: 12,
+                            borderRadius: 0,
                             border: "1px solid #EF4444",
                             background: "#FEE2E2",
                             color: "#EF4444",
@@ -1040,7 +1040,7 @@ export default function AdminPhotosPage() {
               width: "min(1100px, 96vw)",
               height: "min(820px, 92vh)",
               background: "white",
-              borderRadius: 16,
+              borderRadius: 0,
               overflow: "hidden",
               display: "flex",
               flexDirection: "column",
@@ -1071,7 +1071,7 @@ export default function AdminPhotosPage() {
                 style={{
                   width: 36,
                   height: 36,
-                  borderRadius: 10,
+                  borderRadius: 0,
                   border: "1px solid #E5E7EB",
                   background: "white",
                   fontWeight: 900,
@@ -1116,7 +1116,7 @@ export default function AdminPhotosPage() {
                 style={{
                   height: 40,
                   padding: "0 14px",
-                  borderRadius: 12,
+                  borderRadius: 0,
                   border: "1px solid #E5E7EB",
                   background: "white",
                   fontWeight: 900,
@@ -1132,7 +1132,7 @@ export default function AdminPhotosPage() {
                 style={{
                   height: 40,
                   padding: "0 14px",
-                  borderRadius: 12,
+                  borderRadius: 0,
                   border: "1px solid #E5E7EB",
                   background: "white",
                   fontWeight: 900,
@@ -1152,7 +1152,7 @@ export default function AdminPhotosPage() {
                 style={{
                   height: 40,
                   padding: "0 14px",
-                  borderRadius: 12,
+                  borderRadius: 0,
                   border: "1px solid #111827",
                   background: selectedPhotoIds.has(previewPhoto.id) ? "#111827" : "white",
                   color: selectedPhotoIds.has(previewPhoto.id) ? "white" : "#111827",
@@ -1169,7 +1169,7 @@ export default function AdminPhotosPage() {
                 style={{
                   height: 40,
                   padding: "0 14px",
-                  borderRadius: 12,
+                  borderRadius: 0,
                   border: "1px solid #EF4444",
                   background: "#FEE2E2",
                   color: "#EF4444",
@@ -1189,7 +1189,7 @@ export default function AdminPhotosPage() {
                 style={{
                   height: 40,
                   padding: "0 14px",
-                  borderRadius: 12,
+                  borderRadius: 0,
                   border: "1px solid #E5E7EB",
                   background: previewIndex === 0 ? "#F3F4F6" : "white",
                   fontWeight: 900,
@@ -1205,7 +1205,7 @@ export default function AdminPhotosPage() {
                 style={{
                   height: 40,
                   padding: "0 14px",
-                  borderRadius: 12,
+                  borderRadius: 0,
                   border: "1px solid #E5E7EB",
                   background: previewIndex >= selectedStorePhotos.length - 1 ? "#F3F4F6" : "white",
                   fontWeight: 900,

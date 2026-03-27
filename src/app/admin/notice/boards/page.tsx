@@ -108,7 +108,7 @@ export default function BoardListPage() {
             <div
               style={{
                 border: "1px solid #d9e6ef",
-                borderRadius: 12,
+                borderRadius: 0,
                 background: "#ffffff",
                 padding: "28px 20px",
                 display: "grid",
@@ -127,7 +127,7 @@ export default function BoardListPage() {
               </div>
             </div>
           ) : (
-            <div style={{ border: "1px solid #dde6ee", borderRadius: 10, overflow: "hidden", background: "#fff" }}>
+            <div style={{ border: "1px solid #dde6ee", borderRadius: 0, overflow: "hidden", background: "#fff" }}>
               <div
                 className="board-table-head"
                 style={{
@@ -178,7 +178,7 @@ export default function BoardListPage() {
                             minWidth: 46,
                             height: 24,
                             padding: "0 8px",
-                            borderRadius: 999,
+                            borderRadius: 4,
                             background: itemBoard.tone.bg,
                             color: itemBoard.tone.text,
                             border: `1px solid ${itemBoard.tone.border}`,

@@ -97,7 +97,7 @@ export default function HolidaySyncPage() {
         style={{
           marginTop: 12,
           padding: "10px 12px",
-          borderRadius: 12,
+          borderRadius: 0,
           border: "1px solid rgba(0,0,0,0.15)",
           background: busy ? "rgba(0,0,0,0.04)" : "white",
           fontWeight: 900,
@@ -113,7 +113,7 @@ export default function HolidaySyncPage() {
           style={{
             marginTop: 12,
             padding: 12,
-            borderRadius: 12,
+            borderRadius: 0,
             background: "rgba(0,0,0,0.04)",
             whiteSpace: "pre-wrap",
             wordBreak: "break-word",

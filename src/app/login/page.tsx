@@ -254,7 +254,7 @@ export default function LoginPage() {
       <div className="pointer-events-none absolute -bottom-32 -right-20 h-96 w-96 rounded-full bg-[#164e63]/20 blur-3xl" />
 
       <div className="relative min-h-screen flex items-center justify-center p-6">
-        <div className="w-full max-w-md rounded-3xl border border-[#b6c8d7] bg-white/95 p-7 shadow-[0_24px_60px_rgba(2,32,46,0.18)]">
+        <div className="w-full max-w-md rounded border border-[#b6c8d7] bg-white/95 p-7 shadow-[0_24px_60px_rgba(2,32,46,0.18)]">
           <div className="mb-5">
             <div className="text-2xl font-black tracking-tight text-[#0b2536]">관리자 로그인</div>
             <div className="mt-1 text-sm font-medium text-[#557186]">전화번호와 비밀번호로 로그인합니다.</div>
@@ -262,7 +262,7 @@ export default function LoginPage() {
 
           <div className="grid gap-3">
             <input
-              className="h-12 w-full rounded-xl border border-[#b7c8d7] px-4 text-[15px] outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20"
+              className="h-12 w-full rounded border border-[#b7c8d7] px-4 text-[15px] outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20"
               placeholder="전화번호 (예: 01012345678)"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
@@ -275,7 +275,7 @@ export default function LoginPage() {
             />
 
             <input
-              className="h-12 w-full rounded-xl border border-[#b7c8d7] px-4 text-[15px] outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20"
+              className="h-12 w-full rounded border border-[#b7c8d7] px-4 text-[15px] outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20"
               placeholder="비밀번호"
               type="password"
               value={password}
@@ -286,14 +286,14 @@ export default function LoginPage() {
             />
 
             <button
-              className="h-12 w-full rounded-xl bg-[#103b53] text-[16px] font-black text-white transition hover:bg-[#0c2f43] disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-12 w-full rounded bg-[#103b53] text-[16px] font-black text-white transition hover:bg-[#0c2f43] disabled:cursor-not-allowed disabled:opacity-50"
               onClick={onLogin}
               disabled={busy || !phone || !password}
             >
               {busy ? "로그인 중..." : "로그인"}
             </button>
 
-            {msg ? <div className="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{msg}</div> : null}
+            {msg ? <div className="rounded bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{msg}</div> : null}
 
             <button
               type="button"
@@ -307,12 +307,12 @@ export default function LoginPage() {
             </button>
 
             {showReset ? (
-              <div className="rounded-2xl border border-[#c9d7e2] bg-[#f7fbff] p-3">
+              <div className="rounded border border-[#c9d7e2] bg-[#f7fbff] p-3">
                 <div className="mb-2 text-sm font-black text-[#0f2433]">비밀번호 재설정</div>
                 <div className="grid gap-2">
                   <div className="flex gap-2">
                     <input
-                      className="h-11 flex-1 rounded-xl border border-[#b7c8d7] px-3 text-[15px] outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20"
+                      className="h-11 flex-1 rounded border border-[#b7c8d7] px-3 text-[15px] outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20"
                       placeholder="전화번호 (예: 01012345678)"
                       value={resetPhone}
                       onChange={(e) => setResetPhone(e.target.value)}
@@ -321,7 +321,7 @@ export default function LoginPage() {
                     />
                     <button
                       type="button"
-                      className="h-11 rounded-xl bg-[#0f172a] px-3 text-sm font-black text-white transition hover:bg-black disabled:opacity-50"
+                      className="h-11 rounded bg-[#0f172a] px-3 text-sm font-black text-white transition hover:bg-black disabled:opacity-50"
                       onClick={onSendResetOtp}
                       disabled={resetBusy || !resetPhone}
                     >
@@ -330,14 +330,14 @@ export default function LoginPage() {
                   </div>
 
                   <input
-                    className="h-11 rounded-xl border border-[#b7c8d7] px-3 text-[15px] outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20"
+                    className="h-11 rounded border border-[#b7c8d7] px-3 text-[15px] outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20"
                     placeholder="인증번호"
                     value={resetOtp}
                     onChange={(e) => setResetOtp(e.target.value)}
                     disabled={resetBusy || !resetOtpSent}
                   />
                   <input
-                    className="h-11 rounded-xl border border-[#b7c8d7] px-3 text-[15px] outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20"
+                    className="h-11 rounded border border-[#b7c8d7] px-3 text-[15px] outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20"
                     type="password"
                     placeholder="새 비밀번호 (6자리 이상)"
                     value={resetPassword}
@@ -345,7 +345,7 @@ export default function LoginPage() {
                     disabled={resetBusy || !resetOtpSent}
                   />
                   <input
-                    className="h-11 rounded-xl border border-[#b7c8d7] px-3 text-[15px] outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20"
+                    className="h-11 rounded border border-[#b7c8d7] px-3 text-[15px] outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/20"
                     type="password"
                     placeholder="새 비밀번호 확인"
                     value={resetPassword2}
@@ -354,13 +354,13 @@ export default function LoginPage() {
                   />
                   <button
                     type="button"
-                    className="h-11 w-full rounded-xl bg-[#334155] text-sm font-black text-white transition hover:bg-[#1e293b] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="h-11 w-full rounded bg-[#334155] text-sm font-black text-white transition hover:bg-[#1e293b] disabled:cursor-not-allowed disabled:opacity-50"
                     onClick={onResetPassword}
                     disabled={resetBusy || !resetOtpSent || !resetOtp || !resetPassword || !resetPassword2}
                   >
                     {resetBusy ? "처리 중..." : "비밀번호 변경"}
                   </button>
-                  {resetMsg ? <div className="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{resetMsg}</div> : null}
+                  {resetMsg ? <div className="rounded bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{resetMsg}</div> : null}
                 </div>
               </div>
             ) : null}

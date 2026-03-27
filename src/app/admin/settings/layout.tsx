@@ -55,7 +55,7 @@ export default function AdminSettingsLayout({ children }: { children: React.Reac
                 style={{
                   textDecoration: "none",
                   padding: "12px 14px",
-                  borderRadius: 16,
+                  borderRadius: 0,
                   border: active ? "1px solid #7dd3fc" : "1px solid #d9e6ef",
                   background: active ? "#e0f2fe" : "#fbfdfe",
                   color: active ? "#075985" : "#103b53",

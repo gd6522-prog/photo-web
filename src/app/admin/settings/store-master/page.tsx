@@ -260,7 +260,7 @@ export default function StoreMasterPage() {
 
       <h2 style={{ marginTop: 18, fontWeight: 900, fontSize: 22 }}>점포마스터 최신본 엑셀 업로드</h2>
 
-      <div style={{ marginTop: 16, border: "1px solid #E5E7EB", borderRadius: 16, padding: 14, background: "#fff" }}>
+      <div style={{ marginTop: 16, border: "1px solid #E5E7EB", borderRadius: 0, padding: 14, background: "#fff" }}>
         <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 0, maxWidth: 460 }}>
             <div
@@ -276,7 +276,7 @@ export default function StoreMasterPage() {
               }}
               style={{
                 border: dragOver ? "2px solid #2563EB" : "2px dashed #CBD5E1",
-                borderRadius: 14,
+                borderRadius: 0,
                 padding: "14px 14px",
                 cursor: busy ? "not-allowed" : "pointer",
                 background: dragOver ? "#EFF6FF" : "#F8FAFC",
@@ -312,7 +312,7 @@ export default function StoreMasterPage() {
                 style={{
                   height: 40,
                   padding: "0 16px",
-                  borderRadius: 12,
+                  borderRadius: 0,
                   border: "1px solid #111827",
                   background: "#111827",
                   color: "#fff",
@@ -346,7 +346,7 @@ export default function StoreMasterPage() {
               style={{
                 height: 44,
                 padding: "0 16px",
-                borderRadius: 12,
+                borderRadius: 0,
                 border: "1px solid #CBD5E1",
                 background: "#fff",
                 fontWeight: 900,
@@ -363,7 +363,7 @@ export default function StoreMasterPage() {
               style={{
                 height: 44,
                 padding: "0 18px",
-                borderRadius: 12,
+                borderRadius: 0,
                 border: "1px solid #111827",
                 background: duplicates.length > 0 ? "#E5E7EB" : "#111827",
                 color: "#fff",
@@ -381,7 +381,7 @@ export default function StoreMasterPage() {
         <div style={{ marginTop: 12, color: duplicates.length > 0 ? "#B91C1C" : "#111827", fontWeight: 700 }}>{message}</div>
 
         {duplicates.length > 0 ? (
-          <div style={{ marginTop: 10, background: "#FEF2F2", border: "1px solid #FCA5A5", padding: 12, borderRadius: 12 }}>
+          <div style={{ marginTop: 10, background: "#FEF2F2", border: "1px solid #FCA5A5", padding: 12, borderRadius: 0 }}>
             <div style={{ fontWeight: 900, color: "#B91C1C" }}>중복 점포코드 목록</div>
             <div style={{ marginTop: 6, color: "#B91C1C" }}>
               {duplicates.slice(0, 50).join(", ")}
@@ -394,7 +394,7 @@ export default function StoreMasterPage() {
         <div
           style={{
             marginTop: 12,
-            borderRadius: 12,
+            borderRadius: 0,
             padding: 12,
             background: "#F8FAFC",
             border: "1px solid #E5E7EB",
@@ -412,7 +412,7 @@ export default function StoreMasterPage() {
       <div style={{ marginTop: 16 }}>
         <h3 style={{ fontWeight: 900, fontSize: 16 }}>업로드 전체 목록</h3>
 
-        <div style={{ overflow: "auto", border: "1px solid #E5E7EB", borderRadius: 14, background: "#fff" }}>
+        <div style={{ overflow: "auto", border: "1px solid #E5E7EB", borderRadius: 0, background: "#fff" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#F9FAFB" }}>

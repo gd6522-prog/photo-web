@@ -414,7 +414,7 @@ function Card({
     <div
       style={{
         border: "1px solid #bdd0de",
-        borderRadius: 18,
+        borderRadius: 0,
         background: "#fff",
         overflow: "hidden",
         boxShadow: "0 16px 34px rgba(2,32,46,0.10)",
@@ -637,7 +637,7 @@ function NoticeMainCard() {
             style={{
               width: 28,
               height: 28,
-              borderRadius: 999,
+              borderRadius: 4,
               border: "none",
               background: "transparent",
               cursor: !canPrev ? "not-allowed" : "pointer",
@@ -656,7 +656,7 @@ function NoticeMainCard() {
             style={{
               width: 28,
               height: 28,
-              borderRadius: 999,
+              borderRadius: 4,
               border: "none",
               background: "transparent",
               cursor: !canNext ? "not-allowed" : "pointer",
@@ -738,7 +738,7 @@ function NoticeMainCard() {
               style={{
                 height: 34,
                 padding: "0 14px",
-                borderRadius: 8,
+                borderRadius: 4,
                 border: "1px solid #111827",
                 background: "#111827",
                 display: "inline-flex",
@@ -758,7 +758,7 @@ function NoticeMainCard() {
               style={{
                 height: 34,
                 padding: "0 14px",
-                borderRadius: 8,
+                borderRadius: 4,
                 border: "1px solid #d1d5db",
                 background: "#fff",
                 color: "#111827",
@@ -855,7 +855,7 @@ function NoticeMainCard() {
                   style={{
                     width: 28,
                     height: 28,
-                    borderRadius: 999,
+                    borderRadius: 4,
                     border: "1px solid #d1d5db",
                     background: safePage === 1 ? "#f8fafc" : "#fff",
                     cursor: safePage === 1 ? "not-allowed" : "pointer",
@@ -871,7 +871,7 @@ function NoticeMainCard() {
                   style={{
                     width: 28,
                     height: 28,
-                    borderRadius: 999,
+                    borderRadius: 4,
                     border: "1px solid #d1d5db",
                     background: safePage === maxPage ? "#f8fafc" : "#fff",
                     cursor: safePage === maxPage ? "not-allowed" : "pointer",
@@ -977,7 +977,7 @@ function WeatherCard() {
             style={{
               height: 30,
               padding: "0 12px",
-              borderRadius: 999,
+              borderRadius: 4,
               border: "1px solid #0e7490",
               background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
               color: "white",
@@ -1025,7 +1025,7 @@ function WeatherCard() {
                 <div
                   style={{
                     minWidth: 104,
-                    borderRadius: 14,
+                    borderRadius: 0,
                     border: `1px solid ${feelsLikeStatus.borderColor}`,
                     background: feelsLikeStatus.background,
                     boxShadow: feelsLikeStatus.boxShadow,
@@ -1083,7 +1083,7 @@ function WeatherCard() {
                 주간예보 (D+7, 오늘 제외)
               </div>
 
-              <div style={{ overflow: "hidden", borderRadius: 14, border: "1px solid #d9e6ef", background: "#fff" }}>
+              <div style={{ overflow: "hidden", borderRadius: 0, border: "1px solid #d9e6ef", background: "#fff" }}>
                 <div
                   style={{
                     display: "grid",
@@ -1145,14 +1145,14 @@ function WeatherCard() {
             <div style={{ marginTop: 14, borderTop: "1px solid #d9e6ef", paddingTop: 12 }}>
               <div style={{ fontWeight: 950, fontSize: 12.5, color: "#103b53", marginBottom: 8 }}>대기질</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                <div style={{ border: "1px solid #d3e1eb", borderRadius: 12, padding: "9px 10px", background: "#fff" }}>
+                <div style={{ border: "1px solid #d3e1eb", borderRadius: 0, padding: "9px 10px", background: "#fff" }}>
                   <div style={{ fontSize: 11.5, color: "#567284", fontWeight: 700 }}>미세먼지 (PM10)</div>
                   <div style={{ marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                     <b style={{ color: "#113247", fontSize: 13 }}>{w?.today.pm10 == null ? "-" : `${Math.round(w.today.pm10)} μg/m³`}</b>
                     <span
                       style={{
                         padding: "3px 9px",
-                        borderRadius: 999,
+                        borderRadius: 4,
                         fontSize: 11,
                         fontWeight: 900,
                         color: pm10Level.color,
@@ -1163,14 +1163,14 @@ function WeatherCard() {
                     </span>
                   </div>
                 </div>
-                <div style={{ border: "1px solid #d3e1eb", borderRadius: 12, padding: "9px 10px", background: "#fff" }}>
+                <div style={{ border: "1px solid #d3e1eb", borderRadius: 0, padding: "9px 10px", background: "#fff" }}>
                   <div style={{ fontSize: 11.5, color: "#567284", fontWeight: 700 }}>초미세먼지 (PM2.5)</div>
                   <div style={{ marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                     <b style={{ color: "#113247", fontSize: 13 }}>{w?.today.pm25 == null ? "-" : `${Math.round(w.today.pm25)} μg/m³`}</b>
                     <span
                       style={{
                         padding: "3px 9px",
-                        borderRadius: 999,
+                        borderRadius: 4,
                         fontSize: 11,
                         fontWeight: 900,
                         color: pm25Level.color,
@@ -1330,7 +1330,7 @@ function WorkTypeOutboundCard() {
                 style={{
                   height: 30,
                   padding: "0 12px",
-                  borderRadius: 999,
+                  borderRadius: 4,
                   border: "1px solid #b9cddd",
                   background: copying || loading || !!err || rows.length === 0 ? "#e5edf3" : "#ffffff",
                   color: copying || loading || !!err || rows.length === 0 ? "#90a4b4" : "#103b53",
@@ -1350,7 +1350,7 @@ function WorkTypeOutboundCard() {
                 style={{
                   height: 30,
                   padding: "0 12px",
-                  borderRadius: 999,
+                  borderRadius: 4,
                   border: "1px solid #0e7490",
                   background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
                   color: "white",
@@ -1379,7 +1379,7 @@ function WorkTypeOutboundCard() {
           <div style={{ color: "#6B7280", fontSize: 13 }}>단품별 최신 데이터가 없습니다.</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8, minHeight: 0, height: "100%" }}>
-            <div style={{ border: "1px solid #d9e6ef", borderRadius: 12, overflow: "hidden", flex: 1, minHeight: 0, background: "#fff" }}>
+            <div style={{ border: "1px solid #d9e6ef", borderRadius: 0, overflow: "hidden", flex: 1, minHeight: 0, background: "#fff" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
                 <colgroup>
                   <col style={{ width: "31%" }} />
@@ -1486,7 +1486,7 @@ function ThreeDayPreview({
               key={ymd}
               style={{
                 border: "1px solid #d9e6ef",
-                borderRadius: 14,
+                borderRadius: 0,
                 padding: 10,
                 background: "#fff",
                 overflow: "hidden",
@@ -1894,7 +1894,7 @@ export default function AdminHomePage() {
             style={{
               height: 34,
               padding: "0 14px",
-              borderRadius: 999,
+              borderRadius: 4,
               border: "1px solid #111827",
               background: "white",
               fontWeight: 950,
@@ -1934,7 +1934,7 @@ export default function AdminHomePage() {
                       style={{
                         width: 26,
                         height: 26,
-                        borderRadius: 8,
+                        borderRadius: 4,
                         border: "1px solid #c4d5e3",
                         background: "#fff",
                         cursor: "pointer",
@@ -1949,7 +1949,7 @@ export default function AdminHomePage() {
                       style={{
                         width: 26,
                         height: 26,
-                        borderRadius: 8,
+                        borderRadius: 4,
                         border: "1px solid #c4d5e3",
                         background: "#fff",
                         cursor: "pointer",
@@ -1964,7 +1964,7 @@ export default function AdminHomePage() {
                       style={{
                         height: 26,
                         padding: "0 10px",
-                        borderRadius: 8,
+                        borderRadius: 4,
                         border: "1px solid #0e7490",
                         background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
                         cursor: "pointer",
@@ -2038,7 +2038,7 @@ export default function AdminHomePage() {
                           style={{
                             width: 38,
                             height: 38,
-                            borderRadius: 999,
+                            borderRadius: 4,
                             background: isSelected ? "linear-gradient(135deg,#103b53 0%,#0f766e 100%)" : "transparent",
                             color: isSelected ? "white" : !c.inCurrentMonth ? "#C3CAD5" : isSun || isHoliday ? "#EF4444" : "#113247",
                             display: "flex",
@@ -2061,7 +2061,7 @@ export default function AdminHomePage() {
                                 minWidth: 18,
                                 height: 18,
                                 padding: "0 5px",
-                                borderRadius: 999,
+                                borderRadius: 4,
                                 background: isSelected ? "white" : badgeBg,
                                 color: mixedBadge ? "#6B7280" : CALENDAR_EVENT_TYPE_BADGE[dominantType].text,
                                 border: `1px solid ${badgeBorder}`,
@@ -2108,7 +2108,7 @@ export default function AdminHomePage() {
           <div
             style={{
               border: "1px solid #bdd0de",
-              borderRadius: 16,
+              borderRadius: 0,
               background: "#fff",
               padding: 8,
               display: "flex",
@@ -2123,7 +2123,7 @@ export default function AdminHomePage() {
                 alignItems: "center",
                 gap: 8,
                 border: "1px solid #d9e6ef",
-                  borderRadius: 10,
+                  borderRadius: 0,
                   padding: "6px 8px",
                   color: "#113247",
                   fontSize: 12,
@@ -2135,7 +2135,7 @@ export default function AdminHomePage() {
                 style={{
                     width: 9,
                     height: 9,
-                  borderRadius: 999,
+                  borderRadius: 4,
                   background: pendingRedeliveryCount > 0 ? "#DC2626" : "#16A34A",
                   boxShadow:
                     pendingRedeliveryCount > 0 ? "0 0 0 3px rgba(220,38,38,0.15)" : "0 0 0 3px rgba(22,163,74,0.15)",
@@ -2150,7 +2150,7 @@ export default function AdminHomePage() {
                 style={{
                     width: 20,
                     height: 20,
-                  borderRadius: 999,
+                  borderRadius: 4,
                   border: "1px solid #c4d5e3",
                   color: "#113247",
                   textDecoration: "none",
@@ -2174,7 +2174,7 @@ export default function AdminHomePage() {
                 alignItems: "center",
                 gap: 8,
                 border: "1px solid #d9e6ef",
-                  borderRadius: 10,
+                  borderRadius: 0,
                   padding: "6px 8px",
                   color: "#113247",
                   fontSize: 12,
@@ -2186,7 +2186,7 @@ export default function AdminHomePage() {
                   style={{
                     width: 9,
                     height: 9,
-                  borderRadius: 999,
+                  borderRadius: 4,
                   background: hazardSummaryBadge.dot,
                   boxShadow: hazardSummaryBadge.glow,
                   flex: "0 0 auto",
@@ -2200,7 +2200,7 @@ export default function AdminHomePage() {
                 style={{
                     width: 20,
                     height: 20,
-                  borderRadius: 999,
+                  borderRadius: 4,
                   border: "1px solid #c4d5e3",
                   color: "#113247",
                   textDecoration: "none",

@@ -57,8 +57,8 @@ const DETAIL_LEFT_STICKY = [
   DETAIL_LEFT_WIDTHS[0] + DETAIL_LEFT_WIDTHS[1] + DETAIL_LEFT_WIDTHS[2] + DETAIL_LEFT_WIDTHS[3] + DETAIL_LEFT_WIDTHS[4],
 ] as const;
 
-const card: React.CSSProperties = { border: "1px solid #DDE3EA", borderRadius: 14, background: "#fff", boxShadow: "0 8px 24px rgba(15,23,42,.05)" };
-const input: React.CSSProperties = { height: 38, borderRadius: 10, border: "1px solid #D1D5DB", padding: "0 10px", background: "#fff" };
+const card: React.CSSProperties = { border: "1px solid #DDE3EA", borderRadius: 0, background: "#fff", boxShadow: "0 8px 24px rgba(15,23,42,.05)" };
+const input: React.CSSProperties = { height: 38, borderRadius: 0, border: "1px solid #D1D5DB", padding: "0 10px", background: "#fff" };
 
 function kstToday() {
   const now = new Date();
@@ -590,7 +590,7 @@ export default function WorkLogPage() {
         <button onClick={load} disabled={loading} style={{ ...input, height: 38, background: "#111827", color: "#fff", fontWeight: 900, cursor: "pointer" }}>{loading ? "불러오는 중.." : "조회"}</button>
       </div>
 
-      {err && <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: 13, fontWeight: 700 }}>{err}</div>}
+      {err && <div style={{ marginTop: 12, padding: 12, borderRadius: 0, background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: 13, fontWeight: 700 }}>{err}</div>}
 
       {tab === "basic" ? (
         <div style={{ ...card, marginTop: 12, overflowX: "auto", padding: 0 }}>
@@ -816,13 +816,13 @@ export default function WorkLogPage() {
           }}
           style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,.55)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
         >
-          <div style={{ width: "min(980px, 100%)", maxHeight: "88vh", overflow: "auto", background: "white", borderRadius: 14, border: "1px solid #CBD5E1", boxShadow: "0 24px 56px rgba(2,6,23,.30)" }}>
+          <div style={{ width: "min(980px, 100%)", maxHeight: "88vh", overflow: "auto", background: "white", borderRadius: 0, border: "1px solid #CBD5E1", boxShadow: "0 24px 56px rgba(2,6,23,.30)" }}>
             <div style={{ padding: "12px 14px", borderBottom: "1px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
               <div style={{ fontWeight: 900, color: "#0F172A" }}>
                 {detailProfile.name ?? "(이름없음)"} 월 상세근태
                 <span style={{ marginLeft: 8, color: "#64748B", fontSize: 12, fontWeight: 700 }}>{month}</span>
               </div>
-              <button onClick={() => setDetailUserId(null)} style={{ width: 30, height: 30, borderRadius: 999, border: "1px solid #CBD5E1", background: "white", cursor: "pointer", fontWeight: 900 }}>×</button>
+              <button onClick={() => setDetailUserId(null)} style={{ width: 30, height: 30, borderRadius: 4, border: "1px solid #CBD5E1", background: "white", cursor: "pointer", fontWeight: 900 }}>×</button>
             </div>
 
             <div style={{ padding: 12 }}>

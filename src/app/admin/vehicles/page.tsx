@@ -677,7 +677,7 @@ const CargoNoteInput = React.memo(function CargoNoteInput({
           event.currentTarget.blur();
         }
       }}
-      style={{ width: "100%", minWidth: 120, height: 34, borderRadius: 10, border: "1px solid #d6e4ee", padding: "0 8px", outline: "none" }}
+      style={{ width: "100%", minWidth: 120, height: 34, borderRadius: 0, border: "1px solid #d6e4ee", padding: "0 8px", outline: "none" }}
     />
   );
 });
@@ -1630,7 +1630,7 @@ function exportWorkbook(
 function cardStyle() {
   return {
     border: "1px solid #d6e4ee",
-    borderRadius: 18,
+    borderRadius: 0,
     background: "#fff",
     padding: 16,
   } as const;
@@ -2582,7 +2582,7 @@ export function VehiclePageScreen({
         className="report-screen-only"
         style={{
           border: "1px solid #c7d6e3",
-          borderRadius: 20,
+          borderRadius: 0,
           padding: 20,
           background: "linear-gradient(180deg, #fbfeff 0%, #f2f8fb 100%)",
         }}
@@ -2602,7 +2602,7 @@ export function VehiclePageScreen({
               style={{
                 height: 42,
                 padding: "0 18px",
-                borderRadius: 12,
+                borderRadius: 0,
                 border: "1px solid #0f766e",
                 background: "#0f766e",
                 color: "#fff",
@@ -2618,7 +2618,7 @@ export function VehiclePageScreen({
               style={{
                 height: 42,
                 padding: "0 18px",
-                borderRadius: 12,
+                borderRadius: 0,
                 border: "1px solid #113247",
                 background: cargoRows.length === 0 ? "#cbd5e1" : "#113247",
                 color: "#fff",
@@ -2634,7 +2634,7 @@ export function VehiclePageScreen({
               style={{
                 height: 42,
                 padding: "0 18px",
-                borderRadius: 12,
+                borderRadius: 0,
                 border: "1px solid #c7d6e3",
                 background: productRows.length === 0 && cargoRows.length === 0 ? "#eef3f7" : "#fff",
                 color: "#28485d",
@@ -2669,7 +2669,7 @@ export function VehiclePageScreen({
               alignItems: "center",
               gap: 10,
               padding: "10px 14px",
-              borderRadius: 12,
+              borderRadius: 0,
               border: "1px solid #bfdbfe",
               background: "#eff6ff",
               color: "#1d4ed8",
@@ -2681,7 +2681,7 @@ export function VehiclePageScreen({
               style={{
                 width: 14,
                 height: 14,
-                borderRadius: 999,
+                borderRadius: 4,
                 border: "2px solid rgba(29,78,216,0.25)",
                 borderTopColor: "#1d4ed8",
                 display: "inline-block",
@@ -2726,7 +2726,7 @@ export function VehiclePageScreen({
               style={{
                 height: 40,
                 padding: "0 16px",
-                borderRadius: 999,
+                borderRadius: 4,
                 border: active ? "1px solid #0f766e" : "1px solid #d6e4ee",
                 background: active ? "#e7f6f2" : "#fff",
                 color: active ? "#0f5e57" : "#28485d",
@@ -2757,7 +2757,7 @@ export function VehiclePageScreen({
               style={{
                 width: 280,
                 height: 42,
-                borderRadius: 12,
+                borderRadius: 0,
                 border: "1px solid #c7d6e3",
                 padding: "0 14px",
                 outline: "none",
@@ -2772,7 +2772,7 @@ export function VehiclePageScreen({
               style={{
                 height: 42,
                 padding: "0 18px",
-                borderRadius: 12,
+                borderRadius: 0,
                 border: "1px solid #113247",
                 background: "#113247",
                 color: "#fff",
@@ -2791,7 +2791,7 @@ export function VehiclePageScreen({
               style={{
                 height: 42,
                 padding: "0 18px",
-                borderRadius: 12,
+                borderRadius: 0,
                 border: "1px solid #c7d6e3",
                 background: "#fff",
                 color: "#28485d",
@@ -2806,7 +2806,7 @@ export function VehiclePageScreen({
             </div>
           </div>
 
-          <div style={{ border: "1px solid #d6e4ee", borderRadius: 18, background: "#fff", overflow: "auto" }}>
+          <div style={{ border: "1px solid #d6e4ee", borderRadius: 0, background: "#fff", overflow: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 980 }}>
               <thead>
                 <tr style={{ background: "#f8fbfd" }}>
@@ -2855,7 +2855,7 @@ export function VehiclePageScreen({
                   style={{
                     height: 38,
                     padding: "0 14px",
-                    borderRadius: 10,
+                    borderRadius: 0,
                     border: "1px solid #c7d6e3",
                     background: inputPage === 1 ? "#eef3f7" : "#fff",
                     color: "#28485d",
@@ -2871,7 +2871,7 @@ export function VehiclePageScreen({
                   style={{
                     height: 38,
                     padding: "0 14px",
-                    borderRadius: 10,
+                    borderRadius: 0,
                     border: "1px solid #c7d6e3",
                     background: inputPage === 1 ? "#eef3f7" : "#fff",
                     color: "#28485d",
@@ -2887,7 +2887,7 @@ export function VehiclePageScreen({
                   style={{
                     height: 38,
                     padding: "0 14px",
-                    borderRadius: 10,
+                    borderRadius: 0,
                     border: "1px solid #c7d6e3",
                     background: inputPage === inputPageCount ? "#eef3f7" : "#fff",
                     color: "#28485d",
@@ -2903,7 +2903,7 @@ export function VehiclePageScreen({
                   style={{
                     height: 38,
                     padding: "0 14px",
-                    borderRadius: 10,
+                    borderRadius: 0,
                     border: "1px solid #c7d6e3",
                     background: inputPage === inputPageCount ? "#eef3f7" : "#fff",
                     color: "#28485d",
@@ -2934,7 +2934,7 @@ export function VehiclePageScreen({
               style={{
                 width: 220,
                 height: 42,
-                borderRadius: 12,
+                borderRadius: 0,
                 border: "1px solid #c7d6e3",
                 padding: "0 14px",
                 outline: "none",
@@ -2946,7 +2946,7 @@ export function VehiclePageScreen({
               style={{
                 height: 42,
                 padding: "0 18px",
-                borderRadius: 12,
+                borderRadius: 0,
                 border: "1px solid #113247",
                 background: "#113247",
                 color: "#fff",
@@ -2964,7 +2964,7 @@ export function VehiclePageScreen({
               style={{
                 height: 42,
                 padding: "0 18px",
-                borderRadius: 12,
+                borderRadius: 0,
                 border: "1px solid #c7d6e3",
                 background: "#fff",
                 color: "#28485d",
@@ -2981,7 +2981,7 @@ export function VehiclePageScreen({
               style={{
                 width: 110,
                 height: 42,
-                borderRadius: 12,
+                borderRadius: 0,
                 border: "1px solid #c7d6e3",
                 padding: "0 14px",
                 outline: "none",
@@ -2995,7 +2995,7 @@ export function VehiclePageScreen({
               style={{
                 width: 110,
                 height: 42,
-                borderRadius: 12,
+                borderRadius: 0,
                 border: "1px solid #c7d6e3",
                 padding: "0 14px",
                 outline: "none",
@@ -3007,7 +3007,7 @@ export function VehiclePageScreen({
               style={{
                 height: 42,
                 padding: "0 18px",
-                borderRadius: 12,
+                borderRadius: 0,
                 border: "1px solid #0f766e",
                 background: "#0f766e",
                 color: "#fff",
@@ -3023,7 +3023,7 @@ export function VehiclePageScreen({
               style={{
                 height: 42,
                 padding: "0 18px",
-                borderRadius: 12,
+                borderRadius: 0,
                 border: "1px solid #113247",
                 background: cargoSaveBusy || cargoRows.length === 0 || !cargoDirty ? "#cbd5e1" : "#113247",
                 color: "#fff",
@@ -3042,7 +3042,7 @@ export function VehiclePageScreen({
             </div>
           </div>
 
-          <div style={{ border: "1px solid #d6e4ee", borderRadius: 18, background: "#fff", overflow: "auto", maxHeight: "70vh" }}>
+          <div style={{ border: "1px solid #d6e4ee", borderRadius: 0, background: "#fff", overflow: "auto", maxHeight: "70vh" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1600 }}>
             <thead>
               <tr style={{ background: "#f8fbfd" }}>
@@ -3149,7 +3149,7 @@ export function VehiclePageScreen({
                             <input
                               value={typeof value === "number" ? formatNumber(value) : String(value ?? "")}
                               onChange={(event) => updateCargoRow(entry.sourceIndex, column.key as keyof CargoRow, event.target.value)}
-                              style={{ width: "100%", minWidth: 60, height: 34, borderRadius: 10, border: "1px solid #d6e4ee", padding: "0 8px", outline: "none" }}
+                              style={{ width: "100%", minWidth: 60, height: 34, borderRadius: 0, border: "1px solid #d6e4ee", padding: "0 8px", outline: "none" }}
                             />
                           ) : (
                             <div style={{ padding: "0 4px", fontWeight: column.key === "largeTotal" || column.key === "smallTotal" ? 900 : 500 }}>
@@ -3205,7 +3205,7 @@ export function VehiclePageScreen({
               style={{
                 width: 120,
                 height: 40,
-                borderRadius: 12,
+                borderRadius: 0,
                 border: "1px solid #c7d6e3",
                 padding: "0 14px",
                 outline: "none",
@@ -3220,7 +3220,7 @@ export function VehiclePageScreen({
               style={{
                 height: 40,
                 padding: "0 16px",
-                borderRadius: 12,
+                borderRadius: 0,
                 border: "1px solid #0f766e",
                 background: !activeReportGroup || (supportMode && !supportDriverNameInput.trim()) ? "#cbd5e1" : "#0f766e",
                 color: "#fff",
@@ -3243,7 +3243,7 @@ export function VehiclePageScreen({
                 style={{
                   height: 40,
                   padding: "0 14px",
-                  borderRadius: 12,
+                  borderRadius: 0,
                   border: "1px solid #113247",
                   background: reportGroups.length === 0 ? "#cbd5e1" : "#fff",
                   color: "#113247",
@@ -3266,7 +3266,7 @@ export function VehiclePageScreen({
               style={{
                 height: 40,
                 padding: "0 16px",
-                borderRadius: 12,
+                borderRadius: 0,
                 border: "1px solid #113247",
                 background: cargoRows.length === 0 ? "#cbd5e1" : supportMode ? "#0f766e" : "#113247",
                 color: "#fff",
@@ -3279,7 +3279,7 @@ export function VehiclePageScreen({
           </div>
 
           {reportGroups.length === 0 ? (
-            <div style={{ border: "1px solid #d6e4ee", borderRadius: 18, background: "#fff", padding: 18, color: "#6b7280" }}>
+            <div style={{ border: "1px solid #d6e4ee", borderRadius: 0, background: "#fff", padding: 18, color: "#6b7280" }}>
               운행일보를 만들 데이터가 없습니다.
             </div>
           ) : null}

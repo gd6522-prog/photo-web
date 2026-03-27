@@ -33,7 +33,7 @@ function inputStyle(width?: number): React.CSSProperties {
     width: width ? width : "100%",
     height: 38,
     padding: "0 10px",
-    borderRadius: 10,
+    borderRadius: 0,
     border: "1px solid #D1D5DB",
     fontSize: 13,
     outline: "none",
@@ -43,7 +43,7 @@ function inputStyle(width?: number): React.CSSProperties {
 
 const panelStyle: React.CSSProperties = {
   background: "white",
-  borderRadius: 16,
+  borderRadius: 0,
   border: "1px solid #E2E8F0",
   boxShadow: "0 12px 30px rgba(15,23,42,0.06)",
   padding: 20,
@@ -226,7 +226,7 @@ export default function StoreContactsPage() {
       </div>
 
       {err && (
-        <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, padding: "10px 14px", color: "#B91C1C", fontSize: 13 }}>
+        <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 0, padding: "10px 14px", color: "#B91C1C", fontSize: 13 }}>
           {err}
         </div>
       )}
@@ -255,7 +255,7 @@ export default function StoreContactsPage() {
           <button
             onClick={addOne}
             disabled={saving}
-            style={{ height: 38, padding: "0 20px", borderRadius: 10, border: "none", background: "#0284C7", color: "white", fontWeight: 800, fontSize: 13, cursor: saving ? "default" : "pointer", opacity: saving ? 0.6 : 1 }}
+            style={{ height: 38, padding: "0 20px", borderRadius: 0, border: "none", background: "#0284C7", color: "white", fontWeight: 800, fontSize: 13, cursor: saving ? "default" : "pointer", opacity: saving ? 0.6 : 1 }}
           >
             추가
           </button>
@@ -273,7 +273,7 @@ export default function StoreContactsPage() {
           <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleFile} />
           <button
             onClick={() => fileRef.current?.click()}
-            style={{ height: 38, padding: "0 20px", borderRadius: 10, border: "1px solid #CBD5E1", background: "white", fontWeight: 800, fontSize: 13, cursor: "pointer" }}
+            style={{ height: 38, padding: "0 20px", borderRadius: 0, border: "1px solid #CBD5E1", background: "white", fontWeight: 800, fontSize: 13, cursor: "pointer" }}
           >
             파일 선택 (.xlsx / .xls / .csv)
           </button>
@@ -283,7 +283,7 @@ export default function StoreContactsPage() {
       {/* 업로드 프리뷰 모달 */}
       {showPreview && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 9999 }}>
-          <div style={{ width: "100%", maxWidth: 700, maxHeight: "80vh", display: "flex", flexDirection: "column", background: "white", borderRadius: 18, overflow: "hidden", boxShadow: "0 30px 60px rgba(2,6,23,0.25)" }}>
+          <div style={{ width: "100%", maxWidth: 700, maxHeight: "80vh", display: "flex", flexDirection: "column", background: "white", borderRadius: 0, overflow: "hidden", boxShadow: "0 30px 60px rgba(2,6,23,0.25)" }}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid #E2E8F0", fontWeight: 950, fontSize: 15 }}>
               업로드 미리보기 ({preview.length}건)
             </div>
@@ -312,14 +312,14 @@ export default function StoreContactsPage() {
             <div style={{ padding: "12px 18px", borderTop: "1px solid #E2E8F0", display: "flex", justifyContent: "flex-end", gap: 8 }}>
               <button
                 onClick={() => { setShowPreview(false); setPreview([]); }}
-                style={{ height: 36, padding: "0 18px", borderRadius: 10, border: "1px solid #CBD5E1", background: "white", fontWeight: 800, fontSize: 13, cursor: "pointer" }}
+                style={{ height: 36, padding: "0 18px", borderRadius: 0, border: "1px solid #CBD5E1", background: "white", fontWeight: 800, fontSize: 13, cursor: "pointer" }}
               >
                 취소
               </button>
               <button
                 onClick={confirmUpload}
                 disabled={uploading}
-                style={{ height: 36, padding: "0 18px", borderRadius: 10, border: "none", background: "#0284C7", color: "white", fontWeight: 800, fontSize: 13, cursor: uploading ? "default" : "pointer", opacity: uploading ? 0.6 : 1 }}
+                style={{ height: 36, padding: "0 18px", borderRadius: 0, border: "none", background: "#0284C7", color: "white", fontWeight: 800, fontSize: 13, cursor: uploading ? "default" : "pointer", opacity: uploading ? 0.6 : 1 }}
               >
                 {uploading ? "저장 중..." : `${preview.length}건 저장`}
               </button>
@@ -345,7 +345,7 @@ export default function StoreContactsPage() {
               <button
                 onClick={deleteSelected}
                 disabled={saving}
-                style={{ height: 38, padding: "0 16px", borderRadius: 10, border: "none", background: "#EF4444", color: "white", fontWeight: 800, fontSize: 13, cursor: "pointer" }}
+                style={{ height: 38, padding: "0 16px", borderRadius: 0, border: "none", background: "#EF4444", color: "white", fontWeight: 800, fontSize: 13, cursor: "pointer" }}
               >
                 선택 삭제 ({selectedIds.size})
               </button>

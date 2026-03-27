@@ -407,7 +407,7 @@ export default function WorkLogMonthTablePage() {
             href="/admin/work-log"
             style={{
               padding: "8px 10px",
-              borderRadius: 12,
+              borderRadius: 0,
               border: "1px solid rgba(0,0,0,0.15)",
               background: "white",
               fontWeight: 900,
@@ -423,7 +423,7 @@ export default function WorkLogMonthTablePage() {
             disabled={loading || !userId || !month}
             style={{
               padding: "8px 10px",
-              borderRadius: 12,
+              borderRadius: 0,
               border: "1px solid rgba(0,0,0,0.15)",
               background: "white",
               cursor: loading ? "not-allowed" : "pointer",
@@ -441,7 +441,7 @@ export default function WorkLogMonthTablePage() {
           style={{
             marginTop: 12,
             padding: 12,
-            borderRadius: 12,
+            borderRadius: 0,
             background: "rgba(255,0,0,0.06)",
             border: "1px solid rgba(255,0,0,0.18)",
             color: "rgba(120,0,0,0.9)",
@@ -457,7 +457,7 @@ export default function WorkLogMonthTablePage() {
         style={{
           marginTop: 12,
           padding: 12,
-          borderRadius: 16,
+          borderRadius: 0,
           border: "1px solid rgba(0,0,0,0.08)",
           background: "white",
           display: "flex",
@@ -485,7 +485,7 @@ export default function WorkLogMonthTablePage() {
               type="month"
               value={month ?? ""}
               onChange={(e) => setMonth(e.target.value)}
-              style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)" }}
+              style={{ padding: "8px 10px", borderRadius: 0, border: "1px solid rgba(0,0,0,0.15)" }}
             />
           </div>
 
@@ -494,7 +494,7 @@ export default function WorkLogMonthTablePage() {
             <select
               value={baseKey}
               onChange={(e) => setBaseKey(e.target.value as BaseShiftKey)}
-              style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)" }}
+              style={{ padding: "8px 10px", borderRadius: 0, border: "1px solid rgba(0,0,0,0.15)" }}
             >
               {BASE_SHIFTS.map((x) => (
                 <option key={x.key} value={x.key}>
@@ -515,7 +515,7 @@ export default function WorkLogMonthTablePage() {
             borderSpacing: 0,
             background: "white",
             border: "1px solid rgba(0,0,0,0.08)",
-            borderRadius: 14,
+            borderRadius: 0,
             overflow: "hidden",
           }}
         >

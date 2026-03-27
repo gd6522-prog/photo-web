@@ -181,7 +181,7 @@ export default function VehicleAdhesionPage() {
 
   const cardStyle: React.CSSProperties = {
     border: "1px solid #d6e4ee",
-    borderRadius: 18,
+    borderRadius: 0,
     background: "#fff",
     padding: 20,
     boxShadow: "0 18px 34px rgba(15, 41, 64, 0.08)",
@@ -236,7 +236,7 @@ export default function VehicleAdhesionPage() {
             style={{
               height: 44,
               padding: "0 18px",
-              borderRadius: 14,
+              borderRadius: 0,
               border: "1px solid #0f766e",
               background: busy ? "#cbd5e1" : "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
               color: "#fff",

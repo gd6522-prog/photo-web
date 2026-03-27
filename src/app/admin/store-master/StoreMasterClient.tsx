@@ -238,7 +238,7 @@ export default function StoreMasterPage() {
         <b>호차번호가 비어 있는 행은 자동 제외됩니다.</b>
       </p>
 
-      <div style={{ marginTop: 16, border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
+      <div style={{ marginTop: 16, border: "1px solid #e5e7eb", borderRadius: 0, padding: 12 }}>
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <input type="file" accept=".xlsx,.xls" onChange={(event) => onPickFile(event.target.files?.[0] ?? null)} disabled={busy} />
           {fileName ? <span style={{ color: "#111827", fontWeight: 700 }}>{fileName}</span> : null}
@@ -249,7 +249,7 @@ export default function StoreMasterPage() {
             style={{
               height: 36,
               padding: "0 12px",
-              borderRadius: 10,
+              borderRadius: 0,
               border: "1px solid #e5e7eb",
               background: "#fff",
               cursor: busy || rows.length === 0 ? "not-allowed" : "pointer",
@@ -265,7 +265,7 @@ export default function StoreMasterPage() {
             style={{
               height: 36,
               padding: "0 12px",
-              borderRadius: 10,
+              borderRadius: 0,
               border: "1px solid #e5e7eb",
               background: "#fff",
               cursor: busy || rows.length === 0 ? "not-allowed" : "pointer",
@@ -287,7 +287,7 @@ export default function StoreMasterPage() {
         ) : null}
 
         {duplicates.length > 0 ? (
-          <div style={{ marginTop: 10, background: "#fef2f2", border: "1px solid #fca5a5", padding: 10, borderRadius: 10 }}>
+          <div style={{ marginTop: 10, background: "#fef2f2", border: "1px solid #fca5a5", padding: 10, borderRadius: 0 }}>
             <div style={{ fontWeight: 900, color: "#b91c1c" }}>중복 점포코드 목록</div>
             <div style={{ marginTop: 6, color: "#b91c1c" }}>
               {duplicates.slice(0, 50).join(", ")}
@@ -303,7 +303,7 @@ export default function StoreMasterPage() {
             marginTop: 12,
             height: 40,
             padding: "0 14px",
-            borderRadius: 10,
+            borderRadius: 0,
             border: "1px solid #111827",
             background: busy || rows.length === 0 || duplicates.length > 0 ? "#e5e7eb" : "#111827",
             color: "#fff",
@@ -318,7 +318,7 @@ export default function StoreMasterPage() {
       <div style={{ marginTop: 16 }}>
         <h3 style={{ fontWeight: 900, fontSize: 16 }}>전체 보기 (총 {rows.length}건)</h3>
 
-        <div style={{ overflow: "auto", border: "1px solid #e5e7eb", borderRadius: 12, maxHeight: 520 }}>
+        <div style={{ overflow: "auto", border: "1px solid #e5e7eb", borderRadius: 0, maxHeight: 520 }}>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1100 }}>
             <thead>
               <tr style={{ background: "#f9fafb" }}>

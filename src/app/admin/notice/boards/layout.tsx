@@ -47,7 +47,7 @@ export default function BoardsLayout({ children }: { children: React.ReactNode }
                       href={`/admin/notice/boards?board=${board.key}`}
                       style={{
                         padding: "12px 14px",
-                        borderRadius: 16,
+                        borderRadius: 0,
                         textDecoration: "none",
                         border: active ? `1px solid ${board.tone.border}` : "1px solid #d9e6ef",
                         background: active ? board.tone.bg : "#fbfdfe",
@@ -69,7 +69,7 @@ export default function BoardsLayout({ children }: { children: React.ReactNode }
                 style={{
                   marginTop: 12,
                   padding: "12px 14px",
-                  borderRadius: 16,
+                  borderRadius: 0,
                   display: "block",
                   textDecoration: "none",
                   border: isCalendarActive ? "1px solid #c084fc" : "1px solid #d9e6ef",

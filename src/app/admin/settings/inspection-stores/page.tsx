@@ -152,7 +152,7 @@ export default function InspectionStoresPage() {
       <div
         style={{
           border: "1px solid #E5E7EB",
-          borderRadius: 16,
+          borderRadius: 0,
           background: "white",
         }}
       >
@@ -182,7 +182,7 @@ export default function InspectionStoresPage() {
                 style={{
                   height: 44,
                   padding: "0 16px",
-                  borderRadius: 999,
+                  borderRadius: 4,
                   border: "1px solid #E5E7EB",
                   background: mode === "all" ? "#111827" : "white",
                   color: mode === "all" ? "white" : "#111827",
@@ -200,7 +200,7 @@ export default function InspectionStoresPage() {
                 style={{
                   height: 44,
                   padding: "0 16px",
-                  borderRadius: 999,
+                  borderRadius: 4,
                   border: "1px solid #E5E7EB",
                   background: mode === "inspection" ? "#111827" : "white",
                   color: mode === "inspection" ? "white" : "#111827",
@@ -218,7 +218,7 @@ export default function InspectionStoresPage() {
                 onChange={(e) => setCarFilter(e.target.value)}
                 style={{
                   height: 44,
-                  borderRadius: 12,
+                  borderRadius: 0,
                   border: "1px solid #E5E7EB",
                   padding: "0 12px",
                   fontWeight: 800,
@@ -242,7 +242,7 @@ export default function InspectionStoresPage() {
                 placeholder="검색: 점포코드 / 점포명"
                 style={{
                   height: 44,
-                  borderRadius: 12,
+                  borderRadius: 0,
                   border: "1px solid #E5E7EB",
                   padding: "0 14px",
                   outline: "none",
@@ -258,7 +258,7 @@ export default function InspectionStoresPage() {
                 style={{
                   height: 56,
                   width: 200, // ✅ 고정폭
-                  borderRadius: 14,
+                  borderRadius: 0,
                   border: "1px solid #111827",
                   background: saving || changedCount === 0 ? "#E5E7EB" : "#F3F4F6",
                   color: "#111827",
@@ -282,7 +282,7 @@ export default function InspectionStoresPage() {
                 style={{
                   height: 44,
                   padding: "0 16px",
-                  borderRadius: 12,
+                  borderRadius: 0,
                   border: "1px solid #E5E7EB",
                   background: "white",
                   fontWeight: 900,
@@ -298,7 +298,7 @@ export default function InspectionStoresPage() {
                 style={{
                   height: 44,
                   padding: "0 16px",
-                  borderRadius: 12,
+                  borderRadius: 0,
                   border: "1px solid #E5E7EB",
                   background: "white",
                   fontWeight: 900,
@@ -315,7 +315,7 @@ export default function InspectionStoresPage() {
                 style={{
                   height: 44,
                   padding: "0 16px",
-                  borderRadius: 12,
+                  borderRadius: 0,
                   border: "1px solid #E5E7EB",
                   background: "white",
                   fontWeight: 900,
@@ -376,7 +376,7 @@ export default function InspectionStoresPage() {
                           alignItems: "center",
                           gap: 8,
                           padding: "6px 10px",
-                          borderRadius: 999,
+                          borderRadius: 4,
                           border: "1px solid #E5E7EB",
                           background: checked ? "#EFF6FF" : "white",
                           cursor: "pointer",

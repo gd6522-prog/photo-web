@@ -663,7 +663,7 @@ export default function AdminDeliveryPhotosPage() {
             style={{
               height: 34,
               padding: "0 12px",
-              borderRadius: 12,
+              borderRadius: 0,
               border: "1px solid #E5E7EB",
               background: photos.length === 0 ? "#F3F4F6" : "white",
               fontWeight: 900,
@@ -678,7 +678,7 @@ export default function AdminDeliveryPhotosPage() {
             style={{
               height: 34,
               padding: "0 12px",
-              borderRadius: 12,
+              borderRadius: 0,
               border: "1px solid #E5E7EB",
               background: photos.length === 0 ? "#F3F4F6" : "white",
               fontWeight: 900,
@@ -695,7 +695,7 @@ export default function AdminDeliveryPhotosPage() {
             style={{
               height: 34,
               padding: "0 12px",
-              borderRadius: 12,
+              borderRadius: 0,
               border: "1px solid #E5E7EB",
               background: "white",
               fontWeight: 900,
@@ -710,7 +710,7 @@ export default function AdminDeliveryPhotosPage() {
             style={{
               height: 34,
               padding: "0 12px",
-              borderRadius: 12,
+              borderRadius: 0,
               border: "1px solid #E5E7EB",
               background: "white",
               fontWeight: 900,
@@ -726,7 +726,7 @@ export default function AdminDeliveryPhotosPage() {
             style={{
               height: 34,
               padding: "0 12px",
-              borderRadius: 12,
+              borderRadius: 0,
               border: "1px solid #111827",
               background: selectedPhotoIds.size === 0 ? "#CBD5E1" : "#111827",
               color: "white",
@@ -743,7 +743,7 @@ export default function AdminDeliveryPhotosPage() {
             style={{
               height: 34,
               padding: "0 12px",
-              borderRadius: 12,
+              borderRadius: 0,
               border: "1px solid #E5E7EB",
               background: selectedPhotoIds.size === 0 ? "#F3F4F6" : "white",
               fontWeight: 900,
@@ -759,7 +759,7 @@ export default function AdminDeliveryPhotosPage() {
             style={{
               height: 34,
               padding: "0 12px",
-              borderRadius: 12,
+              borderRadius: 0,
               border: "1px solid #EF4444",
               background: selectedPhotoIds.size === 0 ? "#FEE2E2" : "#EF4444",
               color: selectedPhotoIds.size === 0 ? "#991B1B" : "white",
@@ -775,7 +775,7 @@ export default function AdminDeliveryPhotosPage() {
             style={{
               height: 34,
               padding: "0 12px",
-              borderRadius: 12,
+              borderRadius: 0,
               border: "1px solid #E5E7EB",
               background: "white",
               fontWeight: 900,
@@ -813,7 +813,7 @@ export default function AdminDeliveryPhotosPage() {
             background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
             color: "white",
             padding: "10px 12px",
-            borderRadius: 12,
+            borderRadius: 0,
             fontWeight: 900,
             fontSize: 13,
             boxShadow: "0 12px 26px rgba(16,59,83,0.30)",
@@ -836,7 +836,7 @@ export default function AdminDeliveryPhotosPage() {
             overflow: "auto",
           }}
         >
-          <div style={{ border: "1px solid #bdd0de", borderRadius: 18, padding: 14, background: "rgba(255,255,255,0.94)", boxShadow: "0 14px 30px rgba(2,32,46,0.10)" }}>
+          <div style={{ border: "1px solid #bdd0de", borderRadius: 0, padding: 14, background: "rgba(255,255,255,0.94)", boxShadow: "0 14px 30px rgba(2,32,46,0.10)" }}>
             <div style={{ fontWeight: 900, color: "#111827" }}>조회</div>
             <div style={{ height: 12 }} />
 
@@ -860,7 +860,7 @@ export default function AdminDeliveryPhotosPage() {
                       flex: "1 1 0",
                       minWidth: 90,
                       height: 40,
-                      borderRadius: 14,
+                      borderRadius: 0,
                       border: `1px solid ${on ? color : "#E5E7EB"}`,
                       background: on ? "#F9FAFB" : "white",
                       fontWeight: 900,
@@ -892,7 +892,7 @@ export default function AdminDeliveryPhotosPage() {
                           flex: "1 1 0",
                           minWidth: 100,
                           height: 40,
-                          borderRadius: 14,
+                          borderRadius: 0,
                           border: `1px solid ${on ? "rgba(124,58,237,0.45)" : "#E5E7EB"}`,
                           background: on ? "#F5F3FF" : "white",
                           fontWeight: 900,
@@ -922,7 +922,7 @@ export default function AdminDeliveryPhotosPage() {
                   style={{
                     width: "100%",
                     height: 40,
-                    borderRadius: 12,
+                    borderRadius: 0,
                     border: "1px solid #E5E7EB",
                     padding: "0 12px",
                     fontWeight: 800,
@@ -940,7 +940,7 @@ export default function AdminDeliveryPhotosPage() {
                   style={{
                     width: "100%",
                     height: 40,
-                    borderRadius: 12,
+                    borderRadius: 0,
                     border: "1px solid #E5E7EB",
                     padding: "0 12px",
                     fontWeight: 800,
@@ -961,7 +961,7 @@ export default function AdminDeliveryPhotosPage() {
                   style={{
                     width: "100%",
                     height: 40,
-                    borderRadius: 12,
+                    borderRadius: 0,
                     border: "1px solid #E5E7EB",
                     padding: "0 12px",
                     fontWeight: 800,
@@ -986,7 +986,7 @@ export default function AdminDeliveryPhotosPage() {
                   style={{
                     width: "100%",
                     height: 40,
-                    borderRadius: 12,
+                    borderRadius: 0,
                     border: "1px solid #E5E7EB",
                     padding: "0 12px",
                     fontWeight: 800,
@@ -1002,7 +1002,7 @@ export default function AdminDeliveryPhotosPage() {
                   style={{
                     flex: 1,
                     height: 44,
-                    borderRadius: 12,
+                    borderRadius: 0,
                     border: "1px solid #0e7490",
                     background: loading ? "#9fb8c9" : "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
                     color: "white",
@@ -1027,7 +1027,7 @@ export default function AdminDeliveryPhotosPage() {
                   style={{
                     flex: 1,
                     height: 44,
-                    borderRadius: 12,
+                    borderRadius: 0,
                     border: "1px solid #c4d5e3",
                     background: "rgba(255,255,255,0.92)",
                     fontWeight: 900,
@@ -1044,7 +1044,7 @@ export default function AdminDeliveryPhotosPage() {
 
         {/* RIGHT */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ border: "1px solid #bdd0de", borderRadius: 18, background: "rgba(255,255,255,0.94)", overflow: "hidden", boxShadow: "0 14px 30px rgba(2,32,46,0.10)" }}>
+          <div style={{ border: "1px solid #bdd0de", borderRadius: 0, background: "rgba(255,255,255,0.94)", overflow: "hidden", boxShadow: "0 14px 30px rgba(2,32,46,0.10)" }}>
             <div
               style={{
                 padding: 12,
@@ -1088,7 +1088,7 @@ export default function AdminDeliveryPhotosPage() {
                     const doneByName = doneRow ? profilesById[doneRow.done_by]?.name?.trim() || doneRow.done_by : "";
 
                     return (
-                      <div key={group.key} style={{ border: "1px solid #d9e6ef", borderRadius: 16, overflow: "hidden", background: "rgba(255,255,255,0.94)", boxShadow: "0 10px 22px rgba(2,32,46,0.10)" }}>
+                      <div key={group.key} style={{ border: "1px solid #d9e6ef", borderRadius: 0, overflow: "hidden", background: "rgba(255,255,255,0.94)", boxShadow: "0 10px 22px rgba(2,32,46,0.10)" }}>
                         <div style={{ position: "relative", background: "#0B1220" }}>
                           {/* ✅ 클릭 시 해당 그룹의 첫 사진 슬라이드로 모달 열기 */}
                           <button
@@ -1107,7 +1107,7 @@ export default function AdminDeliveryPhotosPage() {
                                 bottom: 10,
                                 height: 26,
                                 padding: "0 10px",
-                                borderRadius: 999,
+                                borderRadius: 4,
                                 background: "rgba(17,24,39,0.75)",
                                 color: "white",
                                 fontWeight: 900,
@@ -1130,7 +1130,7 @@ export default function AdminDeliveryPhotosPage() {
                                 top: 10,
                                 height: 30,
                                 padding: "0 10px",
-                                borderRadius: 999,
+                                borderRadius: 4,
                                 border: isSel ? "1px solid #111827" : "1px solid rgba(255,255,255,0.25)",
                                 background: isSel ? "#111827" : "rgba(17,24,39,0.55)",
                                 color: "white",
@@ -1151,7 +1151,7 @@ export default function AdminDeliveryPhotosPage() {
                                 bottom: 10,
                                 height: 28,
                                 padding: "0 10px",
-                                borderRadius: 999,
+                                borderRadius: 4,
                                 border: `1px solid ${doneRow ? "rgba(22,163,74,0.35)" : "rgba(239,68,68,0.35)"}`,
                                 background: doneRow ? "rgba(236,253,245,0.95)" : "rgba(254,242,242,0.95)",
                                 color: doneRow ? "#16A34A" : "#EF4444",
@@ -1180,7 +1180,7 @@ export default function AdminDeliveryPhotosPage() {
                                 style={{
                                   height: 28,
                                   padding: "0 10px",
-                                  borderRadius: 999,
+                                  borderRadius: 4,
                                   border: `1px solid ${doneRow ? "rgba(22,163,74,0.35)" : "rgba(239,68,68,0.35)"}`,
                                   background: doneRow ? "#ECFDF5" : "#FEF2F2",
                                   fontWeight: 900,
@@ -1224,7 +1224,7 @@ export default function AdminDeliveryPhotosPage() {
                               style={{
                                 height: 30,
                                 padding: "0 10px",
-                                borderRadius: 10,
+                                borderRadius: 0,
                                 border: "1px solid #111827",
                                 background: "#111827",
                                 color: "white",
@@ -1241,7 +1241,7 @@ export default function AdminDeliveryPhotosPage() {
                               style={{
                                 height: 30,
                                 padding: "0 10px",
-                                borderRadius: 10,
+                                borderRadius: 0,
                                 border: "1px solid #E5E7EB",
                                 background: "white",
                                 fontWeight: 900,
@@ -1257,7 +1257,7 @@ export default function AdminDeliveryPhotosPage() {
                               style={{
                                 height: 30,
                                 padding: "0 10px",
-                                borderRadius: 10,
+                                borderRadius: 0,
                                 border: "1px solid #EF4444",
                                 background: "#EF4444",
                                 color: "white",
@@ -1284,7 +1284,7 @@ export default function AdminDeliveryPhotosPage() {
                       style={{
                         height: 44,
                         padding: "0 18px",
-                        borderRadius: 14,
+                        borderRadius: 0,
                         border: "1px solid #E5E7EB",
                         background: loadingMore ? "#F3F4F6" : "white",
                         fontWeight: 900,
@@ -1325,7 +1325,7 @@ export default function AdminDeliveryPhotosPage() {
               width: "min(1200px, 96vw)",
               height: "min(820px, 92vh)",
               background: "white",
-              borderRadius: 16,
+              borderRadius: 0,
               overflow: "hidden",
               display: "grid",
               gridTemplateRows: "auto 1fr auto",
@@ -1361,7 +1361,7 @@ export default function AdminDeliveryPhotosPage() {
                       style={{
                         height: 30,
                         padding: "0 10px",
-                        borderRadius: 999,
+                        borderRadius: 4,
                         border: `1px solid ${doneRowForPreview ? "rgba(22,163,74,0.35)" : "rgba(239,68,68,0.35)"}`,
                         background: doneRowForPreview ? "#ECFDF5" : "#FEF2F2",
                         fontWeight: 900,
@@ -1392,7 +1392,7 @@ export default function AdminDeliveryPhotosPage() {
                   style={{
                     height: 34,
                     padding: "0 12px",
-                    borderRadius: 12,
+                    borderRadius: 0,
                     border: "1px solid #E5E7EB",
                     background: previewSlideIndex === 0 ? "#F3F4F6" : "white",
                     fontWeight: 900,
@@ -1408,7 +1408,7 @@ export default function AdminDeliveryPhotosPage() {
                   style={{
                     height: 34,
                     padding: "0 12px",
-                    borderRadius: 12,
+                    borderRadius: 0,
                     border: "1px solid #E5E7EB",
                     background: previewSlideIndex >= previewGroup.photos.length - 1 ? "#F3F4F6" : "white",
                     fontWeight: 900,
@@ -1423,7 +1423,7 @@ export default function AdminDeliveryPhotosPage() {
                   style={{
                     height: 34,
                     padding: "0 12px",
-                    borderRadius: 12,
+                    borderRadius: 0,
                     border: "1px solid #111827",
                     background: "#111827",
                     color: "white",
@@ -1439,7 +1439,7 @@ export default function AdminDeliveryPhotosPage() {
                   style={{
                     height: 34,
                     padding: "0 12px",
-                    borderRadius: 12,
+                    borderRadius: 0,
                     border: "1px solid #E5E7EB",
                     background: "white",
                     fontWeight: 900,
@@ -1458,7 +1458,7 @@ export default function AdminDeliveryPhotosPage() {
                   style={{
                     height: 34,
                     padding: "0 12px",
-                    borderRadius: 12,
+                    borderRadius: 0,
                     border: "1px solid #EF4444",
                     background: "#EF4444",
                     color: "white",
@@ -1474,7 +1474,7 @@ export default function AdminDeliveryPhotosPage() {
                   style={{
                     height: 34,
                     padding: "0 12px",
-                    borderRadius: 12,
+                    borderRadius: 0,
                     border: "1px solid #E5E7EB",
                     background: "white",
                     fontWeight: 900,
@@ -1509,7 +1509,7 @@ export default function AdminDeliveryPhotosPage() {
                       transform: "translateY(-50%)",
                       width: 44,
                       height: 44,
-                      borderRadius: 999,
+                      borderRadius: 4,
                       border: "none",
                       background: previewSlideIndex === 0 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.85)",
                       color: previewSlideIndex === 0 ? "rgba(0,0,0,0.3)" : "#111827",
@@ -1535,7 +1535,7 @@ export default function AdminDeliveryPhotosPage() {
                       transform: "translateY(-50%)",
                       width: 44,
                       height: 44,
-                      borderRadius: 999,
+                      borderRadius: 4,
                       border: "none",
                       background: previewSlideIndex >= previewGroup.photos.length - 1 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.85)",
                       color: previewSlideIndex >= previewGroup.photos.length - 1 ? "rgba(0,0,0,0.3)" : "#111827",
@@ -1569,7 +1569,7 @@ export default function AdminDeliveryPhotosPage() {
                         style={{
                           width: i === previewSlideIndex ? 20 : 8,
                           height: 8,
-                          borderRadius: 999,
+                          borderRadius: 4,
                           border: "none",
                           background: i === previewSlideIndex ? "white" : "rgba(255,255,255,0.45)",
                           cursor: "pointer",

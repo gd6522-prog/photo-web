@@ -34,7 +34,7 @@ body {
   border: 1px solid var(--line-soft);
   background: var(--card-bg);
   box-shadow: var(--card-shadow);
-  border-radius: 18px;
+  border-radius: 0;
 }
 
 .ha-admin {
@@ -49,7 +49,7 @@ body {
   border: 1px solid #b7c8d7 !important;
   background: #ffffff !important;
   color: #0b2536 !important;
-  border-radius: 12px !important;
+  border-radius: 4px !important;
   box-shadow: inset 0 1px 1px rgba(12, 46, 66, 0.04);
 }
 
@@ -60,7 +60,7 @@ body {
 }
 
 .ha-admin :where(button) {
-  border-radius: 12px;
+  border-radius: 4px;
   transition: all 140ms ease;
 }
 

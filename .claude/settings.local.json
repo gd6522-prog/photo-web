@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(vercel --version)",
+      "Bash(npx vercel:*)",
+      "Bash(git pull:*)",
+      "Bash(git push:*)",
+      "Bash(node -e \"const w=[42,180,56,56,56,56,56,56,56,56,56,58,58,58,58,50,50,84,216,130,54,54,78]; console.log\\(''전체합:'', w.reduce\\(\\(a,b\\)=>a+b,0\\)\\); console.log\\(''21번\\(54\\) 제외:'', w.reduce\\(\\(a,b\\)=>a+b,0\\)-54\\);\")",
+      "Bash(grep -E \"^\\\\+.*//.*[0-9]|^-.*//.*[0-9]\")",
+      "Bash(xargs grep:*)",
+      "Bash(for f:*)",
+      "Bash(do)",
+      "Bash(sed -i -e 's/rounded-3xl/rounded/g' -e 's/rounded-2xl/rounded/g' -e 's/rounded-xl/rounded/g' -e 's/rounded-lg/rounded/g' \"$f\")",
+      "Bash(done)",
+      "Bash(grep -rn border-radius c:/Users/wals741/webphoto/han-admin/src/app/admin/notice/boards/[id]/page.tsx)"
+    ]
+  }
+}
