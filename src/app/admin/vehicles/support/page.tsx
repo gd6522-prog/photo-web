@@ -165,7 +165,7 @@ async function fetchContactIndex(): Promise<Map<string, string>> {
 function StoreNoticeCard({ row, reportDate, cardRef }: { row: CargoRow; reportDate: string; cardRef: React.RefObject<HTMLDivElement | null> }) {
   const { largeTotal, smallTotal } = cargoTotals(row);
   return (
-    <div ref={cardRef} style={{ width: 500, background: "#fff", borderRadius: 16, padding: "22px 24px", fontFamily: "Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif", boxSizing: "border-box", boxShadow: "0 4px 24px rgba(0,0,0,0.10)" }}>
+    <div ref={cardRef} style={{ width: 500, background: "#fff", borderRadius: 0, padding: "22px 24px", fontFamily: "Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif", boxSizing: "border-box" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
         <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>🚚</div>
         <div style={{ flex: 1 }}>
@@ -326,7 +326,7 @@ function DriverMessageCardHorizontal({
   };
 
   return (
-    <div ref={cardRef} style={{ width: "max-content", minWidth: 500, background: "#fff", borderRadius: 16, padding: "20px 24px", fontFamily: "Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif", boxSizing: "border-box", boxShadow: "0 4px 24px rgba(0,0,0,0.10)" }}>
+    <div ref={cardRef} style={{ width: "max-content", minWidth: 500, background: "#fff", borderRadius: 0, padding: "20px 24px", fontFamily: "Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif", boxSizing: "border-box" }}>
       {/* 헤더 */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, borderBottom: "2px solid #f0f4f8", paddingBottom: 12 }}>
         <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg,#4c1d95 0%,#7c3aed 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>🚗</div>
