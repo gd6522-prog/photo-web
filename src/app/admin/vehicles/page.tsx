@@ -2405,25 +2405,6 @@ export function VehiclePageScreen({
               border-collapse: collapse !important;
             }
 
-            .report-print-frame table:first-of-type td {
-              padding-top: 4px !important;
-              padding-bottom: 4px !important;
-              line-height: 1 !important;
-            }
-
-            .report-print-frame table:first-of-type td[style*="font-size: 20px"] {
-              font-size: 18px !important;
-              line-height: 1.2 !important;
-            }
-
-            .report-print-frame table:first-of-type td[style*="font-size: 18px"] {
-              font-size: 16px !important;
-            }
-
-            .report-print-frame table:first-of-type td[style*="font-size: 15px"] {
-              font-size: 14px !important;
-            }
-
             .report-print-frame table:nth-of-type(2) thead th {
               padding-top: 5px !important;
               padding-bottom: 5px !important;
