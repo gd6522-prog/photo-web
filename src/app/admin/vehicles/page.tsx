@@ -2282,6 +2282,8 @@ export function VehiclePageScreen({
             margin: 0 !important;
             padding: 0 !important;
             background: #fff !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
           }
 
           .ha-admin-header {
@@ -2351,6 +2353,8 @@ export function VehiclePageScreen({
             zoom: ${REPORT_PRINT_SCALE} !important;
             transform: none !important;
             transform-origin: top left !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
           }
 
           .report-print-frame .report-section-top {
