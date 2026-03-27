@@ -2260,7 +2260,6 @@ export function VehiclePageScreen({
 
   return (
     <div style={{ display: "grid", gap: 16 }} className="vehicle-page">
-      <style dangerouslySetInnerHTML={{ __html: `@media print{.report-print-frame{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}` }} />
       <style jsx global>{`
         @keyframes vehicle-spin {
           from {
@@ -2283,8 +2282,6 @@ export function VehiclePageScreen({
             margin: 0 !important;
             padding: 0 !important;
             background: #fff !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
           }
 
           .ha-admin-header {
@@ -2354,8 +2351,6 @@ export function VehiclePageScreen({
             zoom: ${REPORT_PRINT_SCALE} !important;
             transform: none !important;
             transform-origin: top left !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
           }
 
           .report-print-frame .report-section-top {
@@ -3231,7 +3226,7 @@ export function VehiclePageScreen({
                   )}
                 </colgroup>
                 <thead>
-                  <tr style={{ background: "#f1f1f1" }}>
+                  <tr style={{ background: "#f1f1f1", WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" } as React.CSSProperties}>
                     <th rowSpan={2} style={{ border: "1px solid #666", padding: "7px 5px", fontSize: 13, ...getReportMainCellWidth(0) }}>No</th>
                     <th rowSpan={2} style={{ border: "1px solid #666", padding: "7px 5px", fontSize: 13, ...getReportMainCellWidth(1) }}>점포명</th>
                     <th className="report-section-top report-section-left report-section-right" colSpan={6} style={{ border: "1px solid #666", borderLeft: REPORT_SECTION_BORDER, borderRight: REPORT_SECTION_BORDER, borderTop: REPORT_SECTION_BORDER, padding: "7px 5px", fontSize: 13 }}>대</th>
@@ -3246,7 +3241,7 @@ export function VehiclePageScreen({
                     <th rowSpan={2} style={{ border: "1px solid #666", padding: "7px 5px", fontSize: 13, ...getReportMainCellWidth(19) }}>연락처</th>
                     <th colSpan={2} style={{ border: "1px solid #666", padding: "7px 5px", fontSize: 13 }}>전일점착(미스캔X)</th>
                   </tr>
-                  <tr style={{ background: "#f7f7f7" }}>
+                  <tr style={{ background: "#f7f7f7", WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" } as React.CSSProperties}>
                     {([
                       [2, "계"], [3, "박스존"], [4, "이너존"], [5, "기타"], [6, "올데이 2L생수"], [7, "노브랜드2L생수"],
                       [8, "계"], [9, "경량존"], [10, "슬라존"],
@@ -3290,10 +3285,11 @@ export function VehiclePageScreen({
                     const sum = cargoTotals(row);
                     const reportRowBackground = row.support_excluded ? "#111" : "#fff";
                     const reportRowColor = row.support_excluded ? "#fff" : undefined;
+                    const reportRowPca = row.support_excluded ? ({ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" } as React.CSSProperties) : {};
                     const storeAdhesion = adhesionStoreMap.get(normalizeStoreName(row.store_name || ""));
                     const storeCdc = getCombinedCdcCount(cdcStoreMap, fullBoxStoreMap, row);
                     return (
-                      <tr key={row.id || `${group.carNo}-${index}`} style={{ background: reportRowBackground, height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, lineHeight: 1 }}>
+                      <tr key={row.id || `${group.carNo}-${index}`} style={{ background: reportRowBackground, height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, lineHeight: 1, ...reportRowPca }}>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontWeight: 700, fontSize: 13, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(0) }}>{index + 1}</td>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: supportMode ? 0 : "6px 7px", verticalAlign: "middle", overflow: "hidden", fontWeight: 800, color: reportRowColor, background: reportRowBackground, ...getFittedTextStyle(row.store_name || "", 13, { minFontSize: 9, lineHeight: 1 }), ...getReportMainCellWidth(1) }}>
                           {supportMode ? (
