@@ -2251,27 +2251,9 @@ export function VehiclePageScreen({
   };
 
   useEffect(() => {
-    const handleBeforePrint = () => {
-      let style = document.getElementById("force-print-bg") as HTMLStyleElement | null;
-      if (!style) {
-        style = document.createElement("style");
-        style.id = "force-print-bg";
-        document.head.appendChild(style);
-      }
-      style.textContent =
-        ".print-bg{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}";
-    };
-    const handleAfterPrint = () => {
-      setBatchPrintMode("");
-      const style = document.getElementById("force-print-bg");
-      if (style) style.remove();
-    };
-    window.addEventListener("beforeprint", handleBeforePrint);
+    const handleAfterPrint = () => setBatchPrintMode("");
     window.addEventListener("afterprint", handleAfterPrint);
-    return () => {
-      window.removeEventListener("beforeprint", handleBeforePrint);
-      window.removeEventListener("afterprint", handleAfterPrint);
-    };
+    return () => window.removeEventListener("afterprint", handleAfterPrint);
   }, []);
 
   const topCardStyle = cardStyle();
@@ -2300,6 +2282,8 @@ export function VehiclePageScreen({
             margin: 0 !important;
             padding: 0 !important;
             background: #fff !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
 
           .ha-admin-header {
@@ -2369,10 +2353,8 @@ export function VehiclePageScreen({
             zoom: ${REPORT_PRINT_SCALE} !important;
             transform: none !important;
             transform-origin: top left !important;
-          }
-
-          .report-data-tbody td {
-            background: transparent !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
 
           .report-print-frame .report-section-top {
@@ -3302,15 +3284,15 @@ export function VehiclePageScreen({
                     ))}
                   </tr>
                 </thead>
-                <tbody className="report-data-tbody">
+                <tbody>
                   {[...group.rows, ...Array.from({ length: Math.max(0, 20 - group.rows.length) }, (_, i) => ({ id: `blank-${group.carNo}-${i}` } as CargoRow))].slice(0, 20).map((row, index) => {
                     const sum = cargoTotals(row);
-                    const reportRowBackground = row.support_excluded ? "#111" : undefined;
+                    const reportRowBackground = row.support_excluded ? "#111" : "#fff";
                     const reportRowColor = row.support_excluded ? "#fff" : undefined;
                     const storeAdhesion = adhesionStoreMap.get(normalizeStoreName(row.store_name || ""));
                     const storeCdc = getCombinedCdcCount(cdcStoreMap, fullBoxStoreMap, row);
                     return (
-                      <tr key={row.id || `${group.carNo}-${index}`} className={row.support_excluded ? "print-bg" : undefined} style={{ background: reportRowBackground, height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, lineHeight: 1 }}>
+                      <tr key={row.id || `${group.carNo}-${index}`} style={{ background: reportRowBackground, height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, lineHeight: 1 }}>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontWeight: 700, fontSize: 13, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(0) }}>{index + 1}</td>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: supportMode ? 0 : "6px 7px", verticalAlign: "middle", overflow: "hidden", fontWeight: 800, color: reportRowColor, background: reportRowBackground, ...getFittedTextStyle(row.store_name || "", 13, { minFontSize: 9, lineHeight: 1 }), ...getReportMainCellWidth(1) }}>
                           {supportMode ? (
