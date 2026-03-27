@@ -2366,9 +2366,8 @@ export function VehiclePageScreen({
 
           .report-print-frame {
             width: ${REPORT_PREVIEW_BASE_WIDTH}px !important;
-            zoom: ${REPORT_PRINT_SCALE} !important;
-            transform: none !important;
-            transform-origin: top left !important;
+            transform: scale(${REPORT_PRINT_SCALE}) !important;
+            transform-origin: center center !important;
           }
 
           .report-data-tbody td {
