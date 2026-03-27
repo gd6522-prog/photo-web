@@ -160,7 +160,13 @@ function normalizeApproval(v: string | null): "pending" | "approved" | "rejected
 function approvalLabel(status: "pending" | "approved" | "rejected"): string {
   if (status === "approved") return "승인";
   if (status === "rejected") return "반려";
-  return "승인대기";
+  return "확인대기";
+}
+
+type TodayShiftMap = Record<string, { inAt: string | null; outAt: string | null }>;
+
+function isWorkingNow(today: { inAt: string | null; outAt: string | null } | undefined): boolean {
+  return !!today?.inAt && !today?.outAt;
 }
 
 function approvalBadgeStyle(status: "pending" | "approved" | "rejected"): React.CSSProperties {
@@ -309,6 +315,7 @@ export default function DriverMasterPage() {
   // list & selection
   const [rows, setRows] = useState<ProfileRow[]>([]);
   const [selected, setSelected] = useState<ProfileRow | null>(null);
+  const [todayShiftMap, setTodayShiftMap] = useState<TodayShiftMap>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // bulk
@@ -464,9 +471,26 @@ export default function DriverMasterPage() {
       });
 
       setRows(list);
+
+      // 오늘 근무 현황
+      const ids = list.map((r) => r.id);
+      const shiftMap: TodayShiftMap = {};
+      if (ids.length > 0) {
+        const todayYmd = kstTodayYMD();
+        const { data: shifts } = await supabase
+          .from("work_shifts")
+          .select("user_id,clock_in_at,clock_out_at")
+          .eq("work_date", todayYmd)
+          .in("user_id", ids);
+        for (const s of (shifts ?? []) as { user_id: string; clock_in_at: string | null; clock_out_at: string | null }[]) {
+          shiftMap[s.user_id] = { inAt: s.clock_in_at, outAt: s.clock_out_at };
+        }
+      }
+      setTodayShiftMap(shiftMap);
     } catch (e: any) {
       setErr(String(e?.message ?? e ?? "불러오기 실패"));
       setRows([]);
+      setTodayShiftMap({});
     } finally {
       setLoading(false);
     }
@@ -476,6 +500,21 @@ export default function DriverMasterPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const updateApprovalInline = async (id: string, next: "pending" | "approved" | "rejected") => {
+    setErr(null);
+    try {
+      if (next === "rejected") {
+        await rejectAndDeleteUser(id);
+      } else {
+        const { error } = await supabase.from("profiles").update({ approval_status: next }).eq("id", id);
+        if (error) throw error;
+      }
+      await load();
+    } catch (e: any) {
+      setErr(String(e?.message ?? e ?? "상태 변경 실패"));
+    }
+  };
 
   const rejectAndDeleteUser = async (id: string) => {
     const { data: authData } = await supabase.auth.getSession();
@@ -731,6 +770,7 @@ export default function DriverMasterPage() {
                 "운수사",
                 "전화번호",
                 "차고지",
+                "상태",
                 "상세",
               ].map((h) => (
                 <th
@@ -762,6 +802,9 @@ export default function DriverMasterPage() {
               </tr>
             ) : (
               rows.map((r) => {
+                const ap = normalizeApproval(r.approval_status);
+                const approved = ap === "approved";
+                const working = approved ? isWorkingNow(todayShiftMap[r.id]) : false;
                 return (
                   <tr key={r.id}>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
@@ -775,6 +818,20 @@ export default function DriverMasterPage() {
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.carrier ?? "-"}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{formatKRPhone(r.phone)}</td>
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.garage ?? "-"}</td>
+
+                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                      {!approved ? (
+                        <select value={ap} onChange={(e) => updateApprovalInline(r.id, e.target.value as "pending" | "approved" | "rejected")} style={{ height: 32, padding: "0 10px", borderRadius: 8, border: "1px solid #D7DCE2", fontWeight: 700 }}>
+                          <option value="pending">확인대기</option>
+                          <option value="approved">승인</option>
+                          <option value="rejected">반려</option>
+                        </select>
+                      ) : working ? (
+                        <span style={{ padding: "5px 10px", borderRadius: 999, border: "1px solid #FDBA74", background: "#FFF7ED", color: "#9A3412", fontWeight: 800, fontSize: 12 }}>근무중</span>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
 
                     <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
                       <button
@@ -943,7 +1000,7 @@ export default function DriverMasterPage() {
                 <div style={{ gridColumn: "1 / -1", marginTop: 6, paddingTop: 10, borderTop: "1px solid rgba(0,0,0,0.08)" }}>
                   <div style={{ fontWeight: 950, fontSize: 13, marginBottom: 8 }}>승인 상태</div>
                   <select value={f.approval_status} onChange={(e) => setF((p) => ({ ...p, approval_status: e.target.value as any }))} style={inputStyle()}>
-                    <option value="pending">승인대기</option>
+                    <option value="pending">확인대기</option>
                     <option value="approved">승인</option>
                     <option value="rejected">반려</option>
                   </select>
