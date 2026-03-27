@@ -2321,14 +2321,12 @@ export function VehiclePageScreen({
             height: 210mm;
             min-height: 210mm;
             padding: 0 !important;
+            padding-left: 6mm !important;
             margin: 0 !important;
             border: 0 !important;
             overflow: hidden !important;
             background: #fff !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            padding-left: 6mm !important;
+            display: block !important;
             box-sizing: border-box !important;
             break-after: page !important;
             page-break-after: always !important;
@@ -2343,8 +2341,7 @@ export function VehiclePageScreen({
 
           .report-print-frame {
             width: ${REPORT_PREVIEW_BASE_WIDTH}px !important;
-            zoom: ${REPORT_PRINT_SCALE} !important;
-            transform: none !important;
+            transform: scale(${REPORT_PRINT_SCALE}) !important;
             transform-origin: top left !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
