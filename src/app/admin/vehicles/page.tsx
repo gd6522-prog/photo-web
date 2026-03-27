@@ -3305,7 +3305,7 @@ export function VehiclePageScreen({
                 <tbody>
                   {[...group.rows, ...Array.from({ length: Math.max(0, 20 - group.rows.length) }, (_, i) => ({ id: `blank-${group.carNo}-${i}` } as CargoRow))].slice(0, 20).map((row, index) => {
                     const sum = cargoTotals(row);
-                    const reportRowBackground = row.support_excluded ? "#111" : "#fff";
+                    const reportRowBackground = row.support_excluded ? "#111" : undefined;
                     const reportRowColor = row.support_excluded ? "#fff" : undefined;
                     const storeAdhesion = adhesionStoreMap.get(normalizeStoreName(row.store_name || ""));
                     const storeCdc = getCombinedCdcCount(cdcStoreMap, fullBoxStoreMap, row);
