@@ -3130,6 +3130,8 @@ export function VehiclePageScreen({
                   width: REPORT_PREVIEW_BASE_WIDTH,
                   transform: `scale(${reportPreviewScale})`,
                   transformOrigin: "top left",
+                  WebkitPrintColorAdjust: "exact",
+                  printColorAdjust: "exact",
                 }}
               >
               <table style={{ width: REPORT_PREVIEW_BASE_WIDTH, borderCollapse: "collapse", tableLayout: "fixed" }}>
@@ -3298,7 +3300,7 @@ export function VehiclePageScreen({
                     const storeAdhesion = adhesionStoreMap.get(normalizeStoreName(row.store_name || ""));
                     const storeCdc = getCombinedCdcCount(cdcStoreMap, fullBoxStoreMap, row);
                     return (
-                      <tr key={row.id || `${group.carNo}-${index}`} style={{ background: reportRowBackground, height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, lineHeight: 1 }}>
+                      <tr key={row.id || `${group.carNo}-${index}`} style={{ background: reportRowBackground, height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, lineHeight: 1, WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontWeight: 700, fontSize: 13, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(0) }}>{index + 1}</td>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: supportMode ? 0 : "6px 7px", verticalAlign: "middle", overflow: "hidden", fontWeight: 800, color: reportRowColor, background: reportRowBackground, ...getFittedTextStyle(row.store_name || "", 13, { minFontSize: 9, lineHeight: 1 }), ...getReportMainCellWidth(1) }}>
                           {supportMode ? (
