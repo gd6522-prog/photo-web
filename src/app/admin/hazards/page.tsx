@@ -199,17 +199,17 @@ function printHazardResolutionSheet(params: {
       .sheet { width: 100%; display: flex; flex-direction: column; gap: 12px; }
       .title-row { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #cbd5e1; padding-bottom: 10px; }
       .title-row h1 { margin: 0; font-size: 22px; align-self: center; }
-      .stamp { display: flex; border: 1px solid #94a3b8; border-radius: 8px; overflow: hidden; font-size: 11px; }
+      .stamp { display: flex; border: 1px solid #94a3b8; border-radius: 3px; overflow: hidden; font-size: 11px; }
       .stamp-cell { display: flex; flex-direction: column; align-items: center; border-left: 1px solid #94a3b8; min-width: 58px; }
       .stamp-cell:first-child { border-left: none; }
       .stamp-role { background: #f1f5f9; width: 100%; text-align: center; padding: 3px 0; font-weight: 900; color: #334155; border-bottom: 1px solid #94a3b8; }
       .stamp-sign { height: 44px; width: 100%; }
       .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-      .meta-box { border: 1px solid #dbe4ee; border-radius: 12px; padding: 10px 12px; background: #f8fafc; }
+      .meta-box { border: 1px solid #dbe4ee; border-radius: 3px; padding: 10px 12px; background: #f8fafc; }
       .meta-label { font-size: 11px; font-weight: 800; color: #64748b; margin-bottom: 4px; }
       .meta-value { font-size: 14px; font-weight: 700; color: #0f172a; white-space: pre-wrap; word-break: break-word; }
       .photos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-      .panel { border: 1px solid #dbe4ee; border-radius: 14px; overflow: hidden; background: #ffffff; }
+      .panel { border: 1px solid #dbe4ee; border-radius: 3px; overflow: hidden; background: #ffffff; }
       .panel-head { padding: 10px 12px; font-size: 14px; font-weight: 900; border-bottom: 1px solid #e2e8f0; }
       .panel-head.before { background: #eff6ff; color: #1d4ed8; }
       .panel-head.after { background: #ecfdf5; color: #047857; }
@@ -218,11 +218,11 @@ function printHazardResolutionSheet(params: {
       .memo { border-top: 1px solid #e2e8f0; padding: 10px 12px; min-height: 60px; background: #fcfdff; }
       .memo-label { font-size: 12px; font-weight: 900; margin-bottom: 4px; color: #334155; }
       .memo-text { font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
-      .law { border: 1px solid #e0e7ef; border-radius: 12px; overflow: hidden; page-break-inside: avoid; }
+      .law { border: 1px solid #e0e7ef; border-radius: 3px; overflow: hidden; page-break-inside: avoid; }
       .law-title { background: #f1f5f9; padding: 8px 14px; font-size: 12px; font-weight: 900; color: #334155; border-bottom: 1px solid #e0e7ef; }
       .law-body { padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; }
       .law-item { display: flex; gap: 10px; align-items: flex-start; }
-      .law-tag { flex-shrink: 0; width: 82px; text-align: center; background: #dbeafe; color: #1d4ed8; border-radius: 6px; padding: 2px 0; font-size: 10px; font-weight: 800; white-space: nowrap; margin-top: 2px; }
+      .law-tag { flex-shrink: 0; width: 82px; text-align: center; background: #dbeafe; color: #1d4ed8; border-radius: 3px; padding: 2px 0; font-size: 10px; font-weight: 800; white-space: nowrap; margin-top: 2px; }
       .law-text { font-size: 11px; color: #374151; line-height: 1.65; }
     </style>
   </head>
