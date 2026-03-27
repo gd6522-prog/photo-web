@@ -205,24 +205,24 @@ function printHazardResolutionSheet(params: {
       .stamp-role { background: #f1f5f9; width: 100%; text-align: center; padding: 3px 0; font-weight: 900; color: #334155; border-bottom: 1px solid #94a3b8; }
       .stamp-sign { height: 44px; width: 100%; }
       .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-      .meta-box { border: 1px solid #dbe4ee; border-radius: 3px; padding: 10px 12px; background: #f8fafc; }
-      .meta-label { font-size: 11px; font-weight: 800; color: #64748b; margin-bottom: 4px; }
+      .meta-box { border: 1px solid #d1d5db; border-radius: 3px; padding: 10px 12px; background: #f3f4f6; }
+      .meta-label { font-size: 11px; font-weight: 800; color: #6b7280; margin-bottom: 4px; }
       .meta-value { font-size: 14px; font-weight: 700; color: #0f172a; white-space: pre-wrap; word-break: break-word; }
       .photos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-      .panel { border: 1px solid #dbe4ee; border-radius: 3px; overflow: hidden; background: #ffffff; }
-      .panel-head { padding: 10px 12px; font-size: 14px; font-weight: 900; border-bottom: 1px solid #e2e8f0; }
-      .panel-head.before { background: #eff6ff; color: #1d4ed8; }
-      .panel-head.after { background: #ecfdf5; color: #047857; }
+      .panel { border: 1px solid #d1d5db; border-radius: 3px; overflow: hidden; background: #ffffff; }
+      .panel-head { padding: 10px 12px; font-size: 14px; font-weight: 900; border-bottom: 1px solid #d1d5db; }
+      .panel-head.before { background: #e5e7eb; color: #1f2937; }
+      .panel-head.after { background: #e5e7eb; color: #1f2937; }
       .image-wrap { height: 260px; display: flex; align-items: center; justify-content: center; background: #ffffff; padding: 10px; }
       .image-wrap img { max-width: 100%; max-height: 100%; object-fit: contain; }
-      .memo { border-top: 1px solid #e2e8f0; padding: 10px 12px; min-height: 60px; background: #fcfdff; }
-      .memo-label { font-size: 12px; font-weight: 900; margin-bottom: 4px; color: #334155; }
+      .memo { border-top: 1px solid #d1d5db; padding: 10px 12px; min-height: 60px; background: #f9fafb; }
+      .memo-label { font-size: 12px; font-weight: 900; margin-bottom: 4px; color: #374151; }
       .memo-text { font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
-      .law { border: 1px solid #e0e7ef; border-radius: 3px; overflow: hidden; page-break-inside: avoid; }
-      .law-title { background: #f1f5f9; padding: 8px 14px; font-size: 12px; font-weight: 900; color: #334155; border-bottom: 1px solid #e0e7ef; }
+      .law { border: 1px solid #d1d5db; border-radius: 3px; overflow: hidden; page-break-inside: avoid; }
+      .law-title { background: #e5e7eb; padding: 8px 14px; font-size: 12px; font-weight: 900; color: #1f2937; border-bottom: 1px solid #d1d5db; }
       .law-body { padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; }
       .law-item { display: flex; gap: 10px; align-items: flex-start; }
-      .law-tag { flex-shrink: 0; width: 82px; text-align: center; background: #dbeafe; color: #1d4ed8; border-radius: 3px; padding: 2px 0; font-size: 10px; font-weight: 800; white-space: nowrap; margin-top: 2px; }
+      .law-tag { flex-shrink: 0; width: 82px; text-align: center; background: #e5e7eb; color: #374151; border-radius: 3px; padding: 2px 0; font-size: 10px; font-weight: 800; white-space: nowrap; margin-top: 2px; }
       .law-text { font-size: 11px; color: #374151; line-height: 1.65; }
     </style>
   </head>
