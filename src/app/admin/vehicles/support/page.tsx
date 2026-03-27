@@ -262,7 +262,7 @@ function DriverMessageCardHorizontal({
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 8, fontSize: 11 }}>
           {row.standard_time && <div>⏰ <strong>{row.standard_time}</strong></div>}
-          {row.address && <div style={{ color: "#374151", lineHeight: 1.4 }}>📍 {row.address}</div>}
+          {row.address && <div style={{ color: "#374151", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📍 {row.address}</div>}
           {phone && <div>📞 {formatPhone(phone)}</div>}
         </div>
         {/* 물동량 */}
