@@ -1649,6 +1649,7 @@ export function VehiclePageScreen({
   const REPORT_PREVIEW_BASE_WIDTH = 1620;
   const REPORT_PRINT_SCALE = 0.66;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const reportPrintListRef = useRef<HTMLDivElement | null>(null);
   const reportPreviewContainerRef = useRef<HTMLDivElement | null>(null);
   const reportPreviewContentRef = useRef<HTMLDivElement | null>(null);
   const driverFetchKeyRef = useRef("");
@@ -2236,25 +2237,211 @@ export function VehiclePageScreen({
       .catch(() => setLimitsMessage("기준값 저장 실패"));
   };
 
+  const printVisibleReportPages = async (onAfterPrint?: () => void) => {
+    const source = reportPrintListRef.current;
+    if (!source) {
+      setMessage("출력 영역을 찾지 못했습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.");
+      onAfterPrint?.();
+      return;
+    }
+
+    const shells = Array.from(source.querySelectorAll(".report-print-shell"));
+    if (!shells.length) {
+      setMessage("출력할 운행일보가 없습니다.");
+      onAfterPrint?.();
+      return;
+    }
+
+    const printMarkup = shells
+      .map((shell) => {
+        const clone = shell.cloneNode(true) as HTMLDivElement;
+
+        clone.querySelectorAll("input").forEach((inputNode) => {
+          const input = inputNode as HTMLInputElement;
+          const replacement = document.createElement("span");
+          replacement.textContent = input.value;
+          replacement.style.display = "block";
+          replacement.style.width = "100%";
+          replacement.style.minHeight = "24px";
+          replacement.style.lineHeight = "24px";
+          replacement.style.textAlign = input.style.textAlign || "center";
+          replacement.style.fontWeight = input.style.fontWeight || "800";
+          replacement.style.fontSize = input.style.fontSize || "13px";
+          replacement.style.color = input.style.color || "#111827";
+          input.replaceWith(replacement);
+        });
+
+        clone.querySelectorAll(".report-preview-viewport").forEach((node) => {
+          const viewport = node as HTMLDivElement;
+          viewport.style.minHeight = "";
+          viewport.style.height = "";
+          viewport.style.overflow = "visible";
+        });
+
+        clone.querySelectorAll(".report-print-frame").forEach((node) => {
+          const frame = node as HTMLDivElement;
+          frame.style.transform = "none";
+          frame.style.transformOrigin = "top left";
+          frame.style.zoom = String(REPORT_PRINT_SCALE);
+          frame.style.width = `${REPORT_PREVIEW_BASE_WIDTH}px`;
+        });
+
+        return clone.outerHTML;
+      })
+      .join("");
+
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+
+    const cleanup = () => {
+      window.setTimeout(() => {
+        iframe.remove();
+        onAfterPrint?.();
+      }, 0);
+    };
+
+    const printWindow = iframe.contentWindow;
+    const doc = printWindow?.document;
+    if (!doc || !printWindow) {
+      cleanup();
+      setMessage("출력 창을 열지 못했습니다. 브라우저 설정을 확인해 주세요.");
+      return;
+    }
+
+    doc.open();
+    doc.write(`
+      <!doctype html>
+      <html lang="ko">
+        <head>
+          <meta charset="utf-8" />
+          <title>운행일보 출력</title>
+          <style>
+            @page {
+              size: A4 landscape;
+              margin: 0;
+            }
+
+            html, body {
+              margin: 0;
+              padding: 0;
+              background: #fff;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+              font-family: "Malgun Gothic", sans-serif;
+            }
+
+            body {
+              min-width: 297mm;
+            }
+
+            .report-print-shell {
+              position: relative;
+              width: 297mm;
+              height: 210mm;
+              min-height: 210mm;
+              margin: 0;
+              border: 0 !important;
+              overflow: hidden;
+              background: #fff;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              padding-left: 6mm !important;
+              box-sizing: border-box;
+              break-after: page;
+              page-break-after: always;
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+
+            .report-print-shell:last-child {
+              break-after: auto;
+              page-break-after: auto;
+            }
+
+            .report-preview-viewport {
+              width: 100% !important;
+              overflow: visible !important;
+              min-height: auto !important;
+              height: auto !important;
+            }
+
+            .report-print-frame {
+              width: ${REPORT_PREVIEW_BASE_WIDTH}px !important;
+              zoom: ${REPORT_PRINT_SCALE} !important;
+              transform: none !important;
+              transform-origin: top left !important;
+            }
+
+            .report-print-frame .report-section-top {
+              border-top: ${REPORT_PRINT_SECTION_BORDER} !important;
+              box-shadow: none !important;
+            }
+
+            .report-print-frame .report-section-left {
+              border-left: ${REPORT_PRINT_SECTION_BORDER} !important;
+              box-shadow: none !important;
+            }
+
+            .report-print-frame .report-section-right {
+              border-right: ${REPORT_PRINT_SECTION_BORDER} !important;
+              box-shadow: none !important;
+            }
+
+            .report-print-frame .report-section-bottom {
+              border-bottom: ${REPORT_PRINT_SECTION_BORDER} !important;
+              box-shadow: none !important;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-root">${printMarkup}</div>
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    let cleanedUp = false;
+    const finalize = () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
+      cleanup();
+    };
+
+    printWindow.onafterprint = finalize;
+    window.setTimeout(() => {
+      try {
+        printWindow.focus();
+        printWindow.print();
+      } catch {
+        finalize();
+        setMessage("출력을 시작하지 못했습니다. 다시 시도해 주세요.");
+      }
+    }, 150);
+  };
+
   const printSelectedReport = () => {
     if (!activeReportGroup) return;
     setBatchPrintMode("");
-    window.print();
+    window.setTimeout(() => {
+      void printVisibleReportPages();
+    }, 0);
   };
 
   const printAllReports = (mode: "today" | "previous" | "next" | "all") => {
     if (reportGroups.length === 0) return;
     setBatchPrintMode(mode);
     window.setTimeout(() => {
-      window.print();
-    }, 50);
+      void printVisibleReportPages(() => setBatchPrintMode(""));
+    }, 80);
   };
-
-  useEffect(() => {
-    const handleAfterPrint = () => setBatchPrintMode("");
-    window.addEventListener("afterprint", handleAfterPrint);
-    return () => window.removeEventListener("afterprint", handleAfterPrint);
-  }, []);
 
   const topCardStyle = cardStyle();
 
@@ -2977,7 +3164,7 @@ export function VehiclePageScreen({
       ) : null}
 
       {tab === "report" ? (
-        <div className="report-print-list" style={{ display: "grid", gap: 20 }}>
+        <div ref={reportPrintListRef} className="report-print-list" style={{ display: "grid", gap: 20 }}>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ color: "#28485d", fontSize: 13, fontWeight: 800 }}>호차</div>
             <input
@@ -3380,4 +3567,3 @@ export function VehiclePageScreen({
 export default function VehiclePage() {
   return <VehiclePageScreen initialTab="input" allowedTabs={["input", "cargo"]} />;
 }
-
