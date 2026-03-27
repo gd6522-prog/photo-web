@@ -2366,8 +2366,9 @@ export function VehiclePageScreen({
 
           .report-print-frame {
             width: ${REPORT_PREVIEW_BASE_WIDTH}px !important;
-            transform: scale(${REPORT_PRINT_SCALE}) !important;
-            transform-origin: center center !important;
+            zoom: ${REPORT_PRINT_SCALE} !important;
+            transform: none !important;
+            transform-origin: top left !important;
           }
 
           .report-data-tbody td {
@@ -3152,25 +3153,24 @@ export function VehiclePageScreen({
                 </colgroup>
                 <tbody>
                   <tr>
-                    <td className="print-bg" style={{ border: "1px solid #666", background: "#f1f1f1" }} rowSpan={6}></td>
-                    <td className="print-bg" style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13 }}>납품예정일(D+1)</td>
+                    <td style={{ border: "1px solid #666", background: "#f1f1f1" }} rowSpan={6}></td>
+                    <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13 }}>납품예정일(D+1)</td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 18, fontWeight: 950, textAlign: "center", letterSpacing: -0.2 }} colSpan={2}>{reportDate}</td>
-                    <td className="print-bg" style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }} rowSpan={6}>주행<br />거리</td>
-                    <td className="print-bg" style={{ width: 72, border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }}>차고지</td>
+                    <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }} rowSpan={6}>주행<br />거리</td>
+                    <td style={{ width: 72, border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }}>차고지</td>
                     <td style={{ width: 146, border: "1px solid #666", padding: "6px 8px" }}></td>
                     <td
-                      className="print-bg"
-                      style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }}
+                                            style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }}
                       colSpan={2}
                     >
                       이동거리
                     </td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 20, fontWeight: 950, lineHeight: 1.35, letterSpacing: -0.2 }} rowSpan={3}>대분 : {formatNumber(group.totals.large)}개</td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 13, fontWeight: 900, textAlign: "center" }} rowSpan={2}>점착률</td>
-                    <td className="print-bg" style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 13, fontWeight: 900, textAlign: "center", background: "#f4d4d9" }} rowSpan={2}>누계</td>
+                    <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 13, fontWeight: 900, textAlign: "center", background: "#f4d4d9" }} rowSpan={2}>누계</td>
                   </tr>
                   <tr>
-                    <td className="print-bg" style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13 }}>배송기사명</td>
+                    <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13 }}>배송기사명</td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", fontWeight: 800, textAlign: "center", ...getFittedTextStyle(group.driver?.name ?? "", 13, { minFontSize: 9 }) }}>
                       {supportMode ? (
                         <input
@@ -3199,43 +3199,43 @@ export function VehiclePageScreen({
                     <td style={{ border: "1px solid #666", padding: "6px 8px", fontWeight: 800, textAlign: "center", ...getFittedTextStyle(formatPhoneNumber(group.driver?.phone ?? ""), 13, { minFontSize: 9 }) }}>
                       {formatPhoneNumber(group.driver?.phone ?? "")}
                     </td>
-                    <td className="print-bg" style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }}>센터</td>
+                    <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }}>센터</td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px" }}></td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", textAlign: "right", fontWeight: 800, fontSize: 13 }} colSpan={2}>km</td>
                   </tr>
                   <tr>
-                    <td className="print-bg" style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13 }}>호차/차량번호</td>
+                    <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13 }}>호차/차량번호</td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 15, fontWeight: 900, textAlign: "center" }}>{group.carNo}</td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 15, fontWeight: 900, textAlign: "center" }}>{group.driver?.vehicle_number ?? ""}</td>
-                    <td className="print-bg" style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }}>막점</td>
+                    <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }}>막점</td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px" }}></td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", textAlign: "right", fontWeight: 800, fontSize: 13 }} colSpan={2}>km</td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 15, fontWeight: 900, textAlign: "center" }} rowSpan={4}>{driverAdhesion?.adhesionRate || ""}</td>
-                    <td className="print-bg" style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 15, fontWeight: 900, textAlign: "center", background: "#f4d4d9", color: "#b91c1c" }} rowSpan={4}>{driverAdhesion?.cumulativeRate || ""}</td>
+                    <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 15, fontWeight: 900, textAlign: "center", background: "#f4d4d9", color: "#b91c1c" }} rowSpan={4}>{driverAdhesion?.cumulativeRate || ""}</td>
                   </tr>
                   <tr>
-                    <td className="print-bg" style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13 }}>운수사</td>
+                    <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13 }}>운수사</td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", fontWeight: 800, textAlign: "center", verticalAlign: "middle" }} colSpan={2}>
                       <div style={{ width: "100%", textAlign: "center", ...getFittedTextStyle(group.driver?.carrier ?? "", 13, { minFontSize: 9 }) }}>
                         {group.driver?.carrier ?? ""}
                       </div>
                     </td>
-                    <td className="print-bg" style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }}>차고지</td>
+                    <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }}>차고지</td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px" }}></td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", textAlign: "right", fontWeight: 800, fontSize: 13 }} colSpan={2}>km</td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 20, fontWeight: 950, lineHeight: 1.35, letterSpacing: -0.2 }} rowSpan={3}>소분 : {formatNumber(group.totals.small)}개</td>
                   </tr>
                   <tr>
-                    <td className="print-bg" style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13 }}>차종</td>
+                    <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13 }}>차종</td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", fontWeight: 800, textAlign: "center", ...getFittedTextStyle(group.driver?.vehicle_type ?? "", 13, { minFontSize: 9 }) }} colSpan={2}>{group.driver?.vehicle_type ?? ""}</td>
-                    <td className="print-bg" style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }}>기타( )</td>
+                    <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }}>기타( )</td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px" }}></td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", textAlign: "right", fontWeight: 800, fontSize: 13 }} colSpan={2}>km</td>
                   </tr>
                   <tr>
-                    <td className="print-bg" style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13 }}>차고지</td>
+                    <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13 }}>차고지</td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", fontWeight: 800, textAlign: "center", ...getFittedTextStyle(group.driver?.garage ?? "", 13, { minFontSize: 9 }) }} colSpan={2}>{group.driver?.garage ?? ""}</td>
-                    <td className="print-bg" style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }}>계</td>
+                    <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }}>계</td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 18, fontWeight: 900, textAlign: "right" }} colSpan={3}>km</td>
                   </tr>
                 </tbody>
@@ -3248,7 +3248,7 @@ export function VehiclePageScreen({
                   )}
                 </colgroup>
                 <thead>
-                  <tr className="print-bg" style={{ background: "#f1f1f1" }}>
+                  <tr style={{ background: "#f1f1f1" }}>
                     <th rowSpan={2} style={{ border: "1px solid #666", padding: "7px 5px", fontSize: 13, ...getReportMainCellWidth(0) }}>No</th>
                     <th rowSpan={2} style={{ border: "1px solid #666", padding: "7px 5px", fontSize: 13, ...getReportMainCellWidth(1) }}>점포명</th>
                     <th className="report-section-top report-section-left report-section-right" colSpan={6} style={{ border: "1px solid #666", borderLeft: REPORT_SECTION_BORDER, borderRight: REPORT_SECTION_BORDER, borderTop: REPORT_SECTION_BORDER, padding: "7px 5px", fontSize: 13 }}>대</th>
