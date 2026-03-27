@@ -236,13 +236,13 @@ function DriverMessageCardHorizontal({
   const roundGroups = useMemo(() => {
     const groups = new Map<string, CargoRow[]>();
     for (const row of rows) {
-      const r = roundMap[row.id]?.trim() || "0";
+      // 2개 이상일 때 미입력은 1회전으로 처리, 1개일 때는 그룹 무시
+      const r = rows.length === 1 ? "single" : (roundMap[row.id]?.trim() || "1");
       if (!groups.has(r)) groups.set(r, []);
       groups.get(r)!.push(row);
     }
     return [...groups.entries()].sort((a, b) => {
-      if (a[0] === "0") return 1;
-      if (b[0] === "0") return -1;
+      if (a[0] === "single") return 0;
       return Number(a[0]) - Number(b[0]);
     });
   }, [rows, roundMap]);
@@ -339,30 +339,26 @@ function DriverMessageCardHorizontal({
       {/* 회전별 행 */}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {roundGroups.map(([roundKey, roundRows]) => {
-          const hasRound = roundKey !== "0";
-          const bgColor = hasRound ? `hsl(${(Number(roundKey) - 1) * 60 % 360}, 60%, 95%)` : "#f8fafc";
+          const isSingle = roundKey === "single";
+          const bgColor = isSingle ? "#f8fafc" : `hsl(${(Number(roundKey) - 1) * 60 % 360}, 60%, 95%)`;
           // 회전 합계
           const roundLargeTotal = roundRows.reduce((s, r) => s + cargoTotals(r).largeTotal, 0);
           const roundSmallTotal = roundRows.reduce((s, r) => s + cargoTotals(r).smallTotal, 0);
           return (
             <div key={roundKey} style={{ background: bgColor, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "flex-start", gap: 10 }}>
-              {/* 회전 라벨 + 합계 */}
-              <div style={{ width: 70, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, paddingTop: 6 }}>
-                {hasRound ? (
-                  <>
-                    <div style={{ fontSize: 22, fontWeight: 950, color: "#0f2940", lineHeight: 1 }}>{roundKey}</div>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: "#5a7385" }}>회전</div>
-                  </>
-                ) : (
-                  <div style={{ fontSize: 11, fontWeight: 800, color: "#9ca3af" }}>미지정</div>
-                )}
-                <div style={{ marginTop: 6, textAlign: "center" }}>
-                  <div style={{ fontSize: 10, color: "#0369a1", fontWeight: 700 }}>대분 합계</div>
-                  <div style={{ fontSize: 14, fontWeight: 950, color: "#0369a1" }}>{formatNumber(roundLargeTotal)}</div>
-                  <div style={{ fontSize: 10, color: "#166534", fontWeight: 700, marginTop: 4 }}>소분 합계</div>
-                  <div style={{ fontSize: 14, fontWeight: 950, color: "#166534" }}>{formatNumber(roundSmallTotal)}</div>
+              {/* 회전 라벨 + 합계 (1개 점포일 때는 숨김) */}
+              {!isSingle && (
+                <div style={{ width: 70, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, paddingTop: 6 }}>
+                  <div style={{ fontSize: 22, fontWeight: 950, color: "#0f2940", lineHeight: 1 }}>{roundKey}</div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "#5a7385" }}>회전</div>
+                  <div style={{ marginTop: 6, textAlign: "center" }}>
+                    <div style={{ fontSize: 10, color: "#0369a1", fontWeight: 700 }}>대분 합계</div>
+                    <div style={{ fontSize: 14, fontWeight: 950, color: "#0369a1" }}>{formatNumber(roundLargeTotal)}</div>
+                    <div style={{ fontSize: 10, color: "#166534", fontWeight: 700, marginTop: 4 }}>소분 합계</div>
+                    <div style={{ fontSize: 14, fontWeight: 950, color: "#166534" }}>{formatNumber(roundSmallTotal)}</div>
+                  </div>
                 </div>
-              </div>
+              )}
               {/* 점포 컬럼들 */}
               <div style={{ display: "flex", gap: 10, flexWrap: "nowrap" }}>
                 {roundRows.map((row) => <StoreCol key={row.id} row={row} />)}
