@@ -491,7 +491,7 @@ const cargoColumns: Array<{ key: keyof CargoRow | "largeTotal" | "smallTotal" | 
   { key: "event", label: "행사", width: 80 },
   { key: "tobacco", label: "담배", width: 80 },
   { key: "certificate", label: "유가증권", width: 90 },
-  { key: "note", label: "비고", width: 180 },
+  { key: "note", label: "지원기사", width: 180 },
 ];
 
 const stickyCargoColumnKeys = ["support", "car_no", "seq_no", "store_code", "store_name"] as const;
@@ -651,12 +651,14 @@ function cargoTotals(row: CargoRow) {
   return { largeTotal, smallTotal };
 }
 
-const CargoNoteInput = React.memo(function CargoNoteInput({
+const CargoDriverInput = React.memo(function CargoDriverInput({
   value,
   onCommit,
+  driverNames,
 }: {
   value: string;
   onCommit: (nextValue: string) => void;
+  driverNames: string[];
 }) {
   const [draft, setDraft] = useState(value);
 
@@ -665,20 +667,29 @@ const CargoNoteInput = React.memo(function CargoNoteInput({
   }, [value]);
 
   return (
-    <input
-      value={draft}
-      onChange={(event) => setDraft(event.target.value)}
-      onBlur={() => {
-        if (draft !== value) onCommit(draft);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          event.currentTarget.blur();
-        }
-      }}
-      style={{ width: "100%", minWidth: 120, height: 34, borderRadius: 0, border: "1px solid #d6e4ee", padding: "0 8px", outline: "none" }}
-    />
+    <>
+      <datalist id="cargo-driver-names-list">
+        {driverNames.map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
+      <input
+        list="cargo-driver-names-list"
+        value={draft}
+        placeholder="지원기사 입력"
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => {
+          if (draft !== value) onCommit(draft);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            event.currentTarget.blur();
+          }
+        }}
+        style={{ width: "100%", minWidth: 120, height: 34, borderRadius: 0, border: "1px solid #d6e4ee", padding: "0 8px", outline: "none" }}
+      />
+    </>
   );
 });
 
@@ -1682,6 +1693,7 @@ export function VehiclePageScreen({
   const [storeContactIndex, setStoreContactIndex] = useState<Map<string, string>>(new Map());
   const [reportCarNoInput, setReportCarNoInput] = useState(initialCarNo ?? "");
   const [selectedReportCarNo, setSelectedReportCarNo] = useState(initialCarNo ?? "");
+  const [allDriverNames, setAllDriverNames] = useState<string[]>([]);
   const [supportMode, setSupportMode] = useState(false);
   const [supportDriverNameInput, setSupportDriverNameInput] = useState("");
   const [supportStoreNameInputs, setSupportStoreNameInputs] = useState<string[]>(() => Array.from({ length: 20 }, () => ""));
@@ -1818,6 +1830,22 @@ export function VehiclePageScreen({
       cancelled = true;
     };
   }, [storageReady, cargoRows.length]);
+
+  useEffect(() => {
+    if (tab !== "cargo") return;
+    supabase
+      .from("profiles")
+      .select("name")
+      .ilike("work_part", "%기사%")
+      .then(({ data }) => {
+        const names = (data ?? [])
+          .map((r) => toText((r as Record<string, unknown>).name))
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b, "ko"));
+        setAllDriverNames(names);
+      })
+      .catch(() => {});
+  }, [tab]);
 
   useEffect(() => {
     if (tab !== "report") return;
@@ -3196,9 +3224,10 @@ export function VehiclePageScreen({
                               />
                             </label>
                           ) : column.key === "note" ? (
-                            <CargoNoteInput
+                            <CargoDriverInput
                               value={String(value ?? "")}
                               onCommit={(nextValue) => updateCargoRow(entry.sourceIndex, "note", nextValue)}
+                              driverNames={allDriverNames}
                             />
                           ) : editable ? (
                             <input
