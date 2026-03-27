@@ -197,8 +197,13 @@ function printHazardResolutionSheet(params: {
       html, body { margin: 0; padding: 0; background: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-family: "Pretendard", "Malgun Gothic", sans-serif; color: #0f172a; }
       body { padding: 10mm; }
       .sheet { width: 100%; display: flex; flex-direction: column; gap: 12px; }
-      .title { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #cbd5e1; padding-bottom: 10px; }
-      .title h1 { margin: 0; font-size: 24px; }
+      .title-row { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #cbd5e1; padding-bottom: 10px; }
+      .title-row h1 { margin: 0; font-size: 22px; align-self: center; }
+      .stamp { display: flex; border: 1px solid #94a3b8; border-radius: 8px; overflow: hidden; font-size: 11px; }
+      .stamp-cell { display: flex; flex-direction: column; align-items: center; border-left: 1px solid #94a3b8; min-width: 58px; }
+      .stamp-cell:first-child { border-left: none; }
+      .stamp-role { background: #f1f5f9; width: 100%; text-align: center; padding: 3px 0; font-weight: 900; color: #334155; border-bottom: 1px solid #94a3b8; }
+      .stamp-sign { height: 44px; width: 100%; }
       .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
       .meta-box { border: 1px solid #dbe4ee; border-radius: 12px; padding: 10px 12px; background: #f8fafc; }
       .meta-label { font-size: 11px; font-weight: 800; color: #64748b; margin-bottom: 4px; }
@@ -208,23 +213,27 @@ function printHazardResolutionSheet(params: {
       .panel-head { padding: 10px 12px; font-size: 14px; font-weight: 900; border-bottom: 1px solid #e2e8f0; }
       .panel-head.before { background: #eff6ff; color: #1d4ed8; }
       .panel-head.after { background: #ecfdf5; color: #047857; }
-      .image-wrap { height: 280px; display: flex; align-items: center; justify-content: center; background: #ffffff; padding: 10px; }
+      .image-wrap { height: 260px; display: flex; align-items: center; justify-content: center; background: #ffffff; padding: 10px; }
       .image-wrap img { max-width: 100%; max-height: 100%; object-fit: contain; }
-      .memo { border-top: 1px solid #e2e8f0; padding: 12px; min-height: 80px; background: #fcfdff; }
-      .memo-label { font-size: 12px; font-weight: 900; margin-bottom: 6px; color: #334155; }
-      .memo-text { font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+      .memo { border-top: 1px solid #e2e8f0; padding: 10px 12px; min-height: 60px; background: #fcfdff; }
+      .memo-label { font-size: 12px; font-weight: 900; margin-bottom: 4px; color: #334155; }
+      .memo-text { font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
       .law { border: 1px solid #e0e7ef; border-radius: 12px; overflow: hidden; page-break-inside: avoid; }
       .law-title { background: #f1f5f9; padding: 8px 14px; font-size: 12px; font-weight: 900; color: #334155; border-bottom: 1px solid #e0e7ef; }
-      .law-body { padding: 10px 14px; display: flex; flex-direction: column; gap: 7px; }
+      .law-body { padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; }
       .law-item { display: flex; gap: 10px; align-items: flex-start; }
-      .law-tag { flex-shrink: 0; background: #dbeafe; color: #1d4ed8; border-radius: 6px; padding: 2px 7px; font-size: 10px; font-weight: 800; white-space: nowrap; margin-top: 1px; }
-      .law-text { font-size: 11px; color: #374151; line-height: 1.6; }
+      .law-tag { flex-shrink: 0; background: #dbeafe; color: #1d4ed8; border-radius: 6px; padding: 2px 7px; font-size: 10px; font-weight: 800; white-space: nowrap; margin-top: 2px; }
+      .law-text { font-size: 11px; color: #374151; line-height: 1.65; }
     </style>
   </head>
   <body>
     <div class="sheet">
-      <div class="title">
+      <div class="title-row">
         <h1>위험요인 처리완료 보고서</h1>
+        <div class="stamp">
+          <div class="stamp-cell"><div class="stamp-role">담당자</div><div class="stamp-sign"></div></div>
+          <div class="stamp-cell"><div class="stamp-role">센터장</div><div class="stamp-sign"></div></div>
+        </div>
       </div>
       <div class="meta">
         <div class="meta-box">
@@ -255,19 +264,27 @@ function printHazardResolutionSheet(params: {
         </div>
       </div>
       <div class="law">
-        <div class="law-title">관련 법령 참고</div>
+        <div class="law-title">위험성평가 관련 법령 참고 (산업안전보건법 · 중대재해처벌법)</div>
         <div class="law-body">
           <div class="law-item">
-            <span class="law-tag">산안법 §36</span>
-            <span class="law-text">사업주는 건설물, 기계·기구·설비, 원재료, 가스, 증기, 분진 등에 의한 위험성 또는 건강장해를 사전에 평가하고 그 결과에 따라 개선대책을 수립·시행하여야 한다. (위험성평가)</span>
+            <span class="law-tag">산안법 §36①</span>
+            <span class="law-text">사업주는 건설물, 기계·기구·설비, 원재료, 가스, 증기, 분진 등에 의한 위험성 또는 건강장해를 사전에 평가하고, 그 결과에 따라 이 법과 이 법에 따른 명령에 의한 조치를 하여야 하며, 근로자의 위험 또는 건강장해를 방지하기 위하여 필요한 경우에는 추가적인 조치를 하여야 한다.</span>
+          </div>
+          <div class="law-item">
+            <span class="law-tag">산안법 §36②</span>
+            <span class="law-text">사업주는 제1항에 따른 위험성평가를 실시할 때 고용노동부장관이 정하여 고시하는 바에 따라 안전·보건에 관한 지식 또는 경험을 보유한 사람에게 위험성평가에 관한 업무를 위탁하거나 관련 자문을 받을 수 있다.</span>
+          </div>
+          <div class="law-item">
+            <span class="law-tag">고시 §15</span>
+            <span class="law-text">사업주는 위험성평가 결과 허용 불가능한 위험성이 있는 경우, 위험성 감소를 위한 대책을 수립하고 실행하여야 한다. 대책 시행 후에는 잔류 위험성이 허용 가능한 수준인지 재확인하여야 한다. (사업장 위험성평가에 관한 지침 — 고용노동부 고시 제2023-19호)</span>
           </div>
           <div class="law-item">
             <span class="law-tag">산안법 §38</span>
-            <span class="law-text">사업주는 다음 각 호의 위험으로 인한 산업재해를 예방하기 위하여 필요한 조치를 하여야 한다. — 기계·기구, 그 밖의 설비에 의한 위험 / 폭발성·발화성 및 인화성 물질 등에 의한 위험 / 전기·열·그 밖의 에너지에 의한 위험. (안전조치)</span>
+            <span class="law-text">사업주는 기계·기구·설비에 의한 위험, 폭발성·발화성·인화성 물질에 의한 위험, 전기·열·에너지에 의한 위험으로 인한 산업재해를 예방하기 위하여 필요한 안전조치를 하여야 한다.</span>
           </div>
           <div class="law-item">
-            <span class="law-tag">중대재해법 §4</span>
-            <span class="law-text">사업주 또는 경영책임자등은 사업장의 안전·보건에 관한 목표와 경영방침을 설정하고, 유해·위험요인의 확인·개선에 필요한 업무절차를 마련하여 이행하여야 한다. (안전 및 보건 확보의무)</span>
+            <span class="law-tag">중대재해법 §4①</span>
+            <span class="law-text">사업주 또는 경영책임자등은 유해·위험요인의 확인·개선에 필요한 업무절차를 마련하고, 해당 업무절차에 따라 유해·위험요인의 확인 및 개선이 이루어지는지 반기 1회 이상 점검하여야 하며, 점검 결과에 따라 필요한 조치를 하여야 한다.</span>
           </div>
         </div>
       </div>
