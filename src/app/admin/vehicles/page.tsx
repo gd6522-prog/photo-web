@@ -1641,9 +1641,11 @@ type VehicleTab = "input" | "cargo" | "report";
 export function VehiclePageScreen({
   initialTab = "input",
   allowedTabs = ["input", "cargo", "report"],
+  initialCarNo,
 }: {
   initialTab?: VehicleTab;
   allowedTabs?: VehicleTab[];
+  initialCarNo?: string;
 }) {
   const INPUT_PAGE_SIZE = 50;
   const REPORT_PREVIEW_BASE_WIDTH = 1620;
@@ -1678,8 +1680,8 @@ export function VehiclePageScreen({
   const [storageReady, setStorageReady] = useState(false);
   const [driverIndex, setDriverIndex] = useState<Map<string, DriverProfile>>(new Map());
   const [storeContactIndex, setStoreContactIndex] = useState<Map<string, string>>(new Map());
-  const [reportCarNoInput, setReportCarNoInput] = useState("");
-  const [selectedReportCarNo, setSelectedReportCarNo] = useState("");
+  const [reportCarNoInput, setReportCarNoInput] = useState(initialCarNo ?? "");
+  const [selectedReportCarNo, setSelectedReportCarNo] = useState(initialCarNo ?? "");
   const [supportMode, setSupportMode] = useState(false);
   const [supportDriverNameInput, setSupportDriverNameInput] = useState("");
   const [supportStoreNameInputs, setSupportStoreNameInputs] = useState<string[]>(() => Array.from({ length: 20 }, () => ""));

@@ -99,6 +99,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     () => [
       { label: "단품별/물동량", href: "/admin/vehicles" },
       { label: "운행일보", href: "/admin/vehicles/report" },
+      { label: "지원", href: "/admin/vehicles/support" },
       { label: "점착", href: "/admin/vehicles/adhesion" },
       { label: "CDC", href: "/admin/vehicles/cdc" },
     ],
