@@ -661,35 +661,77 @@ const CargoDriverInput = React.memo(function CargoDriverInput({
   driverNames: string[];
 }) {
   const [draft, setDraft] = useState(value);
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setDraft(value);
   }, [value]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  const filtered = draft.trim()
+    ? driverNames.filter((n) => n.includes(draft.trim()))
+    : [];
+
+  const commit = (next: string) => {
+    setOpen(false);
+    if (next !== value) onCommit(next);
+  };
+
   return (
-    <>
-      <datalist id="cargo-driver-names-list">
-        {driverNames.map((name) => (
-          <option key={name} value={name} />
-        ))}
-      </datalist>
+    <div ref={wrapRef} style={{ position: "relative", width: "100%" }}>
       <input
-        list="cargo-driver-names-list"
         value={draft}
         placeholder="지원기사 입력"
-        onChange={(event) => setDraft(event.target.value)}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => {
+          if (draft.trim()) setOpen(true);
+        }}
         onBlur={() => {
-          if (draft !== value) onCommit(draft);
+          setTimeout(() => {
+            if (draft !== value) onCommit(draft);
+          }, 150);
         }}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            event.currentTarget.blur();
-          }
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.preventDefault(); commit(draft); e.currentTarget.blur(); }
+          if (e.key === "Escape") { setOpen(false); }
         }}
-        style={{ width: "100%", minWidth: 120, height: 34, borderRadius: 0, border: "1px solid #d6e4ee", padding: "0 8px", outline: "none" }}
+        style={{ width: "100%", minWidth: 120, height: 34, borderRadius: 0, border: "1px solid #d6e4ee", padding: "0 8px", outline: "none", boxSizing: "border-box" }}
       />
-    </>
+      {open && filtered.length > 0 && (
+        <div style={{
+          position: "absolute", top: 34, left: 0, zIndex: 200,
+          background: "#fff", border: "1px solid #c7d6e3",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+          maxHeight: 180, overflowY: "auto", minWidth: "100%",
+        }}>
+          {filtered.map((name) => (
+            <div
+              key={name}
+              onMouseDown={(e) => { e.preventDefault(); setDraft(name); commit(name); }}
+              style={{ padding: "7px 10px", fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "#f0f9ff"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = ""; }}
+            >
+              {name}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 });
 
