@@ -5,7 +5,6 @@ import Link from "next/link";
 import { toPng } from "html-to-image";
 import { supabase } from "@/lib/supabase";
 
-// ── Types ────────────────────────────────────────────────
 type CargoRow = {
   id: string;
   support_excluded?: boolean;
@@ -78,39 +77,28 @@ async function readLocalSnapshot(): Promise<{ cargoRows: CargoRow[]; deliveryDat
 }
 
 // ── Utils ────────────────────────────────────────────────
-function toText(value: unknown) {
-  return String(value ?? "").replace(/\r/g, " ").replace(/\n/g, " ").trim();
-}
-
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("ko-KR").format(value);
-}
-
-function formatPhone(raw: string): string {
-  const digits = raw.replace(/\D/g, "");
-  if (digits.length === 11) return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
-  if (digits.length === 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+function toText(v: unknown) { return String(v ?? "").replace(/\r/g, " ").replace(/\n/g, " ").trim(); }
+function formatNumber(v: number) { return new Intl.NumberFormat("ko-KR").format(v); }
+function formatPhone(raw: string) {
+  const d = raw.replace(/\D/g, "");
+  if (d.length === 11) return `${d.slice(0,3)}-${d.slice(3,7)}-${d.slice(7)}`;
+  if (d.length === 10) return `${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`;
   return raw;
 }
-
-function normalizeCarNo(value: unknown) {
-  return toText(value).replace(/\s+/g, "");
-}
-
+function normalizeCarNo(v: unknown) { return toText(v).replace(/\s+/g, ""); }
 function cargoTotals(row: CargoRow) {
   return {
     largeTotal: row.large_box + row.large_inner + row.large_other + row.large_day2l + row.large_nb2l,
     smallTotal: row.small_low + row.small_high,
   };
 }
-
 function formatDisplayDate(value: string) {
   if (!value) return "";
   const m = value.match(/^(\d{4})(\d{2})(\d{2})$/);
   const normalized = m ? `${m[1]}-${m[2]}-${m[3]}` : value;
   const date = new Date(`${normalized}T00:00:00+09:00`);
   if (Number.isNaN(date.getTime())) return value;
-  return `${date.getFullYear()}년 ${String(date.getMonth() + 1).padStart(2, "0")}월 ${String(date.getDate()).padStart(2, "0")}일`;
+  return `${date.getFullYear()}년 ${String(date.getMonth()+1).padStart(2,"0")}월 ${String(date.getDate()).padStart(2,"0")}일`;
 }
 
 // ── API ──────────────────────────────────────────────────
@@ -118,24 +106,22 @@ async function getToken() {
   const { data } = await supabase.auth.getSession();
   if (data.session?.access_token) return data.session.access_token;
   await new Promise((r) => setTimeout(r, 300));
-  const { data: data2 } = await supabase.auth.getSession();
-  return data2.session?.access_token ?? null;
+  const { data: d2 } = await supabase.auth.getSession();
+  return d2.session?.access_token ?? null;
 }
 
 async function fetchServerSnapshot(): Promise<{ cargoRows: CargoRow[]; deliveryDate: string; fileName?: string } | null> {
   try {
     const token = await getToken();
     if (!token) return null;
-    const response = await fetch("/api/admin/vehicles/current?includeSnapshot=1", {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
+    const res = await fetch("/api/admin/vehicles/current?includeSnapshot=1", {
+      headers: { Authorization: `Bearer ${token}` }, cache: "no-store",
     });
-    const payload = (await response.json().catch(() => ({}))) as {
-      ok?: boolean;
-      snapshotUrl?: string;
+    const payload = (await res.json().catch(() => ({}))) as {
+      ok?: boolean; snapshotUrl?: string;
       snapshot?: { fileName?: string; productRows?: Array<{ delivery_date?: string }>; cargoRows?: CargoRow[] } | null;
     };
-    if (!response.ok || !payload?.ok) return null;
+    if (!res.ok || !payload?.ok) return null;
     let snapshot = payload.snapshot;
     if (!snapshot && payload.snapshotUrl) {
       snapshot = await fetch(payload.snapshotUrl, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null));
@@ -144,38 +130,22 @@ async function fetchServerSnapshot(): Promise<{ cargoRows: CargoRow[]; deliveryD
     const cargoRows: CargoRow[] = Array.isArray(snapshot.cargoRows) ? (snapshot.cargoRows as CargoRow[]) : [];
     const deliveryDate = (snapshot.productRows ?? []).find((r) => r.delivery_date)?.delivery_date ?? "";
     return { cargoRows, deliveryDate, fileName: snapshot.fileName };
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 async function fetchDriverIndex(carNos: string[]): Promise<Map<string, DriverProfile>> {
   const normalized = [...new Set(carNos.map(normalizeCarNo).filter(Boolean))];
-  if (normalized.length === 0) return new Map();
-  const carNoFilter = normalized.map((n) => `car_no.ilike.%${n}%`).join(",");
+  if (!normalized.length) return new Map();
   const { data, error } = await supabase
-    .from("profiles")
-    .select("name,phone,car_no,vehicle_type,carrier,garage,vehicle_number")
-    .ilike("work_part", "%기사%")
-    .or(carNoFilter);
+    .from("profiles").select("name,phone,car_no,vehicle_type,carrier,garage,vehicle_number")
+    .ilike("work_part", "%기사%").or(normalized.map((n) => `car_no.ilike.%${n}%`).join(","));
   if (error) return new Map();
   const index = new Map<string, DriverProfile>();
   for (const row of data ?? []) {
-    const tokens = normalizeCarNo((row as Record<string, unknown>).car_no)
-      .split(/[\/,|]/)
-      .map((t) => t.trim())
-      .filter(Boolean);
+    const tokens = normalizeCarNo((row as Record<string,unknown>).car_no).split(/[\/,|]/).map((t) => t.trim()).filter(Boolean);
     for (const token of tokens) {
       if (!normalized.includes(token) || index.has(token)) continue;
-      index.set(token, {
-        name: toText((row as Record<string, unknown>).name),
-        phone: toText((row as Record<string, unknown>).phone),
-        car_no: token,
-        vehicle_type: toText((row as Record<string, unknown>).vehicle_type),
-        carrier: toText((row as Record<string, unknown>).carrier),
-        garage: toText((row as Record<string, unknown>).garage),
-        vehicle_number: toText((row as Record<string, unknown>).vehicle_number),
-      });
+      index.set(token, { name: toText((row as Record<string,unknown>).name), phone: toText((row as Record<string,unknown>).phone), car_no: token, vehicle_type: toText((row as Record<string,unknown>).vehicle_type), carrier: toText((row as Record<string,unknown>).carrier), garage: toText((row as Record<string,unknown>).garage), vehicle_number: toText((row as Record<string,unknown>).vehicle_number) });
     }
   }
   return index;
@@ -186,217 +156,204 @@ async function fetchContactIndex(): Promise<Map<string, string>> {
   if (error) return new Map();
   const index = new Map<string, string>();
   for (const row of data ?? []) {
-    if (row.store_name && row.phone && !index.has(row.store_name)) {
-      index.set(row.store_name, String(row.phone));
-    }
+    if (row.store_name && row.phone && !index.has(row.store_name)) index.set(row.store_name, String(row.phone));
   }
   return index;
 }
 
-// ── 이동점포 공지 카드 (점포별) ──────────────────────────
-function StoreNoticeCard({
-  row,
-  reportDate,
-  cardRef,
-}: {
-  row: CargoRow;
-  reportDate: string;
-  cardRef: React.RefObject<HTMLDivElement | null>;
-}) {
+// ── 이동점포 공지 카드 (가로) ────────────────────────────
+function StoreNoticeCard({ row, reportDate, cardRef }: { row: CargoRow; reportDate: string; cardRef: React.RefObject<HTMLDivElement | null> }) {
   const { largeTotal, smallTotal } = cargoTotals(row);
   return (
-    <div
-      ref={cardRef}
-      style={{
-        width: 380,
-        background: "#fff",
-        borderRadius: 16,
-        padding: "28px 28px 24px",
-        fontFamily: "Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif",
-        boxSizing: "border-box",
-        boxShadow: "0 4px 24px rgba(0,0,0,0.10)",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-        <div style={{ width: 44, height: 44, borderRadius: "50%", background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🚚</div>
-        <div>
-          <div style={{ fontSize: 17, fontWeight: 900, color: "#0f2940", lineHeight: 1.2 }}>이동점포 공지</div>
-          <div style={{ fontSize: 12, color: "#5a7385", marginTop: 2, fontWeight: 700 }}>한아시스템</div>
+    <div ref={cardRef} style={{ width: 500, background: "#fff", borderRadius: 16, padding: "22px 24px", fontFamily: "Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif", boxSizing: "border-box", boxShadow: "0 4px 24px rgba(0,0,0,0.10)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+        <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>🚚</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 15, fontWeight: 900, color: "#0f2940" }}>이동점포 공지 · 한아시스템</div>
+          <div style={{ fontSize: 11, color: "#5a7385", fontWeight: 700 }}>{reportDate}</div>
+        </div>
+        <div style={{ background: "#f0f9ff", borderRadius: 8, padding: "8px 14px", textAlign: "right" }}>
+          <div style={{ fontSize: 18, fontWeight: 950, color: "#0f2940" }}>{row.store_name}</div>
         </div>
       </div>
-      <div style={{ background: "#f0f9ff", borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: "#0369a1" }}>{reportDate}</div>
-        <div style={{ fontSize: 19, fontWeight: 950, color: "#0f2940", marginTop: 4, letterSpacing: -0.3 }}>{row.store_name}</div>
-      </div>
-      <div style={{ marginBottom: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-        {row.standard_time && (
-          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-            <span style={{ fontSize: 16, flexShrink: 0 }}>⏰</span>
-            <div>
-              <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 700 }}>도착 예정</div>
-              <div style={{ fontSize: 15, fontWeight: 900, color: "#111827" }}>{row.standard_time}</div>
+      <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
+        {/* 시간·주소 */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+          {row.standard_time && (
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <span style={{ fontSize: 14 }}>⏰</span>
+              <div><div style={{ fontSize: 10, color: "#6b7280", fontWeight: 700 }}>도착 예정</div><div style={{ fontSize: 14, fontWeight: 900, color: "#111827" }}>{row.standard_time}</div></div>
             </div>
+          )}
+          {row.address && (
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+              <span style={{ fontSize: 14, flexShrink: 0 }}>📍</span>
+              <div><div style={{ fontSize: 10, color: "#6b7280", fontWeight: 700 }}>배송 주소</div><div style={{ fontSize: 12, fontWeight: 800, color: "#111827", lineHeight: 1.4 }}>{row.address}</div></div>
+            </div>
+          )}
+        </div>
+        {/* 물동량 */}
+        <div style={{ background: "#f8fafc", borderRadius: 10, padding: "10px 14px", minWidth: 140 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#6b7280", marginBottom: 8 }}>물동량</div>
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+            {[
+              { label: "대분", value: largeTotal, color: "#0f2940" },
+              { label: "소분", value: smallTotal, color: "#0f2940" },
+              ...(row.event > 0 ? [{ label: "행사", value: row.event, color: "#d97706" }] : []),
+              ...(row.tobacco > 0 ? [{ label: "담배", value: row.tobacco, color: "#7c3aed" }] : []),
+              ...(row.certificate > 0 ? [{ label: "유가증권", value: row.certificate, color: "#b45309" }] : []),
+            ].map(({ label, value, color }) => (
+              <div key={label} style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 20, fontWeight: 950, color, lineHeight: 1 }}>{formatNumber(value)}</div>
+                <div style={{ fontSize: 10, color: "#6b7280", fontWeight: 700, marginTop: 2 }}>{label}</div>
+              </div>
+            ))}
           </div>
-        )}
-        {row.address && (
-          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-            <span style={{ fontSize: 16, flexShrink: 0 }}>📍</span>
-            <div>
-              <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 700 }}>배송 주소</div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: "#111827", lineHeight: 1.5 }}>{row.address}</div>
-            </div>
-          </div>
-        )}
-      </div>
-      <div style={{ background: "#f8fafc", borderRadius: 10, padding: "12px 14px" }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", marginBottom: 10 }}>물동량</div>
-        <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-          {[
-            { label: "대분", value: largeTotal, color: "#0f2940" },
-            { label: "소분", value: smallTotal, color: "#0f2940" },
-            ...(row.event > 0 ? [{ label: "행사", value: row.event, color: "#d97706" }] : []),
-            ...(row.tobacco > 0 ? [{ label: "담배", value: row.tobacco, color: "#7c3aed" }] : []),
-            ...(row.certificate > 0 ? [{ label: "유가증권", value: row.certificate, color: "#b45309" }] : []),
-          ].map(({ label, value, color }) => (
-            <div key={label} style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 22, fontWeight: 950, color, lineHeight: 1 }}>{formatNumber(value)}</div>
-              <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, marginTop: 3 }}>{label}</div>
-            </div>
-          ))}
         </div>
       </div>
     </div>
   );
 }
 
-// ── 기사 메시지 카드 (지원기사별 전체 점포 통합) ─────────
-function DriverMessageCardMulti({
+// ── 기사 메시지 카드 (회전별 가로 레이아웃) ──────────────
+function DriverMessageCardHorizontal({
   rows,
   driverName,
   reportDate,
   contactIndex,
+  roundMap,
   cardRef,
 }: {
   rows: CargoRow[];
   driverName: string;
   reportDate: string;
   contactIndex: Map<string, string>;
+  roundMap: Record<string, string>;
   cardRef: React.RefObject<HTMLDivElement | null>;
 }) {
-  const fieldRow = (label: string, value: number | string) => {
-    if (value === 0 || value === "") return null;
+  // 회전별 그룹핑
+  const roundGroups = useMemo(() => {
+    const groups = new Map<string, CargoRow[]>();
+    for (const row of rows) {
+      const r = roundMap[row.id]?.trim() || "0";
+      if (!groups.has(r)) groups.set(r, []);
+      groups.get(r)!.push(row);
+    }
+    return [...groups.entries()].sort((a, b) => {
+      const na = Number(a[0]), nb = Number(b[0]);
+      if (a[0] === "0") return 1;
+      if (b[0] === "0") return -1;
+      return na - nb;
+    });
+  }, [rows, roundMap]);
+
+  const STORE_COL_W = 210;
+
+  const StoreCol = ({ row }: { row: CargoRow }) => {
+    const { largeTotal, smallTotal } = cargoTotals(row);
+    const phone = contactIndex.get(row.store_name) ?? "";
     return (
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "3px 0", borderBottom: "1px solid #f0f4f7" }}>
-        <span style={{ fontSize: 11, color: "#6b7280", fontWeight: 700 }}>{label}</span>
-        <span style={{ fontSize: 12, fontWeight: 800, color: "#111827" }}>{typeof value === "number" ? formatNumber(value) : value}</span>
+      <div style={{ width: STORE_COL_W, flexShrink: 0, background: "rgba(255,255,255,0.8)", borderRadius: 10, padding: "10px 12px" }}>
+        <div style={{ fontSize: 14, fontWeight: 950, color: "#0f2940", marginBottom: 4, letterSpacing: -0.3, lineHeight: 1.3 }}>{row.store_name}</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 10, fontWeight: 700, marginBottom: 6 }}>
+          <span style={{ color: "#6b7280" }}>호차 <strong style={{ color: "#0f2940" }}>{normalizeCarNo(row.car_no)}</strong></span>
+          {row.seq_no > 0 && <span style={{ color: "#6b7280" }}>순번 <strong style={{ color: "#0f2940" }}>{row.seq_no}</strong></span>}
+          {row.store_code && <span style={{ color: "#6b7280" }}>점포코드 <strong style={{ color: "#0f2940" }}>{row.store_code}</strong></span>}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 8, fontSize: 11 }}>
+          {row.standard_time && <div>⏰ <strong>{row.standard_time}</strong></div>}
+          {row.address && <div style={{ color: "#374151", lineHeight: 1.4 }}>📍 {row.address}</div>}
+          {phone && <div>📞 {formatPhone(phone)}</div>}
+        </div>
+        {/* 물동량 */}
+        <div style={{ background: "#f0f4f8", borderRadius: 8, padding: "8px 10px" }}>
+          {(() => {
+            const f = (label: string, value: number | string, bold = false) => {
+              if (value === 0 || value === "") return null;
+              return (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "1px solid #e5eaf0" }}>
+                  <span style={{ fontSize: 10, color: "#6b7280", fontWeight: 700 }}>{label}</span>
+                  <span style={{ fontSize: 11, fontWeight: bold ? 950 : 800, color: "#111827" }}>{typeof value === "number" ? formatNumber(value) : value}</span>
+                </div>
+              );
+            };
+            return (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "2px solid #bae6fd", marginBottom: 1 }}>
+                  <span style={{ fontSize: 11, fontWeight: 950, color: "#0369a1" }}>대분</span>
+                  <span style={{ fontSize: 13, fontWeight: 950, color: "#0369a1" }}>{formatNumber(largeTotal)}</span>
+                </div>
+                <div style={{ paddingLeft: 4, marginBottom: 4 }}>
+                  {f("박스존", row.large_box)}
+                  {f("이너존", row.large_inner)}
+                  {f("기타", row.large_other)}
+                  {f("올데이2L", row.large_day2l)}
+                  {f("노브랜드2L", row.large_nb2l)}
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "2px solid #bbf7d0", marginBottom: 1 }}>
+                  <span style={{ fontSize: 11, fontWeight: 950, color: "#166534" }}>소분</span>
+                  <span style={{ fontSize: 13, fontWeight: 950, color: "#166534" }}>{formatNumber(smallTotal)}</span>
+                </div>
+                <div style={{ paddingLeft: 4, marginBottom: 4 }}>
+                  {f("경량존", row.small_low)}
+                  {f("슬라존", row.small_high)}
+                </div>
+                {(row.event > 0 || row.tobacco > 0 || row.certificate > 0 || row.cdc > 0) && (
+                  <div style={{ paddingLeft: 4 }}>
+                    {f("행사", row.event)}
+                    {f("담배", row.tobacco)}
+                    {f("유가증권", row.certificate)}
+                    {f("CDC", row.cdc)}
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </div>
       </div>
     );
   };
 
+  const maxStoresPerRound = Math.max(...roundGroups.map(([, r]) => r.length), 1);
+  const cardWidth = 80 + maxStoresPerRound * (STORE_COL_W + 10) + 24;
+
   return (
-    <div
-      ref={cardRef}
-      style={{
-        width: 440,
-        background: "#fff",
-        borderRadius: 16,
-        padding: "24px 24px 20px",
-        fontFamily: "Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif",
-        boxSizing: "border-box",
-        boxShadow: "0 4px 24px rgba(0,0,0,0.10)",
-      }}
-    >
+    <div ref={cardRef} style={{ width: Math.max(cardWidth, 500), background: "#fff", borderRadius: 16, padding: "20px 24px", fontFamily: "Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif", boxSizing: "border-box", boxShadow: "0 4px 24px rgba(0,0,0,0.10)" }}>
       {/* 헤더 */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-        <div style={{ width: 44, height: 44, borderRadius: "50%", background: "linear-gradient(135deg,#4c1d95 0%,#7c3aed 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🚗</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, borderBottom: "2px solid #f0f4f8", paddingBottom: 12 }}>
+        <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg,#4c1d95 0%,#7c3aed 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>🚗</div>
         <div>
-          <div style={{ fontSize: 16, fontWeight: 900, color: "#0f2940", lineHeight: 1.3 }}>
-            {driverName ? `${driverName} 기사님` : "지원기사"} 배송 안내
-          </div>
-          <div style={{ fontSize: 12, color: "#5a7385", marginTop: 2, fontWeight: 700 }}>{reportDate} · 총 {rows.length}개 점포</div>
+          <div style={{ fontSize: 16, fontWeight: 900, color: "#0f2940" }}>{driverName ? `${driverName} 기사님` : "지원기사"} 배송 안내</div>
+          <div style={{ fontSize: 11, color: "#5a7385", fontWeight: 700 }}>{reportDate} · 총 {rows.length}개 점포</div>
         </div>
       </div>
 
-      {/* 점포별 섹션 */}
-      {rows.map((row, idx) => {
-        const { largeTotal, smallTotal } = cargoTotals(row);
-        const phone = contactIndex.get(row.store_name) ?? "";
-        return (
-          <div
-            key={row.id}
-            style={{
-              background: idx % 2 === 0 ? "#f5f0ff" : "#f0f9ff",
-              borderRadius: 10,
-              padding: "12px 14px",
-              marginBottom: idx < rows.length - 1 ? 10 : 0,
-            }}
-          >
-            {/* 점포명 + 기본 정보 */}
-            <div style={{ fontSize: 16, fontWeight: 950, color: "#0f2940", marginBottom: 6, letterSpacing: -0.3 }}>{row.store_name}</div>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 11, fontWeight: 700, marginBottom: 8 }}>
-              <span style={{ color: "#6b7280" }}>호차 <strong style={{ color: "#0f2940" }}>{normalizeCarNo(row.car_no)}</strong></span>
-              {row.seq_no > 0 && <span style={{ color: "#6b7280" }}>순번 <strong style={{ color: "#0f2940" }}>{row.seq_no}</strong></span>}
-              {row.store_code && <span style={{ color: "#6b7280" }}>점포코드 <strong style={{ color: "#0f2940" }}>{row.store_code}</strong></span>}
+      {/* 회전별 행 */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {roundGroups.map(([roundKey, roundRows]) => {
+          const hasRound = roundKey !== "0";
+          const bgColor = hasRound ? `hsl(${(Number(roundKey) - 1) * 60 % 360}, 60%, 95%)` : "#f8fafc";
+          return (
+            <div key={roundKey} style={{ background: bgColor, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "flex-start", gap: 10 }}>
+              {/* 회전 라벨 */}
+              <div style={{ width: 56, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", paddingTop: 8 }}>
+                {hasRound ? (
+                  <>
+                    <div style={{ fontSize: 18, fontWeight: 950, color: "#0f2940", lineHeight: 1 }}>{roundKey}</div>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: "#5a7385" }}>회전</div>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "#9ca3af" }}>미지정</div>
+                )}
+              </div>
+              {/* 점포 컬럼들 */}
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                {roundRows.map((row) => <StoreCol key={row.id} row={row} />)}
+              </div>
             </div>
-
-            {/* 시간 · 주소 · 연락처 */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
-              {row.standard_time && (
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <span style={{ fontSize: 12 }}>⏰</span>
-                  <span style={{ fontSize: 12, fontWeight: 900, color: "#111827" }}>{row.standard_time}</span>
-                </div>
-              )}
-              {row.address && (
-                <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
-                  <span style={{ fontSize: 12, flexShrink: 0 }}>📍</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#374151", lineHeight: 1.4 }}>{row.address}</span>
-                </div>
-              )}
-              {phone && (
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <span style={{ fontSize: 12 }}>📞</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#374151" }}>{formatPhone(phone)}</span>
-                </div>
-              )}
-            </div>
-
-            {/* 물동량 */}
-            <div style={{ background: "rgba(255,255,255,0.7)", borderRadius: 8, padding: "8px 10px" }}>
-              {/* 대분 */}
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderBottom: "2px solid #e0f2fe", marginBottom: 2 }}>
-                <span style={{ fontSize: 12, fontWeight: 950, color: "#0369a1" }}>대분 합계</span>
-                <span style={{ fontSize: 14, fontWeight: 950, color: "#0369a1" }}>{formatNumber(largeTotal)}</span>
-              </div>
-              <div style={{ paddingLeft: 6, marginBottom: 4 }}>
-                {fieldRow("박스존", row.large_box)}
-                {fieldRow("이너존", row.large_inner)}
-                {fieldRow("기타", row.large_other)}
-                {fieldRow("올데이 2L생수", row.large_day2l)}
-                {fieldRow("노브랜드 2L생수", row.large_nb2l)}
-              </div>
-              {/* 소분 */}
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderBottom: "2px solid #dcfce7", marginBottom: 2 }}>
-                <span style={{ fontSize: 12, fontWeight: 950, color: "#166534" }}>소분 합계</span>
-                <span style={{ fontSize: 14, fontWeight: 950, color: "#166534" }}>{formatNumber(smallTotal)}</span>
-              </div>
-              <div style={{ paddingLeft: 6, marginBottom: 4 }}>
-                {fieldRow("경량존", row.small_low)}
-                {fieldRow("슬라존", row.small_high)}
-              </div>
-              {/* 기타 */}
-              {(row.event > 0 || row.tobacco > 0 || row.certificate > 0 || row.cdc > 0) && (
-                <div style={{ paddingLeft: 6 }}>
-                  {fieldRow("행사", row.event)}
-                  {fieldRow("담배", row.tobacco)}
-                  {fieldRow("유가증권", row.certificate)}
-                  {fieldRow("CDC", row.cdc)}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -411,16 +368,16 @@ export default function SupportPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [copyStatus, setCopyStatus] = useState<Record<string, "copying" | "done" | "error">>({});
+  // 회전 입력: rowId → round number string
+  const [roundInputs, setRoundInputs] = useState<Record<string, string>>({});
 
-  // ref 맵: rowId → StoreNoticeCard ref / driverKey → DriverMessageCardMulti ref
   const storeCardRefs = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
   const driverCardRefs = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
 
-  function getStoreRef(rowId: string) {
-    if (!storeCardRefs.current.has(rowId)) storeCardRefs.current.set(rowId, React.createRef<HTMLDivElement>());
-    return storeCardRefs.current.get(rowId)!;
+  function getStoreRef(id: string) {
+    if (!storeCardRefs.current.has(id)) storeCardRefs.current.set(id, React.createRef<HTMLDivElement>());
+    return storeCardRefs.current.get(id)!;
   }
-
   function getDriverGroupRef(key: string) {
     if (!driverCardRefs.current.has(key)) driverCardRefs.current.set(key, React.createRef<HTMLDivElement>());
     return driverCardRefs.current.get(key)!;
@@ -428,7 +385,6 @@ export default function SupportPage() {
 
   const supportRows = useMemo(() => cargoRows.filter((r) => r.support_excluded), [cargoRows]);
 
-  // 지원기사명(note) 기준 그룹핑
   const groupedByDriver = useMemo(() => {
     const groups = new Map<string, CargoRow[]>();
     for (const row of supportRows) {
@@ -436,7 +392,6 @@ export default function SupportPage() {
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(row);
     }
-    // 이름 있는 기사 먼저, 없는 것(미지정) 마지막
     return [...groups.entries()].sort((a, b) => {
       if (!a[0] && b[0]) return 1;
       if (a[0] && !b[0]) return -1;
@@ -489,14 +444,8 @@ export default function SupportPage() {
     setRefreshing(true);
     try {
       const server = await fetchServerSnapshot();
-      if (server) {
-        setCargoRows(server.cargoRows);
-        setDeliveryDate(server.deliveryDate);
-        void loadIndexes(server.cargoRows);
-      }
-    } finally {
-      setRefreshing(false);
-    }
+      if (server) { setCargoRows(server.cargoRows); setDeliveryDate(server.deliveryDate); void loadIndexes(server.cargoRows); }
+    } finally { setRefreshing(false); }
   };
 
   const copyImage = async (key: string, ref: React.RefObject<HTMLDivElement | null>) => {
@@ -515,28 +464,17 @@ export default function SupportPage() {
     }
   };
 
-  const copyBtnLabel = (key: string, defaultLabel: string) => {
+  const copyBtnLabel = (key: string, def: string) => {
     if (copyStatus[key] === "copying") return "복사 중...";
     if (copyStatus[key] === "done") return "복사됨 ✓";
     if (copyStatus[key] === "error") return "복사 실패 ✕";
-    return defaultLabel;
+    return def;
   };
 
-  const btnBase: React.CSSProperties = {
-    padding: "7px 14px",
-    borderRadius: 4,
-    fontWeight: 900,
-    fontSize: 13,
-    cursor: "pointer",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-    whiteSpace: "nowrap",
-    border: "none",
-  };
+  const btnBase: React.CSSProperties = { padding: "7px 14px", borderRadius: 4, fontWeight: 900, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", border: "none" };
 
-  if (loading) return <div style={{ padding: 24, color: "#6b7280", fontWeight: 800, fontSize: 14 }}>데이터 불러오는 중...</div>;
-  if (error) return <div style={{ padding: 24, color: "#b91c1c", fontWeight: 800, fontSize: 14 }}>{error}</div>;
+  if (loading) return <div style={{ padding: 24, color: "#6b7280", fontWeight: 800 }}>데이터 불러오는 중...</div>;
+  if (error) return <div style={{ padding: 24, color: "#b91c1c", fontWeight: 800 }}>{error}</div>;
 
   return (
     <div style={{ fontFamily: "Pretendard, system-ui, sans-serif" }}>
@@ -551,11 +489,7 @@ export default function SupportPage() {
             {refreshing && <span style={{ color: "#0369a1", marginLeft: 10, fontSize: 12 }}>서버 동기화 중...</span>}
           </div>
         </div>
-        <button
-          onClick={manualRefresh}
-          disabled={refreshing}
-          style={{ ...btnBase, background: refreshing ? "#e2e8f0" : "#f1f5f9", color: "#374151", border: "1px solid #cbd5e1", cursor: refreshing ? "not-allowed" : "pointer" }}
-        >
+        <button onClick={manualRefresh} disabled={refreshing} style={{ ...btnBase, background: refreshing ? "#e2e8f0" : "#f1f5f9", color: "#374151", border: "1px solid #cbd5e1", cursor: refreshing ? "not-allowed" : "pointer" }}>
           {refreshing ? "동기화 중..." : "새로고침"}
         </button>
       </div>
@@ -564,21 +498,15 @@ export default function SupportPage() {
         <div style={{ border: "1px solid #d6e4ee", background: "#fff", padding: "32px 24px", color: "#6b7280", fontWeight: 700, fontSize: 15, textAlign: "center" }}>
           지원 체크된 점포가 없습니다.
           <div style={{ marginTop: 8, fontSize: 13 }}>
-            <Link href="/admin/vehicles" style={{ color: "#0f766e", textDecoration: "none", fontWeight: 800 }}>
-              물동량 페이지에서 지원 체크 →
-            </Link>
+            <Link href="/admin/vehicles" style={{ color: "#0f766e", textDecoration: "none", fontWeight: 800 }}>물동량 페이지에서 지원 체크 →</Link>
           </div>
         </div>
       )}
 
-      {/* 지원기사별 그룹 */}
       {groupedByDriver.map(([driverName, rows]) => {
         const driverKey = `driver-${driverName || "_unassigned"}`;
         const driverRef = getDriverGroupRef(driverKey);
-        // 해당 기사가 담당하는 호차 목록 (운행일보 열기용)
-        const carNos = [...new Set(rows.map((r) => normalizeCarNo(r.car_no)))].sort((a, b) =>
-          a.localeCompare(b, "ko", { numeric: true })
-        );
+        const carNos = [...new Set(rows.map((r) => normalizeCarNo(r.car_no)))].sort((a, b) => a.localeCompare(b, "ko", { numeric: true }));
 
         return (
           <div key={driverKey} style={{ border: "1px solid #d6e4ee", background: "#fff", padding: "20px 20px 16px", marginBottom: 16 }}>
@@ -593,31 +521,19 @@ export default function SupportPage() {
                 </span>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {/* 운행일보 열기 (호차별) */}
                 {carNos.map((carNo) => (
-                  <Link
-                    key={carNo}
-                    href={`/admin/vehicles/report?carNo=${encodeURIComponent(carNo)}`}
-                    style={{ ...btnBase, background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", color: "#fff", border: "1px solid #0e7490", textDecoration: "none" }}
-                  >
+                  <Link key={carNo} href={`/admin/vehicles/report?carNo=${encodeURIComponent(carNo)}`}
+                    style={{ ...btnBase, background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", color: "#fff", border: "1px solid #0e7490", textDecoration: "none" }}>
                     {carNo}호차 운행일보 →
                   </Link>
                 ))}
               </div>
             </div>
 
-            {/* 기사 메시지 복사 (전체 점포 통합 이미지) */}
+            {/* 기사 메시지 복사 버튼 */}
             <div style={{ marginBottom: 14 }}>
               <button
-                style={{
-                  ...btnBase,
-                  background: copyStatus[driverKey] === "done" ? "#f0fdf4" : copyStatus[driverKey] === "error" ? "#fef2f2" : "linear-gradient(135deg,#4c1d95 0%,#7c3aed 100%)",
-                  color: (copyStatus[driverKey] === "done" || copyStatus[driverKey] === "error") ? "#374151" : "#fff",
-                  border: "1px solid #7c3aed",
-                  opacity: copyStatus[driverKey] === "copying" ? 0.7 : 1,
-                  fontSize: 14,
-                  padding: "9px 18px",
-                }}
+                style={{ ...btnBase, background: copyStatus[driverKey] === "done" ? "#f0fdf4" : copyStatus[driverKey] === "error" ? "#fef2f2" : "linear-gradient(135deg,#4c1d95 0%,#7c3aed 100%)", color: (copyStatus[driverKey] === "done" || copyStatus[driverKey] === "error") ? "#374151" : "#fff", border: "1px solid #7c3aed", opacity: copyStatus[driverKey] === "copying" ? 0.7 : 1, fontSize: 14, padding: "9px 18px" }}
                 onClick={() => copyImage(driverKey, driverRef)}
                 disabled={copyStatus[driverKey] === "copying"}
               >
@@ -630,40 +546,52 @@ export default function SupportPage() {
               const { largeTotal, smallTotal } = cargoTotals(row);
               const storeRef = getStoreRef(row.id);
               const storeKey = `store-${row.id}`;
+              const roundVal = roundInputs[row.id] ?? "";
 
               return (
                 <div key={row.id} style={{ borderTop: "1px solid #e9f0f5", paddingTop: 12, paddingBottom: 12 }}>
-                  <div style={{ marginBottom: 8 }}>
-                    <div style={{ fontSize: 15, fontWeight: 950, color: "#0f2940", marginBottom: 4, letterSpacing: -0.3 }}>
-                      {row.store_name}
-                      <span style={{ fontSize: 12, fontWeight: 700, color: "#6b7280", marginLeft: 8 }}>{normalizeCarNo(row.car_no)}호차</span>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 8 }}>
+                    {/* 회전 입력 */}
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 }}>
+                      <input
+                        value={roundVal}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^\d]/g, "");
+                          setRoundInputs((prev) => ({ ...prev, [row.id]: v }));
+                        }}
+                        placeholder="–"
+                        inputMode="numeric"
+                        style={{ width: 48, height: 36, textAlign: "center", fontWeight: 950, fontSize: 16, border: "2px solid #c7d6e3", borderRadius: 6, outline: "none", color: "#4c1d95", background: roundVal ? "#f5f0ff" : "#fafafa" }}
+                      />
+                      <div style={{ fontSize: 10, color: "#9ca3af", fontWeight: 700 }}>회전</div>
                     </div>
-                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 13, fontWeight: 700 }}>
-                      {row.standard_time && <span style={{ color: "#374151" }}>⏰ {row.standard_time}</span>}
-                      <span style={{ color: "#1d4ed8" }}>대 {formatNumber(largeTotal)}</span>
-                      <span style={{ color: "#166534" }}>소 {formatNumber(smallTotal)}</span>
-                      {row.event > 0 && <span style={{ color: "#d97706" }}>행사 {formatNumber(row.event)}</span>}
-                      {row.tobacco > 0 && <span style={{ color: "#7c3aed" }}>담배 {formatNumber(row.tobacco)}</span>}
-                      {row.certificate > 0 && <span style={{ color: "#b45309" }}>유가증권 {formatNumber(row.certificate)}</span>}
-                      {row.cdc > 0 && <span style={{ color: "#0369a1" }}>CDC {formatNumber(row.cdc)}</span>}
+                    {/* 점포 정보 */}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 15, fontWeight: 950, color: "#0f2940", marginBottom: 4 }}>
+                        {row.store_name}
+                        {roundVal && <span style={{ fontSize: 12, fontWeight: 800, color: "#7c3aed", marginLeft: 8 }}>{roundVal}회전</span>}
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#6b7280", marginLeft: 8 }}>{normalizeCarNo(row.car_no)}호차</span>
+                      </div>
+                      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 13, fontWeight: 700 }}>
+                        {row.standard_time && <span style={{ color: "#374151" }}>⏰ {row.standard_time}</span>}
+                        <span style={{ color: "#1d4ed8" }}>대 {formatNumber(largeTotal)}</span>
+                        <span style={{ color: "#166534" }}>소 {formatNumber(smallTotal)}</span>
+                        {row.event > 0 && <span style={{ color: "#d97706" }}>행사 {formatNumber(row.event)}</span>}
+                        {row.tobacco > 0 && <span style={{ color: "#7c3aed" }}>담배 {formatNumber(row.tobacco)}</span>}
+                        {row.certificate > 0 && <span style={{ color: "#b45309" }}>유가증권 {formatNumber(row.certificate)}</span>}
+                        {row.cdc > 0 && <span style={{ color: "#0369a1" }}>CDC {formatNumber(row.cdc)}</span>}
+                      </div>
+                      {row.address && <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>📍 {row.address}</div>}
                     </div>
-                    {row.address && <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4, fontWeight: 600 }}>📍 {row.address}</div>}
+                    {/* 이동점포 공지 복사 */}
+                    <button
+                      style={{ ...btnBase, flexShrink: 0, background: copyStatus[storeKey] === "done" ? "#f0fdf4" : copyStatus[storeKey] === "error" ? "#fef2f2" : "linear-gradient(135deg,#065f46 0%,#059669 100%)", color: (copyStatus[storeKey] === "done" || copyStatus[storeKey] === "error") ? "#374151" : "#fff", border: "1px solid #059669", opacity: copyStatus[storeKey] === "copying" ? 0.7 : 1 }}
+                      onClick={() => copyImage(storeKey, storeRef)}
+                      disabled={copyStatus[storeKey] === "copying"}
+                    >
+                      🏪 {copyBtnLabel(storeKey, "이동점포 공지")}
+                    </button>
                   </div>
-
-                  {/* 이동점포 공지 (점포별) */}
-                  <button
-                    style={{
-                      ...btnBase,
-                      background: copyStatus[storeKey] === "done" ? "#f0fdf4" : copyStatus[storeKey] === "error" ? "#fef2f2" : "linear-gradient(135deg,#065f46 0%,#059669 100%)",
-                      color: (copyStatus[storeKey] === "done" || copyStatus[storeKey] === "error") ? "#374151" : "#fff",
-                      border: "1px solid #059669",
-                      opacity: copyStatus[storeKey] === "copying" ? 0.7 : 1,
-                    }}
-                    onClick={() => copyImage(storeKey, storeRef)}
-                    disabled={copyStatus[storeKey] === "copying"}
-                  >
-                    🏪 {copyBtnLabel(storeKey, "이동점포 공지 복사")}
-                  </button>
 
                   {/* 숨김 이동점포 공지 카드 */}
                   <div style={{ position: "fixed", top: -9999, left: -9999, pointerEvents: "none", zIndex: -1 }}>
@@ -673,13 +601,14 @@ export default function SupportPage() {
               );
             })}
 
-            {/* 숨김 기사 메시지 카드 (전체 점포 통합) */}
+            {/* 숨김 기사 메시지 카드 */}
             <div style={{ position: "fixed", top: -9999, left: -9999, pointerEvents: "none", zIndex: -1 }}>
-              <DriverMessageCardMulti
+              <DriverMessageCardHorizontal
                 rows={rows}
                 driverName={driverName}
                 reportDate={reportDate}
                 contactIndex={contactIndex}
+                roundMap={roundInputs}
                 cardRef={driverRef}
               />
             </div>
