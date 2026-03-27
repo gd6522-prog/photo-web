@@ -221,6 +221,7 @@ function DriverMessageCardHorizontal({
   driverName,
   reportDate,
   contactIndex,
+  driverIndex,
   roundMap,
   cardRef,
 }: {
@@ -228,10 +229,10 @@ function DriverMessageCardHorizontal({
   driverName: string;
   reportDate: string;
   contactIndex: Map<string, string>;
+  driverIndex: Map<string, DriverProfile>;
   roundMap: Record<string, string>;
   cardRef: React.RefObject<HTMLDivElement | null>;
 }) {
-  // 회전별 그룹핑
   const roundGroups = useMemo(() => {
     const groups = new Map<string, CargoRow[]>();
     for (const row of rows) {
@@ -240,73 +241,85 @@ function DriverMessageCardHorizontal({
       groups.get(r)!.push(row);
     }
     return [...groups.entries()].sort((a, b) => {
-      const na = Number(a[0]), nb = Number(b[0]);
       if (a[0] === "0") return 1;
       if (b[0] === "0") return -1;
-      return na - nb;
+      return Number(a[0]) - Number(b[0]);
     });
   }, [rows, roundMap]);
 
+  const f = (label: string, value: number | string) => {
+    if (value === 0 || value === "") return null;
+    return (
+      <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "1px solid #e5eaf0" }}>
+        <span style={{ fontSize: 10, color: "#6b7280", fontWeight: 700 }}>{label}</span>
+        <span style={{ fontSize: 11, fontWeight: 800, color: "#111827" }}>{typeof value === "number" ? formatNumber(value) : value}</span>
+      </div>
+    );
+  };
+
   const StoreCol = ({ row }: { row: CargoRow }) => {
     const { largeTotal, smallTotal } = cargoTotals(row);
-    const phone = contactIndex.get(row.store_name) ?? "";
+    const storePhone = contactIndex.get(row.store_name) ?? "";
+    const origDriver = driverIndex.get(normalizeCarNo(row.car_no));
     return (
-      <div style={{ minWidth: 200, flexShrink: 0, background: "rgba(255,255,255,0.8)", borderRadius: 10, padding: "10px 12px" }}>
-        <div style={{ fontSize: 14, fontWeight: 950, color: "#0f2940", marginBottom: 4, letterSpacing: -0.3, lineHeight: 1.3 }}>{row.store_name}</div>
+      <div style={{ minWidth: 200, flexShrink: 0, background: "rgba(255,255,255,0.85)", borderRadius: 10, padding: "10px 12px" }}>
+        {/* 점포명 */}
+        <div style={{ fontSize: 14, fontWeight: 950, color: "#0f2940", marginBottom: 4, letterSpacing: -0.3 }}>{row.store_name}</div>
+        {/* 기본 메타 */}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 10, fontWeight: 700, marginBottom: 6 }}>
           <span style={{ color: "#6b7280" }}>호차 <strong style={{ color: "#0f2940" }}>{normalizeCarNo(row.car_no)}</strong></span>
           {row.seq_no > 0 && <span style={{ color: "#6b7280" }}>순번 <strong style={{ color: "#0f2940" }}>{row.seq_no}</strong></span>}
           {row.store_code && <span style={{ color: "#6b7280" }}>점포코드 <strong style={{ color: "#0f2940" }}>{row.store_code}</strong></span>}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 8, fontSize: 11 }}>
-          {row.standard_time && <div>⏰ <strong>{row.standard_time}</strong></div>}
-          {row.address && <div style={{ color: "#374151", whiteSpace: "nowrap", fontSize: 10 }}>📍 {row.address}</div>}
-          {phone && <div>📞 {formatPhone(phone)}</div>}
+        {/* 기존기사 */}
+        {origDriver && (
+          <div style={{ background: "#fef9ec", borderRadius: 6, padding: "4px 8px", marginBottom: 6, fontSize: 10, fontWeight: 700 }}>
+            <span style={{ color: "#92400e" }}>기존기사 </span>
+            <strong style={{ color: "#78350f" }}>{origDriver.name}</strong>
+            {origDriver.phone && <span style={{ color: "#92400e" }}> · {formatPhone(origDriver.phone)}</span>}
+          </div>
+        )}
+        {/* 기준시간·주소·점포연락처 */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 8 }}>
+          {row.standard_time && (
+            <div style={{ fontSize: 11 }}>
+              <span style={{ color: "#6b7280", fontWeight: 700 }}>기준시간 </span>
+              <strong style={{ color: "#111827" }}>{row.standard_time}</strong>
+            </div>
+          )}
+          {row.address && (
+            <div style={{ fontSize: 10, color: "#374151", whiteSpace: "nowrap" }}>
+              <span style={{ fontWeight: 700, color: "#6b7280" }}>주소 </span>{row.address}
+            </div>
+          )}
+          {storePhone && (
+            <div style={{ fontSize: 11 }}>
+              <span style={{ color: "#6b7280", fontWeight: 700 }}>점포연락처 </span>
+              <strong style={{ color: "#111827" }}>{formatPhone(storePhone)}</strong>
+            </div>
+          )}
         </div>
         {/* 물동량 */}
         <div style={{ background: "#f0f4f8", borderRadius: 8, padding: "8px 10px" }}>
-          {(() => {
-            const f = (label: string, value: number | string, bold = false) => {
-              if (value === 0 || value === "") return null;
-              return (
-                <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "1px solid #e5eaf0" }}>
-                  <span style={{ fontSize: 10, color: "#6b7280", fontWeight: 700 }}>{label}</span>
-                  <span style={{ fontSize: 11, fontWeight: bold ? 950 : 800, color: "#111827" }}>{typeof value === "number" ? formatNumber(value) : value}</span>
-                </div>
-              );
-            };
-            return (
-              <>
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "2px solid #bae6fd", marginBottom: 1 }}>
-                  <span style={{ fontSize: 11, fontWeight: 950, color: "#0369a1" }}>대분</span>
-                  <span style={{ fontSize: 13, fontWeight: 950, color: "#0369a1" }}>{formatNumber(largeTotal)}</span>
-                </div>
-                <div style={{ paddingLeft: 4, marginBottom: 4 }}>
-                  {f("박스존", row.large_box)}
-                  {f("이너존", row.large_inner)}
-                  {f("기타", row.large_other)}
-                  {f("올데이2L", row.large_day2l)}
-                  {f("노브랜드2L", row.large_nb2l)}
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "2px solid #bbf7d0", marginBottom: 1 }}>
-                  <span style={{ fontSize: 11, fontWeight: 950, color: "#166534" }}>소분</span>
-                  <span style={{ fontSize: 13, fontWeight: 950, color: "#166534" }}>{formatNumber(smallTotal)}</span>
-                </div>
-                <div style={{ paddingLeft: 4, marginBottom: 4 }}>
-                  {f("경량존", row.small_low)}
-                  {f("슬라존", row.small_high)}
-                </div>
-                {(row.event > 0 || row.tobacco > 0 || row.certificate > 0 || row.cdc > 0) && (
-                  <div style={{ paddingLeft: 4 }}>
-                    {f("행사", row.event)}
-                    {f("담배", row.tobacco)}
-                    {f("유가증권", row.certificate)}
-                    {f("CDC", row.cdc)}
-                  </div>
-                )}
-              </>
-            );
-          })()}
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "2px solid #bae6fd", marginBottom: 1 }}>
+            <span style={{ fontSize: 11, fontWeight: 950, color: "#0369a1" }}>대분</span>
+            <span style={{ fontSize: 13, fontWeight: 950, color: "#0369a1" }}>{formatNumber(largeTotal)}</span>
+          </div>
+          <div style={{ paddingLeft: 4, marginBottom: 4 }}>
+            {f("박스존", row.large_box)}{f("이너존", row.large_inner)}{f("기타", row.large_other)}{f("올데이2L", row.large_day2l)}{f("노브랜드2L", row.large_nb2l)}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "2px solid #bbf7d0", marginBottom: 1 }}>
+            <span style={{ fontSize: 11, fontWeight: 950, color: "#166534" }}>소분</span>
+            <span style={{ fontSize: 13, fontWeight: 950, color: "#166534" }}>{formatNumber(smallTotal)}</span>
+          </div>
+          <div style={{ paddingLeft: 4, marginBottom: 4 }}>
+            {f("경량존", row.small_low)}{f("슬라존", row.small_high)}
+          </div>
+          {(row.event > 0 || row.tobacco > 0 || row.certificate > 0 || row.cdc > 0) && (
+            <div style={{ paddingLeft: 4 }}>
+              {f("행사", row.event)}{f("담배", row.tobacco)}{f("유가증권", row.certificate)}{f("CDC", row.cdc)}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -328,20 +341,29 @@ function DriverMessageCardHorizontal({
         {roundGroups.map(([roundKey, roundRows]) => {
           const hasRound = roundKey !== "0";
           const bgColor = hasRound ? `hsl(${(Number(roundKey) - 1) * 60 % 360}, 60%, 95%)` : "#f8fafc";
+          // 회전 합계
+          const roundLargeTotal = roundRows.reduce((s, r) => s + cargoTotals(r).largeTotal, 0);
+          const roundSmallTotal = roundRows.reduce((s, r) => s + cargoTotals(r).smallTotal, 0);
           return (
             <div key={roundKey} style={{ background: bgColor, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "flex-start", gap: 10 }}>
-              {/* 회전 라벨 */}
-              <div style={{ width: 56, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", paddingTop: 8 }}>
+              {/* 회전 라벨 + 합계 */}
+              <div style={{ width: 70, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, paddingTop: 6 }}>
                 {hasRound ? (
                   <>
-                    <div style={{ fontSize: 18, fontWeight: 950, color: "#0f2940", lineHeight: 1 }}>{roundKey}</div>
+                    <div style={{ fontSize: 22, fontWeight: 950, color: "#0f2940", lineHeight: 1 }}>{roundKey}</div>
                     <div style={{ fontSize: 11, fontWeight: 800, color: "#5a7385" }}>회전</div>
                   </>
                 ) : (
                   <div style={{ fontSize: 11, fontWeight: 800, color: "#9ca3af" }}>미지정</div>
                 )}
+                <div style={{ marginTop: 6, textAlign: "center" }}>
+                  <div style={{ fontSize: 10, color: "#0369a1", fontWeight: 700 }}>대분 합계</div>
+                  <div style={{ fontSize: 14, fontWeight: 950, color: "#0369a1" }}>{formatNumber(roundLargeTotal)}</div>
+                  <div style={{ fontSize: 10, color: "#166534", fontWeight: 700, marginTop: 4 }}>소분 합계</div>
+                  <div style={{ fontSize: 14, fontWeight: 950, color: "#166534" }}>{formatNumber(roundSmallTotal)}</div>
+                </div>
               </div>
-              {/* 점포 컬럼들 - 가로로만 늘어남 */}
+              {/* 점포 컬럼들 */}
               <div style={{ display: "flex", gap: 10, flexWrap: "nowrap" }}>
                 {roundRows.map((row) => <StoreCol key={row.id} row={row} />)}
               </div>
@@ -603,6 +625,7 @@ export default function SupportPage() {
                 driverName={driverName}
                 reportDate={reportDate}
                 contactIndex={contactIndex}
+                driverIndex={driverIndex}
                 roundMap={roundInputs}
                 cardRef={driverRef}
               />
