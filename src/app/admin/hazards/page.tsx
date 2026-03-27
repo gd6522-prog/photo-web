@@ -67,7 +67,7 @@ function toKstDate(iso: string) {
 
 function formatKST(ts: string | null) {
   if (!ts) return "-";
-  return new Date(ts).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour12: false });
+  return new Date(ts).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
 function todayYMD() {
@@ -214,14 +214,19 @@ function printHazardResolutionSheet(params: {
       .memo { border-top: 1px solid #e2e8f0; padding: 12px; min-height: 120px; background: #fcfdff; }
       .memo-label { font-size: 12px; font-weight: 900; margin-bottom: 6px; color: #334155; }
       .memo-text { font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
-      .foot { margin-top: auto; display: flex; justify-content: flex-end; font-size: 11px; color: #64748b; }
+      .approval { margin-top: auto; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; }
+      .approval-title { background: #f1f5f9; padding: 8px 14px; font-size: 12px; font-weight: 900; color: #334155; border-bottom: 1px solid #cbd5e1; }
+      .approval-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; }
+      .approval-cell { padding: 10px 14px; border-right: 1px solid #e2e8f0; }
+      .approval-cell:last-child { border-right: none; }
+      .approval-role { font-size: 11px; font-weight: 800; color: #64748b; margin-bottom: 28px; }
+      .approval-sign { font-size: 11px; color: #94a3b8; text-align: right; }
     </style>
   </head>
   <body>
     <div class="sheet">
       <div class="title">
         <h1>위험요인 처리완료 보고서</h1>
-        <div class="badge">컬러 출력 / A4 세로</div>
       </div>
       <div class="meta">
         <div class="meta-box">
@@ -251,7 +256,14 @@ function printHazardResolutionSheet(params: {
           </div>
         </div>
       </div>
-      <div class="foot">보고서 ID: ${escapeHtml(params.reportId)}</div>
+      <div class="approval">
+        <div class="approval-title">결재</div>
+        <div class="approval-grid">
+          <div class="approval-cell"><div class="approval-role">담당자</div><div class="approval-sign">(인)</div></div>
+          <div class="approval-cell"><div class="approval-role">검토자</div><div class="approval-sign">(인)</div></div>
+          <div class="approval-cell"><div class="approval-role">승인자</div><div class="approval-sign">(인)</div></div>
+        </div>
+      </div>
     </div>
     <script>
       window.onload = function () {
