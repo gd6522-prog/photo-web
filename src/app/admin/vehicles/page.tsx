@@ -2282,6 +2282,8 @@ export function VehiclePageScreen({
             margin: 0 !important;
             padding: 0 !important;
             background: #fff !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
 
           .ha-admin-header {
@@ -2326,6 +2328,7 @@ export function VehiclePageScreen({
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
+            padding-left: 6mm !important;
             box-sizing: border-box !important;
             break-after: page !important;
             page-break-after: always !important;
@@ -2339,17 +2342,19 @@ export function VehiclePageScreen({
           }
 
           .report-preview-viewport {
-            width: ${Math.round(REPORT_PREVIEW_BASE_WIDTH * REPORT_PRINT_SCALE)}px !important;
-            height: ${Math.round((190 + 80 + 21 * REPORT_BODY_ROW_HEIGHT) * REPORT_PRINT_SCALE)}px !important;
-            overflow: hidden !important;
-            flex-shrink: 0 !important;
-            min-height: unset !important;
+            width: 100% !important;
+            overflow: visible !important;
+            min-height: auto !important;
+            height: auto !important;
           }
 
           .report-print-frame {
             width: ${REPORT_PREVIEW_BASE_WIDTH}px !important;
-            transform: scale(${REPORT_PRINT_SCALE}) !important;
+            zoom: ${REPORT_PRINT_SCALE} !important;
+            transform: none !important;
             transform-origin: top left !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
 
           .report-print-frame .report-section-top {
