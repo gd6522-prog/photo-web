@@ -2286,6 +2286,12 @@ export function VehiclePageScreen({
           frame.style.width = `${REPORT_PREVIEW_BASE_WIDTH}px`;
         });
 
+        clone.querySelectorAll("*").forEach((node) => {
+          if (!(node instanceof HTMLElement)) return;
+          node.style.setProperty("-webkit-print-color-adjust", "exact");
+          node.style.setProperty("print-color-adjust", "exact");
+        });
+
         return clone.outerHTML;
       })
       .join("");
@@ -2335,6 +2341,11 @@ export function VehiclePageScreen({
               -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
               font-family: "Malgun Gothic", sans-serif;
+            }
+
+            * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
             }
 
             body {
