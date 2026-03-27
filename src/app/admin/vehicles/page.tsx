@@ -2276,14 +2276,17 @@ export function VehiclePageScreen({
         }
 
         @media print {
+          * {
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
+
           html, body {
             width: 297mm;
             height: 210mm;
             margin: 0 !important;
             padding: 0 !important;
             background: #fff !important;
-            print-color-adjust: exact !important;
-            -webkit-print-color-adjust: exact !important;
           }
 
           .ha-admin-header {
