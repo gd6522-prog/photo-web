@@ -2340,7 +2340,8 @@ export function VehiclePageScreen({
               background: #fff;
               -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
-              font-family: "Malgun Gothic", sans-serif;
+              font-family: "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, -apple-system, "Segoe UI", sans-serif;
+              line-height: 1;
             }
 
             * {
