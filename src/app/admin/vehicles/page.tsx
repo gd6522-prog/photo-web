@@ -1647,7 +1647,7 @@ export function VehiclePageScreen({
 }) {
   const INPUT_PAGE_SIZE = 50;
   const REPORT_PREVIEW_BASE_WIDTH = 1620;
-  const REPORT_PRINT_SCALE = 0.66;
+  const REPORT_PRINT_SCALE = 0.635;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const reportPrintListRef = useRef<HTMLDivElement | null>(null);
   const reportPreviewContainerRef = useRef<HTMLDivElement | null>(null);
@@ -2335,6 +2335,8 @@ export function VehiclePageScreen({
             }
 
             html, body {
+              width: 297mm;
+              height: 210mm;
               margin: 0;
               padding: 0;
               background: #fff;
@@ -2351,6 +2353,13 @@ export function VehiclePageScreen({
 
             body {
               min-width: 297mm;
+              overflow: hidden;
+            }
+
+            .print-root {
+              width: 297mm;
+              height: 210mm;
+              overflow: hidden;
             }
 
             .report-print-shell {
