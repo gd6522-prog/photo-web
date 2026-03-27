@@ -3396,8 +3396,8 @@ export function VehiclePageScreen({
                       이동거리
                     </td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 20, fontWeight: 950, lineHeight: 1.35, letterSpacing: -0.2 }} rowSpan={3}>대분 : {formatNumber(group.totals.large)}개</td>
-                    <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 13, fontWeight: 900, textAlign: "center" }} rowSpan={2}>점착률</td>
-                    <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 13, fontWeight: 900, textAlign: "center", background: "#f4d4d9" }} rowSpan={2}>누계</td>
+                    <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 18, fontWeight: 900, textAlign: "center" }} rowSpan={2}>점착률</td>
+                    <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 18, fontWeight: 900, textAlign: "center", background: "#f4d4d9" }} rowSpan={2}>누계</td>
                   </tr>
                   <tr>
                     <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13 }}>배송기사명</td>
@@ -3440,8 +3440,8 @@ export function VehiclePageScreen({
                     <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center" }}>막점</td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px" }}></td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", textAlign: "right", fontWeight: 800, fontSize: 13 }} colSpan={2}>km</td>
-                    <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 15, fontWeight: 900, textAlign: "center" }} rowSpan={4}>{driverAdhesion?.adhesionRate || ""}</td>
-                    <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 15, fontWeight: 900, textAlign: "center", background: "#f4d4d9", color: "#b91c1c" }} rowSpan={4}>{driverAdhesion?.cumulativeRate || ""}</td>
+                    <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 20, fontWeight: 900, textAlign: "center" }} rowSpan={4}>{driverAdhesion?.adhesionRate || ""}</td>
+                    <td style={{ border: "1px solid #666", padding: "6px 8px", fontSize: 20, fontWeight: 900, textAlign: "center", background: "#f4d4d9", color: "#b91c1c" }} rowSpan={4}>{driverAdhesion?.cumulativeRate || ""}</td>
                   </tr>
                   <tr>
                     <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13 }}>운수사</td>
