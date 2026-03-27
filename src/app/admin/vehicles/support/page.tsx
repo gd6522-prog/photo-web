@@ -161,55 +161,74 @@ async function fetchContactIndex(): Promise<Map<string, string>> {
   return index;
 }
 
-// ── 이동점포 공지 카드 (가로) ────────────────────────────
-function StoreNoticeCard({ row, reportDate, cardRef }: { row: CargoRow; reportDate: string; cardRef: React.RefObject<HTMLDivElement | null> }) {
-  const { largeTotal, smallTotal } = cargoTotals(row);
+// ── 선작업/이동점포 공지 카드 (통합 가로) ───────────────
+function StoreNoticeCardMulti({
+  rows,
+  noticeMap,
+  reportDate,
+  cardRef,
+}: {
+  rows: CargoRow[];
+  noticeMap: Record<string, string>;
+  reportDate: string;
+  cardRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  const activeRows = rows.filter((r) => noticeMap[r.id]?.trim());
+  if (!activeRows.length) return null;
   return (
-    <div ref={cardRef} style={{ width: 500, background: "#fff", borderRadius: 0, padding: "22px 24px", fontFamily: "Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif", boxSizing: "border-box" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-        <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>🚚</div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 15, fontWeight: 900, color: "#0f2940" }}>이동점포 공지 · 한아시스템</div>
-          <div style={{ fontSize: 11, color: "#5a7385", fontWeight: 700 }}>{reportDate}</div>
-        </div>
-        <div style={{ background: "#f0f9ff", borderRadius: 8, padding: "8px 14px", textAlign: "right" }}>
-          <div style={{ fontSize: 18, fontWeight: 950, color: "#0f2940" }}>{row.store_name}</div>
+    <div ref={cardRef} style={{ width: "max-content", minWidth: 400, background: "#fff", borderRadius: 0, padding: "20px 24px", fontFamily: "Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif", boxSizing: "border-box" }}>
+      {/* 헤더 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, borderBottom: "2px solid #f0f4f8", paddingBottom: 12 }}>
+        <div style={{ width: 38, height: 38, borderRadius: "50%", background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>🚚</div>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: "#0f2940" }}>선작업/이동점포 공지</div>
+          <div style={{ fontSize: 11, color: "#5a7385", fontWeight: 700 }}>{reportDate} · {activeRows.length}개 점포</div>
         </div>
       </div>
-      <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
-        {/* 시간·주소 */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
-          {row.standard_time && (
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <span style={{ fontSize: 14 }}>⏰</span>
-              <div><div style={{ fontSize: 10, color: "#6b7280", fontWeight: 700 }}>도착 예정</div><div style={{ fontSize: 14, fontWeight: 900, color: "#111827" }}>{row.standard_time}</div></div>
-            </div>
-          )}
-          {row.address && (
-            <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-              <span style={{ fontSize: 14, flexShrink: 0 }}>📍</span>
-              <div><div style={{ fontSize: 10, color: "#6b7280", fontWeight: 700 }}>배송 주소</div><div style={{ fontSize: 12, fontWeight: 800, color: "#111827", lineHeight: 1.4 }}>{row.address}</div></div>
-            </div>
-          )}
-        </div>
-        {/* 물동량 */}
-        <div style={{ background: "#f8fafc", borderRadius: 10, padding: "10px 14px", minWidth: 140 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "#6b7280", marginBottom: 8 }}>물동량</div>
-          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-            {[
-              { label: "대분", value: largeTotal, color: "#0f2940" },
-              { label: "소분", value: smallTotal, color: "#0f2940" },
-              ...(row.event > 0 ? [{ label: "행사", value: row.event, color: "#d97706" }] : []),
-              ...(row.tobacco > 0 ? [{ label: "담배", value: row.tobacco, color: "#7c3aed" }] : []),
-              ...(row.certificate > 0 ? [{ label: "유가증권", value: row.certificate, color: "#b45309" }] : []),
-            ].map(({ label, value, color }) => (
-              <div key={label} style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 20, fontWeight: 950, color, lineHeight: 1 }}>{formatNumber(value)}</div>
-                <div style={{ fontSize: 10, color: "#6b7280", fontWeight: 700, marginTop: 2 }}>{label}</div>
+      {/* 점포 컬럼들 (가로) */}
+      <div style={{ display: "flex", gap: 12, flexWrap: "nowrap", alignItems: "flex-start" }}>
+        {activeRows.map((row) => {
+          const { largeTotal, smallTotal } = cargoTotals(row);
+          const noticeText = noticeMap[row.id]?.trim() ?? "";
+          return (
+            <div key={row.id} style={{ minWidth: 200, flexShrink: 0, background: "#f0f9ff", borderRadius: 10, padding: "12px 14px" }}>
+              <div style={{ fontSize: 15, fontWeight: 950, color: "#0f2940", marginBottom: 6 }}>{row.store_name}</div>
+              {row.standard_time && (
+                <div style={{ fontSize: 11, marginBottom: 2 }}>
+                  <span style={{ color: "#6b7280", fontWeight: 700 }}>기준시간 </span>
+                  <strong style={{ color: "#111827" }}>{row.standard_time}</strong>
+                </div>
+              )}
+              {row.address && (
+                <div style={{ fontSize: 10, color: "#374151", whiteSpace: "nowrap", marginBottom: 6 }}>
+                  <span style={{ fontWeight: 700, color: "#6b7280" }}>주소 </span>{row.address}
+                </div>
+              )}
+              {/* 물동량 요약 */}
+              <div style={{ display: "flex", gap: 10, marginBottom: 8 }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 16, fontWeight: 950, color: "#0369a1" }}>{formatNumber(largeTotal)}</div>
+                  <div style={{ fontSize: 9, color: "#6b7280", fontWeight: 700 }}>대분</div>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 16, fontWeight: 950, color: "#166534" }}>{formatNumber(smallTotal)}</div>
+                  <div style={{ fontSize: 9, color: "#6b7280", fontWeight: 700 }}>소분</div>
+                </div>
+                {row.tobacco > 0 && (
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 16, fontWeight: 950, color: "#7c3aed" }}>{formatNumber(row.tobacco)}</div>
+                    <div style={{ fontSize: 9, color: "#6b7280", fontWeight: 700 }}>담배</div>
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
-        </div>
+              {/* 공지 내용 */}
+              <div style={{ background: "#fff7ed", borderRadius: 8, padding: "8px 10px", borderLeft: "3px solid #f97316" }}>
+                <div style={{ fontSize: 10, color: "#9a3412", fontWeight: 700, marginBottom: 3 }}>공지사항</div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#111827", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{noticeText}</div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -382,13 +401,14 @@ export default function SupportPage() {
   const [error, setError] = useState("");
   const [copyStatus, setCopyStatus] = useState<Record<string, "copying" | "done" | "error">>({});
   const [roundInputs, setRoundInputs] = useState<Record<string, string>>({});
+  const [noticeInputs, setNoticeInputs] = useState<Record<string, string>>({});
 
-  const storeCardRefs = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
+  const noticeCardRefs = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
   const driverCardRefs = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
 
-  function getStoreRef(id: string) {
-    if (!storeCardRefs.current.has(id)) storeCardRefs.current.set(id, React.createRef<HTMLDivElement>());
-    return storeCardRefs.current.get(id)!;
+  function getNoticeRef(key: string) {
+    if (!noticeCardRefs.current.has(key)) noticeCardRefs.current.set(key, React.createRef<HTMLDivElement>());
+    return noticeCardRefs.current.get(key)!;
   }
   function getDriverGroupRef(key: string) {
     if (!driverCardRefs.current.has(key)) driverCardRefs.current.set(key, React.createRef<HTMLDivElement>());
@@ -559,27 +579,46 @@ export default function SupportPage() {
               </div>
             </div>
 
-            {/* 기사 메시지 복사 버튼 */}
-            <div style={{ marginBottom: 14 }}>
-              <button
-                style={{ ...btnBase, background: copyStatus[driverKey] === "done" ? "#f0fdf4" : copyStatus[driverKey] === "error" ? "#fef2f2" : "linear-gradient(135deg,#4c1d95 0%,#7c3aed 100%)", color: (copyStatus[driverKey] === "done" || copyStatus[driverKey] === "error") ? "#374151" : "#fff", border: "1px solid #7c3aed", opacity: copyStatus[driverKey] === "copying" ? 0.7 : 1, fontSize: 14, padding: "9px 18px" }}
-                onClick={() => copyImage(driverKey, driverRef)}
-                disabled={copyStatus[driverKey] === "copying"}
-              >
-                🚗 {copyBtnLabel(driverKey, `${driverName ? driverName + " 기사" : "지원기사"} 메시지 복사 (${rows.length}개 점포 전체)`)}
-              </button>
-            </div>
+            {/* 버튼 행 */}
+            {(() => {
+              const noticeKey = `notice-${driverKey}`;
+              const noticeRef = getNoticeRef(noticeKey);
+              const hasNotice = rows.some((r) => noticeInputs[r.id]?.trim());
+              return (
+                <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+                  <button
+                    style={{ ...btnBase, background: copyStatus[driverKey] === "done" ? "#f0fdf4" : copyStatus[driverKey] === "error" ? "#fef2f2" : "linear-gradient(135deg,#4c1d95 0%,#7c3aed 100%)", color: (copyStatus[driverKey] === "done" || copyStatus[driverKey] === "error") ? "#374151" : "#fff", border: "1px solid #7c3aed", opacity: copyStatus[driverKey] === "copying" ? 0.7 : 1, fontSize: 14, padding: "9px 18px" }}
+                    onClick={() => copyImage(driverKey, driverRef)}
+                    disabled={copyStatus[driverKey] === "copying"}
+                  >
+                    🚗 {copyBtnLabel(driverKey, `${driverName ? driverName + " 기사" : "지원기사"} 메시지 복사`)}
+                  </button>
+                  {hasNotice && (
+                    <button
+                      style={{ ...btnBase, background: copyStatus[noticeKey] === "done" ? "#f0fdf4" : copyStatus[noticeKey] === "error" ? "#fef2f2" : "linear-gradient(135deg,#065f46 0%,#059669 100%)", color: (copyStatus[noticeKey] === "done" || copyStatus[noticeKey] === "error") ? "#374151" : "#fff", border: "1px solid #059669", opacity: copyStatus[noticeKey] === "copying" ? 0.7 : 1, fontSize: 14, padding: "9px 18px" }}
+                      onClick={() => copyImage(noticeKey, noticeRef)}
+                      disabled={copyStatus[noticeKey] === "copying"}
+                    >
+                      🏪 {copyBtnLabel(noticeKey, "선작업/이동점포 공지 복사")}
+                    </button>
+                  )}
+                  {/* 숨김 공지 카드 */}
+                  <div style={{ position: "fixed", top: -9999, left: -9999, pointerEvents: "none", zIndex: -1 }}>
+                    <StoreNoticeCardMulti rows={rows} noticeMap={noticeInputs} reportDate={reportDate} cardRef={noticeRef} />
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* 점포 행 목록 */}
             {rows.map((row) => {
               const { largeTotal, smallTotal } = cargoTotals(row);
-              const storeRef = getStoreRef(row.id);
-              const storeKey = `store-${row.id}`;
               const roundVal = roundInputs[row.id] ?? "";
+              const noticeVal = noticeInputs[row.id] ?? "";
 
               return (
                 <div key={row.id} style={{ borderTop: "1px solid #e9f0f5", paddingTop: 12, paddingBottom: 12 }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 8 }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                     {/* 회전 입력 */}
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 }}>
                       <input
@@ -613,19 +652,17 @@ export default function SupportPage() {
                       </div>
                       {row.address && <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>📍 {row.address}</div>}
                     </div>
-                    {/* 이동점포 공지 복사 */}
-                    <button
-                      style={{ ...btnBase, flexShrink: 0, background: copyStatus[storeKey] === "done" ? "#f0fdf4" : copyStatus[storeKey] === "error" ? "#fef2f2" : "linear-gradient(135deg,#065f46 0%,#059669 100%)", color: (copyStatus[storeKey] === "done" || copyStatus[storeKey] === "error") ? "#374151" : "#fff", border: "1px solid #059669", opacity: copyStatus[storeKey] === "copying" ? 0.7 : 1 }}
-                      onClick={() => copyImage(storeKey, storeRef)}
-                      disabled={copyStatus[storeKey] === "copying"}
-                    >
-                      🏪 {copyBtnLabel(storeKey, "이동점포 공지")}
-                    </button>
-                  </div>
-
-                  {/* 숨김 이동점포 공지 카드 */}
-                  <div style={{ position: "fixed", top: -9999, left: -9999, pointerEvents: "none", zIndex: -1 }}>
-                    <StoreNoticeCard row={row} reportDate={reportDate} cardRef={storeRef} />
+                    {/* 공지 내용 입력 */}
+                    <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: 3 }}>
+                      <div style={{ fontSize: 10, color: "#6b7280", fontWeight: 700 }}>공지 내용</div>
+                      <textarea
+                        value={noticeVal}
+                        onChange={(e) => setNoticeInputs((prev) => ({ ...prev, [row.id]: e.target.value }))}
+                        placeholder="선작업/이동점포 공지 내용"
+                        rows={3}
+                        style={{ width: 200, padding: "6px 10px", fontSize: 12, fontWeight: 700, border: noticeVal ? "2px solid #059669" : "1px solid #c7d6e3", borderRadius: 6, outline: "none", resize: "vertical", background: noticeVal ? "#f0fdf4" : "#fafafa", color: "#111827", fontFamily: "inherit" }}
+                      />
+                    </div>
                   </div>
                 </div>
               );
