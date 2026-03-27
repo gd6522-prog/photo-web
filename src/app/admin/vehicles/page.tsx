@@ -2260,6 +2260,7 @@ export function VehiclePageScreen({
 
   return (
     <div style={{ display: "grid", gap: 16 }} className="vehicle-page">
+      <style dangerouslySetInnerHTML={{ __html: `@media print{.report-print-frame{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}` }} />
       <style jsx global>{`
         @keyframes vehicle-spin {
           from {
