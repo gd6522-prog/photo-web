@@ -385,13 +385,7 @@ export default function SupportPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [copyStatus, setCopyStatus] = useState<Record<string, "copying" | "done" | "error">>({});
-  // 회전 입력: rowId → round number string
-  const [roundInputs, setRoundInputs] = useState<Record<string, string>>(() => {
-    try {
-      const saved = localStorage.getItem("support-round-inputs");
-      return saved ? (JSON.parse(saved) as Record<string, string>) : {};
-    } catch { return {}; }
-  });
+  const [roundInputs, setRoundInputs] = useState<Record<string, string>>({});
 
   const storeCardRefs = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
   const driverCardRefs = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
@@ -430,6 +424,20 @@ export default function SupportPage() {
     setContactIndex(contacts);
   }
 
+  async function loadRounds(rows: CargoRow[]) {
+    const ids = rows.filter((r) => r.support_excluded).map((r) => r.id);
+    if (!ids.length) return;
+    const { data } = await supabase.from("support_rounds").select("row_id,round_no").in("row_id", ids);
+    if (!data?.length) return;
+    const map: Record<string, string> = {};
+    for (const d of data) map[d.row_id] = d.round_no ?? "";
+    setRoundInputs(map);
+  }
+
+  async function saveRound(rowId: string, roundNo: string) {
+    await supabase.from("support_rounds").upsert({ row_id: rowId, round_no: roundNo, updated_at: new Date().toISOString() }, { onConflict: "row_id" });
+  }
+
   useEffect(() => {
     void (async () => {
       const local = await readLocalSnapshot();
@@ -438,6 +446,7 @@ export default function SupportPage() {
         setDeliveryDate(local.deliveryDate);
         setLoading(false);
         void loadIndexes(local.cargoRows);
+        void loadRounds(local.cargoRows);
         setRefreshing(true);
         const server = await fetchServerSnapshot();
         setRefreshing(false);
@@ -445,6 +454,7 @@ export default function SupportPage() {
           setCargoRows(server.cargoRows);
           setDeliveryDate(server.deliveryDate);
           void loadIndexes(server.cargoRows);
+          void loadRounds(server.cargoRows);
         }
         return;
       }
@@ -454,6 +464,7 @@ export default function SupportPage() {
         setCargoRows(server.cargoRows);
         setDeliveryDate(server.deliveryDate);
         void loadIndexes(server.cargoRows);
+        void loadRounds(server.cargoRows);
       } catch (e) {
         setError((e as Error)?.message ?? "오류가 발생했습니다.");
       } finally {
@@ -579,11 +590,8 @@ export default function SupportPage() {
                         value={roundVal}
                         onChange={(e) => {
                           const v = e.target.value.replace(/[^\d]/g, "");
-                          setRoundInputs((prev) => {
-                            const next = { ...prev, [row.id]: v };
-                            try { localStorage.setItem("support-round-inputs", JSON.stringify(next)); } catch {}
-                            return next;
-                          });
+                          setRoundInputs((prev) => ({ ...prev, [row.id]: v }));
+                          void saveRound(row.id, v);
                         }}
                         placeholder="–"
                         inputMode="numeric"
