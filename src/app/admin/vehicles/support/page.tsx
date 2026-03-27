@@ -247,13 +247,11 @@ function DriverMessageCardHorizontal({
     });
   }, [rows, roundMap]);
 
-  const STORE_COL_W = 210;
-
   const StoreCol = ({ row }: { row: CargoRow }) => {
     const { largeTotal, smallTotal } = cargoTotals(row);
     const phone = contactIndex.get(row.store_name) ?? "";
     return (
-      <div style={{ width: STORE_COL_W, flexShrink: 0, background: "rgba(255,255,255,0.8)", borderRadius: 10, padding: "10px 12px" }}>
+      <div style={{ minWidth: 200, flexShrink: 0, background: "rgba(255,255,255,0.8)", borderRadius: 10, padding: "10px 12px" }}>
         <div style={{ fontSize: 14, fontWeight: 950, color: "#0f2940", marginBottom: 4, letterSpacing: -0.3, lineHeight: 1.3 }}>{row.store_name}</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 10, fontWeight: 700, marginBottom: 6 }}>
           <span style={{ color: "#6b7280" }}>호차 <strong style={{ color: "#0f2940" }}>{normalizeCarNo(row.car_no)}</strong></span>
@@ -262,7 +260,7 @@ function DriverMessageCardHorizontal({
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 8, fontSize: 11 }}>
           {row.standard_time && <div>⏰ <strong>{row.standard_time}</strong></div>}
-          {row.address && <div style={{ color: "#374151", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📍 {row.address}</div>}
+          {row.address && <div style={{ color: "#374151", whiteSpace: "nowrap", fontSize: 10 }}>📍 {row.address}</div>}
           {phone && <div>📞 {formatPhone(phone)}</div>}
         </div>
         {/* 물동량 */}
@@ -314,11 +312,8 @@ function DriverMessageCardHorizontal({
     );
   };
 
-  const maxStoresPerRound = Math.max(...roundGroups.map(([, r]) => r.length), 1);
-  const cardWidth = 80 + maxStoresPerRound * (STORE_COL_W + 10) + 24;
-
   return (
-    <div ref={cardRef} style={{ width: Math.max(cardWidth, 500), background: "#fff", borderRadius: 16, padding: "20px 24px", fontFamily: "Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif", boxSizing: "border-box", boxShadow: "0 4px 24px rgba(0,0,0,0.10)" }}>
+    <div ref={cardRef} style={{ width: "max-content", minWidth: 500, background: "#fff", borderRadius: 16, padding: "20px 24px", fontFamily: "Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif", boxSizing: "border-box", boxShadow: "0 4px 24px rgba(0,0,0,0.10)" }}>
       {/* 헤더 */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, borderBottom: "2px solid #f0f4f8", paddingBottom: 12 }}>
         <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg,#4c1d95 0%,#7c3aed 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>🚗</div>
@@ -346,8 +341,8 @@ function DriverMessageCardHorizontal({
                   <div style={{ fontSize: 11, fontWeight: 800, color: "#9ca3af" }}>미지정</div>
                 )}
               </div>
-              {/* 점포 컬럼들 */}
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {/* 점포 컬럼들 - 가로로만 늘어남 */}
+              <div style={{ display: "flex", gap: 10, flexWrap: "nowrap" }}>
                 {roundRows.map((row) => <StoreCol key={row.id} row={row} />)}
               </div>
             </div>
