@@ -222,7 +222,7 @@ function printHazardResolutionSheet(params: {
       .law-title { background: #f1f5f9; padding: 8px 14px; font-size: 12px; font-weight: 900; color: #334155; border-bottom: 1px solid #e0e7ef; }
       .law-body { padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; }
       .law-item { display: flex; gap: 10px; align-items: flex-start; }
-      .law-tag { flex-shrink: 0; background: #dbeafe; color: #1d4ed8; border-radius: 6px; padding: 2px 7px; font-size: 10px; font-weight: 800; white-space: nowrap; margin-top: 2px; }
+      .law-tag { flex-shrink: 0; width: 82px; text-align: center; background: #dbeafe; color: #1d4ed8; border-radius: 6px; padding: 2px 0; font-size: 10px; font-weight: 800; white-space: nowrap; margin-top: 2px; }
       .law-text { font-size: 11px; color: #374151; line-height: 1.65; }
     </style>
   </head>
