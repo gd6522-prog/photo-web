@@ -661,7 +661,64 @@ export async function POST(req: NextRequest) {
     const productRows = parseWorkbookProductRows(buffer);
     const storeMapIndex = await fetchStoreMapIndexByRows(guard.sbAdmin, productRows);
     const { mappedRows, matchedCount } = applyStoreMap(productRows, storeMapIndex);
-    const cargoRows = buildCargoDraft(mappedRows);
+    let cargoRows = buildCargoDraft(mappedRows);
+
+    // 점포마스터 전체 조회 → 발주 없는 점포도 포함
+    const { data: allStoreRows } = await guard.sbAdmin
+      .from("store_map")
+      .select("store_code, store_name, car_no, seq_no, delivery_due_time, address");
+
+    // 점포명 중복 시 store_code 높은 것만 유지
+    const masterByName = new Map<string, { store_code: string; store_name: string; car_no: string; seq_no: number; delivery_due_time: string; address: string }>();
+    for (const store of (allStoreRows ?? []) as { store_code: string; store_name: string; car_no: string; seq_no: number; delivery_due_time: string; address: string }[]) {
+      const nameKey = normalizeStoreName(store.store_name);
+      if (!nameKey) continue;
+      const existing = masterByName.get(nameKey);
+      if (!existing) {
+        masterByName.set(nameKey, store);
+      } else {
+        const existingNum = parseInt(normalizeStoreCode(existing.store_code), 10) || 0;
+        const newNum = parseInt(normalizeStoreCode(store.store_code), 10) || 0;
+        if (newNum > existingNum) masterByName.set(nameKey, store);
+      }
+    }
+
+    // 이미 cargoRows에 있는 점포명 제외하고 나머지 0건 행 추가
+    const cargoNameSet = new Set(cargoRows.map((r) => normalizeStoreName(r.store_name)));
+    const missingRows: CargoRow[] = [];
+    for (const store of masterByName.values()) {
+      if (cargoNameSet.has(normalizeStoreName(store.store_name))) continue;
+      missingRows.push({
+        id: `master__${normalizeStoreCode(store.store_code)}__${store.store_name}`,
+        support_excluded: false,
+        note: "",
+        car_no: toText(store.car_no),
+        seq_no: toNumber(store.seq_no),
+        store_code: toText(store.store_code),
+        store_name: toText(store.store_name),
+        large_box: 0,
+        large_inner: 0,
+        large_other: 0,
+        large_day2l: 0,
+        large_nb2l: 0,
+        small_low: 0,
+        small_high: 0,
+        event: 0,
+        tobacco: 0,
+        certificate: 0,
+        cdc: 0,
+        pbox: 0,
+        standard_time: toText(store.delivery_due_time),
+        address: toText(store.address),
+      });
+    }
+
+    cargoRows = [...cargoRows, ...missingRows].sort((a, b) => {
+      const carDiff = a.car_no.localeCompare(b.car_no, "ko", { numeric: true });
+      if (carDiff !== 0) return carDiff;
+      if (a.seq_no !== b.seq_no) return a.seq_no - b.seq_no;
+      return a.store_name.localeCompare(b.store_name, "ko");
+    });
 
     const { data: profile } = await guard.sbAdmin.from("profiles").select("name").eq("id", guard.uid).maybeSingle();
     const uploadedAt = new Date().toISOString();
