@@ -2374,7 +2374,7 @@ export function VehiclePageScreen({
               display: flex;
               align-items: center;
               justify-content: center;
-              padding-left: 6mm !important;
+              padding-left: 10mm !important;
               box-sizing: border-box;
               break-after: page;
               page-break-after: always;
@@ -2578,7 +2578,7 @@ export function VehiclePageScreen({
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
-            padding-left: 6mm !important;
+            padding-left: 10mm !important;
             box-sizing: border-box !important;
             break-after: page !important;
             page-break-after: always !important;
