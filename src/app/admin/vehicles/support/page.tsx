@@ -40,6 +40,45 @@ type DriverProfile = {
   vehicle_number: string;
 };
 
+// ── IndexedDB (메인 페이지와 동일한 DB 공유) ──────────────
+const VEHICLE_DB_NAME = "han-admin-vehicles";
+const VEHICLE_STORE_NAME = "vehicle-page";
+const VEHICLE_STORE_KEY = "current";
+
+function openVehicleDb() {
+  return new Promise<IDBDatabase>((resolve, reject) => {
+    const request = window.indexedDB.open(VEHICLE_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(VEHICLE_STORE_NAME)) {
+        db.createObjectStore(VEHICLE_STORE_NAME);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function readLocalSnapshot(): Promise<{ cargoRows: CargoRow[]; deliveryDate: string; fileName?: string } | null> {
+  try {
+    const db = await openVehicleDb();
+    const data = await new Promise<Record<string, unknown> | null>((resolve, reject) => {
+      const tx = db.transaction(VEHICLE_STORE_NAME, "readonly");
+      const store = tx.objectStore(VEHICLE_STORE_NAME);
+      const req = store.get(VEHICLE_STORE_KEY);
+      req.onsuccess = () => { resolve((req.result as Record<string, unknown>) ?? null); db.close(); };
+      req.onerror = () => { reject(req.error); db.close(); };
+    });
+    if (!data) return null;
+    const cargoRows = Array.isArray(data.cargoRows) ? (data.cargoRows as CargoRow[]) : [];
+    const productRows = Array.isArray(data.productRows) ? (data.productRows as Array<{ delivery_date?: string }>) : [];
+    const deliveryDate = productRows.find((r) => r.delivery_date)?.delivery_date ?? "";
+    return { cargoRows, deliveryDate, fileName: data.fileName as string | undefined };
+  } catch {
+    return null;
+  }
+}
+
 // ── Utils ────────────────────────────────────────────────
 function toText(value: unknown) {
   return String(value ?? "").replace(/\r/g, " ").replace(/\n/g, " ").trim();
@@ -76,39 +115,44 @@ function formatDisplayDate(value: string) {
   return `${date.getFullYear()}년 ${String(date.getMonth() + 1).padStart(2, "0")}월 ${String(date.getDate()).padStart(2, "0")}일`;
 }
 
-// ── API ──────────────────────────────────────────────────
-async function getVehicleAdminToken() {
-  for (let i = 0; i < 20; i++) {
-    const { data, error } = await supabase.auth.getSession();
-    if (error) throw error;
-    const token = data.session?.access_token;
-    if (token) return token;
-    await new Promise((r) => window.setTimeout(r, 250));
-  }
-  throw new Error("로그인 세션이 없습니다.");
+// ── API (서버에서 최신 데이터 가져오기) ───────────────────
+async function getToken() {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (token) return token;
+  // 세션 없으면 잠깐 대기 후 재시도
+  await new Promise((r) => setTimeout(r, 300));
+  const { data: data2 } = await supabase.auth.getSession();
+  return data2.session?.access_token ?? null;
 }
 
-async function fetchSupportData(): Promise<{ cargoRows: CargoRow[]; deliveryDate: string }> {
-  const token = await getVehicleAdminToken();
-  const response = await fetch("/api/admin/vehicles/current?includeSnapshot=1", {
-    headers: { Authorization: `Bearer ${token}` },
-    cache: "no-store",
-  });
-  const payload = (await response.json().catch(() => ({}))) as {
-    ok?: boolean;
-    snapshotUrl?: string;
-    snapshot?: { productRows?: Array<{ delivery_date?: string }>; cargoRows?: CargoRow[] } | null;
-  };
-  if (!response.ok || !payload?.ok) throw new Error("서버 저장 데이터를 불러오지 못했습니다.");
+async function fetchServerSnapshot(): Promise<{ cargoRows: CargoRow[]; deliveryDate: string; fileName?: string } | null> {
+  try {
+    const token = await getToken();
+    if (!token) return null;
+    const response = await fetch("/api/admin/vehicles/current?includeSnapshot=1", {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    const payload = (await response.json().catch(() => ({}))) as {
+      ok?: boolean;
+      snapshotUrl?: string;
+      snapshot?: { fileName?: string; productRows?: Array<{ delivery_date?: string }>; cargoRows?: CargoRow[] } | null;
+    };
+    if (!response.ok || !payload?.ok) return null;
 
-  let snapshot = payload.snapshot;
-  if (!snapshot && payload.snapshotUrl) {
-    snapshot = await fetch(payload.snapshotUrl, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null));
+    let snapshot = payload.snapshot;
+    if (!snapshot && payload.snapshotUrl) {
+      snapshot = await fetch(payload.snapshotUrl, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null));
+    }
+    if (!snapshot) return null;
+
+    const cargoRows: CargoRow[] = Array.isArray(snapshot.cargoRows) ? (snapshot.cargoRows as CargoRow[]) : [];
+    const deliveryDate = (snapshot.productRows ?? []).find((r) => r.delivery_date)?.delivery_date ?? "";
+    return { cargoRows, deliveryDate, fileName: snapshot.fileName };
+  } catch {
+    return null;
   }
-
-  const cargoRows: CargoRow[] = Array.isArray(snapshot?.cargoRows) ? (snapshot!.cargoRows as CargoRow[]) : [];
-  const deliveryDate = (snapshot?.productRows ?? []).find((r) => r.delivery_date)?.delivery_date ?? "";
-  return { cargoRows, deliveryDate };
 }
 
 async function fetchDriverIndex(carNos: string[]): Promise<Map<string, DriverProfile>> {
@@ -244,7 +288,7 @@ function StoreNoticeCard({
   );
 }
 
-// ── 기사 메시지 카드 (행 단위, 전체 물동량) ──────────────────
+// ── 기사 메시지 카드 ──────────────────────────────────────
 function DriverMessageCard({
   row,
   carNo,
@@ -286,7 +330,6 @@ function DriverMessageCard({
         boxShadow: "0 4px 24px rgba(0,0,0,0.10)",
       }}
     >
-      {/* 헤더 */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
         <div
           style={{
@@ -306,7 +349,6 @@ function DriverMessageCard({
         </div>
       </div>
 
-      {/* 기본정보 */}
       <div style={{ background: "#f5f0ff", borderRadius: 10, padding: "12px 14px", marginBottom: 12 }}>
         <div style={{ fontSize: 18, fontWeight: 950, color: "#0f2940", marginBottom: 8, letterSpacing: -0.3 }}>{row.store_name}</div>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 12, fontWeight: 700 }}>
@@ -316,7 +358,6 @@ function DriverMessageCard({
         </div>
       </div>
 
-      {/* 시간 · 주소 */}
       <div style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 6 }}>
         {row.standard_time && (
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -341,11 +382,9 @@ function DriverMessageCard({
         )}
       </div>
 
-      {/* 물동량 상세 */}
       <div style={{ background: "#f8fafc", borderRadius: 10, padding: "12px 14px" }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", marginBottom: 8 }}>물동량 상세</div>
 
-        {/* 대분 */}
         <div style={{ marginBottom: 8 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: "2px solid #e0f2fe" }}>
             <span style={{ fontSize: 13, fontWeight: 950, color: "#0369a1" }}>대분 합계</span>
@@ -360,7 +399,6 @@ function DriverMessageCard({
           </div>
         </div>
 
-        {/* 소분 */}
         <div style={{ marginBottom: 8 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: "2px solid #dcfce7" }}>
             <span style={{ fontSize: 13, fontWeight: 950, color: "#166534" }}>소분 합계</span>
@@ -372,7 +410,6 @@ function DriverMessageCard({
           </div>
         </div>
 
-        {/* 기타 */}
         {(row.event > 0 || row.tobacco > 0 || row.certificate > 0 || row.cdc > 0) && (
           <div>
             <div style={{ fontSize: 12, fontWeight: 700, color: "#6b7280", padding: "5px 0", borderBottom: "1px solid #e9f0f5", marginBottom: 2 }}>기타</div>
@@ -396,10 +433,10 @@ export default function SupportPage() {
   const [driverIndex, setDriverIndex] = useState<Map<string, DriverProfile>>(new Map());
   const [contactIndex, setContactIndex] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [copyStatus, setCopyStatus] = useState<Record<string, "copying" | "done" | "error">>({});
 
-  // ref 맵: rowId → ref (이동점포 공지 / 기사메시지 각각)
   const storeCardRefs = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
   const driverCardRefs = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
 
@@ -431,17 +468,43 @@ export default function SupportPage() {
 
   const reportDate = useMemo(() => formatDisplayDate(deliveryDate), [deliveryDate]);
 
+  // 기사/연락처 인덱스 로드 (cargoRows가 설정된 후 호출)
+  async function loadIndexes(rows: CargoRow[]) {
+    const carNos = [...new Set(rows.filter((r) => r.support_excluded).map((r) => normalizeCarNo(r.car_no)))];
+    const [drivers, contacts] = await Promise.all([fetchDriverIndex(carNos), fetchContactIndex()]);
+    setDriverIndex(drivers);
+    setContactIndex(contacts);
+  }
+
   useEffect(() => {
     void (async () => {
-      setLoading(true);
+      // 1단계: IndexedDB에서 즉시 로드
+      const local = await readLocalSnapshot();
+      if (local) {
+        setCargoRows(local.cargoRows);
+        setDeliveryDate(local.deliveryDate);
+        setLoading(false);
+        // 인덱스는 백그라운드로 병렬 로드
+        void loadIndexes(local.cargoRows);
+        // 2단계: 서버에서 최신 데이터 백그라운드 갱신
+        setRefreshing(true);
+        const server = await fetchServerSnapshot();
+        setRefreshing(false);
+        if (server && server.fileName !== local.fileName) {
+          setCargoRows(server.cargoRows);
+          setDeliveryDate(server.deliveryDate);
+          void loadIndexes(server.cargoRows);
+        }
+        return;
+      }
+
+      // IndexedDB에 없으면 서버에서 로드
       try {
-        const { cargoRows: rows, deliveryDate: date } = await fetchSupportData();
-        setCargoRows(rows);
-        setDeliveryDate(date);
-        const carNos = [...new Set(rows.filter((r) => r.support_excluded).map((r) => r.car_no))];
-        const [drivers, contacts] = await Promise.all([fetchDriverIndex(carNos), fetchContactIndex()]);
-        setDriverIndex(drivers);
-        setContactIndex(contacts);
+        const server = await fetchServerSnapshot();
+        if (!server) throw new Error("서버 저장 데이터를 불러오지 못했습니다.");
+        setCargoRows(server.cargoRows);
+        setDeliveryDate(server.deliveryDate);
+        void loadIndexes(server.cargoRows);
       } catch (e) {
         setError((e as Error)?.message ?? "오류가 발생했습니다.");
       } finally {
@@ -449,6 +512,20 @@ export default function SupportPage() {
       }
     })();
   }, []);
+
+  const manualRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const server = await fetchServerSnapshot();
+      if (server) {
+        setCargoRows(server.cargoRows);
+        setDeliveryDate(server.deliveryDate);
+        void loadIndexes(server.cargoRows);
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const copyImage = async (key: string, ref: React.RefObject<HTMLDivElement | null>) => {
     const el = ref.current;
@@ -497,14 +574,30 @@ export default function SupportPage() {
   return (
     <div style={{ fontFamily: "Pretendard, system-ui, sans-serif" }}>
       {/* 헤더 */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 28, fontWeight: 950, color: "#0f2940", letterSpacing: -0.5 }}>지원 물동량</div>
-        {reportDate && <div style={{ fontSize: 14, color: "#5a7385", fontWeight: 700, marginTop: 6 }}>{reportDate}</div>}
-        <div style={{ fontSize: 13, color: "#374151", fontWeight: 700, marginTop: 6 }}>
-          지원 체크 점포{" "}
-          <strong style={{ color: "#0f2940" }}>{supportRows.length}개</strong>
-          {groupedByCarNo.length > 0 && <span style={{ color: "#6b7280" }}> · {groupedByCarNo.length}개 호차</span>}
+      <div style={{ marginBottom: 24, display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 28, fontWeight: 950, color: "#0f2940", letterSpacing: -0.5 }}>지원 물동량</div>
+          {reportDate && <div style={{ fontSize: 14, color: "#5a7385", fontWeight: 700, marginTop: 6 }}>{reportDate}</div>}
+          <div style={{ fontSize: 13, color: "#374151", fontWeight: 700, marginTop: 6 }}>
+            지원 체크 점포{" "}
+            <strong style={{ color: "#0f2940" }}>{supportRows.length}개</strong>
+            {groupedByCarNo.length > 0 && <span style={{ color: "#6b7280" }}> · {groupedByCarNo.length}개 호차</span>}
+            {refreshing && <span style={{ color: "#0369a1", marginLeft: 10, fontSize: 12 }}>서버 동기화 중...</span>}
+          </div>
         </div>
+        <button
+          onClick={manualRefresh}
+          disabled={refreshing}
+          style={{
+            ...btnBase,
+            background: refreshing ? "#e2e8f0" : "#f1f5f9",
+            color: "#374151",
+            border: "1px solid #cbd5e1",
+            cursor: refreshing ? "not-allowed" : "pointer",
+          }}
+        >
+          {refreshing ? "동기화 중..." : "새로고침"}
+        </button>
       </div>
 
       {supportRows.length === 0 && (
@@ -523,7 +616,6 @@ export default function SupportPage() {
 
         return (
           <div key={carNo} style={{ border: "1px solid #d6e4ee", background: "#fff", padding: "20px 20px 16px", marginBottom: 16 }}>
-            {/* 호차 헤더 */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
               <div>
                 <span style={{ fontSize: 20, fontWeight: 950, color: "#0f2940" }}>{carNo}호차</span>
@@ -542,7 +634,6 @@ export default function SupportPage() {
               </Link>
             </div>
 
-            {/* 점포 행 목록 */}
             {rows.map((row) => {
               const { largeTotal, smallTotal } = cargoTotals(row);
               const storeRef = getStoreRef(row.id);
@@ -552,11 +643,7 @@ export default function SupportPage() {
               const supportDriverName = row.note?.trim() ?? "";
 
               return (
-                <div
-                  key={row.id}
-                  style={{ borderTop: "1px solid #e9f0f5", paddingTop: 14, paddingBottom: 14 }}
-                >
-                  {/* 점포 정보 */}
+                <div key={row.id} style={{ borderTop: "1px solid #e9f0f5", paddingTop: 14, paddingBottom: 14 }}>
                   <div style={{ marginBottom: 10 }}>
                     <div style={{ fontSize: 16, fontWeight: 950, color: "#0f2940", marginBottom: 6, letterSpacing: -0.3 }}>
                       {row.store_name}
@@ -580,7 +667,6 @@ export default function SupportPage() {
                     )}
                   </div>
 
-                  {/* 버튼 */}
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button
                       style={{
@@ -610,7 +696,6 @@ export default function SupportPage() {
                     </button>
                   </div>
 
-                  {/* 숨겨진 이미지 카드 */}
                   <div style={{ position: "fixed", top: -9999, left: -9999, pointerEvents: "none", zIndex: -1 }}>
                     <StoreNoticeCard row={row} reportDate={reportDate} cardRef={storeRef} />
                   </div>
