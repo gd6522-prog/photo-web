@@ -2340,10 +2340,18 @@ export function VehiclePageScreen({
             page-break-after: auto !important;
           }
 
+          .report-preview-viewport {
+            width: ${Math.round(REPORT_PREVIEW_BASE_WIDTH * REPORT_PRINT_SCALE)}px !important;
+            height: ${Math.round((190 + 80 + 21 * REPORT_BODY_ROW_HEIGHT) * REPORT_PRINT_SCALE)}px !important;
+            overflow: hidden !important;
+            flex-shrink: 0 !important;
+            min-height: unset !important;
+          }
+
           .report-print-frame {
             width: ${REPORT_PREVIEW_BASE_WIDTH}px !important;
             transform: scale(${REPORT_PRINT_SCALE}) !important;
-            transform-origin: center center !important;
+            transform-origin: top left !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
@@ -2368,12 +2376,6 @@ export function VehiclePageScreen({
             box-shadow: none !important;
           }
 
-          .report-preview-viewport {
-            width: 100% !important;
-            overflow: visible !important;
-            min-height: auto !important;
-            height: auto !important;
-          }
 
           .report-screen-only {
             display: none !important;
