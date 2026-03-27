@@ -196,10 +196,9 @@ function printHazardResolutionSheet(params: {
       @page { size: A4 portrait; margin: 10mm; }
       html, body { margin: 0; padding: 0; background: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-family: "Pretendard", "Malgun Gothic", sans-serif; color: #0f172a; }
       body { padding: 10mm; }
-      .sheet { width: 100%; min-height: calc(297mm - 20mm); display: flex; flex-direction: column; gap: 12px; }
+      .sheet { width: 100%; display: flex; flex-direction: column; gap: 12px; }
       .title { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #cbd5e1; padding-bottom: 10px; }
       .title h1 { margin: 0; font-size: 24px; }
-      .badge { background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 999px; padding: 6px 12px; font-size: 12px; font-weight: 800; }
       .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
       .meta-box { border: 1px solid #dbe4ee; border-radius: 12px; padding: 10px 12px; background: #f8fafc; }
       .meta-label { font-size: 11px; font-weight: 800; color: #64748b; margin-bottom: 4px; }
@@ -209,18 +208,17 @@ function printHazardResolutionSheet(params: {
       .panel-head { padding: 10px 12px; font-size: 14px; font-weight: 900; border-bottom: 1px solid #e2e8f0; }
       .panel-head.before { background: #eff6ff; color: #1d4ed8; }
       .panel-head.after { background: #ecfdf5; color: #047857; }
-      .image-wrap { height: 340px; display: flex; align-items: center; justify-content: center; background: #ffffff; padding: 10px; }
+      .image-wrap { height: 280px; display: flex; align-items: center; justify-content: center; background: #ffffff; padding: 10px; }
       .image-wrap img { max-width: 100%; max-height: 100%; object-fit: contain; }
-      .memo { border-top: 1px solid #e2e8f0; padding: 12px; min-height: 120px; background: #fcfdff; }
+      .memo { border-top: 1px solid #e2e8f0; padding: 12px; min-height: 80px; background: #fcfdff; }
       .memo-label { font-size: 12px; font-weight: 900; margin-bottom: 6px; color: #334155; }
       .memo-text { font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
-      .approval { margin-top: auto; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; }
-      .approval-title { background: #f1f5f9; padding: 8px 14px; font-size: 12px; font-weight: 900; color: #334155; border-bottom: 1px solid #cbd5e1; }
-      .approval-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; }
-      .approval-cell { padding: 10px 14px; border-right: 1px solid #e2e8f0; }
-      .approval-cell:last-child { border-right: none; }
-      .approval-role { font-size: 11px; font-weight: 800; color: #64748b; margin-bottom: 28px; }
-      .approval-sign { font-size: 11px; color: #94a3b8; text-align: right; }
+      .law { border: 1px solid #e0e7ef; border-radius: 12px; overflow: hidden; page-break-inside: avoid; }
+      .law-title { background: #f1f5f9; padding: 8px 14px; font-size: 12px; font-weight: 900; color: #334155; border-bottom: 1px solid #e0e7ef; }
+      .law-body { padding: 10px 14px; display: flex; flex-direction: column; gap: 7px; }
+      .law-item { display: flex; gap: 10px; align-items: flex-start; }
+      .law-tag { flex-shrink: 0; background: #dbeafe; color: #1d4ed8; border-radius: 6px; padding: 2px 7px; font-size: 10px; font-weight: 800; white-space: nowrap; margin-top: 1px; }
+      .law-text { font-size: 11px; color: #374151; line-height: 1.6; }
     </style>
   </head>
   <body>
@@ -256,12 +254,21 @@ function printHazardResolutionSheet(params: {
           </div>
         </div>
       </div>
-      <div class="approval">
-        <div class="approval-title">결재</div>
-        <div class="approval-grid">
-          <div class="approval-cell"><div class="approval-role">담당자</div><div class="approval-sign">(인)</div></div>
-          <div class="approval-cell"><div class="approval-role">검토자</div><div class="approval-sign">(인)</div></div>
-          <div class="approval-cell"><div class="approval-role">승인자</div><div class="approval-sign">(인)</div></div>
+      <div class="law">
+        <div class="law-title">관련 법령 참고</div>
+        <div class="law-body">
+          <div class="law-item">
+            <span class="law-tag">산안법 §36</span>
+            <span class="law-text">사업주는 건설물, 기계·기구·설비, 원재료, 가스, 증기, 분진 등에 의한 위험성 또는 건강장해를 사전에 평가하고 그 결과에 따라 개선대책을 수립·시행하여야 한다. (위험성평가)</span>
+          </div>
+          <div class="law-item">
+            <span class="law-tag">산안법 §38</span>
+            <span class="law-text">사업주는 다음 각 호의 위험으로 인한 산업재해를 예방하기 위하여 필요한 조치를 하여야 한다. — 기계·기구, 그 밖의 설비에 의한 위험 / 폭발성·발화성 및 인화성 물질 등에 의한 위험 / 전기·열·그 밖의 에너지에 의한 위험. (안전조치)</span>
+          </div>
+          <div class="law-item">
+            <span class="law-tag">중대재해법 §4</span>
+            <span class="law-text">사업주 또는 경영책임자등은 사업장의 안전·보건에 관한 목표와 경영방침을 설정하고, 유해·위험요인의 확인·개선에 필요한 업무절차를 마련하여 이행하여야 한다. (안전 및 보건 확보의무)</span>
+          </div>
         </div>
       </div>
     </div>
