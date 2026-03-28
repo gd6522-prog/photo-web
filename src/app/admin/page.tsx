@@ -559,7 +559,7 @@ function NoticeMainCard() {
   const [activeBoard, setActiveBoard] = useState<NoticeBoardFilter>(NOTICE_BOARD_ALL);
 
   const [page, setPage] = useState(1);
-  const PAGE_SIZE = 7;
+  const PAGE_SIZE = 8;
 
   const load = async (options?: { keepVisible?: boolean }) => {
     setErr("");
