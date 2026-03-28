@@ -1226,16 +1226,17 @@ function getAddressTextStyle(value: unknown) {
   const text = toText(value);
   let fontSize = 13;
 
-  if (text.length >= 44) fontSize = 8;
-  else if (text.length >= 40) fontSize = 9;
-  else if (text.length >= 36) fontSize = 10;
-  else if (text.length >= 32) fontSize = 11;
-  else if (text.length >= 26) fontSize = 12;
+  if (text.length >= 40) fontSize = 7;
+  else if (text.length >= 34) fontSize = 8;
+  else if (text.length >= 29) fontSize = 9;
+  else if (text.length >= 24) fontSize = 10;
+  else if (text.length >= 20) fontSize = 11;
+  else if (text.length >= 17) fontSize = 12;
 
   return {
     fontSize,
     lineHeight: 1,
-    letterSpacing: fontSize <= 9 ? -0.4 : fontSize <= 11 ? -0.25 : -0.1,
+    letterSpacing: fontSize <= 8 ? -0.5 : fontSize <= 10 ? -0.3 : -0.1,
     whiteSpace: "nowrap" as const,
     overflow: "hidden" as const,
     textOverflow: "clip" as const,
