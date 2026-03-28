@@ -1357,7 +1357,7 @@ function buildSupportReportGroup(
     supportDriverName: trimmedDriverName,
     supportStoreName: populatedRows[0]?.store_name ?? "",
     totals,
-  } satisfies ReportGroup;
+  } as ReportGroup;
 }
 
 function buildSupportReportGroups(
@@ -1421,7 +1421,7 @@ function buildSupportReportGroups(
         supportDriverName: driverName,
         supportRound: round,
         totals,
-      } satisfies ReportGroup;
+      } as ReportGroup;
     });
 }
 
@@ -1874,6 +1874,7 @@ export function VehiclePageScreen({
   const [selectedReportCarNo, setSelectedReportCarNo] = useState(initialCarNo ?? "");
   const [allDriverNames, setAllDriverNames] = useState<string[]>([]);
   const [supportMode, setSupportMode] = useState(false);
+  const [supportAutoMode, setSupportAutoMode] = useState(false);
   const [supportDriverNameInput, setSupportDriverNameInput] = useState("");
   const [supportStoreNameInputs, setSupportStoreNameInputs] = useState<string[]>(() => Array.from({ length: 20 }, () => ""));
   const [supportRoundsMap, setSupportRoundsMap] = useState<Record<string, string>>({});
@@ -2148,9 +2149,9 @@ export function VehiclePageScreen({
   const updateSupportStoreNameInput = (index: number, value: string) => {
     setSupportStoreNameInputs((current) => current.map((entry, entryIndex) => (entryIndex === index ? value : entry)));
   };
-  const activeReportGroup = (supportMode ? supportReportGroups[0] : null) ?? selectedReportGroup;
+  const activeReportGroup = (supportMode && supportAutoMode ? supportReportGroups[0] : supportMode ? supportReportGroup : null) ?? selectedReportGroup;
   const visibleReportGroups = useMemo(() => {
-    if (supportMode) return supportReportGroups;
+    if (supportMode && supportAutoMode) return supportReportGroups;
     if (!batchPrintMode) return activeReportGroup ? [activeReportGroup] : [];
     if (batchPrintMode === "all") return reportGroups;
     const hasUploadedCdcFile = Boolean(cdcSnapshot?.fileName);
@@ -2167,7 +2168,7 @@ export function VehiclePageScreen({
 
       return getLegacyBatchPrintMatch(batchPrintMode, carNo, hasUploadedCdcFile);
     });
-  }, [supportMode, supportReportGroups, activeReportGroup, batchPrintMode, reportGroups, cdcSnapshot?.fileName]);
+  }, [supportMode, supportAutoMode, supportReportGroups, activeReportGroup, batchPrintMode, reportGroups, cdcSnapshot?.fileName]);
 
   useEffect(() => {
     if (!batchPrintMode || !batchPrintRequestedRef.current) return;
@@ -3586,9 +3587,10 @@ export function VehiclePageScreen({
               onClick={async () => {
                 setBatchPrintMode("");
                 setSupportMode(true);
+                setSupportAutoMode(true);
                 setSupportDriverNameInput("");
                 setSupportStoreNameInputs(Array.from({ length: 20 }, () => ""));
-                setMessage("지원 모드: 지원 체크 점포를 기사명+회전별로 출력합니다.");
+                setMessage("지원 자동: 기사명+회전별로 자동 출력합니다.");
                 const ids = cargoRows.filter((r) => r.support_excluded).map((r) => r.id);
                 if (ids.length) {
                   const { data } = await supabase.from("support_rounds").select("row_id,round_no").in("row_id", ids);
@@ -3604,14 +3606,37 @@ export function VehiclePageScreen({
                 height: 40,
                 padding: "0 16px",
                 borderRadius: 0,
-                border: "1px solid #113247",
-                background: cargoRows.length === 0 ? "#cbd5e1" : supportMode ? "#0f766e" : "#113247",
+                border: "1px solid #0f766e",
+                background: cargoRows.length === 0 ? "#cbd5e1" : (supportMode && supportAutoMode) ? "#0f766e" : "#134e4a",
                 color: "#fff",
                 fontWeight: 900,
                 cursor: cargoRows.length === 0 ? "not-allowed" : "pointer",
               }}
             >
-              지원
+              지원(자동)
+            </button>
+            <button
+              onClick={() => {
+                setBatchPrintMode("");
+                setSupportMode(true);
+                setSupportAutoMode(false);
+                setSupportDriverNameInput("");
+                setSupportStoreNameInputs(Array.from({ length: 20 }, () => ""));
+                setMessage("지원 수동: 배송기사명과 점포명을 직접 입력해 주세요.");
+              }}
+              disabled={cargoRows.length === 0}
+              style={{
+                height: 40,
+                padding: "0 16px",
+                borderRadius: 0,
+                border: "1px solid #113247",
+                background: cargoRows.length === 0 ? "#cbd5e1" : (supportMode && !supportAutoMode) ? "#0f766e" : "#113247",
+                color: "#fff",
+                fontWeight: 900,
+                cursor: cargoRows.length === 0 ? "not-allowed" : "pointer",
+              }}
+            >
+              지원(수동)
             </button>
           </div>
 
@@ -3623,7 +3648,7 @@ export function VehiclePageScreen({
 
           {activeReportGroup ? (
             <div className="report-screen-only" style={{ color: "#486274", fontSize: 13, fontWeight: 700 }}>
-              현재 표시: {supportMode ? "지원 운행일보" : `${activeReportGroup.carNo}호차`}
+              현재 표시: {supportMode && supportAutoMode ? "지원 자동" : supportMode ? "지원 수동" : `${activeReportGroup.carNo}호차`}
               {activeReportGroup.driver?.name ? ` / ${activeReportGroup.driver.name}` : ""}
               {supportMode && supportMatchedRows.some((row) => Boolean(row))
                 ? ` / ${supportMatchedRows.filter((row): row is CargoRow => Boolean(row)).map((row) => row.store_name).join(", ")}`
@@ -3686,11 +3711,31 @@ export function VehiclePageScreen({
                   <tr>
                     <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13 }}>배송기사명</td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", fontWeight: 800, textAlign: "center", ...getFittedTextStyle(group.driver?.name ?? "", 13, { minFontSize: 9 }) }}>
-                      {supportMode ? (
+                      {supportMode && supportAutoMode ? (
                         <span style={{ fontWeight: 800, fontSize: 13 }}>
                           {group.supportDriverName || "미지정"}
                           {group.supportRound && <span style={{ marginLeft: 6, color: "#7c3aed" }}>{group.supportRound}회전</span>}
                         </span>
+                      ) : supportMode && !supportAutoMode ? (
+                        <input
+                          value={supportDriverNameInput}
+                          onChange={(event) => setSupportDriverNameInput(event.target.value)}
+                          placeholder="배송기사명"
+                          style={{
+                            display: "block",
+                            width: "100%",
+                            height: 24,
+                            boxSizing: "border-box",
+                            border: "none",
+                            outline: "none",
+                            padding: "0 2px",
+                            textAlign: "center",
+                            fontWeight: 800,
+                            fontSize: 13,
+                            background: "transparent",
+                            color: "#111827",
+                          }}
+                        />
                       ) : (
                         group.driver?.name ?? ""
                       )}
@@ -3804,16 +3849,16 @@ export function VehiclePageScreen({
                 <tbody>
                   {[...group.rows, ...Array.from({ length: Math.max(0, 20 - group.rows.length) }, (_, i) => ({ id: `blank-${group.carNo}-${i}` } as CargoRow))].slice(0, 20).map((row, index) => {
                     const sum = cargoTotals(row);
-                    const reportRowBackground = row.support_excluded ? "#111" : "#fff";
-                    const reportRowColor = row.support_excluded ? "#fff" : undefined;
-                    const reportRowPca = row.support_excluded ? ({ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" } as React.CSSProperties) : {};
+                    const reportRowBackground = (!supportMode && row.support_excluded) ? "#111" : "#fff";
+                    const reportRowColor = (!supportMode && row.support_excluded) ? "#fff" : undefined;
+                    const reportRowPca = (!supportMode && row.support_excluded) ? ({ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" } as React.CSSProperties) : {};
                     const storeAdhesion = adhesionStoreMap.get(normalizeStoreName(row.store_name || ""));
                     const storeCdc = getCombinedCdcCount(cdcStoreMap, fullBoxStoreMap, row);
                     return (
                       <tr key={row.id || `${group.carNo}-${index}`} style={{ background: reportRowBackground, height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, lineHeight: 1, ...reportRowPca }}>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontWeight: 700, fontSize: 13, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(0) }}>{index + 1}</td>
-                        <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: supportMode ? 0 : "6px 7px", verticalAlign: "middle", overflow: "hidden", fontWeight: 800, color: reportRowColor, background: reportRowBackground, ...getFittedTextStyle(row.store_name || "", 13, { minFontSize: 9, lineHeight: 1 }), ...getReportMainCellWidth(1) }}>
-                          {supportMode ? (
+                        <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: (supportMode && !supportAutoMode) ? 0 : "6px 7px", verticalAlign: "middle", overflow: "hidden", fontWeight: 800, color: reportRowColor, background: reportRowBackground, ...getFittedTextStyle(row.store_name || "", 13, { minFontSize: 9, lineHeight: 1 }), ...getReportMainCellWidth(1) }}>
+                          {supportMode && !supportAutoMode ? (
                             <input
                               value={supportStoreNameInputs[index] ?? ""}
                               onChange={(event) => updateSupportStoreNameInput(index, event.target.value)}
