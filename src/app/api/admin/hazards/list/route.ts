@@ -66,15 +66,16 @@ export async function GET(req: NextRequest) {
   const allReports = (allReportsResult.data ?? []) as ReportRow[];
   const today = new Date().toISOString().slice(0, 10);
 
-  // sort_key=1(처리대기) 항목의 최신 resolution 조회 → 만료 여부 판단
-  const pendingIds = allReports.filter((r) => r.sort_key === 1).map((r) => r.id);
-  type ShortRes = { report_id: string; planned_due_date: string | null; improved_at: string | null };
+  // 처리완료(sort_key=2) 제외한 전체 항목의 최신 resolution 조회
+  // → sort_key와 무관하게 실제 resolution 데이터로 유효 상태 판단
+  const nonCompletedIds = allReports.filter((r) => r.sort_key !== 2).map((r) => r.id);
+  type ShortRes = { report_id: string; planned_due_date: string | null; after_public_url: string | null; improved_at: string | null };
   const latestResMap = new Map<string, ShortRes>();
-  if (pendingIds.length > 0) {
+  if (nonCompletedIds.length > 0) {
     const { data: resData } = await guard.sbAdmin
       .from("hazard_report_resolutions")
-      .select("report_id, planned_due_date, improved_at")
-      .in("report_id", pendingIds);
+      .select("report_id, planned_due_date, after_public_url, improved_at")
+      .in("report_id", nonCompletedIds);
     for (const res of (resData ?? []) as ShortRes[]) {
       const ex = latestResMap.get(res.report_id);
       if (!ex || (res.improved_at ?? "") >= (ex.improved_at ?? "")) {
@@ -85,12 +86,10 @@ export async function GET(req: NextRequest) {
 
   function effectiveSortKey(r: ReportRow): number {
     if (r.sort_key === 2) return 2;
-    if (r.sort_key === 1) {
-      const res = latestResMap.get(r.id);
-      if (res?.planned_due_date && res.planned_due_date >= today) return 1;
-      return 0; // 기간 만료 → 미처리
-    }
-    return 0;
+    const res = latestResMap.get(r.id);
+    if (res?.after_public_url) return 2;
+    if (res?.planned_due_date && res.planned_due_date >= today) return 1; // 유효한 처리대기
+    return 0; // 미처리 or 기간 만료
   }
 
   // 유효 sort_key 오름차순, 동일하면 created_at 내림차순
