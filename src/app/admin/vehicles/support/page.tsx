@@ -173,7 +173,13 @@ function StoreNoticeCardMulti({
   reportDate: string;
   cardRef: React.RefObject<HTMLDivElement | null>;
 }) {
-  const activeRows = rows.filter((r) => noticeMap[r.id]?.trim());
+  const activeRows = rows
+    .filter((r) => noticeMap[r.id]?.trim())
+    .sort((a, b) => {
+      const carA = normalizeCarNo(a.car_no).localeCompare(normalizeCarNo(b.car_no), "ko", { numeric: true });
+      if (carA !== 0) return carA;
+      return (a.seq_no ?? 0) - (b.seq_no ?? 0);
+    });
   if (!activeRows.length) return null;
   return (
     <div ref={cardRef} style={{ width: "max-content", minWidth: 400, background: "#fff", borderRadius: 0, padding: "20px 24px", fontFamily: "Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif", boxSizing: "border-box" }}>
@@ -188,39 +194,12 @@ function StoreNoticeCardMulti({
       {/* 점포 컬럼들 (가로) */}
       <div style={{ display: "flex", gap: 12, flexWrap: "nowrap", alignItems: "flex-start" }}>
         {activeRows.map((row) => {
-          const { largeTotal, smallTotal } = cargoTotals(row);
           const noticeText = noticeMap[row.id]?.trim() ?? "";
           return (
-            <div key={row.id} style={{ minWidth: 200, flexShrink: 0, background: "#f0f9ff", borderRadius: 10, padding: "12px 14px" }}>
-              <div style={{ fontSize: 15, fontWeight: 950, color: "#0f2940", marginBottom: 6 }}>{row.store_name}</div>
-              {row.standard_time && (
-                <div style={{ fontSize: 11, marginBottom: 2 }}>
-                  <span style={{ color: "#6b7280", fontWeight: 700 }}>기준시간 </span>
-                  <strong style={{ color: "#111827" }}>{row.standard_time}</strong>
-                </div>
-              )}
-              {row.address && (
-                <div style={{ fontSize: 10, color: "#374151", whiteSpace: "nowrap", marginBottom: 6 }}>
-                  <span style={{ fontWeight: 700, color: "#6b7280" }}>주소 </span>{row.address}
-                </div>
-              )}
-              {/* 물동량 요약 */}
-              <div style={{ display: "flex", gap: 10, marginBottom: 8 }}>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 16, fontWeight: 950, color: "#0369a1" }}>{formatNumber(largeTotal)}</div>
-                  <div style={{ fontSize: 9, color: "#6b7280", fontWeight: 700 }}>대분</div>
-                </div>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 16, fontWeight: 950, color: "#166534" }}>{formatNumber(smallTotal)}</div>
-                  <div style={{ fontSize: 9, color: "#6b7280", fontWeight: 700 }}>소분</div>
-                </div>
-                {row.tobacco > 0 && (
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 16, fontWeight: 950, color: "#7c3aed" }}>{formatNumber(row.tobacco)}</div>
-                    <div style={{ fontSize: 9, color: "#6b7280", fontWeight: 700 }}>담배</div>
-                  </div>
-                )}
-              </div>
+            <div key={row.id} style={{ minWidth: 180, flexShrink: 0, background: "#f0f9ff", borderRadius: 10, padding: "12px 14px" }}>
+              <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, marginBottom: 2 }}>{normalizeCarNo(row.car_no)}호차 · {row.seq_no}번</div>
+              <div style={{ fontSize: 10, color: "#374151", fontWeight: 700, marginBottom: 4 }}>{row.store_code}</div>
+              <div style={{ fontSize: 15, fontWeight: 950, color: "#0f2940", marginBottom: 8 }}>{row.store_name}</div>
               {/* 공지 내용 */}
               <div style={{ background: "#fff7ed", borderRadius: 8, padding: "8px 10px", borderLeft: "3px solid #f97316" }}>
                 <div style={{ fontSize: 10, color: "#9a3412", fontWeight: 700, marginBottom: 3 }}>공지사항</div>
