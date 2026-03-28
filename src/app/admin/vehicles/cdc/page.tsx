@@ -98,13 +98,13 @@ function sanitizeCdcMessage(message: string) {
 
 async function parseCdcWorkbook(file: File) {
   const buffer = await file.arrayBuffer();
-  const workbook = XLSX.read(buffer, { type: "array", raw: false });
+  const workbook = XLSX.read(buffer, { type: "array" });
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
 
   if (!sheet) throw new Error("CDC 파일 시트를 찾지 못했습니다.");
 
-  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, blankrows: false }) as unknown[][];
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, blankrows: false }) as unknown[][];
   if (!rows.length) throw new Error("CDC 파일 데이터가 없습니다.");
 
   // 상단에 제목행이 있을 수 있으므로 실제 헤더 행을 스캔해서 찾음
