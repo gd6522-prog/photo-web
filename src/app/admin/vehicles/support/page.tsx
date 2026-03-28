@@ -162,7 +162,7 @@ async function fetchContactIndex(): Promise<Map<string, string>> {
   return index;
 }
 
-// ── 선작업/이동점포 공지 카드 (통합 가로) ───────────────
+// ── 선작업/이동점포 공지 카드 (통합 가로, 동일 공지 묶음) ───────────────
 function StoreNoticeCardMulti({
   rows,
   noticeMap,
@@ -182,6 +182,20 @@ function StoreNoticeCardMulti({
       return (a.seq_no ?? 0) - (b.seq_no ?? 0);
     });
   if (!activeRows.length) return null;
+
+  // 동일 공지 내용끼리 묶기 (첫 등장 순서 유지)
+  const groups: { noticeText: string; rows: CargoRow[] }[] = [];
+  const noticeIndexMap = new Map<string, number>();
+  for (const row of activeRows) {
+    const text = noticeMap[row.id]?.trim() ?? "";
+    if (noticeIndexMap.has(text)) {
+      groups[noticeIndexMap.get(text)!].rows.push(row);
+    } else {
+      noticeIndexMap.set(text, groups.length);
+      groups.push({ noticeText: text, rows: [row] });
+    }
+  }
+
   return (
     <div ref={cardRef} style={{ width: "max-content", minWidth: 400, background: "#fff", borderRadius: 0, padding: "20px 24px", fontFamily: "Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif", boxSizing: "border-box" }}>
       {/* 헤더 */}
@@ -192,30 +206,34 @@ function StoreNoticeCardMulti({
           <div style={{ fontSize: 11, color: "#5a7385", fontWeight: 700 }}>{reportDate} · {activeRows.length}개 점포</div>
         </div>
       </div>
-      {/* 점포 컬럼들 (가로) */}
+      {/* 공지 그룹 (가로) */}
       <div style={{ display: "flex", gap: 12, flexWrap: "nowrap", alignItems: "flex-start" }}>
-        {activeRows.map((row) => {
-          const noticeText = noticeMap[row.id]?.trim() ?? "";
-          return (
-            <div key={row.id} style={{ minWidth: 180, flexShrink: 0, background: "#f0f9ff", borderRadius: 10, padding: "12px 14px" }}>
-              <div style={{ fontSize: 18, fontWeight: 950, color: "#1e3a5f", marginBottom: 4, letterSpacing: -0.3 }}>
-                <span style={{ color: "#0369a1" }}>{normalizeCarNo(row.car_no)}호차</span>
-                <span style={{ color: "#6b7280", margin: "0 4px", fontWeight: 700 }}>·</span>
-                <span style={{ color: "#7c3aed" }}>{row.seq_no}번</span>
-              </div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#6b7280", marginBottom: 8 }}>
-                <span style={{ color: "#9ca3af" }}>{row.store_code}</span>
-                <span style={{ margin: "0 4px" }}>·</span>
-                <span style={{ color: "#374151" }}>{row.store_name}</span>
-              </div>
-              {/* 공지 내용 */}
-              <div style={{ background: "#fff7ed", borderRadius: 8, padding: "8px 10px", borderLeft: "3px solid #f97316" }}>
-                <div style={{ fontSize: 10, color: "#9a3412", fontWeight: 700, marginBottom: 3 }}>공지사항</div>
-                <div style={{ fontSize: 12, fontWeight: 800, color: "#111827", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{noticeText}</div>
-              </div>
+        {groups.map((group, gi) => (
+          <div key={gi} style={{ minWidth: 200, flexShrink: 0, background: "#f0f9ff", borderRadius: 10, padding: "12px 14px" }}>
+            {/* 점포 목록 */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+              {group.rows.map((row) => (
+                <div key={row.id}>
+                  <div style={{ fontSize: 15, fontWeight: 950, color: "#1e3a5f", letterSpacing: -0.3 }}>
+                    <span style={{ color: "#0369a1" }}>{normalizeCarNo(row.car_no)}호차</span>
+                    <span style={{ color: "#6b7280", margin: "0 4px", fontWeight: 700 }}>·</span>
+                    <span style={{ color: "#7c3aed" }}>{row.seq_no}번</span>
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#6b7280" }}>
+                    <span style={{ color: "#9ca3af" }}>{row.store_code}</span>
+                    <span style={{ margin: "0 4px" }}>·</span>
+                    <span style={{ color: "#374151" }}>{row.store_name}</span>
+                  </div>
+                </div>
+              ))}
             </div>
-          );
-        })}
+            {/* 공지 내용 */}
+            <div style={{ background: "#fff7ed", borderRadius: 8, padding: "8px 10px", borderLeft: "3px solid #f97316" }}>
+              <div style={{ fontSize: 10, color: "#9a3412", fontWeight: 700, marginBottom: 3 }}>공지사항</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: "#111827", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{group.noticeText}</div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
