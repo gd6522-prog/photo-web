@@ -111,7 +111,7 @@ async function parseCdcWorkbook(file: File) {
   const idxCarNo = findHeaderIndex(headers, ["호차", "차량", "차량번호", "호차번호"]);
   const idxStoreCode = findHeaderIndex(headers, ["배송거래처코드", "점포코드"]);
   const idxStoreName = findHeaderIndex(headers, ["배송거래처명", "점포명"]);
-  const idxBoxNo = findHeaderIndex(headers, ["박스번호", "boxno"]);
+  const idxBoxNo = findHeaderIndex(headers, ["박스번호", "박스수량", "수량", "box수량", "box번호", "boxno", "box"]);
 
   if (idxCarNo < 0 || idxStoreCode < 0 || idxStoreName < 0 || idxBoxNo < 0) {
     throw new Error("CDC 파일에서 호차, 점포코드, 점포명, 박스번호 컬럼을 찾지 못했습니다.");
@@ -180,7 +180,7 @@ async function parseFullBoxWorkbook(file: File) {
   const headers = (rows[0] ?? []).map((cell) => normalizeHeader(cell));
   const idxStoreCode = findHeaderIndex(headers, ["배송거래처코드", "점포코드"]);
   const idxStoreName = findHeaderIndex(headers, ["배송거래처명", "점포명"]);
-  const idxBoxNo = findHeaderIndex(headers, ["박스번호", "boxno"]);
+  const idxBoxNo = findHeaderIndex(headers, ["박스번호", "박스수량", "수량", "box수량", "box번호", "boxno", "box"]);
 
   if (idxStoreName < 0 || idxBoxNo < 0) {
     throw new Error("완박스 파일에서 점포명, 박스번호 컬럼을 찾지 못했습니다.");
