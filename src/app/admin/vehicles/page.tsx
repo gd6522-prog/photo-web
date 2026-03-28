@@ -446,15 +446,16 @@ async function clearServerVehicleSnapshot() {
   }
 }
 
-async function saveServerVehicleSnapshot(fileName: string, cargoRows: CargoRow[]) {
+async function saveServerVehicleSnapshot(fileName: string, productRows: ProductRow[], cargoRows: CargoRow[]) {
   const token = await getVehicleAdminToken();
+  const snapshot = { fileName, productRows, cargoRows, uploadedAt: new Date().toISOString(), uploadedBy: "" };
   const response = await fetch("/api/admin/vehicles/current", {
     method: "PUT",
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ fileName, cargoRows }),
+    body: JSON.stringify({ snapshot }),
   });
 
   const payload = (await response.json().catch(() => ({}))) as { ok?: boolean; message?: string };
@@ -2365,7 +2366,7 @@ export function VehiclePageScreen({
     setMessage("");
 
     try {
-      await saveServerVehicleSnapshot(fileName, cargoRows);
+      await saveServerVehicleSnapshot(fileName, productRows, cargoRows);
       lastServerSnapshotRef.current = JSON.stringify({ fileName, cargoRows });
       setCargoDirty(false);
       setMessage("물동량 지원표시와 수정값을 서버에 저장했습니다.");

@@ -652,26 +652,9 @@ export async function PUT(req: NextRequest) {
         contentType: "application/json",
       });
       if (error) throw new Error(error.message);
-    }
 
-    if (body.cargoRows) {
-      const current = await readCurrentSnapshot(guard.sbAdmin);
-      if (!current) throw new Error("저장된 차량 데이터가 없습니다.");
-
-      const nextSnapshot: VehicleSnapshot = {
-        ...current,
-        fileName: toText(body.fileName) || current.fileName,
-        cargoRows: Array.isArray(body.cargoRows) ? body.cargoRows : current.cargoRows,
-      };
-
-      const snapshotBlob = new Blob([JSON.stringify(nextSnapshot)], { type: "application/json" });
-      const { error } = await guard.sbAdmin.storage.from(BUCKET).upload(CURRENT_PATH, snapshotBlob, {
-        upsert: true,
-        contentType: "application/json",
-      });
-      if (error) throw new Error(error.message);
-
-      const storeUpdates = nextSnapshot.cargoRows
+      // store_map은 백그라운드에서 처리 (응답 지연 없음)
+      const storeUpdates = (body.snapshot.cargoRows ?? [])
         .filter((row) => toText(row.store_code) && toText(row.store_name) && toText(row.car_no) && Number.isFinite(Number(row.seq_no)))
         .map((row) => ({
           store_code: toText(row.store_code),
@@ -682,12 +665,8 @@ export async function PUT(req: NextRequest) {
           address: toText(row.address),
           updated_at: new Date().toISOString(),
         }));
-
       if (storeUpdates.length > 0) {
-        const { error: upsertError } = await guard.sbAdmin
-          .from("store_map")
-          .upsert(storeUpdates, { onConflict: "store_code" });
-        if (upsertError) throw new Error(upsertError.message);
+        void guard.sbAdmin.from("store_map").upsert(storeUpdates, { onConflict: "store_code" });
       }
     }
 

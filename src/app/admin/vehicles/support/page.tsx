@@ -495,6 +495,16 @@ export default function SupportPage() {
   const manualRefresh = async () => {
     setRefreshing(true);
     try {
+      // local IndexedDB 먼저 반영 (빠름)
+      const local = await readLocalSnapshot();
+      if (local) {
+        setCargoRows(local.cargoRows);
+        setDeliveryDate(local.deliveryDate);
+        void loadIndexes(local.cargoRows);
+        void loadRounds(local.cargoRows);
+        void loadNotices(local.cargoRows);
+      }
+      // 서버와 동기화
       const server = await fetchServerSnapshot();
       if (server) {
         setCargoRows(server.cargoRows);
@@ -502,7 +512,7 @@ export default function SupportPage() {
         void loadIndexes(server.cargoRows);
         void loadRounds(server.cargoRows);
         void loadNotices(server.cargoRows);
-      } else {
+      } else if (!local) {
         setCargoRows([]);
         setDeliveryDate("");
       }
