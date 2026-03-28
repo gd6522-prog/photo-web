@@ -206,30 +206,31 @@ function StoreNoticeCardMulti({
           <div style={{ fontSize: 11, color: "#5a7385", fontWeight: 700 }}>{reportDate} · {activeRows.length}개 점포</div>
         </div>
       </div>
-      {/* 공지 그룹 (세로 나열) */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {groups.map((group, gi) => (
-          <div key={gi} style={{ display: "flex", gap: 12, alignItems: "stretch", background: "#f0f9ff", borderRadius: 10, padding: "12px 14px" }}>
-            {/* 왼쪽: 점포 목록 */}
-            <div style={{ display: "grid", gridTemplateColumns: "max-content max-content 1fr", columnGap: 8, rowGap: 4, alignItems: "center" }}>
-              {group.rows.map((row) => (
-                <React.Fragment key={row.id}>
-                  <span style={{ fontSize: 13, fontWeight: 900, color: "#111827", whiteSpace: "nowrap" }}>{normalizeCarNo(row.car_no)}호차</span>
-                  <span style={{ fontSize: 13, fontWeight: 900, color: "#111827", whiteSpace: "nowrap", textAlign: "right" }}>{row.seq_no}번</span>
-                  <span style={{ fontSize: 13, fontWeight: 900, color: "#111827", whiteSpace: "nowrap" }}>{row.store_name}</span>
-                </React.Fragment>
+      {/* 공지 그룹 - 단일 테이블로 열 정렬 */}
+      <table style={{ borderCollapse: "collapse", width: "max-content" }}>
+        <tbody>
+          {groups.map((group, gi) => (
+            <React.Fragment key={gi}>
+              {gi > 0 && (
+                <tr><td colSpan={4} style={{ padding: "4px 0" }}><div style={{ height: 1, background: "#dbeafe" }} /></td></tr>
+              )}
+              {group.rows.map((row, ri) => (
+                <tr key={row.id}>
+                  <td style={{ padding: "2px 10px 2px 0", whiteSpace: "nowrap", fontSize: 13, fontWeight: 900, color: "#111827" }}>{normalizeCarNo(row.car_no)}호차</td>
+                  <td style={{ padding: "2px 10px 2px 0", whiteSpace: "nowrap", fontSize: 13, fontWeight: 900, color: "#111827", textAlign: "right" }}>{row.seq_no}번</td>
+                  <td style={{ padding: "2px 16px 2px 0", whiteSpace: "nowrap", fontSize: 13, fontWeight: 900, color: "#111827" }}>{row.store_name}</td>
+                  {ri === 0 && (
+                    <td rowSpan={group.rows.length} style={{ padding: "6px 12px", background: "#fff7ed", borderLeft: "3px solid #f97316", verticalAlign: "middle", borderRadius: 6 }}>
+                      <div style={{ fontSize: 10, color: "#9a3412", fontWeight: 700, marginBottom: 2 }}>공지사항</div>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: "#111827", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{group.noticeText}</div>
+                    </td>
+                  )}
+                </tr>
               ))}
-            </div>
-            {/* 구분선 */}
-            <div style={{ width: 1, background: "#bfdbfe", flexShrink: 0 }} />
-            {/* 오른쪽: 공지 내용 */}
-            <div style={{ background: "#fff7ed", borderRadius: 8, padding: "8px 12px", borderLeft: "3px solid #f97316", flex: 1 }}>
-              <div style={{ fontSize: 10, color: "#9a3412", fontWeight: 700, marginBottom: 3 }}>공지사항</div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: "#111827", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{group.noticeText}</div>
-            </div>
-          </div>
-        ))}
-      </div>
+            </React.Fragment>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
