@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
     includeSummary
       ? guard.sbAdmin
           .from("hazard_reports")
-          .select("sort_key")
+          .select("sort_key, hazard_report_resolutions(after_public_url, planned_due_date)")
       : Promise.resolve({ data: null, error: null }),
   ]);
 
@@ -77,15 +77,26 @@ export async function GET(req: NextRequest) {
   const reportIds = reports.map((r) => r.id);
   const creatorIds = Array.from(new Set(reports.map((r) => r.user_id)));
 
-  // 요약 카운트 집계 (sort_key 기준)
+  // 요약 카운트 집계 (날짜 기준 재분류: 기간 만료된 처리대기 → 미처리)
   let unresolvedTotalCount: number | null = null;
   let pendingTotalCount: number | null = null;
   let resolvedTotalCount: number | null = null;
   if (includeSummary && countsResult.data) {
-    const rows = countsResult.data as { sort_key: number }[];
-    unresolvedTotalCount = rows.filter((r) => r.sort_key === 0).length;
-    pendingTotalCount    = rows.filter((r) => r.sort_key === 1).length;
-    resolvedTotalCount   = rows.filter((r) => r.sort_key === 2).length;
+    const today = new Date().toISOString().slice(0, 10);
+    type CountRow = { sort_key: number; hazard_report_resolutions?: { after_public_url?: string | null; planned_due_date?: string | null }[] };
+    unresolvedTotalCount = 0;
+    pendingTotalCount = 0;
+    resolvedTotalCount = 0;
+    for (const r of countsResult.data as CountRow[]) {
+      const res = r.hazard_report_resolutions?.[0];
+      if (res?.after_public_url) {
+        resolvedTotalCount++;
+      } else if (res?.planned_due_date && res.planned_due_date >= today) {
+        pendingTotalCount++;
+      } else {
+        unresolvedTotalCount++;
+      }
+    }
   }
 
   // Phase 2: 현재 페이지 항목에 대한 상세 데이터 병렬 조회 (최대 pageSize건)
