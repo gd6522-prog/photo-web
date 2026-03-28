@@ -76,7 +76,7 @@ type RedeliveryDoneRow = {
   done_at: string;
 };
 
-type DriverCategory = "bottle" | "tobacco" | "miochul";
+type DriverCategory = "bottle" | "tobacco" | "miochul" | "wash";
 type MiochulFlags = { redelivery: boolean; damage: boolean; other: boolean };
 
 const PAGE_SIZE = 60;
@@ -114,11 +114,13 @@ function formatKST(ts: string) {
 function categoryLabel(c: DriverCategory) {
   if (c === "bottle") return "공병";
   if (c === "tobacco") return "담배";
+  if (c === "wash") return "세차";
   return "미오출";
 }
 function categoryColor(c: DriverCategory) {
   if (c === "bottle") return "#2563EB";
   if (c === "tobacco") return "#F59E0B";
+  if (c === "wash") return "#059669";
   return "#7C3AED";
 }
 
@@ -394,7 +396,11 @@ export default function AdminDeliveryPhotosPage() {
       const to = PAGE_SIZE - 1;
 
       let q = buildBaseQuery(startUTC, endUTC);
-      q = (q as any).ilike("path", `${driverCategory}/%`);
+      if (driverCategory === "wash") {
+        q = (q as any).or("path.ilike.wash1/%,path.ilike.wash2/%");
+      } else {
+        q = (q as any).ilike("path", `${driverCategory}/%`);
+      }
       q = (q as any).range(from, to);
 
       const { data, error } = await q;
@@ -448,7 +454,11 @@ export default function AdminDeliveryPhotosPage() {
       const to = from + PAGE_SIZE - 1;
 
       let q = buildBaseQuery(startUTC, endUTC);
-      q = (q as any).ilike("path", `${driverCategory}/%`);
+      if (driverCategory === "wash") {
+        q = (q as any).or("path.ilike.wash1/%,path.ilike.wash2/%");
+      } else {
+        q = (q as any).ilike("path", `${driverCategory}/%`);
+      }
       q = (q as any).range(from, to);
 
       const { data, error } = await q;
@@ -842,7 +852,7 @@ export default function AdminDeliveryPhotosPage() {
 
             <div style={{ fontSize: 12, fontWeight: 900, color: "#374151", marginBottom: 6 }}>조회구분</div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {(["miochul", "bottle", "tobacco"] as DriverCategory[]).map((c) => {
+              {(["miochul", "bottle", "tobacco", "wash"] as DriverCategory[]).map((c) => {
                 const on = driverCategory === c;
                 const color = categoryColor(c);
                 return (
@@ -851,7 +861,7 @@ export default function AdminDeliveryPhotosPage() {
                     onClick={() => {
                       setDriverCategory(c);
                       if (c !== "miochul") setMiochulFlags({ redelivery: false, damage: false, other: false });
-                      if (c === "bottle" || c === "tobacco") { setDateFrom(today); setDateTo(today); }
+                      if (c === "bottle" || c === "tobacco" || c === "wash") { setDateFrom(today); setDateTo(today); }
                       if (c === "miochul") { setDateFrom(defaultDateFrom); setDateTo(today); }
                       setCarNo("ALL");
                       setSearchText("");
