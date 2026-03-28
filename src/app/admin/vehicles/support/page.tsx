@@ -206,27 +206,36 @@ function StoreNoticeCardMulti({
           <div style={{ fontSize: 11, color: "#5a7385", fontWeight: 700 }}>{reportDate} · {activeRows.length}개 점포</div>
         </div>
       </div>
-      {/* 공지 그룹 - 단일 테이블로 열 정렬 */}
-      <table style={{ borderCollapse: "collapse", width: "max-content" }}>
+      {/* 공지 그룹 - 단일 테이블로 열 정렬 + 하늘색 카드 */}
+      <table style={{ borderCollapse: "separate", borderSpacing: "0 0", width: "max-content" }}>
         <tbody>
           {groups.map((group, gi) => (
             <React.Fragment key={gi}>
               {gi > 0 && (
-                <tr><td colSpan={4} style={{ padding: "4px 0" }}><div style={{ height: 1, background: "#dbeafe" }} /></td></tr>
+                <tr><td colSpan={4} style={{ padding: "4px 0" }} /></tr>
               )}
-              {group.rows.map((row, ri) => (
-                <tr key={row.id}>
-                  <td style={{ padding: "2px 10px 2px 0", whiteSpace: "nowrap", fontSize: 13, fontWeight: 900, color: "#111827" }}>{normalizeCarNo(row.car_no)}호차</td>
-                  <td style={{ padding: "2px 10px 2px 0", whiteSpace: "nowrap", fontSize: 13, fontWeight: 900, color: "#111827", textAlign: "right" }}>{row.seq_no}번</td>
-                  <td style={{ padding: "2px 16px 2px 0", whiteSpace: "nowrap", fontSize: 13, fontWeight: 900, color: "#111827" }}>{row.store_name}</td>
-                  {ri === 0 && (
-                    <td rowSpan={group.rows.length} style={{ padding: "6px 12px", background: "#fff7ed", borderLeft: "3px solid #f97316", verticalAlign: "middle", borderRadius: 6 }}>
-                      <div style={{ fontSize: 10, color: "#9a3412", fontWeight: 700, marginBottom: 2 }}>공지사항</div>
-                      <div style={{ fontSize: 12, fontWeight: 800, color: "#111827", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{group.noticeText}</div>
-                    </td>
-                  )}
-                </tr>
-              ))}
+              {group.rows.map((row, ri) => {
+                const isFirst = ri === 0;
+                const isLast = ri === group.rows.length - 1;
+                const cellStyle: React.CSSProperties = {
+                  background: "#f0f9ff",
+                  borderTop: isFirst ? "1px solid #bae6fd" : "none",
+                  borderBottom: isLast ? "1px solid #bae6fd" : "none",
+                };
+                return (
+                  <tr key={row.id}>
+                    <td style={{ ...cellStyle, borderLeft: "1px solid #bae6fd", padding: isFirst ? "8px 10px 4px 12px" : isLast ? "4px 10px 8px 12px" : "4px 10px", whiteSpace: "nowrap", fontSize: 13, fontWeight: 900, color: "#111827", borderRadius: isFirst ? "8px 0 0 0" : isLast ? "0 0 0 8px" : undefined }}>{normalizeCarNo(row.car_no)}호차</td>
+                    <td style={{ ...cellStyle, padding: isFirst ? "8px 10px 4px 0" : isLast ? "4px 10px 8px 0" : "4px 10px 4px 0", whiteSpace: "nowrap", fontSize: 13, fontWeight: 900, color: "#111827", textAlign: "right" }}>{row.seq_no}번</td>
+                    <td style={{ ...cellStyle, padding: isFirst ? "8px 16px 4px 0" : isLast ? "4px 16px 8px 0" : "4px 16px 4px 0", whiteSpace: "nowrap", fontSize: 13, fontWeight: 900, color: "#111827" }}>{row.store_name}</td>
+                    {isFirst && (
+                      <td rowSpan={group.rows.length} style={{ background: "#fff7ed", border: "1px solid #bae6fd", borderLeft: "3px solid #f97316", padding: "8px 14px", verticalAlign: "middle", borderRadius: "0 8px 8px 0" }}>
+                        <div style={{ fontSize: 10, color: "#9a3412", fontWeight: 700, marginBottom: 2 }}>공지사항</div>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: "#111827", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{group.noticeText}</div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
             </React.Fragment>
           ))}
         </tbody>
