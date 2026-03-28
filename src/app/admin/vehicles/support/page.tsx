@@ -206,31 +206,29 @@ function StoreNoticeCardMulti({
           <div style={{ fontSize: 11, color: "#5a7385", fontWeight: 700 }}>{reportDate} · {activeRows.length}개 점포</div>
         </div>
       </div>
-      {/* 공지 그룹 (가로) */}
-      <div style={{ display: "flex", gap: 12, flexWrap: "nowrap", alignItems: "flex-start" }}>
+      {/* 공지 그룹 (세로 나열) */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {groups.map((group, gi) => (
-          <div key={gi} style={{ minWidth: 200, flexShrink: 0, background: "#f0f9ff", borderRadius: 10, padding: "12px 14px" }}>
-            {/* 점포 목록 */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+          <div key={gi} style={{ display: "flex", gap: 12, alignItems: "stretch", background: "#f0f9ff", borderRadius: 10, padding: "12px 14px" }}>
+            {/* 왼쪽: 점포 목록 */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 5, minWidth: 160 }}>
               {group.rows.map((row) => (
                 <div key={row.id}>
-                  <div style={{ fontSize: 15, fontWeight: 950, color: "#1e3a5f", letterSpacing: -0.3 }}>
+                  <div style={{ fontSize: 14, fontWeight: 950, color: "#1e3a5f", letterSpacing: -0.3 }}>
                     <span style={{ color: "#0369a1" }}>{normalizeCarNo(row.car_no)}호차</span>
                     <span style={{ color: "#6b7280", margin: "0 4px", fontWeight: 700 }}>·</span>
                     <span style={{ color: "#7c3aed" }}>{row.seq_no}번</span>
-                  </div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#6b7280" }}>
-                    <span style={{ color: "#9ca3af" }}>{row.store_code}</span>
-                    <span style={{ margin: "0 4px" }}>·</span>
-                    <span style={{ color: "#374151" }}>{row.store_name}</span>
+                    <span style={{ color: "#374151", marginLeft: 6, fontSize: 13 }}>{row.store_name}</span>
                   </div>
                 </div>
               ))}
             </div>
-            {/* 공지 내용 */}
-            <div style={{ background: "#fff7ed", borderRadius: 8, padding: "8px 10px", borderLeft: "3px solid #f97316" }}>
+            {/* 구분선 */}
+            <div style={{ width: 1, background: "#bfdbfe", flexShrink: 0 }} />
+            {/* 오른쪽: 공지 내용 */}
+            <div style={{ background: "#fff7ed", borderRadius: 8, padding: "8px 12px", borderLeft: "3px solid #f97316", flex: 1 }}>
               <div style={{ fontSize: 10, color: "#9a3412", fontWeight: 700, marginBottom: 3 }}>공지사항</div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: "#111827", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{group.noticeText}</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: "#111827", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{group.noticeText}</div>
             </div>
           </div>
         ))}
