@@ -202,8 +202,11 @@ function StoreNoticeCardMulti({
                 <span style={{ color: "#6b7280", margin: "0 4px", fontWeight: 700 }}>·</span>
                 <span style={{ color: "#7c3aed" }}>{row.seq_no}번</span>
               </div>
-              <div style={{ fontSize: 10, color: "#9ca3af", fontWeight: 700, marginBottom: 1 }}>{row.store_code}</div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: "#374151", marginBottom: 8 }}>{row.store_name}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#6b7280", marginBottom: 8 }}>
+                <span style={{ color: "#9ca3af" }}>{row.store_code}</span>
+                <span style={{ margin: "0 4px" }}>·</span>
+                <span style={{ color: "#374151" }}>{row.store_name}</span>
+              </div>
               {/* 공지 내용 */}
               <div style={{ background: "#fff7ed", borderRadius: 8, padding: "8px 10px", borderLeft: "3px solid #f97316" }}>
                 <div style={{ fontSize: 10, color: "#9a3412", fontWeight: 700, marginBottom: 3 }}>공지사항</div>
