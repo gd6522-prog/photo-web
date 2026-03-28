@@ -1768,6 +1768,7 @@ export function VehiclePageScreen({
   const driverFetchKeyRef = useRef("");
   const serverSyncEnabledRef = useRef(false);
   const lastServerSnapshotRef = useRef("");
+  const batchPrintRequestedRef = useRef(false);
 
   const [busy, setBusy] = useState(false);
   const [loadingState, setLoadingState] = useState<"" | "restore" | "upload">("restore");
@@ -2082,6 +2083,28 @@ export function VehiclePageScreen({
       return getLegacyBatchPrintMatch(batchPrintMode, carNo, hasUploadedCdcFile);
     });
   }, [activeReportGroup, batchPrintMode, reportGroups, cdcSnapshot?.fileName]);
+
+  useEffect(() => {
+    if (!batchPrintMode || !batchPrintRequestedRef.current) return;
+
+    let cancelled = false;
+    let firstFrame = 0;
+    let secondFrame = 0;
+
+    firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        if (cancelled) return;
+        batchPrintRequestedRef.current = false;
+        void printVisibleReportPages(() => setBatchPrintMode(""));
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
+  }, [batchPrintMode, visibleReportGroups]);
 
   const filteredProductRows = useMemo(() => {
     const query = normalizeStoreName(storeQuery);
@@ -2632,10 +2655,8 @@ export function VehiclePageScreen({
 
   const printAllReports = (mode: "today" | "previous" | "next" | "all") => {
     if (reportGroups.length === 0) return;
+    batchPrintRequestedRef.current = true;
     setBatchPrintMode(mode);
-    window.setTimeout(() => {
-      void printVisibleReportPages(() => setBatchPrintMode(""));
-    }, 80);
   };
 
   const topCardStyle = cardStyle();
