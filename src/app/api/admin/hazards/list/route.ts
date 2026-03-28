@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
     includeSummary
       ? guard.sbAdmin
           .from("hazard_reports")
-          .select("sort_key, hazard_report_resolutions(after_public_url, planned_due_date)")
+          .select("id, sort_key")
       : Promise.resolve({ data: null, error: null }),
   ]);
 
@@ -83,20 +83,35 @@ export async function GET(req: NextRequest) {
   let resolvedTotalCount: number | null = null;
   if (includeSummary && countsResult.data) {
     const today = new Date().toISOString().slice(0, 10);
-    type CountRow = { sort_key: number; hazard_report_resolutions?: { after_public_url?: string | null; planned_due_date?: string | null }[] };
-    unresolvedTotalCount = 0;
-    pendingTotalCount = 0;
-    resolvedTotalCount = 0;
-    for (const r of countsResult.data as CountRow[]) {
-      const res = r.hazard_report_resolutions?.[0];
-      if (res?.after_public_url) {
-        resolvedTotalCount++;
-      } else if (res?.planned_due_date && res.planned_due_date >= today) {
-        pendingTotalCount++;
-      } else {
-        unresolvedTotalCount++;
+    const allRows = countsResult.data as { id: string; sort_key: number }[];
+    resolvedTotalCount = allRows.filter((r) => r.sort_key === 2).length;
+
+    // sort_key=1 인 항목의 처리예정일 조회해서 만료 여부 확인
+    const pendingIds = allRows.filter((r) => r.sort_key === 1).map((r) => r.id);
+    let expiredCount = 0;
+    if (pendingIds.length > 0) {
+      const { data: resRows } = await guard.sbAdmin
+        .from("hazard_report_resolutions")
+        .select("report_id, planned_due_date, improved_at")
+        .in("report_id", pendingIds);
+
+      // 보고서별 최신 resolution만 유지
+      type ResRow = { report_id: string; planned_due_date: string | null; improved_at: string | null };
+      const latestRes = new Map<string, ResRow>();
+      for (const res of (resRows ?? []) as ResRow[]) {
+        const ex = latestRes.get(res.report_id);
+        if (!ex || (res.improved_at ?? "") >= (ex.improved_at ?? "")) {
+          latestRes.set(res.report_id, res);
+        }
       }
+      expiredCount = pendingIds.filter((id) => {
+        const res = latestRes.get(id);
+        return !res?.planned_due_date || res.planned_due_date < today;
+      }).length;
     }
+
+    pendingTotalCount = allRows.filter((r) => r.sort_key === 1).length - expiredCount;
+    unresolvedTotalCount = allRows.filter((r) => r.sort_key === 0).length + expiredCount;
   }
 
   // Phase 2: 현재 페이지 항목에 대한 상세 데이터 병렬 조회 (최대 pageSize건)
