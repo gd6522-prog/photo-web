@@ -1760,7 +1760,9 @@ export function VehiclePageScreen({
 }) {
   const INPUT_PAGE_SIZE = 50;
   const REPORT_PREVIEW_BASE_WIDTH = 1620;
-  const REPORT_PRINT_SCALE = 0.662;
+  const REPORT_PRINT_SCALE_X = 0.648;
+  const REPORT_PRINT_SCALE_Y = 0.662;
+  const REPORT_PRINT_VERTICAL_STRETCH = REPORT_PRINT_SCALE_Y / REPORT_PRINT_SCALE_X;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const reportPrintListRef = useRef<HTMLDivElement | null>(null);
   const reportPreviewContainerRef = useRef<HTMLDivElement | null>(null);
@@ -2433,9 +2435,9 @@ export function VehiclePageScreen({
 
         clone.querySelectorAll(".report-print-frame").forEach((node) => {
           const frame = node as HTMLDivElement;
-          frame.style.transform = "none";
+          frame.style.transform = `scaleY(${REPORT_PRINT_VERTICAL_STRETCH})`;
           frame.style.transformOrigin = "top left";
-          frame.style.zoom = String(REPORT_PRINT_SCALE);
+          frame.style.zoom = String(REPORT_PRINT_SCALE_X);
           frame.style.width = `${REPORT_PREVIEW_BASE_WIDTH}px`;
         });
 
@@ -2550,8 +2552,8 @@ export function VehiclePageScreen({
 
             .report-print-frame {
               width: ${REPORT_PREVIEW_BASE_WIDTH}px !important;
-              zoom: ${REPORT_PRINT_SCALE} !important;
-              transform: none !important;
+              zoom: ${REPORT_PRINT_SCALE_X} !important;
+              transform: scaleY(${REPORT_PRINT_VERTICAL_STRETCH}) !important;
               transform-origin: top left !important;
             }
 
