@@ -3806,14 +3806,14 @@ export function VehiclePageScreen({
                     <th rowSpan={2} style={{ border: "1px solid #666", padding: "7px 5px", fontSize: 13, ...getReportMainCellWidth(17) }}>기준시간</th>
                     <th rowSpan={2} style={{ border: "1px solid #666", padding: "7px 5px", fontSize: 13, ...getReportMainCellWidth(18) }}>주소</th>
                     <th rowSpan={2} style={{ border: "1px solid #666", padding: "7px 5px", fontSize: 13, ...getReportMainCellWidth(19) }}>연락처</th>
-                    <th colSpan={2} style={{ border: "1px solid #666", padding: "7px 5px", fontSize: 13 }}>전일점착(미스캔X)</th>
+                    <th colSpan={2} style={{ border: "1px solid #666", padding: "7px 5px", fontSize: 13 }}>{supportMode ? "기존정보" : "전일점착(미스캔X)"}</th>
                   </tr>
                   <tr style={{ background: "#f7f7f7", WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" } as React.CSSProperties}>
                     {([
                       [2, "계"], [3, "박스존"], [4, "이너존"], [5, "기타"], [6, "올데이 2L생수"], [7, "노브랜드2L생수"],
                       [8, "계"], [9, "경량존"], [10, "슬라존"],
                       [15, "출고"], [16, "회수"],
-                      [20, "등급"], [22, "구분"],
+                      [20, supportMode ? "호차" : "등급"], [22, supportMode ? "순번" : "구분"],
                     ] as [number, string][]).map(([colIdx, header], headerIndex) => (
                       <th
                         key={`${group.carNo}-${header}-${colIdx}`}
@@ -3903,8 +3903,8 @@ export function VehiclePageScreen({
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: 16, fontWeight: 900, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(17) }}>{row.standard_time || ""}</td>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", verticalAlign: "middle", color: reportRowColor, background: reportRowBackground, ...getAddressTextStyle(row.address || ""), ...getReportMainCellWidth(18) }}>{row.address || ""}</td>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", whiteSpace: "nowrap", fontSize: 13, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(19) }}>{row.store_name ? formatPhone(storeContactIndex.get(row.store_name) ?? "") : ""}</td>
-                        <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "5px 4px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: 13, fontWeight: 900, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(20) }}>{row.store_name ? (storeAdhesion?.postGrade || "") : ""}</td>
-                        <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: 13, fontWeight: row.support_excluded ? 900 : 400, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(22) }}>{row.store_name ? (storeAdhesion?.category || "") : ""}</td>
+                        <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "5px 4px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: 13, fontWeight: 900, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(20) }}>{row.store_name ? (supportMode ? (row.car_no || "") : (storeAdhesion?.postGrade || "")) : ""}</td>
+                        <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: 13, fontWeight: row.support_excluded ? 900 : 400, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(22) }}>{row.store_name ? (supportMode ? (row.seq_no ? String(row.seq_no) : "") : (storeAdhesion?.category || "")) : ""}</td>
                       </tr>
                     );
                   })}
