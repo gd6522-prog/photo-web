@@ -197,9 +197,13 @@ function StoreNoticeCardMulti({
           const noticeText = noticeMap[row.id]?.trim() ?? "";
           return (
             <div key={row.id} style={{ minWidth: 180, flexShrink: 0, background: "#f0f9ff", borderRadius: 10, padding: "12px 14px" }}>
-              <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, marginBottom: 2 }}>{normalizeCarNo(row.car_no)}호차 · {row.seq_no}번</div>
-              <div style={{ fontSize: 10, color: "#374151", fontWeight: 700, marginBottom: 4 }}>{row.store_code}</div>
-              <div style={{ fontSize: 15, fontWeight: 950, color: "#0f2940", marginBottom: 8 }}>{row.store_name}</div>
+              <div style={{ fontSize: 18, fontWeight: 950, color: "#1e3a5f", marginBottom: 4, letterSpacing: -0.3 }}>
+                <span style={{ color: "#0369a1" }}>{normalizeCarNo(row.car_no)}호차</span>
+                <span style={{ color: "#6b7280", margin: "0 4px", fontWeight: 700 }}>·</span>
+                <span style={{ color: "#7c3aed" }}>{row.seq_no}번</span>
+              </div>
+              <div style={{ fontSize: 10, color: "#9ca3af", fontWeight: 700, marginBottom: 1 }}>{row.store_code}</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#374151", marginBottom: 8 }}>{row.store_name}</div>
               {/* 공지 내용 */}
               <div style={{ background: "#fff7ed", borderRadius: 8, padding: "8px 10px", borderLeft: "3px solid #f97316" }}>
                 <div style={{ fontSize: 10, color: "#9a3412", fontWeight: 700, marginBottom: 3 }}>공지사항</div>
