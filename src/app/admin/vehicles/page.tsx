@@ -95,6 +95,7 @@ type ReportGroup = {
   driver?: DriverProfile;
   supportDriverName?: string;
   supportStoreName?: string;
+  supportRound?: string;
   totals: {
     large: number;
     small: number;
@@ -1278,7 +1279,7 @@ function buildReportGroups(cargoRows: CargoRow[], driverIndex: Map<string, Drive
         rows: sortedRows,
         driver: driverIndex.get(carNo),
         totals,
-      } satisfies ReportGroup;
+      } as ReportGroup;
     });
 }
 
@@ -1357,6 +1358,71 @@ function buildSupportReportGroup(
     supportStoreName: populatedRows[0]?.store_name ?? "",
     totals,
   } satisfies ReportGroup;
+}
+
+function buildSupportReportGroups(
+  cargoRows: CargoRow[],
+  roundsMap: Record<string, string>,
+  driverIndex: Map<string, DriverProfile>
+): ReportGroup[] {
+  const supportRows = cargoRows.filter((r) => r.support_excluded);
+  if (!supportRows.length) return [];
+
+  const groups = new Map<string, CargoRow[]>();
+  for (const row of supportRows) {
+    const driverName = row.note?.trim() ?? "";
+    const round = roundsMap[row.id]?.trim() || "1";
+    const key = `${driverName}|||${round}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(row);
+  }
+
+  return [...groups.entries()]
+    .sort(([keyA], [keyB]) => {
+      const [nameA, roundA] = keyA.split("|||");
+      const [nameB, roundB] = keyB.split("|||");
+      const nameDiff = nameA.localeCompare(nameB, "ko");
+      if (nameDiff !== 0) return nameDiff;
+      return Number(roundA) - Number(roundB);
+    })
+    .map(([key, rows]) => {
+      const [driverName, round] = key.split("|||");
+      const sortedRows = [...rows].sort((a, b) => {
+        const carDiff = normalizeCarNo(a.car_no).localeCompare(normalizeCarNo(b.car_no), "ko", { numeric: true });
+        if (carDiff !== 0) return carDiff;
+        return a.seq_no - b.seq_no;
+      });
+      const totals = sortedRows.reduce(
+        (acc, row) => {
+          const sum = cargoTotals(row);
+          acc.large += sum.largeTotal;
+          acc.small += sum.smallTotal;
+          acc.event += row.event;
+          acc.tobacco += row.tobacco;
+          acc.certificate += row.certificate;
+          acc.cdc += row.cdc;
+          acc.pbox += row.pbox;
+          acc.water += row.large_day2l + row.large_nb2l;
+          return acc;
+        },
+        { large: 0, small: 0, event: 0, tobacco: 0, certificate: 0, cdc: 0, pbox: 0, water: 0 }
+      );
+      const firstRow = sortedRows[0];
+      const driver = driverName
+        ? ([...driverIndex.values()].find((d) => d.name === driverName) ?? {
+            name: driverName, phone: "", car_no: firstRow?.car_no ?? "",
+            vehicle_type: "", carrier: "", garage: "", vehicle_number: "",
+          })
+        : undefined;
+      return {
+        carNo: firstRow?.car_no ?? "",
+        rows: sortedRows,
+        driver,
+        supportDriverName: driverName,
+        supportRound: round,
+        totals,
+      } satisfies ReportGroup;
+    });
 }
 
 function updateCargoByProduct(target: CargoRow, row: ProductRow) {
@@ -1810,6 +1876,7 @@ export function VehiclePageScreen({
   const [supportMode, setSupportMode] = useState(false);
   const [supportDriverNameInput, setSupportDriverNameInput] = useState("");
   const [supportStoreNameInputs, setSupportStoreNameInputs] = useState<string[]>(() => Array.from({ length: 20 }, () => ""));
+  const [supportRoundsMap, setSupportRoundsMap] = useState<Record<string, string>>({});
   const [batchPrintMode, setBatchPrintMode] = useState<"" | "today" | "previous" | "next" | "all">("");
   const [reportPreviewScale, setReportPreviewScale] = useState(1);
   const [reportPreviewHeight, setReportPreviewHeight] = useState<number | null>(null);
@@ -2074,11 +2141,16 @@ export function VehiclePageScreen({
     () => (supportMode ? buildSupportReportGroup(supportMatchedRows, supportDriverProfile, supportDriverNameInput, supportStoreNameInputs) : null),
     [supportDriverNameInput, supportDriverProfile, supportMatchedRows, supportMode, supportStoreNameInputs]
   );
+  const supportReportGroups = useMemo(
+    () => (supportMode ? buildSupportReportGroups(cargoRows, supportRoundsMap, driverIndex) : []),
+    [supportMode, cargoRows, supportRoundsMap, driverIndex]
+  );
   const updateSupportStoreNameInput = (index: number, value: string) => {
     setSupportStoreNameInputs((current) => current.map((entry, entryIndex) => (entryIndex === index ? value : entry)));
   };
-  const activeReportGroup = supportReportGroup ?? selectedReportGroup;
+  const activeReportGroup = (supportMode ? supportReportGroups[0] : null) ?? selectedReportGroup;
   const visibleReportGroups = useMemo(() => {
+    if (supportMode) return supportReportGroups;
     if (!batchPrintMode) return activeReportGroup ? [activeReportGroup] : [];
     if (batchPrintMode === "all") return reportGroups;
     const hasUploadedCdcFile = Boolean(cdcSnapshot?.fileName);
@@ -2095,7 +2167,7 @@ export function VehiclePageScreen({
 
       return getLegacyBatchPrintMatch(batchPrintMode, carNo, hasUploadedCdcFile);
     });
-  }, [activeReportGroup, batchPrintMode, reportGroups, cdcSnapshot?.fileName]);
+  }, [supportMode, supportReportGroups, activeReportGroup, batchPrintMode, reportGroups, cdcSnapshot?.fileName]);
 
   useEffect(() => {
     if (!batchPrintMode || !batchPrintRequestedRef.current) return;
@@ -3511,12 +3583,21 @@ export function VehiclePageScreen({
               </button>
             ))}
             <button
-              onClick={() => {
+              onClick={async () => {
                 setBatchPrintMode("");
                 setSupportMode(true);
                 setSupportDriverNameInput("");
                 setSupportStoreNameInputs(Array.from({ length: 20 }, () => ""));
-                setMessage("지원 모드로 전환했습니다. 운행일보 안에서 배송기사명과 점포명을 입력해 주세요.");
+                setMessage("지원 모드: 지원 체크 점포를 기사명+회전별로 출력합니다.");
+                const ids = cargoRows.filter((r) => r.support_excluded).map((r) => r.id);
+                if (ids.length) {
+                  const { data } = await supabase.from("support_rounds").select("row_id,round_no").in("row_id", ids);
+                  if (data?.length) {
+                    const map: Record<string, string> = {};
+                    for (const d of data) map[d.row_id] = d.round_no ?? "";
+                    setSupportRoundsMap(map);
+                  }
+                }
               }}
               disabled={cargoRows.length === 0}
               style={{
@@ -3606,25 +3687,10 @@ export function VehiclePageScreen({
                     <td style={{ border: "1px solid #666", background: "#f1f1f1", padding: "6px 8px", fontWeight: 800, fontSize: 13 }}>배송기사명</td>
                     <td style={{ border: "1px solid #666", padding: "6px 8px", fontWeight: 800, textAlign: "center", ...getFittedTextStyle(group.driver?.name ?? "", 13, { minFontSize: 9 }) }}>
                       {supportMode ? (
-                        <input
-                          value={supportDriverNameInput}
-                          onChange={(event) => setSupportDriverNameInput(event.target.value)}
-                          placeholder="배송기사명"
-                          style={{
-                            display: "block",
-                            width: "100%",
-                            height: 24,
-                            boxSizing: "border-box",
-                            border: "none",
-                            outline: "none",
-                            padding: "0 2px",
-                            textAlign: "center",
-                            fontWeight: 800,
-                            fontSize: 13,
-                            background: "transparent",
-                            color: "#111827",
-                          }}
-                        />
+                        <span style={{ fontWeight: 800, fontSize: 13 }}>
+                          {group.supportDriverName || "미지정"}
+                          {group.supportRound && <span style={{ marginLeft: 6, color: "#7c3aed" }}>{group.supportRound}회전</span>}
+                        </span>
                       ) : (
                         group.driver?.name ?? ""
                       )}
