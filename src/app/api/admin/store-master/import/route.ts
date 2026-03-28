@@ -97,12 +97,36 @@ export async function POST(req: Request) {
 
     // ✅ 이번 업로드에 없는 구 점포 삭제 (photos FK는 ON DELETE SET NULL이므로 사진은 유지됨)
     const newCodes = cleaned.map((r) => r.store_code);
+    const newCodesSet = new Set(newCodes);
+
     const { count: deletedCount, error: delErr } = await supabase
       .from("store_map")
       .delete({ count: "exact" })
       .not("store_code", "in", `(${newCodes.join(",")})`);
 
     if (delErr) throw delErr;
+
+    // ✅ 운행일보 스냅샷에서도 삭제된 점포 제거
+    if ((deletedCount ?? 0) > 0) {
+      const { data: snapshotFile } = await supabase.storage
+        .from("vehicle-data")
+        .download("current/latest.json");
+
+      if (snapshotFile) {
+        const text = await snapshotFile.text();
+        const snapshot = JSON.parse(text);
+        if (snapshot?.cargoRows) {
+          snapshot.cargoRows = snapshot.cargoRows.filter(
+            (row: any) => !row.store_code || newCodesSet.has(String(row.store_code))
+          );
+          const blob = new Blob([JSON.stringify(snapshot)], { type: "application/json" });
+          await supabase.storage.from("vehicle-data").upload("current/latest.json", blob, {
+            upsert: true,
+            contentType: "application/json",
+          });
+        }
+      }
+    }
 
     return NextResponse.json({ ok: true, count: upsertRows.length, skippedNoCar, deleted: deletedCount ?? 0 });
   } catch (e: any) {
