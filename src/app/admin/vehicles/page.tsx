@@ -3545,16 +3545,16 @@ export function VehiclePageScreen({
             />
             <button
               onClick={printSelectedReport}
-              disabled={!activeReportGroup || (supportMode && !supportDriverNameInput.trim())}
+              disabled={!activeReportGroup || (supportMode && !supportAutoMode && !supportDriverNameInput.trim())}
               style={{
                 height: 40,
                 padding: "0 16px",
                 borderRadius: 0,
                 border: "1px solid #0f766e",
-                background: !activeReportGroup || (supportMode && !supportDriverNameInput.trim()) ? "#cbd5e1" : "#0f766e",
+                background: !activeReportGroup || (supportMode && !supportAutoMode && !supportDriverNameInput.trim()) ? "#cbd5e1" : "#0f766e",
                 color: "#fff",
                 fontWeight: 900,
-                cursor: !activeReportGroup || (supportMode && !supportDriverNameInput.trim()) ? "not-allowed" : "pointer",
+                cursor: !activeReportGroup || (supportMode && !supportAutoMode && !supportDriverNameInput.trim()) ? "not-allowed" : "pointer",
               }}
             >
               출력
