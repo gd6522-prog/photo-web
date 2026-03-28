@@ -83,17 +83,17 @@ export async function GET(req: NextRequest) {
   let resolvedTotalCount: number | null = null;
   if (includeSummary && countsResult.data) {
     const today = new Date().toISOString().slice(0, 10);
-    const rows = countsResult.data as { sort_key: number; hazard_report_resolutions: { planned_due_date: string | null }[] }[];
+    const rows = countsResult.data as { sort_key: number; hazard_report_resolutions: { planned_due_date: string | null } | null }[];
     unresolvedTotalCount = rows.filter((r) => {
       if (r.sort_key === 2) return false;
       if (r.sort_key === 0) return true;
       // sort_key === 1(처리대기): 기한이 지났으면 미처리로 집계
-      const dueDate = r.hazard_report_resolutions?.[0]?.planned_due_date;
+      const dueDate = r.hazard_report_resolutions?.planned_due_date;
       return !dueDate || dueDate < today;
     }).length;
     pendingTotalCount = rows.filter((r) => {
       if (r.sort_key !== 1) return false;
-      const dueDate = r.hazard_report_resolutions?.[0]?.planned_due_date;
+      const dueDate = r.hazard_report_resolutions?.planned_due_date;
       return !!dueDate && dueDate >= today;
     }).length;
     resolvedTotalCount   = rows.filter((r) => r.sort_key === 2).length;
