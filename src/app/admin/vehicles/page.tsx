@@ -71,6 +71,7 @@ type CargoRow = {
 
 type StoreMapMatch = {
   store_code: string;
+  store_name?: string;
   car_no: string;
   seq_no: number;
   delivery_due_time: string;
@@ -878,6 +879,7 @@ function mergeStoreMapRows(index: Map<string, StoreMapMatch>, rows: any[]) {
   for (const row of rows ?? []) {
     const payload = {
       store_code: toText((row as any).store_code),
+      store_name: toText((row as any).store_name),
       car_no: toText(row.car_no),
       seq_no: toNumber(row.seq_no),
       delivery_due_time: toText((row as any).delivery_due_time),
@@ -923,6 +925,70 @@ async function fetchStoreMapIndexByRows(rows: Array<Pick<ProductRow | CargoRow, 
   }
 
   return index;
+}
+
+type ReportBaseStoreRow = {
+  store_code: string | null;
+  store_name: string | null;
+  car_no: string | null;
+  seq_no: number | null;
+  delivery_due_time: string | null;
+  address: string | null;
+};
+
+async function fetchReportBaseCargoRows() {
+  const { data, error } = await supabase
+    .from("store_map")
+    .select("store_code, store_name, car_no, seq_no, delivery_due_time, address")
+    .order("car_no", { ascending: true })
+    .order("seq_no", { ascending: true })
+    .order("store_name", { ascending: true });
+
+  if (error) throw new Error("점포 마스터를 불러오지 못했습니다.");
+
+  const rows = (data ?? []) as ReportBaseStoreRow[];
+  const unique = new Map<string, CargoRow>();
+
+  for (const row of rows) {
+    const carNo = normalizeCarNo(row.car_no);
+    const storeName = toText(row.store_name);
+    if (!carNo || !storeName) continue;
+
+    const seqNo = toNumber(row.seq_no);
+    const key = `${carNo}__${seqNo}__${storeName}`;
+    if (unique.has(key)) continue;
+
+    unique.set(key, {
+      id: `base-${key}`,
+      support_excluded: false,
+      note: "",
+      car_no: carNo,
+      seq_no: seqNo,
+      store_code: toText(row.store_code),
+      store_name: storeName,
+      large_box: 0,
+      large_inner: 0,
+      large_other: 0,
+      large_day2l: 0,
+      large_nb2l: 0,
+      small_low: 0,
+      small_high: 0,
+      event: 0,
+      tobacco: 0,
+      certificate: 0,
+      cdc: 0,
+      pbox: 0,
+      standard_time: toText(row.delivery_due_time),
+      address: toText(row.address),
+    });
+  }
+
+  return [...unique.values()].sort((a, b) => {
+    const carDiff = a.car_no.localeCompare(b.car_no, "ko", { numeric: true });
+    if (carDiff !== 0) return carDiff;
+    if (a.seq_no !== b.seq_no) return a.seq_no - b.seq_no;
+    return a.store_name.localeCompare(b.store_name, "ko");
+  });
 }
 
 const REPORT_SECTION_BORDER = "3px solid #111";
@@ -1794,6 +1860,7 @@ export function VehiclePageScreen({
   const [storageReady, setStorageReady] = useState(false);
   const [driverIndex, setDriverIndex] = useState<Map<string, DriverProfile>>(new Map());
   const [storeContactIndex, setStoreContactIndex] = useState<Map<string, string>>(new Map());
+  const [reportBaseRows, setReportBaseRows] = useState<CargoRow[]>([]);
   const [reportCarNoInput, setReportCarNoInput] = useState(initialCarNo ?? "");
   const [selectedReportCarNo, setSelectedReportCarNo] = useState(initialCarNo ?? "");
   const [reportStoreCodeInput, setReportStoreCodeInput] = useState("");
@@ -1953,9 +2020,11 @@ export function VehiclePageScreen({
     })();
   }, [tab]);
 
+  const reportSourceRows = useMemo(() => (cargoRows.length > 0 ? cargoRows : reportBaseRows), [cargoRows, reportBaseRows]);
+
   useEffect(() => {
     if (tab !== "report") return;
-    const carNos = [...new Set(cargoRows.map((row) => normalizeCarNo(row.car_no)).filter(Boolean))];
+    const carNos = [...new Set(reportSourceRows.map((row) => normalizeCarNo(row.car_no)).filter(Boolean))];
     if (carNos.length === 0) {
       driverFetchKeyRef.current = "";
       setDriverIndex(new Map());
@@ -1969,7 +2038,30 @@ export function VehiclePageScreen({
     void fetchDriverProfileIndex(carNos)
       .then((result) => setDriverIndex(result))
       .catch(() => setDriverIndex(new Map()));
-  }, [cargoRows, tab]);
+  }, [reportSourceRows, tab]);
+
+  useEffect(() => {
+    if (tab !== "report") return;
+    if (cargoRows.length > 0) {
+      setReportBaseRows([]);
+      return;
+    }
+
+    let cancelled = false;
+    void fetchReportBaseCargoRows()
+      .then((rows) => {
+        if (cancelled) return;
+        setReportBaseRows(rows);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setReportBaseRows([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cargoRows.length, tab]);
 
   useEffect(() => {
     if (tab !== "report") return;
@@ -2005,7 +2097,7 @@ export function VehiclePageScreen({
     return formatExportFileDate(baseDate);
   }, [productRows]);
 
-  const reportGroups = useMemo(() => buildReportGroups(cargoRows, driverIndex), [cargoRows, driverIndex]);
+  const reportGroups = useMemo(() => buildReportGroups(reportSourceRows, driverIndex), [reportSourceRows, driverIndex]);
   const adhesionDriverMap = useMemo(() => {
     const map = new Map<string, AdhesionDriverStat>();
     for (const row of adhesionSnapshot?.driverStats ?? []) {
@@ -3574,7 +3666,7 @@ export function VehiclePageScreen({
 
           {reportGroups.length === 0 ? (
             <div style={{ border: "1px solid #d6e4ee", borderRadius: 0, background: "#fff", padding: 18, color: "#6b7280" }}>
-              운행일보를 만들 데이터가 없습니다.
+              운행일보를 만들 데이터가 없습니다. 점포마스터의 호차/순번을 확인해 주세요.
             </div>
           ) : null}
 
