@@ -1873,6 +1873,7 @@ export function VehiclePageScreen({
   const [cargoQuery, setCargoQuery] = useState("");
   const [cargoStoreQueryInput, setCargoStoreQueryInput] = useState("");
   const [storeSearchQuery, setStoreSearchQuery] = useState("");
+  const [showSupportOnly, setShowSupportOnly] = useState(false);
   const [largeLimit, setLargeLimit] = useState("");
   const [smallLimit, setSmallLimit] = useState("");
   const [limitsMessage, setLimitsMessage] = useState("");
@@ -2241,6 +2242,7 @@ export function VehiclePageScreen({
     const carQ = normalizeStoreName(cargoQuery);
     const storeQ = normalizeStoreName(storeSearchQuery);
     let rows = cargoRows;
+    if (showSupportOnly) rows = rows.filter((row) => row.support_excluded);
     if (carQ) rows = rows.filter((row) => normalizeStoreName(row.car_no).includes(carQ));
     if (storeQ) rows = rows.filter((row) => normalizeStoreName(row.store_code).includes(storeQ) || normalizeStoreName(row.store_name).includes(storeQ));
 
@@ -2250,7 +2252,7 @@ export function VehiclePageScreen({
       if (a.seq_no !== b.seq_no) return a.seq_no - b.seq_no;
       return a.store_name.localeCompare(b.store_name, "ko");
     });
-  }, [cargoRows, cargoQuery, storeSearchQuery]);
+  }, [cargoRows, cargoQuery, storeSearchQuery, showSupportOnly]);
 
   const inputPageCount = Math.max(1, Math.ceil(filteredProductRows.length / INPUT_PAGE_SIZE));
 
@@ -3317,6 +3319,21 @@ export function VehiclePageScreen({
             >
               전체
             </button>
+            <button
+              onClick={() => setShowSupportOnly((v) => !v)}
+              style={{
+                height: 42,
+                padding: "0 18px",
+                borderRadius: 0,
+                border: `1px solid ${showSupportOnly ? "#7c3aed" : "#c7d6e3"}`,
+                background: showSupportOnly ? "#7c3aed" : "#fff",
+                color: showSupportOnly ? "#fff" : "#28485d",
+                fontWeight: 900,
+                cursor: "pointer",
+              }}
+            >
+              지원만 보기
+            </button>
             <input
               value={largeLimit}
               onChange={(event) => setLargeLimit(event.target.value.replace(/[^\d.]/g, ""))}
@@ -3381,7 +3398,7 @@ export function VehiclePageScreen({
               <div style={{ color: "#486274", fontSize: 13, fontWeight: 700 }}>{limitsMessage}</div>
             ) : null}
             <div style={{ color: "#486274", fontSize: 13, fontWeight: 700 }}>
-              {(cargoQuery || storeSearchQuery) ? `검색 결과 ${filteredCargoRows.length}건` : `전체 ${filteredCargoRows.length}건`}
+              {showSupportOnly ? `지원 ${filteredCargoRows.length}건` : (cargoQuery || storeSearchQuery) ? `검색 결과 ${filteredCargoRows.length}건` : `전체 ${filteredCargoRows.length}건`}
             </div>
           </div>
 
