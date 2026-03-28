@@ -95,16 +95,45 @@ export async function POST(req: Request) {
 
     if (upErr) throw upErr;
 
-    // ✅ 이번 업로드에 없는 구 점포 삭제
-    const newCodes = cleaned.map((r) => r.store_code);
-    const { count: deletedCount, error: delErr } = await supabase
+    // ✅ 이번 업로드에 없는 구 점포 삭제 (사진이 연결된 점포는 제외)
+    const newCodes = new Set(cleaned.map((r) => r.store_code));
+
+    // 현재 store_map에서 삭제 대상 코드 목록 조회
+    const { data: allExisting, error: listErr } = await supabase
       .from("store_map")
-      .delete({ count: "exact" })
-      .not("store_code", "in", `(${newCodes.join(",")})`);
+      .select("store_code");
+    if (listErr) throw listErr;
 
-    if (delErr) throw delErr;
+    const candidateCodes = (allExisting ?? [])
+      .map((r: any) => String(r.store_code))
+      .filter((c) => !newCodes.has(c));
 
-    return NextResponse.json({ ok: true, count: upsertRows.length, skippedNoCar, deleted: deletedCount ?? 0 });
+    let deletedCount = 0;
+    let skippedReferenced = 0;
+
+    if (candidateCodes.length > 0) {
+      // photos 테이블에서 참조 중인 코드 확인
+      const { data: refRows, error: refErr } = await supabase
+        .from("photos")
+        .select("store_code")
+        .in("store_code", candidateCodes);
+      if (refErr) throw refErr;
+
+      const referencedCodes = new Set((refRows ?? []).map((r: any) => String(r.store_code)));
+      const safeToDelete = candidateCodes.filter((c) => !referencedCodes.has(c));
+      skippedReferenced = candidateCodes.length - safeToDelete.length;
+
+      if (safeToDelete.length > 0) {
+        const { count, error: delErr } = await supabase
+          .from("store_map")
+          .delete({ count: "exact" })
+          .in("store_code", safeToDelete);
+        if (delErr) throw delErr;
+        deletedCount = count ?? 0;
+      }
+    }
+
+    return NextResponse.json({ ok: true, count: upsertRows.length, skippedNoCar, deleted: deletedCount, skippedReferenced });
   } catch (e: any) {
     return NextResponse.json({ ok: false, message: e?.message ?? String(e) }, { status: 500 });
   }
