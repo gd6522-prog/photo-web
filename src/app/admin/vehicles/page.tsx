@@ -288,7 +288,7 @@ async function getVehicleAdminToken() {
 
 async function fetchServerVehicleSnapshot() {
   const token = await getVehicleAdminToken();
-  const response = await fetch("/api/admin/vehicles/current?includeSnapshot=1&includeLimits=1&includeReportBase=1", {
+  const response = await fetch("/api/admin/vehicles/current?includeLimits=1&includeReportBase=1", {
     method: "GET",
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
@@ -302,17 +302,30 @@ async function fetchServerVehicleSnapshot() {
     snapshot?: VehicleSnapshot | null;
     limits?: VehicleLimitsSnapshot | null;
     reportBaseRows?: CargoRow[] | null;
+    validStoreCodes?: string[] | null;
   };
 
   if (!response.ok || !payload?.ok) {
     throw new Error(payload?.message || "서버 저장 데이터를 불러오지 못했습니다.");
   }
 
-  const snapshot =
+  // 스냅샷은 signed URL로 직접 다운로드 (서버 경유 없이)
+  let snapshot: VehicleSnapshot | null =
     payload.snapshot ??
     (payload.snapshotUrl
       ? ((await fetch(payload.snapshotUrl, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null))) as VehicleSnapshot | null)
       : null);
+
+  // store_map 유효 코드로 삭제된 점포 필터링 (클라이언트에서 처리)
+  if (snapshot?.cargoRows && Array.isArray(payload.validStoreCodes) && payload.validStoreCodes.length > 0) {
+    const validSet = new Set(payload.validStoreCodes);
+    snapshot = {
+      ...snapshot,
+      cargoRows: snapshot.cargoRows.filter(
+        (row) => !row.store_code || validSet.has(row.store_code.replace(/\D/g, "").padStart(5, "0").slice(0, 5))
+      ),
+    };
+  }
 
   const limits =
     payload.limits ??

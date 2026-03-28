@@ -602,18 +602,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    if (includeSnapshot && snapshot?.cargoRows) {
-      // store_map에 없는 점포를 cargoRows에서 제거 (점포마스터 갱신 반영)
-      const { data: storeMapCodes } = await guard.sbAdmin
-        .from("store_map")
-        .select("store_code");
-      const validCodes = new Set(
-        (storeMapCodes ?? []).map((r: any) => normalizeStoreCode(toText(r.store_code))).filter(Boolean)
-      );
-      snapshot.cargoRows = snapshot.cargoRows.filter(
-        (row) => !row.store_code || validCodes.has(normalizeStoreCode(toText(row.store_code)))
-      );
-    }
+    let validStoreCodes: string[] | null = null;
 
     if (includeReportBase) {
       const { data, error } = await guard.sbAdmin
@@ -636,9 +625,11 @@ export async function GET(req: NextRequest) {
           address: string;
         }>
       );
+      // store_map 유효 코드 목록 (클라이언트 필터링용)
+      validStoreCodes = (data ?? []).map((r: any) => normalizeStoreCode(toText(r.store_code))).filter(Boolean);
     }
 
-    return json(true, undefined, { snapshotUrl, limitsUrl, snapshot, limits, reportBaseRows });
+    return json(true, undefined, { snapshotUrl, limitsUrl, snapshot, limits, reportBaseRows, validStoreCodes });
   } catch (e) {
     return json(false, e instanceof Error ? e.message : String(e), null, 500);
   }
