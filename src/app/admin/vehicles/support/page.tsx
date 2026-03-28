@@ -567,9 +567,15 @@ export default function SupportPage() {
             {refreshing && <span style={{ color: "#0369a1", marginLeft: 10, fontSize: 12 }}>서버 동기화 중...</span>}
           </div>
         </div>
-        <button onClick={manualRefresh} disabled={refreshing} style={{ ...btnBase, background: refreshing ? "#e2e8f0" : "#f1f5f9", color: "#374151", border: "1px solid #cbd5e1", cursor: refreshing ? "not-allowed" : "pointer" }}>
-          {refreshing ? "동기화 중..." : "새로고침"}
-        </button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <Link href="/admin/vehicles/report?supportAuto=1"
+            style={{ ...btnBase, background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", color: "#fff", border: "1px solid #0e7490", textDecoration: "none" }}>
+            지원(자동) 운행일보 →
+          </Link>
+          <button onClick={manualRefresh} disabled={refreshing} style={{ ...btnBase, background: refreshing ? "#e2e8f0" : "#f1f5f9", color: "#374151", border: "1px solid #cbd5e1", cursor: refreshing ? "not-allowed" : "pointer" }}>
+            {refreshing ? "동기화 중..." : "새로고침"}
+          </button>
+        </div>
       </div>
 
       {supportRows.length === 0 && (
@@ -620,14 +626,6 @@ export default function SupportPage() {
                 <span style={{ fontSize: 13, color: "#6b7280", fontWeight: 700, marginLeft: 12 }}>
                   {rows.length}개 점포 · {carNos.join(", ")}호차
                 </span>
-              </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {carNos.map((carNo) => (
-                  <Link key={carNo} href={`/admin/vehicles/report?carNo=${encodeURIComponent(carNo)}`}
-                    style={{ ...btnBase, background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", color: "#fff", border: "1px solid #0e7490", textDecoration: "none" }}>
-                    {carNo}호차 운행일보 →
-                  </Link>
-                ))}
               </div>
             </div>
 

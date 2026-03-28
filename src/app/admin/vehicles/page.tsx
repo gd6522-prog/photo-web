@@ -1841,10 +1841,12 @@ export function VehiclePageScreen({
   initialTab = "input",
   allowedTabs = ["input", "cargo", "report"],
   initialCarNo,
+  initialSupportAuto,
 }: {
   initialTab?: VehicleTab;
   allowedTabs?: VehicleTab[];
   initialCarNo?: string;
+  initialSupportAuto?: boolean;
 }) {
   const INPUT_PAGE_SIZE = 50;
   const REPORT_PREVIEW_BASE_WIDTH = 1620;
@@ -1889,8 +1891,8 @@ export function VehiclePageScreen({
   const [reportCarNoInput, setReportCarNoInput] = useState(initialCarNo ?? "");
   const [selectedReportCarNo, setSelectedReportCarNo] = useState(initialCarNo ?? "");
   const [allDriverNames, setAllDriverNames] = useState<string[]>([]);
-  const [supportMode, setSupportMode] = useState(false);
-  const [supportAutoMode, setSupportAutoMode] = useState(false);
+  const [supportMode, setSupportMode] = useState(initialSupportAuto ?? false);
+  const [supportAutoMode, setSupportAutoMode] = useState(initialSupportAuto ?? false);
   const [supportDriverNameInput, setSupportDriverNameInput] = useState("");
   const [supportStoreNameInputs, setSupportStoreNameInputs] = useState<string[]>(() => Array.from({ length: 20 }, () => ""));
   const [supportRoundsMap, setSupportRoundsMap] = useState<Record<string, string>>({});
@@ -1985,6 +1987,21 @@ export function VehiclePageScreen({
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!initialSupportAuto || !storageReady) return;
+    setMessage("지원 자동: 기사명+회전별로 자동 출력합니다.");
+    void (async () => {
+      const ids = cargoRows.filter((r) => r.support_excluded).map((r) => r.id);
+      if (!ids.length) return;
+      const { data } = await supabase.from("support_rounds").select("row_id,round_no").in("row_id", ids);
+      if (data?.length) {
+        const map: Record<string, string> = {};
+        for (const d of data) map[d.row_id] = d.round_no ?? "";
+        setSupportRoundsMap(map);
+      }
+    })();
+  }, [initialSupportAuto, storageReady]);
 
   useEffect(() => {
     if (!storageReady) return;
