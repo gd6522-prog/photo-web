@@ -287,7 +287,7 @@ async function getVehicleAdminToken() {
 
 async function fetchServerVehicleSnapshot() {
   const token = await getVehicleAdminToken();
-  const response = await fetch("/api/admin/vehicles/current?includeSnapshot=1&includeLimits=1", {
+  const response = await fetch("/api/admin/vehicles/current?includeSnapshot=1&includeLimits=1&includeReportBase=1", {
     method: "GET",
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
@@ -300,6 +300,7 @@ async function fetchServerVehicleSnapshot() {
     limitsUrl?: string | null;
     snapshot?: VehicleSnapshot | null;
     limits?: VehicleLimitsSnapshot | null;
+    reportBaseRows?: CargoRow[] | null;
   };
 
   if (!response.ok || !payload?.ok) {
@@ -318,7 +319,11 @@ async function fetchServerVehicleSnapshot() {
       ? ((await fetch(payload.limitsUrl, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null))) as VehicleLimitsSnapshot | null)
       : null);
 
-  return { snapshot, limits };
+  return {
+    snapshot,
+    limits,
+    reportBaseRows: Array.isArray(payload.reportBaseRows) ? payload.reportBaseRows : [],
+  };
 }
 
 async function fetchVehicleAdhesionSnapshot() {
@@ -925,72 +930,6 @@ async function fetchStoreMapIndexByRows(rows: Array<Pick<ProductRow | CargoRow, 
   }
 
   return index;
-}
-
-type ReportBaseStoreRow = {
-  store_code: string | null;
-  store_name: string | null;
-  car_no: string | null;
-  seq_no: number | null;
-  delivery_due_time: string | null;
-  address: string | null;
-};
-
-async function fetchReportBaseCargoRows() {
-  const { data, error } = await supabase
-    .from("store_map")
-    .select("store_code, store_name, car_no, seq_no, delivery_due_time, address")
-    .not("car_no", "is", null)
-    .not("store_name", "is", null)
-    .order("car_no", { ascending: true })
-    .order("seq_no", { ascending: true })
-    .order("store_name", { ascending: true });
-
-  if (error) throw new Error("점포 마스터를 불러오지 못했습니다.");
-
-  const rows = (data ?? []) as ReportBaseStoreRow[];
-  const unique = new Map<string, CargoRow>();
-
-  for (const row of rows) {
-    const carNo = normalizeCarNo(row.car_no);
-    const storeName = toText(row.store_name);
-    if (!carNo || !storeName) continue;
-
-    const seqNo = toNumber(row.seq_no);
-    const key = `${carNo}__${seqNo}__${storeName}`;
-    if (unique.has(key)) continue;
-
-    unique.set(key, {
-      id: `base-${key}`,
-      support_excluded: false,
-      note: "",
-      car_no: carNo,
-      seq_no: seqNo,
-      store_code: toText(row.store_code),
-      store_name: storeName,
-      large_box: 0,
-      large_inner: 0,
-      large_other: 0,
-      large_day2l: 0,
-      large_nb2l: 0,
-      small_low: 0,
-      small_high: 0,
-      event: 0,
-      tobacco: 0,
-      certificate: 0,
-      cdc: 0,
-      pbox: 0,
-      standard_time: toText(row.delivery_due_time),
-      address: toText(row.address),
-    });
-  }
-
-  return [...unique.values()].sort((a, b) => {
-    const carDiff = a.car_no.localeCompare(b.car_no, "ko", { numeric: true });
-    if (carDiff !== 0) return carDiff;
-    if (a.seq_no !== b.seq_no) return a.seq_no - b.seq_no;
-    return a.store_name.localeCompare(b.store_name, "ko");
-  });
 }
 
 const REPORT_SECTION_BORDER = "3px solid #111";
@@ -1912,6 +1851,7 @@ export function VehiclePageScreen({
         });
         if (serverSaved) {
           serverSyncEnabledRef.current = true;
+          setReportBaseRows(Array.isArray(serverSaved.reportBaseRows) ? serverSaved.reportBaseRows : []);
         }
 
         if (serverSaved?.snapshot) {
@@ -2041,29 +1981,6 @@ export function VehiclePageScreen({
       .then((result) => setDriverIndex(result))
       .catch(() => setDriverIndex(new Map()));
   }, [reportSourceRows, tab]);
-
-  useEffect(() => {
-    if (tab !== "report") return;
-    if (cargoRows.length > 0) {
-      setReportBaseRows([]);
-      return;
-    }
-
-    let cancelled = false;
-    void fetchReportBaseCargoRows()
-      .then((rows) => {
-        if (cancelled) return;
-        setReportBaseRows(rows);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setReportBaseRows([]);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [cargoRows.length, tab]);
 
   useEffect(() => {
     if (tab !== "report") return;

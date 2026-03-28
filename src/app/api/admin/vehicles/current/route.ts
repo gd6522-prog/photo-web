@@ -73,6 +73,58 @@ type CargoRow = {
   address: string;
 };
 
+function buildReportBaseCargoRows(rows: Array<{
+  store_code: string;
+  store_name: string;
+  car_no: string;
+  seq_no: number;
+  delivery_due_time: string;
+  address: string;
+}>) {
+  const unique = new Map<string, CargoRow>();
+
+  for (const row of rows) {
+    const carNo = toText(row.car_no);
+    const storeName = toText(row.store_name);
+    if (!carNo || !storeName) continue;
+
+    const seqNo = toNumber(row.seq_no);
+    const key = `${carNo}__${seqNo}__${storeName}`;
+    if (unique.has(key)) continue;
+
+    unique.set(key, {
+      id: `base-${key}`,
+      support_excluded: false,
+      note: "",
+      car_no: carNo,
+      seq_no: seqNo,
+      store_code: toText(row.store_code),
+      store_name: storeName,
+      large_box: 0,
+      large_inner: 0,
+      large_other: 0,
+      large_day2l: 0,
+      large_nb2l: 0,
+      small_low: 0,
+      small_high: 0,
+      event: 0,
+      tobacco: 0,
+      certificate: 0,
+      cdc: 0,
+      pbox: 0,
+      standard_time: toText(row.delivery_due_time),
+      address: toText(row.address),
+    });
+  }
+
+  return [...unique.values()].sort((a, b) => {
+    const carDiff = a.car_no.localeCompare(b.car_no, "ko", { numeric: true });
+    if (carDiff !== 0) return carDiff;
+    if (a.seq_no !== b.seq_no) return a.seq_no - b.seq_no;
+    return a.store_name.localeCompare(b.store_name, "ko");
+  });
+}
+
 type StoreMapMatch = {
   store_code: string;
   car_no: string;
@@ -522,11 +574,13 @@ export async function GET(req: NextRequest) {
   try {
     const includeSnapshot = req.nextUrl.searchParams.get("includeSnapshot") === "1";
     const includeLimits = req.nextUrl.searchParams.get("includeLimits") === "1";
+    const includeReportBase = req.nextUrl.searchParams.get("includeReportBase") === "1";
     const names = await getCurrentObjectNames(guard.sbAdmin);
     let snapshotUrl: string | null = null;
     let limitsUrl: string | null = null;
     let snapshot: VehicleSnapshot | null = null;
     let limits: VehicleLimitsSnapshot | null = null;
+    let reportBaseRows: CargoRow[] = [];
 
     if (names.has("latest.json")) {
       if (includeSnapshot) {
@@ -548,7 +602,30 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return json(true, undefined, { snapshotUrl, limitsUrl, snapshot, limits });
+    if (includeReportBase) {
+      const { data, error } = await guard.sbAdmin
+        .from("store_map")
+        .select("store_code, store_name, car_no, seq_no, delivery_due_time, address")
+        .not("car_no", "is", null)
+        .not("store_name", "is", null)
+        .order("car_no", { ascending: true })
+        .order("seq_no", { ascending: true })
+        .order("store_name", { ascending: true });
+
+      if (error) throw new Error(error.message);
+      reportBaseRows = buildReportBaseCargoRows(
+        (data ?? []) as Array<{
+          store_code: string;
+          store_name: string;
+          car_no: string;
+          seq_no: number;
+          delivery_due_time: string;
+          address: string;
+        }>
+      );
+    }
+
+    return json(true, undefined, { snapshotUrl, limitsUrl, snapshot, limits, reportBaseRows });
   } catch (e) {
     return json(false, e instanceof Error ? e.message : String(e), null, 500);
   }
