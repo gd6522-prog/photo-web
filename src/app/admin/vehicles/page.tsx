@@ -1851,6 +1851,8 @@ export function VehiclePageScreen({
   const [storeQuery, setStoreQuery] = useState("");
   const [cargoQueryInput, setCargoQueryInput] = useState("");
   const [cargoQuery, setCargoQuery] = useState("");
+  const [storeQueryInput, setStoreQueryInput] = useState("");
+  const [storeSearchQuery, setStoreSearchQuery] = useState("");
   const [largeLimit, setLargeLimit] = useState("");
   const [smallLimit, setSmallLimit] = useState("");
   const [limitsMessage, setLimitsMessage] = useState("");
@@ -2231,10 +2233,11 @@ export function VehiclePageScreen({
   }, [productRows, storeQuery]);
 
   const filteredCargoRows = useMemo(() => {
-    const query = normalizeStoreName(cargoQuery);
-    const rows = query
-      ? cargoRows.filter((row) => normalizeStoreName(row.car_no).includes(query))
-      : cargoRows;
+    const carQ = normalizeStoreName(cargoQuery);
+    const storeQ = normalizeStoreName(storeSearchQuery);
+    let rows = cargoRows;
+    if (carQ) rows = rows.filter((row) => normalizeStoreName(row.car_no).includes(carQ));
+    if (storeQ) rows = rows.filter((row) => normalizeStoreName(row.store_code).includes(storeQ) || normalizeStoreName(row.store_name).includes(storeQ));
 
     return [...rows].sort((a, b) => {
       const carDiff = a.car_no.localeCompare(b.car_no, "ko", { numeric: true });
@@ -2242,7 +2245,7 @@ export function VehiclePageScreen({
       if (a.seq_no !== b.seq_no) return a.seq_no - b.seq_no;
       return a.store_name.localeCompare(b.store_name, "ko");
     });
-  }, [cargoRows, cargoQuery]);
+  }, [cargoRows, cargoQuery, storeSearchQuery]);
 
   const inputPageCount = Math.max(1, Math.ceil(filteredProductRows.length / INPUT_PAGE_SIZE));
 
@@ -3255,10 +3258,46 @@ export function VehiclePageScreen({
             >
               조회
             </button>
+            <input
+              value={storeQueryInput}
+              onChange={(e) => setStoreQueryInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                e.preventDefault();
+                setStoreSearchQuery(storeQueryInput);
+              }}
+              placeholder="점포코드/점포명 검색"
+              style={{
+                width: 220,
+                height: 42,
+                borderRadius: 0,
+                border: "1px solid #c7d6e3",
+                padding: "0 14px",
+                outline: "none",
+                background: "#fff",
+              }}
+            />
+            <button
+              onClick={() => setStoreSearchQuery(storeQueryInput)}
+              style={{
+                height: 42,
+                padding: "0 18px",
+                borderRadius: 0,
+                border: "1px solid #113247",
+                background: "#113247",
+                color: "#fff",
+                fontWeight: 900,
+                cursor: "pointer",
+              }}
+            >
+              조회
+            </button>
             <button
               onClick={() => {
                 setCargoQueryInput("");
                 setCargoQuery("");
+                setStoreQueryInput("");
+                setStoreSearchQuery("");
               }}
               style={{
                 height: 42,
@@ -3337,7 +3376,7 @@ export function VehiclePageScreen({
               <div style={{ color: "#486274", fontSize: 13, fontWeight: 700 }}>{limitsMessage}</div>
             ) : null}
             <div style={{ color: "#486274", fontSize: 13, fontWeight: 700 }}>
-              {cargoQuery ? `호차 검색 결과 ${filteredCargoRows.length}건` : `전체 ${filteredCargoRows.length}건`}
+              {(cargoQuery || storeSearchQuery) ? `검색 결과 ${filteredCargoRows.length}건` : `전체 ${filteredCargoRows.length}건`}
             </div>
           </div>
 
