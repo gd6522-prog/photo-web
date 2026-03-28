@@ -107,19 +107,29 @@ async function parseCdcWorkbook(file: File) {
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, blankrows: false }) as unknown[][];
   if (!rows.length) throw new Error("CDC 파일 데이터가 없습니다.");
 
-  const headers = (rows[0] ?? []).map((cell) => normalizeHeader(cell));
-  const idxCarNo = findHeaderIndex(headers, ["호차", "차량", "차량번호", "호차번호"]);
-  const idxStoreCode = findHeaderIndex(headers, ["배송거래처코드", "점포코드"]);
-  const idxStoreName = findHeaderIndex(headers, ["배송거래처명", "점포명"]);
-  const idxBoxNo = findHeaderIndex(headers, ["박스번호", "boxno"]);
+  // 상단에 제목행이 있을 수 있으므로 실제 헤더 행을 스캔해서 찾음
+  let headerRowIdx = -1;
+  let idxCarNo = -1, idxStoreCode = -1, idxStoreName = -1, idxBoxNo = -1;
+  for (let i = 0; i < Math.min(rows.length, 10); i++) {
+    const h = (rows[i] ?? []).map((cell) => normalizeHeader(cell));
+    const c = findHeaderIndex(h, ["호차", "차량", "차량번호", "호차번호"]);
+    const sc = findHeaderIndex(h, ["배송거래처코드", "점포코드"]);
+    const sn = findHeaderIndex(h, ["배송거래처명", "점포명"]);
+    const bn = findHeaderIndex(h, ["박스번호", "boxno"]);
+    if (c >= 0 && sc >= 0 && sn >= 0 && bn >= 0) {
+      headerRowIdx = i;
+      idxCarNo = c; idxStoreCode = sc; idxStoreName = sn; idxBoxNo = bn;
+      break;
+    }
+  }
 
-  if (idxCarNo < 0 || idxStoreCode < 0 || idxStoreName < 0 || idxBoxNo < 0) {
+  if (headerRowIdx < 0) {
     throw new Error("CDC 파일에서 호차, 점포코드, 점포명, 박스번호 컬럼을 찾지 못했습니다.");
   }
 
   const map = new Map<string, CdcRow>();
 
-  for (const row of rows.slice(1)) {
+  for (const row of rows.slice(headerRowIdx + 1)) {
     const carNo = String(row[idxCarNo] ?? "").trim();
     const storeCode = String(row[idxStoreCode] ?? "").trim();
     const storeName = String(row[idxStoreName] ?? "").trim();
@@ -152,12 +162,17 @@ async function parseCdcWorkbookWithMeta(file: File) {
     return { rows, deliveryDate: "" };
   }
 
-  const headers = (values[0] ?? []).map((cell) => normalizeHeader(cell));
-  const idxDeliveryDate = findHeaderIndex(headers, ["납품예정일"]);
+  let idxDeliveryDate = -1;
+  let deliveryHeaderRow = -1;
+  for (let i = 0; i < Math.min(values.length, 10); i++) {
+    const h = (values[i] ?? []).map((cell) => normalizeHeader(cell));
+    const idx = findHeaderIndex(h, ["납품예정일"]);
+    if (idx >= 0) { idxDeliveryDate = idx; deliveryHeaderRow = i; break; }
+  }
   let deliveryDate = "";
 
   if (idxDeliveryDate >= 0) {
-    for (const row of values.slice(1)) {
+    for (const row of values.slice(deliveryHeaderRow + 1)) {
       deliveryDate = formatDeliveryDate(row[idxDeliveryDate]);
       if (deliveryDate) break;
     }
