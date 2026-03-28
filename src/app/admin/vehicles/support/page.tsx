@@ -211,16 +211,13 @@ function StoreNoticeCardMulti({
         {groups.map((group, gi) => (
           <div key={gi} style={{ display: "flex", gap: 12, alignItems: "stretch", background: "#f0f9ff", borderRadius: 10, padding: "12px 14px" }}>
             {/* 왼쪽: 점포 목록 */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 5, minWidth: 160 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "max-content max-content 1fr", columnGap: 8, rowGap: 4, alignItems: "center" }}>
               {group.rows.map((row) => (
-                <div key={row.id}>
-                  <div style={{ fontSize: 14, fontWeight: 950, color: "#1e3a5f", letterSpacing: -0.3 }}>
-                    <span style={{ color: "#0369a1" }}>{normalizeCarNo(row.car_no)}호차</span>
-                    <span style={{ color: "#6b7280", margin: "0 4px", fontWeight: 700 }}>·</span>
-                    <span style={{ color: "#7c3aed" }}>{row.seq_no}번</span>
-                    <span style={{ color: "#374151", marginLeft: 6, fontSize: 13 }}>{row.store_name}</span>
-                  </div>
-                </div>
+                <React.Fragment key={row.id}>
+                  <span style={{ fontSize: 13, fontWeight: 900, color: "#111827", whiteSpace: "nowrap" }}>{normalizeCarNo(row.car_no)}호차</span>
+                  <span style={{ fontSize: 13, fontWeight: 900, color: "#111827", whiteSpace: "nowrap", textAlign: "right" }}>{row.seq_no}번</span>
+                  <span style={{ fontSize: 13, fontWeight: 900, color: "#111827", whiteSpace: "nowrap" }}>{row.store_name}</span>
+                </React.Fragment>
               ))}
             </div>
             {/* 구분선 */}
