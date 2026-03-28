@@ -6,7 +6,6 @@ export const runtime = "nodejs";
 
 const BUCKET = "vehicle-data";
 const PATHS = [
-  "current/cdc.json",
   "current/adhesion.json",
   "current/latest.json",
 ];
