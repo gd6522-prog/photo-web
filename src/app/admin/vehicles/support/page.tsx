@@ -440,6 +440,20 @@ export default function SupportPage() {
     await supabase.from("support_rounds").upsert({ row_id: rowId, round_no: roundNo, updated_at: new Date().toISOString() }, { onConflict: "row_id" });
   }
 
+  async function loadNotices(rows: CargoRow[]) {
+    const ids = rows.filter((r) => r.support_excluded).map((r) => r.id);
+    if (!ids.length) return;
+    const { data } = await supabase.from("support_notices").select("row_id,notice").in("row_id", ids);
+    if (!data?.length) return;
+    const map: Record<string, string> = {};
+    for (const d of data) map[d.row_id] = d.notice ?? "";
+    setNoticeInputs(map);
+  }
+
+  async function saveNotice(rowId: string, notice: string) {
+    await supabase.from("support_notices").upsert({ row_id: rowId, notice, updated_at: new Date().toISOString() }, { onConflict: "row_id" });
+  }
+
   useEffect(() => {
     void (async () => {
       const local = await readLocalSnapshot();
@@ -449,6 +463,7 @@ export default function SupportPage() {
         setLoading(false);
         void loadIndexes(local.cargoRows);
         void loadRounds(local.cargoRows);
+        void loadNotices(local.cargoRows);
         setRefreshing(true);
         const server = await fetchServerSnapshot();
         setRefreshing(false);
@@ -457,6 +472,7 @@ export default function SupportPage() {
           setDeliveryDate(server.deliveryDate);
           void loadIndexes(server.cargoRows);
           void loadRounds(server.cargoRows);
+          void loadNotices(server.cargoRows);
         }
         return;
       }
@@ -467,6 +483,7 @@ export default function SupportPage() {
         setDeliveryDate(server.deliveryDate);
         void loadIndexes(server.cargoRows);
         void loadRounds(server.cargoRows);
+        void loadNotices(server.cargoRows);
       } catch (e) {
         setError((e as Error)?.message ?? "오류가 발생했습니다.");
       } finally {
@@ -484,6 +501,7 @@ export default function SupportPage() {
         setDeliveryDate(server.deliveryDate);
         void loadIndexes(server.cargoRows);
         void loadRounds(server.cargoRows);
+        void loadNotices(server.cargoRows);
       } else {
         setCargoRows([]);
         setDeliveryDate("");
@@ -661,7 +679,11 @@ export default function SupportPage() {
                       <div style={{ fontSize: 10, color: "#6b7280", fontWeight: 700 }}>공지 내용</div>
                       <textarea
                         value={noticeVal}
-                        onChange={(e) => setNoticeInputs((prev) => ({ ...prev, [row.id]: e.target.value }))}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setNoticeInputs((prev) => ({ ...prev, [row.id]: v }));
+                          void saveNotice(row.id, v);
+                        }}
                         placeholder="선작업/이동점포 공지 내용"
                         rows={3}
                         style={{ width: 200, padding: "6px 10px", fontSize: 12, fontWeight: 700, border: noticeVal ? "2px solid #059669" : "1px solid #c7d6e3", borderRadius: 6, outline: "none", resize: "vertical", background: noticeVal ? "#f0fdf4" : "#fafafa", color: "#111827", fontFamily: "inherit" }}
