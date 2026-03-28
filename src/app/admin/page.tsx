@@ -1025,7 +1025,7 @@ function WeatherCard() {
                 <div
                   style={{
                     minWidth: 104,
-                    borderRadius: 0,
+                    borderRadius: 14,
                     border: `1px solid ${feelsLikeStatus.borderColor}`,
                     background: feelsLikeStatus.background,
                     boxShadow: feelsLikeStatus.boxShadow,
@@ -2038,7 +2038,7 @@ export default function AdminHomePage() {
                           style={{
                             width: 38,
                             height: 38,
-                            borderRadius: 4,
+                            borderRadius: 999,
                             background: isSelected ? "linear-gradient(135deg,#103b53 0%,#0f766e 100%)" : "transparent",
                             color: isSelected ? "white" : !c.inCurrentMonth ? "#C3CAD5" : isSun || isHoliday ? "#EF4444" : "#113247",
                             display: "flex",
@@ -2061,7 +2061,7 @@ export default function AdminHomePage() {
                                 minWidth: 18,
                                 height: 18,
                                 padding: "0 5px",
-                                borderRadius: 4,
+                                borderRadius: 999,
                                 background: isSelected ? "white" : badgeBg,
                                 color: mixedBadge ? "#6B7280" : CALENDAR_EVENT_TYPE_BADGE[dominantType].text,
                                 border: `1px solid ${badgeBorder}`,
