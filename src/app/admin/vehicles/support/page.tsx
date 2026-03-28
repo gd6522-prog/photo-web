@@ -479,9 +479,24 @@ export default function SupportPage() {
     setRefreshing(true);
     try {
       const server = await fetchServerSnapshot();
-      if (server) { setCargoRows(server.cargoRows); setDeliveryDate(server.deliveryDate); void loadIndexes(server.cargoRows); }
+      if (server) {
+        setCargoRows(server.cargoRows);
+        setDeliveryDate(server.deliveryDate);
+        void loadIndexes(server.cargoRows);
+        void loadRounds(server.cargoRows);
+      } else {
+        setCargoRows([]);
+        setDeliveryDate("");
+      }
     } finally { setRefreshing(false); }
   };
+
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === "visible") void manualRefresh(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const copyImage = async (key: string, ref: React.RefObject<HTMLDivElement | null>) => {
     const el = ref.current;
