@@ -89,6 +89,16 @@ function kstTodayYYYYMMDD() {
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   return `${kst.getUTCFullYear()}-${pad2(kst.getUTCMonth() + 1)}-${pad2(kst.getUTCDate())}`;
 }
+function kstCurrentMonthRange() {
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const year = kst.getUTCFullYear();
+  const month = kst.getUTCMonth() + 1;
+  const firstDay = `${year}-${pad2(month)}-01`;
+  const lastDayDate = new Date(Date.UTC(year, month, 0));
+  const lastDay = `${lastDayDate.getUTCFullYear()}-${pad2(lastDayDate.getUTCMonth() + 1)}-${pad2(lastDayDate.getUTCDate())}`;
+  return { firstDay, lastDay };
+}
 function kstAddDaysYYYYMMDD(baseYYYYMMDD: string, days: number) {
   const base = new Date(`${baseYYYYMMDD}T00:00:00+09:00`);
   const shifted = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
@@ -861,7 +871,8 @@ export default function AdminDeliveryPhotosPage() {
                     onClick={() => {
                       setDriverCategory(c);
                       if (c !== "miochul") setMiochulFlags({ redelivery: false, damage: false, other: false });
-                      if (c === "bottle" || c === "tobacco" || c === "wash") { setDateFrom(today); setDateTo(today); }
+                      if (c === "bottle" || c === "tobacco") { setDateFrom(today); setDateTo(today); }
+                      if (c === "wash") { const { firstDay, lastDay } = kstCurrentMonthRange(); setDateFrom(firstDay); setDateTo(lastDay); }
                       if (c === "miochul") { setDateFrom(defaultDateFrom); setDateTo(today); }
                       setCarNo("ALL");
                       setSearchText("");
