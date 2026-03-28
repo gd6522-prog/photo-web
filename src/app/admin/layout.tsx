@@ -77,6 +77,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [workLogOpen, setWorkLogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [operationOpen, setOperationOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const guardBootstrappedRef = useRef(false);
@@ -97,7 +98,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const VEHICLE_ITEMS = useMemo(
     () => [
-      { label: "단품별/물동량", href: "/admin/vehicles" },
+      { label: "물동량", href: "/admin/vehicles" },
       { label: "운행일보", href: "/admin/vehicles/report" },
       { label: "지원", href: "/admin/vehicles/support" },
       { label: "점착", href: "/admin/vehicles/adhesion" },
@@ -147,6 +148,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     setNoticeOpen(false);
     setWorkLogOpen(false);
     setSettingsOpen(false);
+    setOperationOpen(false);
   };
 
   const redirectToLogin = (reason?: "timeout") => {
@@ -154,42 +156,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     window.location.replace(next);
   };
 
-  const openDropdown = (which: "photos" | "vehicle" | "notice" | "worklog" | "settings") => {
+  const openDropdown = (which: "photos" | "vehicle" | "notice" | "worklog" | "settings" | "operation") => {
     clearCloseTimer();
-    if (which === "photos") {
-      setPhotosOpen(true);
-      setVehicleOpen(false);
-      setNoticeOpen(false);
-      setWorkLogOpen(false);
-      setSettingsOpen(false);
-    } else if (which === "vehicle") {
-      setPhotosOpen(false);
-      setVehicleOpen(true);
-      setNoticeOpen(false);
-      setWorkLogOpen(false);
-      setSettingsOpen(false);
-    } else if (which === "notice") {
-      setPhotosOpen(false);
-      setVehicleOpen(false);
-      setNoticeOpen(true);
-      setWorkLogOpen(false);
-      setSettingsOpen(false);
-    } else if (which === "worklog") {
-      setPhotosOpen(false);
-      setVehicleOpen(false);
-      setNoticeOpen(false);
-      setWorkLogOpen(true);
-      setSettingsOpen(false);
-    } else {
-      setPhotosOpen(false);
-      setVehicleOpen(false);
-      setNoticeOpen(false);
-      setWorkLogOpen(false);
-      setSettingsOpen(true);
-    }
+    setPhotosOpen(which === "photos");
+    setVehicleOpen(which === "vehicle");
+    setNoticeOpen(which === "notice");
+    setWorkLogOpen(which === "worklog");
+    setSettingsOpen(which === "settings");
+    setOperationOpen(which === "operation");
   };
 
-  const closeDropdownDelayed = (which: "photos" | "vehicle" | "notice" | "worklog" | "settings") => {
+  const closeDropdownDelayed = (which: "photos" | "vehicle" | "notice" | "worklog" | "settings" | "operation") => {
     clearCloseTimer();
     closeTimer.current = setTimeout(() => {
       if (which === "photos") setPhotosOpen(false);
@@ -197,6 +174,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       if (which === "notice") setNoticeOpen(false);
       if (which === "worklog") setWorkLogOpen(false);
       if (which === "settings") setSettingsOpen(false);
+      if (which === "operation") setOperationOpen(false);
     }, 180);
   };
 
@@ -271,6 +249,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // 공지 라우트 포함
   const isNoticeActive = pathname.startsWith("/admin/notice");
   const isVehicleActive = pathname.startsWith("/admin/vehicles");
+  const isOperationActive = pathname.startsWith("/admin/operation");
   const isWorkLogActive = pathname.startsWith("/admin/work-log");
   const isSettingsActive = pathname.startsWith("/admin/settings");
 
@@ -568,6 +547,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       </div>
                     )}
                   </div>
+                ) : null}
+
+                {canShowVehicle ? (
+                  <Link href="/admin/operation" style={pillStyle(isOperationActive)}>
+                    운영
+                  </Link>
                 ) : null}
 
                 {canShowVehicle ? (
