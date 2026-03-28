@@ -3833,7 +3833,7 @@ export function VehiclePageScreen({
                           borderBottom: "1px solid #666",
                           borderLeft: headerIndex === 0 || headerIndex === 6 ? REPORT_SECTION_BORDER : "1px solid #666",
                           borderRight: headerIndex === 0 || headerIndex === 6 || headerIndex === 8 ? REPORT_SECTION_BORDER : "1px solid #666",
-                          ...getReportMainCellWidth(colIdx),
+                          ...getReportMainCellWidth(supportMode && colIdx === 20 ? 22 : supportMode && colIdx === 22 ? 20 : colIdx),
                         }}
                       >
                         {header === "올데이 2L생수" ? (
@@ -3903,8 +3903,8 @@ export function VehiclePageScreen({
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: 16, fontWeight: 900, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(17) }}>{row.standard_time || ""}</td>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", verticalAlign: "middle", color: reportRowColor, background: reportRowBackground, ...getAddressTextStyle(row.address || ""), ...getReportMainCellWidth(18) }}>{row.address || ""}</td>
                         <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", whiteSpace: "nowrap", fontSize: 13, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(19) }}>{row.store_name ? formatPhone(storeContactIndex.get(row.store_name) ?? "") : ""}</td>
-                        <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "5px 4px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: 13, fontWeight: 900, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(20) }}>{row.store_name ? (supportMode ? (row.car_no || "") : (storeAdhesion?.postGrade || "")) : ""}</td>
-                        <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: 13, fontWeight: row.support_excluded ? 900 : 400, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(22) }}>{row.store_name ? (supportMode ? (row.seq_no ? String(row.seq_no) : "") : (storeAdhesion?.category || "")) : ""}</td>
+                        <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "5px 4px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: 13, fontWeight: 900, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(supportMode ? 22 : 20) }}>{row.store_name ? (supportMode ? (row.car_no || "") : (storeAdhesion?.postGrade || "")) : ""}</td>
+                        <td style={{ border: "1px solid #666", height: REPORT_BODY_ROW_HEIGHT, minHeight: REPORT_BODY_ROW_HEIGHT, maxHeight: REPORT_BODY_ROW_HEIGHT, padding: "6px 5px", textAlign: "center", verticalAlign: "middle", overflow: "hidden", fontSize: 13, fontWeight: row.support_excluded ? 900 : 400, color: reportRowColor, background: reportRowBackground, ...getReportMainCellWidth(supportMode ? 20 : 22) }}>{row.store_name ? (supportMode ? (row.seq_no ? String(row.seq_no) : "") : (storeAdhesion?.category || "")) : ""}</td>
                       </tr>
                     );
                   })}
@@ -3929,8 +3929,8 @@ export function VehiclePageScreen({
                     <td style={{ border: "1px solid #666", padding: "6px 4px", ...getReportMainCellWidth(17) }}></td>
                     <td style={{ border: "1px solid #666", padding: "6px 4px", ...getReportMainCellWidth(18) }}></td>
                     <td style={{ border: "1px solid #666", padding: "6px 4px", ...getReportMainCellWidth(19) }}></td>
-                    <td style={{ border: "1px solid #666", padding: "6px 4px", ...getReportMainCellWidth(20) }}></td>
-                    <td style={{ border: "1px solid #666", padding: "6px 4px", ...getReportMainCellWidth(22) }}></td>
+                    <td style={{ border: "1px solid #666", padding: "6px 4px", ...getReportMainCellWidth(supportMode ? 22 : 20) }}></td>
+                    <td style={{ border: "1px solid #666", padding: "6px 4px", ...getReportMainCellWidth(supportMode ? 20 : 22) }}></td>
                   </tr>
                 </tbody>
               </table>
