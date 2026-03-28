@@ -2166,23 +2166,23 @@ export function VehiclePageScreen({
   };
   const activeReportGroup = (supportMode && supportAutoMode ? supportReportGroups[0] : supportMode ? supportReportGroup : null) ?? selectedReportGroup;
   const visibleReportGroups = useMemo(() => {
+    // 당일/전일/익일/전체 출력은 지원모드 무관하게 무조건 일반 출력
+    if (batchPrintMode) {
+      if (batchPrintMode === "all") return reportGroups;
+      const hasUploadedCdcFile = Boolean(cdcSnapshot?.fileName);
+      return reportGroups.filter((group) => {
+        const carNo = parseCarNoNumber(group.carNo);
+        const deliveryType = normalizeDeliveryType(group.driver?.delivery_type);
+        if (deliveryType) {
+          if (batchPrintMode === "today") return deliveryType === "당일";
+          if (batchPrintMode === "previous") return deliveryType === "전일";
+          if (batchPrintMode === "next") return deliveryType === "익일";
+        }
+        return getLegacyBatchPrintMatch(batchPrintMode, carNo, hasUploadedCdcFile);
+      });
+    }
     if (supportMode && supportAutoMode) return supportReportGroups;
-    if (!batchPrintMode) return activeReportGroup ? [activeReportGroup] : [];
-    if (batchPrintMode === "all") return reportGroups;
-    const hasUploadedCdcFile = Boolean(cdcSnapshot?.fileName);
-
-    return reportGroups.filter((group) => {
-      const carNo = parseCarNoNumber(group.carNo);
-      const deliveryType = normalizeDeliveryType(group.driver?.delivery_type);
-
-      if (deliveryType) {
-        if (batchPrintMode === "today") return deliveryType === "당일";
-        if (batchPrintMode === "previous") return deliveryType === "전일";
-        if (batchPrintMode === "next") return deliveryType === "익일";
-      }
-
-      return getLegacyBatchPrintMatch(batchPrintMode, carNo, hasUploadedCdcFile);
-    });
+    return activeReportGroup ? [activeReportGroup] : [];
   }, [supportMode, supportAutoMode, supportReportGroups, activeReportGroup, batchPrintMode, reportGroups, cdcSnapshot?.fileName]);
 
   useEffect(() => {
