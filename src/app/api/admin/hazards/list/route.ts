@@ -55,63 +55,64 @@ export async function GET(req: NextRequest) {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  // Phase 1: 페이지 데이터와 카운트 병렬 조회
-  const [reportsResult, countsResult] = await Promise.all([
-    guard.sbAdmin
-      .from("hazard_reports")
-      .select("id,user_id,comment,photo_path,photo_url,created_at,sort_key", { count: "exact" })
-      .order("sort_key", { ascending: true })
-      .order("created_at", { ascending: false })
-      .range(from, to),
-    includeSummary
-      ? guard.sbAdmin
-          .from("hazard_reports")
-          .select("id, sort_key")
-      : Promise.resolve({ data: null, error: null }),
-  ]);
+  // Phase 1: 전체 보고서 조회 (앱 레벨에서 유효 sort_key 계산 후 정렬)
+  const allReportsResult = await guard.sbAdmin
+    .from("hazard_reports")
+    .select("id,user_id,comment,photo_path,photo_url,created_at,sort_key")
+    .order("created_at", { ascending: false });
 
-  if (reportsResult.error) return json(false, reportsResult.error.message, null, 500);
+  if (allReportsResult.error) return json(false, allReportsResult.error.message, null, 500);
 
-  const reports = (reportsResult.data ?? []) as ReportRow[];
-  const totalCount = reportsResult.count ?? 0;
+  const allReports = (allReportsResult.data ?? []) as ReportRow[];
+  const today = new Date().toISOString().slice(0, 10);
+
+  // sort_key=1(처리대기) 항목의 최신 resolution 조회 → 만료 여부 판단
+  const pendingIds = allReports.filter((r) => r.sort_key === 1).map((r) => r.id);
+  type ShortRes = { report_id: string; planned_due_date: string | null; improved_at: string | null };
+  const latestResMap = new Map<string, ShortRes>();
+  if (pendingIds.length > 0) {
+    const { data: resData } = await guard.sbAdmin
+      .from("hazard_report_resolutions")
+      .select("report_id, planned_due_date, improved_at")
+      .in("report_id", pendingIds);
+    for (const res of (resData ?? []) as ShortRes[]) {
+      const ex = latestResMap.get(res.report_id);
+      if (!ex || (res.improved_at ?? "") >= (ex.improved_at ?? "")) {
+        latestResMap.set(res.report_id, res);
+      }
+    }
+  }
+
+  function effectiveSortKey(r: ReportRow): number {
+    if (r.sort_key === 2) return 2;
+    if (r.sort_key === 1) {
+      const res = latestResMap.get(r.id);
+      if (res?.planned_due_date && res.planned_due_date >= today) return 1;
+      return 0; // 기간 만료 → 미처리
+    }
+    return 0;
+  }
+
+  // 유효 sort_key 오름차순, 동일하면 created_at 내림차순
+  const sorted = [...allReports].sort((a, b) => {
+    const diff = effectiveSortKey(a) - effectiveSortKey(b);
+    if (diff !== 0) return diff;
+    return b.created_at.localeCompare(a.created_at);
+  });
+
+  const totalCount = sorted.length;
+  const reports = sorted.slice(from, to + 1);
   const reportIds = reports.map((r) => r.id);
   const creatorIds = Array.from(new Set(reports.map((r) => r.user_id)));
 
-  // 요약 카운트 집계 (날짜 기준 재분류: 기간 만료된 처리대기 → 미처리)
+  // 요약 카운트 집계
   let unresolvedTotalCount: number | null = null;
   let pendingTotalCount: number | null = null;
   let resolvedTotalCount: number | null = null;
-  if (includeSummary && countsResult.data) {
-    const today = new Date().toISOString().slice(0, 10);
-    const allRows = countsResult.data as { id: string; sort_key: number }[];
-    resolvedTotalCount = allRows.filter((r) => r.sort_key === 2).length;
-
-    // sort_key=1 인 항목의 처리예정일 조회해서 만료 여부 확인
-    const pendingIds = allRows.filter((r) => r.sort_key === 1).map((r) => r.id);
-    let expiredCount = 0;
-    if (pendingIds.length > 0) {
-      const { data: resRows } = await guard.sbAdmin
-        .from("hazard_report_resolutions")
-        .select("report_id, planned_due_date, improved_at")
-        .in("report_id", pendingIds);
-
-      // 보고서별 최신 resolution만 유지
-      type ResRow = { report_id: string; planned_due_date: string | null; improved_at: string | null };
-      const latestRes = new Map<string, ResRow>();
-      for (const res of (resRows ?? []) as ResRow[]) {
-        const ex = latestRes.get(res.report_id);
-        if (!ex || (res.improved_at ?? "") >= (ex.improved_at ?? "")) {
-          latestRes.set(res.report_id, res);
-        }
-      }
-      expiredCount = pendingIds.filter((id) => {
-        const res = latestRes.get(id);
-        return !res?.planned_due_date || res.planned_due_date < today;
-      }).length;
-    }
-
-    pendingTotalCount = allRows.filter((r) => r.sort_key === 1).length - expiredCount;
-    unresolvedTotalCount = allRows.filter((r) => r.sort_key === 0).length + expiredCount;
+  if (includeSummary) {
+    unresolvedTotalCount = sorted.filter((r) => effectiveSortKey(r) === 0).length;
+    pendingTotalCount = sorted.filter((r) => effectiveSortKey(r) === 1).length;
+    resolvedTotalCount = sorted.filter((r) => effectiveSortKey(r) === 2).length;
   }
 
   // Phase 2: 현재 페이지 항목에 대한 상세 데이터 병렬 조회 (최대 pageSize건)
