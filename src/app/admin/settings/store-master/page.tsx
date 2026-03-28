@@ -243,9 +243,8 @@ export default function StoreMasterPage() {
         throw new Error(json.message || "DB 반영에 실패했습니다.");
       }
 
-      const msg = `DB 반영 완료: 반영 ${json.count}건 / 삭제 ${json.deleted}건${json.skippedReferenced > 0 ? ` / 사진 연결로 삭제불가 ${json.skippedReferenced}건` : ""}`;
-      setMessage(msg);
-      alert(msg);
+      setMessage(`DB 반영 완료: 반영 ${json.count}건 / 삭제 ${json.deleted}건`);
+      alert(`DB 반영 완료: 반영 ${json.count}건 / 삭제 ${json.deleted}건`);
     } catch (error: any) {
       const nextMessage = error?.message ?? String(error);
       setMessage(nextMessage);
