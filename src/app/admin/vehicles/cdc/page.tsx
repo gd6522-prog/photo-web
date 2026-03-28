@@ -631,39 +631,39 @@ export default function VehicleCdcPage() {
           <meta charset="utf-8" />
           <title>CDC 출력</title>
           <style>
-            @page { size: A4 landscape; margin: 8mm 12mm; }
+            @page { size: A4 landscape; margin: 6mm 10mm; }
             html, body { margin: 0; padding: 0; font-family: Arial, "Malgun Gothic", sans-serif; color: #111827; }
             body { background: #fff; }
-            .page { box-sizing: border-box; width: 100%; height: 190mm; display: flex; align-items: flex-start; justify-content: flex-start; page-break-after: always; break-after: page; page-break-inside: avoid; break-inside: avoid; overflow: hidden; padding-top: 2mm; }
+            .page { box-sizing: border-box; width: 100%; height: 196mm; display: flex; align-items: flex-start; justify-content: center; page-break-after: always; break-after: page; page-break-inside: avoid; break-inside: avoid; overflow: hidden; padding-top: 2mm; }
             .page:last-child { page-break-after: auto; break-after: auto; }
-            .page-inner { width: 100%; display: flex; flex-direction: column; transform-origin: top left; }
-            .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; width: 100%; margin-bottom: 20px; }
-            .title { font-size: 42px; font-weight: 900; }
-            .sub { margin-top: 8px; font-size: 18px; font-weight: 700; color: #475569; }
+            .page-inner { width: calc(100% - 4mm); margin: 0 auto; display: flex; flex-direction: column; transform-origin: top center; }
+            .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; width: 100%; margin-bottom: 22px; }
+            .title { font-size: 44px; font-weight: 900; }
+            .sub { margin-top: 8px; font-size: 19px; font-weight: 700; color: #475569; }
             .summary { margin-left: auto; text-align: right; display: flex; flex-direction: column; align-items: flex-end; }
-            .car { font-size: 36px; font-weight: 900; color: #0f2940; }
-            .sumtext { margin-top: 8px; font-size: 18px; font-weight: 700; color: #475569; white-space: nowrap; }
+            .car { font-size: 38px; font-weight: 900; color: #0f2940; }
+            .sumtext { margin-top: 8px; font-size: 19px; font-weight: 700; color: #475569; white-space: nowrap; }
             .print-table { width: 100%; border-collapse: collapse; table-layout: auto; }
-            .print-table th { text-align: left; font-size: 17px; font-weight: 900; color: #26465a; border-bottom: 1px solid #e5edf3; background: #f8fbfd; white-space: nowrap; vertical-align: middle; padding: 13px 0.8cm 13px 0; }
-            .print-table td { font-size: 17px; color: #113247; border-bottom: 1px solid #eef3f7; white-space: nowrap; vertical-align: middle; padding: 12px 0.8cm 12px 0; }
+            .print-table th { text-align: left; font-size: 18px; font-weight: 900; color: #26465a; border-bottom: 1px solid #e5edf3; background: #f8fbfd; white-space: nowrap; vertical-align: middle; padding: 13px 0.72cm 13px 0; }
+            .print-table td { font-size: 18px; color: #113247; border-bottom: 1px solid #eef3f7; white-space: nowrap; vertical-align: middle; padding: 12px 0.72cm 12px 0; }
             .print-table th:last-child, .print-table td:last-child { padding-right: 0; }
             .num { text-align: right; font-weight: 900; }
             .fullbox-row { background: #d1d5db; }
             .total-row td { border-top: 2px solid #94a3b8; border-bottom: 2px solid #94a3b8; background: #fff; font-weight: 900; color: #1e293b; }
             .total-label { text-align: center; }
-            .total-num { font-size: 18px; }
+            .total-num { font-size: 19px; }
           </style>
           <script>
             window.onbeforeprint = function() {
-              var pageH = (210 - 16) / 25.4 * 96;
+              var pageH = (210 - 12) / 25.4 * 96;
               document.querySelectorAll('.page').forEach(function(page) {
                 var inner = page.querySelector('.page-inner');
                 inner.style.transform = '';
                 var h = inner.scrollHeight;
-                if (h > pageH * 0.96) {
-                  var s = (pageH * 0.96) / h;
+                if (h > pageH * 0.975) {
+                  var s = (pageH * 0.975) / h;
                   inner.style.transform = 'scale(' + s + ')';
-                  inner.style.transformOrigin = 'top left';
+                  inner.style.transformOrigin = 'top center';
                 }
               });
             };
