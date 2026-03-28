@@ -2489,7 +2489,7 @@ export function VehiclePageScreen({
 
             html, body {
               width: 297mm;
-              height: 210mm;
+              min-height: 210mm;
               margin: 0;
               padding: 0;
               background: #fff;
@@ -2506,13 +2506,14 @@ export function VehiclePageScreen({
 
             body {
               min-width: 297mm;
-              overflow: hidden;
+              overflow: visible;
             }
 
             .print-root {
               width: 297mm;
-              height: 210mm;
-              overflow: hidden;
+              min-height: 210mm;
+              height: auto;
+              overflow: visible;
             }
 
             .report-print-shell {
