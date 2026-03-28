@@ -552,6 +552,29 @@ export default function SupportPage() {
         </div>
       )}
 
+      {/* 전체 선작업/이동점포 공지 섹션 */}
+      {supportRows.some((r) => noticeInputs[r.id]?.trim()) && (() => {
+        const globalNoticeRef = getNoticeRef("global-notice");
+        return (
+          <div style={{ border: "1px solid #a7f3d0", background: "#f0fdf4", padding: "16px 20px", marginBottom: 16, borderRadius: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+              <div style={{ fontSize: 15, fontWeight: 900, color: "#065f46" }}>🏪 선작업/이동점포 공지</div>
+              <button
+                style={{ ...btnBase, background: copyStatus["global-notice"] === "done" ? "#f0fdf4" : copyStatus["global-notice"] === "error" ? "#fef2f2" : "linear-gradient(135deg,#065f46 0%,#059669 100%)", color: (copyStatus["global-notice"] === "done" || copyStatus["global-notice"] === "error") ? "#374151" : "#fff", border: "1px solid #059669", opacity: copyStatus["global-notice"] === "copying" ? 0.7 : 1, fontSize: 14, padding: "9px 18px" }}
+                onClick={() => copyImage("global-notice", globalNoticeRef)}
+                disabled={copyStatus["global-notice"] === "copying"}
+              >
+                {copyBtnLabel("global-notice", "선작업/이동점포 공지 복사")}
+              </button>
+            </div>
+            {/* 숨김 전체 공지 카드 */}
+            <div style={{ position: "fixed", top: -9999, left: -9999, pointerEvents: "none", zIndex: -1 }}>
+              <StoreNoticeCardMulti rows={supportRows} noticeMap={noticeInputs} reportDate={reportDate} cardRef={globalNoticeRef} />
+            </div>
+          </div>
+        );
+      })()}
+
       {groupedByDriver.map(([driverName, rows]) => {
         const driverKey = `driver-${driverName || "_unassigned"}`;
         const driverRef = getDriverGroupRef(driverKey);
@@ -580,35 +603,15 @@ export default function SupportPage() {
             </div>
 
             {/* 버튼 행 */}
-            {(() => {
-              const noticeKey = `notice-${driverKey}`;
-              const noticeRef = getNoticeRef(noticeKey);
-              const hasNotice = rows.some((r) => noticeInputs[r.id]?.trim());
-              return (
-                <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-                  <button
-                    style={{ ...btnBase, background: copyStatus[driverKey] === "done" ? "#f0fdf4" : copyStatus[driverKey] === "error" ? "#fef2f2" : "linear-gradient(135deg,#4c1d95 0%,#7c3aed 100%)", color: (copyStatus[driverKey] === "done" || copyStatus[driverKey] === "error") ? "#374151" : "#fff", border: "1px solid #7c3aed", opacity: copyStatus[driverKey] === "copying" ? 0.7 : 1, fontSize: 14, padding: "9px 18px" }}
-                    onClick={() => copyImage(driverKey, driverRef)}
-                    disabled={copyStatus[driverKey] === "copying"}
-                  >
-                    🚗 {copyBtnLabel(driverKey, `${driverName ? driverName + " 기사" : "지원기사"} 메시지 복사`)}
-                  </button>
-                  {hasNotice && (
-                    <button
-                      style={{ ...btnBase, background: copyStatus[noticeKey] === "done" ? "#f0fdf4" : copyStatus[noticeKey] === "error" ? "#fef2f2" : "linear-gradient(135deg,#065f46 0%,#059669 100%)", color: (copyStatus[noticeKey] === "done" || copyStatus[noticeKey] === "error") ? "#374151" : "#fff", border: "1px solid #059669", opacity: copyStatus[noticeKey] === "copying" ? 0.7 : 1, fontSize: 14, padding: "9px 18px" }}
-                      onClick={() => copyImage(noticeKey, noticeRef)}
-                      disabled={copyStatus[noticeKey] === "copying"}
-                    >
-                      🏪 {copyBtnLabel(noticeKey, "선작업/이동점포 공지 복사")}
-                    </button>
-                  )}
-                  {/* 숨김 공지 카드 */}
-                  <div style={{ position: "fixed", top: -9999, left: -9999, pointerEvents: "none", zIndex: -1 }}>
-                    <StoreNoticeCardMulti rows={rows} noticeMap={noticeInputs} reportDate={reportDate} cardRef={noticeRef} />
-                  </div>
-                </div>
-              );
-            })()}
+            <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+              <button
+                style={{ ...btnBase, background: copyStatus[driverKey] === "done" ? "#f0fdf4" : copyStatus[driverKey] === "error" ? "#fef2f2" : "linear-gradient(135deg,#4c1d95 0%,#7c3aed 100%)", color: (copyStatus[driverKey] === "done" || copyStatus[driverKey] === "error") ? "#374151" : "#fff", border: "1px solid #7c3aed", opacity: copyStatus[driverKey] === "copying" ? 0.7 : 1, fontSize: 14, padding: "9px 18px" }}
+                onClick={() => copyImage(driverKey, driverRef)}
+                disabled={copyStatus[driverKey] === "copying"}
+              >
+                🚗 {copyBtnLabel(driverKey, `${driverName ? driverName + " 기사" : "지원기사"} 메시지 복사`)}
+              </button>
+            </div>
 
             {/* 점포 행 목록 */}
             {rows.map((row) => {
