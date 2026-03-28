@@ -81,6 +81,7 @@ type DriverProfile = {
   name: string;
   phone: string;
   car_no: string;
+  delivery_type?: string;
   vehicle_type: string;
   carrier: string;
   garage: string;
@@ -1011,32 +1012,89 @@ function splitCarTokens(value: unknown) {
     .filter(Boolean);
 }
 
+function normalizeDeliveryType(value: unknown) {
+  const normalized = toText(value).replace(/\s+/g, "");
+  if (normalized === "당일" || normalized === "전일" || normalized === "익일") return normalized;
+  return "";
+}
+
+function getLegacyBatchPrintMatch(mode: "today" | "previous" | "next", carNo: number, hasUploadedCdcFile: boolean) {
+  const cdcOverride = (carNo === 1823 || carNo === 1824) && hasUploadedCdcFile;
+
+  if (mode === "today") {
+    return carNo >= 1801 && carNo <= 1833 && !cdcOverride;
+  }
+  if (mode === "previous") {
+    return (carNo >= 1844 && carNo <= 1849) || cdcOverride;
+  }
+  return carNo >= 1851 && carNo <= 1864;
+}
+
 async function fetchDriverProfileIndex(carNos: string[]) {
   const normalizedCarNos = [...new Set(carNos.map(normalizeCarNo).filter(Boolean))];
   if (normalizedCarNos.length === 0) return new Map<string, DriverProfile>();
 
-  const carNoFilter = normalizedCarNos.map((carNo) => `car_no.ilike.%${carNo}%`).join(",");
+  const carNoFilter = normalizedCarNos
+    .flatMap((carNo) => [
+      `car_no.ilike.%${carNo}%`,
+      `car_no_2.ilike.%${carNo}%`,
+      `car_no_3.ilike.%${carNo}%`,
+      `car_no_4.ilike.%${carNo}%`,
+    ])
+    .join(",");
   const { data, error } = await supabase
     .from("profiles")
-    .select("name,phone,car_no,vehicle_type,carrier,garage,vehicle_number")
+    .select("name,phone,car_no,car_no_2,car_no_3,car_no_4,delivery_type,delivery_type_2,delivery_type_3,delivery_type_4,vehicle_type,carrier,garage,vehicle_number")
     .ilike("work_part", "%기사%")
     .or(carNoFilter);
 
   if (error) throw new Error("기사 사용자마스터를 불러오지 못했습니다.");
 
+  type DriverProfileQueryRow = {
+    name?: unknown;
+    phone?: unknown;
+    car_no?: unknown;
+    car_no_2?: unknown;
+    car_no_3?: unknown;
+    car_no_4?: unknown;
+    delivery_type?: unknown;
+    delivery_type_2?: unknown;
+    delivery_type_3?: unknown;
+    delivery_type_4?: unknown;
+    vehicle_type?: unknown;
+    carrier?: unknown;
+    garage?: unknown;
+    vehicle_number?: unknown;
+  };
+
   const index = new Map<string, DriverProfile>();
-  for (const row of data ?? []) {
-    const tokens = splitCarTokens((row as any).car_no);
-    for (const token of tokens) {
+  for (const row of (data ?? []) as DriverProfileQueryRow[]) {
+    const primaryCarTokens = splitCarTokens(row.car_no).slice(0, 4);
+    const fallbackCarTokens = [
+      normalizeCarNo(row.car_no),
+      normalizeCarNo(row.car_no_2),
+      normalizeCarNo(row.car_no_3),
+      normalizeCarNo(row.car_no_4),
+    ].filter(Boolean);
+    const carTokens = (primaryCarTokens.length ? primaryCarTokens : fallbackCarTokens).slice(0, 4);
+    const deliveryTypes = [
+      normalizeDeliveryType(row.delivery_type),
+      normalizeDeliveryType(row.delivery_type_2),
+      normalizeDeliveryType(row.delivery_type_3),
+      normalizeDeliveryType(row.delivery_type_4),
+    ];
+
+    for (const [tokenIndex, token] of carTokens.entries()) {
       if (!normalizedCarNos.includes(token) || index.has(token)) continue;
       index.set(token, {
-        name: toText((row as any).name),
-        phone: toText((row as any).phone),
+        name: toText(row.name),
+        phone: toText(row.phone),
         car_no: token,
-        vehicle_type: toText((row as any).vehicle_type),
-        carrier: toText((row as any).carrier),
-        garage: toText((row as any).garage),
-        vehicle_number: toText((row as any).vehicle_number),
+        delivery_type: deliveryTypes[tokenIndex] || deliveryTypes[0] || "",
+        vehicle_type: toText(row.vehicle_type),
+        carrier: toText(row.carrier),
+        garage: toText(row.garage),
+        vehicle_number: toText(row.vehicle_number),
       });
     }
   }
@@ -2013,18 +2071,15 @@ export function VehiclePageScreen({
 
     return reportGroups.filter((group) => {
       const carNo = parseCarNoNumber(group.carNo);
-      const cdcOverride = (carNo === 1823 || carNo === 1824) && hasUploadedCdcFile;
+      const deliveryType = normalizeDeliveryType(group.driver?.delivery_type);
 
-      if (batchPrintMode === "today") {
-        return carNo >= 1801 && carNo <= 1833 && !cdcOverride;
+      if (deliveryType) {
+        if (batchPrintMode === "today") return deliveryType === "당일";
+        if (batchPrintMode === "previous") return deliveryType === "전일";
+        if (batchPrintMode === "next") return deliveryType === "익일";
       }
-      if (batchPrintMode === "previous") {
-        return (carNo >= 1844 && carNo <= 1849) || cdcOverride;
-      }
-      if (batchPrintMode === "next") {
-        return carNo >= 1851 && carNo <= 1864;
-      }
-      return false;
+
+      return getLegacyBatchPrintMatch(batchPrintMode, carNo, hasUploadedCdcFile);
     });
   }, [activeReportGroup, batchPrintMode, reportGroups, cdcSnapshot?.fileName]);
 
