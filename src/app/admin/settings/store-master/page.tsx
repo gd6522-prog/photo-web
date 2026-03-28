@@ -226,7 +226,7 @@ export default function StoreMasterPage() {
       }
     }
 
-    if (!confirm(`점포마스터를 DB에 반영할까요?\n총 ${uploadableRows.length}건 / 차량번호 없음 제외 ${skippedNoCar}건`)) {
+    if (!confirm(`점포마스터를 DB에 반영할까요?\n총 ${uploadableRows.length}건 반영 / 차량번호 없음 제외 ${skippedNoCar}건\n\n※ 이번 파일에 없는 기존 점포는 DB에서 삭제됩니다.`)) {
       return;
     }
 
@@ -243,8 +243,8 @@ export default function StoreMasterPage() {
         throw new Error(json.message || "DB 반영에 실패했습니다.");
       }
 
-      setMessage(`DB 반영 완료: ${json.count}건`);
-      alert(`DB 반영 완료: ${json.count}건`);
+      setMessage(`DB 반영 완료: 반영 ${json.count}건 / 삭제 ${json.deleted}건`);
+      alert(`DB 반영 완료: 반영 ${json.count}건 / 삭제 ${json.deleted}건`);
     } catch (error: any) {
       const nextMessage = error?.message ?? String(error);
       setMessage(nextMessage);

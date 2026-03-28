@@ -95,7 +95,16 @@ export async function POST(req: Request) {
 
     if (upErr) throw upErr;
 
-    return NextResponse.json({ ok: true, count: upsertRows.length, skippedNoCar });
+    // ✅ 이번 업로드에 없는 구 점포 삭제
+    const newCodes = cleaned.map((r) => r.store_code);
+    const { count: deletedCount, error: delErr } = await supabase
+      .from("store_map")
+      .delete({ count: "exact" })
+      .not("store_code", "in", `(${newCodes.join(",")})`);
+
+    if (delErr) throw delErr;
+
+    return NextResponse.json({ ok: true, count: upsertRows.length, skippedNoCar, deleted: deletedCount ?? 0 });
   } catch (e: any) {
     return NextResponse.json({ ok: false, message: e?.message ?? String(e) }, { status: 500 });
   }
