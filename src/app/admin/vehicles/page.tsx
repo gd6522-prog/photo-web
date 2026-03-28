@@ -1760,7 +1760,7 @@ export function VehiclePageScreen({
 }) {
   const INPUT_PAGE_SIZE = 50;
   const REPORT_PREVIEW_BASE_WIDTH = 1620;
-  const REPORT_PRINT_SCALE_X = 0.648;
+  const REPORT_PRINT_SCALE_X = 0.642;
   const REPORT_PRINT_SCALE_Y = 0.662;
   const REPORT_PRINT_VERTICAL_STRETCH = REPORT_PRINT_SCALE_Y / REPORT_PRINT_SCALE_X;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
