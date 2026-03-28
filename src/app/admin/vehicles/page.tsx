@@ -2905,6 +2905,7 @@ export function VehiclePageScreen({
           </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {allowedTabs.includes("input") ? (
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={busy}
@@ -2921,6 +2922,7 @@ export function VehiclePageScreen({
             >
               {busy ? "불러오는 중..." : "단품별 파일 불러오기"}
             </button>
+            ) : null}
             <button
               onClick={() => exportWorkbook(productRows, cargoRows, reportGroups, reportDate, reportFileDate, selectedReportGroup?.carNo, storeContactIndex)}
               disabled={cargoRows.length === 0}
@@ -2953,6 +2955,7 @@ export function VehiclePageScreen({
             >
               초기화
             </button>
+            {allowedTabs.includes("input") ? (
             <input
               ref={fileInputRef}
               type="file"
@@ -2964,6 +2967,7 @@ export function VehiclePageScreen({
                 void loadRows(file);
               }}
             />
+            ) : null}
           </div>
         </div>
 
