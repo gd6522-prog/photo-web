@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
   const to = from + pageSize - 1;
 
   // Phase 1: 페이지 데이터와 카운트 병렬 조회
-  const [reportsResult, countsResult] = await Promise.all([
+  const [reportsResult, countsResult, dueDatesResult] = await Promise.all([
     guard.sbAdmin
       .from("hazard_reports")
       .select("id,user_id,comment,photo_path,photo_url,created_at,sort_key", { count: "exact" })
@@ -66,7 +66,12 @@ export async function GET(req: NextRequest) {
     includeSummary
       ? guard.sbAdmin
           .from("hazard_reports")
-          .select("sort_key, hazard_report_resolutions(planned_due_date)")
+          .select("id,sort_key")
+      : Promise.resolve({ data: null, error: null }),
+    includeSummary
+      ? guard.sbAdmin
+          .from("hazard_report_resolutions")
+          .select("report_id,planned_due_date")
       : Promise.resolve({ data: null, error: null }),
   ]);
 
@@ -77,26 +82,30 @@ export async function GET(req: NextRequest) {
   const reportIds = reports.map((r) => r.id);
   const creatorIds = Array.from(new Set(reports.map((r) => r.user_id)));
 
-  // 요약 카운트 집계 (sort_key 기준, 기한 초과 처리대기는 미처리로 집계)
+  // 요약 카운트 집계 (기한 초과 처리대기는 미처리로 집계)
   let unresolvedTotalCount: number | null = null;
   let pendingTotalCount: number | null = null;
   let resolvedTotalCount: number | null = null;
-  if (includeSummary && countsResult.data) {
+  if (includeSummary && countsResult.data && dueDatesResult.data) {
     const today = new Date().toISOString().slice(0, 10);
-    const rows = countsResult.data as { sort_key: number; hazard_report_resolutions: { planned_due_date: string | null } | null }[];
+    const dueDateMap = new Map(
+      (dueDatesResult.data as { report_id: string; planned_due_date: string | null }[])
+        .map((r) => [r.report_id, r.planned_due_date])
+    );
+    const rows = countsResult.data as { id: string; sort_key: number }[];
     unresolvedTotalCount = rows.filter((r) => {
       if (r.sort_key === 2) return false;
       if (r.sort_key === 0) return true;
       // sort_key === 1(처리대기): 기한이 지났으면 미처리로 집계
-      const dueDate = r.hazard_report_resolutions?.planned_due_date;
+      const dueDate = dueDateMap.get(r.id);
       return !dueDate || dueDate < today;
     }).length;
     pendingTotalCount = rows.filter((r) => {
       if (r.sort_key !== 1) return false;
-      const dueDate = r.hazard_report_resolutions?.planned_due_date;
+      const dueDate = dueDateMap.get(r.id);
       return !!dueDate && dueDate >= today;
     }).length;
-    resolvedTotalCount   = rows.filter((r) => r.sort_key === 2).length;
+    resolvedTotalCount = rows.filter((r) => r.sort_key === 2).length;
   }
 
   // Phase 2: 현재 페이지 항목에 대한 상세 데이터 병렬 조회 (최대 pageSize건)
