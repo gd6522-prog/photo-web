@@ -114,7 +114,8 @@ async function fetchServerSnapshot(): Promise<{ cargoRows: CargoRow[]; deliveryD
   try {
     const token = await getToken();
     if (!token) return null;
-    const res = await fetch("/api/admin/vehicles/current?includeSnapshot=1", {
+    // 서명된 URL만 받아서 Supabase CDN에서 직접 다운로드 (서버 재전달 없음)
+    const res = await fetch("/api/admin/vehicles/current", {
       headers: { Authorization: `Bearer ${token}` }, cache: "no-store",
     });
     const payload = (await res.json().catch(() => ({}))) as {
@@ -122,7 +123,7 @@ async function fetchServerSnapshot(): Promise<{ cargoRows: CargoRow[]; deliveryD
       snapshot?: { fileName?: string; productRows?: Array<{ delivery_date?: string }>; cargoRows?: CargoRow[] } | null;
     };
     if (!res.ok || !payload?.ok) return null;
-    let snapshot = payload.snapshot;
+    let snapshot = payload.snapshot ?? null;
     if (!snapshot && payload.snapshotUrl) {
       snapshot = await fetch(payload.snapshotUrl, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null));
     }
@@ -391,6 +392,7 @@ export default function SupportPage() {
 
   const noticeCardRefs = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
   const driverCardRefs = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
+  const lastSyncAtRef = useRef<number>(0);
 
   function getNoticeRef(key: string) {
     if (!noticeCardRefs.current.has(key)) noticeCardRefs.current.set(key, React.createRef<HTMLDivElement>());
@@ -467,6 +469,7 @@ export default function SupportPage() {
         setRefreshing(true);
         const server = await fetchServerSnapshot();
         setRefreshing(false);
+        lastSyncAtRef.current = Date.now();
         if (server && server.fileName !== local.fileName) {
           setCargoRows(server.cargoRows);
           setDeliveryDate(server.deliveryDate);
@@ -516,11 +519,19 @@ export default function SupportPage() {
         setCargoRows([]);
         setDeliveryDate("");
       }
-    } finally { setRefreshing(false); }
+    } finally {
+      setRefreshing(false);
+      lastSyncAtRef.current = Date.now();
+    }
   };
 
   useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === "visible") void manualRefresh(); };
+    const SYNC_COOLDOWN_MS = 5 * 60 * 1000; // 5분
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - lastSyncAtRef.current < SYNC_COOLDOWN_MS) return;
+      void manualRefresh();
+    };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   // eslint-disable-next-line react-hooks/exhaustive-deps
