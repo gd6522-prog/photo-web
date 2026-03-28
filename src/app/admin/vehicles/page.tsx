@@ -940,6 +940,8 @@ async function fetchReportBaseCargoRows() {
   const { data, error } = await supabase
     .from("store_map")
     .select("store_code, store_name, car_no, seq_no, delivery_due_time, address")
+    .not("car_no", "is", null)
+    .not("store_name", "is", null)
     .order("car_no", { ascending: true })
     .order("seq_no", { ascending: true })
     .order("store_name", { ascending: true });
@@ -1863,8 +1865,6 @@ export function VehiclePageScreen({
   const [reportBaseRows, setReportBaseRows] = useState<CargoRow[]>([]);
   const [reportCarNoInput, setReportCarNoInput] = useState(initialCarNo ?? "");
   const [selectedReportCarNo, setSelectedReportCarNo] = useState(initialCarNo ?? "");
-  const [reportStoreCodeInput, setReportStoreCodeInput] = useState("");
-  const [reportStoreNameInput, setReportStoreNameInput] = useState("");
   const [allDriverNames, setAllDriverNames] = useState<string[]>([]);
   const [supportMode, setSupportMode] = useState(false);
   const [supportDriverNameInput, setSupportDriverNameInput] = useState("");
@@ -3484,8 +3484,6 @@ export function VehiclePageScreen({
               onChange={(event) => {
                 const nextValue = event.target.value.replace(/[^\d]/g, "");
                 setReportCarNoInput(nextValue);
-                setReportStoreCodeInput("");
-                setReportStoreNameInput("");
                 setSupportMode(false);
 
                 const matchedGroup = reportGroups.find((group) => normalizeCarNo(group.carNo) === normalizeCarNo(nextValue));
@@ -3506,90 +3504,6 @@ export function VehiclePageScreen({
               inputMode="numeric"
               style={{
                 width: 120,
-                height: 40,
-                borderRadius: 0,
-                border: "1px solid #c7d6e3",
-                padding: "0 14px",
-                outline: "none",
-                background: "#fff",
-                fontWeight: 800,
-                color: "#28485d",
-              }}
-            />
-            <div style={{ color: "#28485d", fontSize: 13, fontWeight: 800 }}>점포코드</div>
-            <input
-              value={reportStoreCodeInput}
-              onChange={(event) => {
-                const nextValue = event.target.value;
-                setReportStoreCodeInput(nextValue);
-                setReportCarNoInput("");
-                setReportStoreNameInput("");
-                setSupportMode(false);
-                const matchedGroup = reportGroups.find((group) =>
-                  group.rows.some((row) => row.store_code === nextValue.trim())
-                );
-                if (matchedGroup) {
-                  setSelectedReportCarNo(matchedGroup.carNo);
-                }
-              }}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter") return;
-                event.preventDefault();
-                setSupportMode(false);
-                const matchedGroup = reportGroups.find((group) =>
-                  group.rows.some((row) => row.store_code === reportStoreCodeInput.trim())
-                );
-                if (matchedGroup) {
-                  setSelectedReportCarNo(matchedGroup.carNo);
-                }
-              }}
-              placeholder="점포코드 입력"
-              style={{
-                width: 140,
-                height: 40,
-                borderRadius: 0,
-                border: "1px solid #c7d6e3",
-                padding: "0 14px",
-                outline: "none",
-                background: "#fff",
-                fontWeight: 800,
-                color: "#28485d",
-              }}
-            />
-            <div style={{ color: "#28485d", fontSize: 13, fontWeight: 800 }}>점포명</div>
-            <input
-              value={reportStoreNameInput}
-              onChange={(event) => {
-                const nextValue = event.target.value;
-                setReportStoreNameInput(nextValue);
-                setReportCarNoInput("");
-                setReportStoreCodeInput("");
-                setSupportMode(false);
-                if (nextValue.trim()) {
-                  const matchedGroup = reportGroups.find((group) =>
-                    group.rows.some((row) => row.store_name.includes(nextValue.trim()))
-                  );
-                  if (matchedGroup) {
-                    setSelectedReportCarNo(matchedGroup.carNo);
-                  }
-                }
-              }}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter") return;
-                event.preventDefault();
-                setSupportMode(false);
-                if (reportStoreNameInput.trim()) {
-                  const matchedGroup = reportGroups.find((group) =>
-                    group.rows.some((row) => row.store_name.includes(reportStoreNameInput.trim()))
-                  );
-                  if (matchedGroup) {
-                    setSelectedReportCarNo(matchedGroup.carNo);
-                  }
-                }
-              }}
-              placeholder="점포명 입력"
-              style={{
-                width: 160,
                 height: 40,
                 borderRadius: 0,
                 border: "1px solid #c7d6e3",
