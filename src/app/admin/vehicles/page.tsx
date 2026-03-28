@@ -1851,7 +1851,7 @@ export function VehiclePageScreen({
   const [storeQuery, setStoreQuery] = useState("");
   const [cargoQueryInput, setCargoQueryInput] = useState("");
   const [cargoQuery, setCargoQuery] = useState("");
-  const [storeQueryInput, setStoreQueryInput] = useState("");
+  const [cargoStoreQueryInput, setCargoStoreQueryInput] = useState("");
   const [storeSearchQuery, setStoreSearchQuery] = useState("");
   const [largeLimit, setLargeLimit] = useState("");
   const [smallLimit, setSmallLimit] = useState("");
@@ -3259,12 +3259,12 @@ export function VehiclePageScreen({
               조회
             </button>
             <input
-              value={storeQueryInput}
-              onChange={(e) => setStoreQueryInput(e.target.value)}
+              value={cargoStoreQueryInput}
+              onChange={(e) => setCargoStoreQueryInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key !== "Enter") return;
                 e.preventDefault();
-                setStoreSearchQuery(storeQueryInput);
+                setStoreSearchQuery(cargoStoreQueryInput);
               }}
               placeholder="점포코드/점포명 검색"
               style={{
@@ -3278,7 +3278,7 @@ export function VehiclePageScreen({
               }}
             />
             <button
-              onClick={() => setStoreSearchQuery(storeQueryInput)}
+              onClick={() => setStoreSearchQuery(cargoStoreQueryInput)}
               style={{
                 height: 42,
                 padding: "0 18px",
@@ -3296,7 +3296,7 @@ export function VehiclePageScreen({
               onClick={() => {
                 setCargoQueryInput("");
                 setCargoQuery("");
-                setStoreQueryInput("");
+                setCargoStoreQueryInput("");
                 setStoreSearchQuery("");
               }}
               style={{
