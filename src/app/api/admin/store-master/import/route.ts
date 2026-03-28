@@ -106,25 +106,6 @@ export async function POST(req: Request) {
 
     if (delErr) throw delErr;
 
-    // ✅ 운행일보 스냅샷에서도 삭제된 점포 제거 (항상 실행)
-    const { data: snapshotFile } = await supabase.storage
-      .from("vehicle-data")
-      .download("current/latest.json");
-
-    if (snapshotFile) {
-      const text = await snapshotFile.text();
-      const snapshot = JSON.parse(text);
-      if (snapshot?.cargoRows) {
-        snapshot.cargoRows = snapshot.cargoRows.filter(
-          (row: any) => !row.store_code || newCodesSet.has(normalizeStoreCode(String(row.store_code)))
-        );
-        const blob = new Blob([JSON.stringify(snapshot)], { type: "application/json" });
-        await supabase.storage.from("vehicle-data").upload("current/latest.json", blob, {
-          upsert: true,
-          contentType: "application/json",
-        });
-      }
-    }
 
     return NextResponse.json({ ok: true, count: upsertRows.length, skippedNoCar, deleted: deletedCount ?? 0 });
   } catch (e: any) {
