@@ -3279,21 +3279,6 @@ export function VehiclePageScreen({
                 background: "#fff",
               }}
             />
-            <button
-              onClick={() => setCargoQuery(cargoQueryInput)}
-              style={{
-                height: 42,
-                padding: "0 18px",
-                borderRadius: 0,
-                border: "1px solid #113247",
-                background: "#113247",
-                color: "#fff",
-                fontWeight: 900,
-                cursor: "pointer",
-              }}
-            >
-              조회
-            </button>
             <input
               value={cargoStoreQueryInput}
               onChange={(e) => setCargoStoreQueryInput(e.target.value)}
