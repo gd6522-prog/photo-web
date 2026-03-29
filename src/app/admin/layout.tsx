@@ -102,6 +102,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { label: "운행일보", href: "/admin/vehicles/report" },
       { label: "지원", href: "/admin/vehicles/support" },
       { label: "점착", href: "/admin/vehicles/adhesion" },
+    ],
+    []
+  );
+
+  const OPERATION_ITEMS = useMemo(
+    () => [
       { label: "CDC", href: "/admin/vehicles/cdc" },
     ],
     []
@@ -248,8 +254,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   // 공지 라우트 포함
   const isNoticeActive = pathname.startsWith("/admin/notice");
-  const isVehicleActive = pathname.startsWith("/admin/vehicles");
-  const isOperationActive = pathname.startsWith("/admin/operation");
+  const isVehicleActive = pathname.startsWith("/admin/vehicles") && !pathname.startsWith("/admin/vehicles/cdc");
+  const isOperationActive = pathname.startsWith("/admin/operation") || pathname.startsWith("/admin/vehicles/cdc");
   const isWorkLogActive = pathname.startsWith("/admin/work-log");
   const isSettingsActive = pathname.startsWith("/admin/settings");
 
@@ -550,9 +556,33 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 ) : null}
 
                 {canShowVehicle ? (
-                  <Link href="/admin/operation" style={pillStyle(isOperationActive)}>
-                    운영
-                  </Link>
+                  <div
+                    onMouseEnter={() => openDropdown("operation")}
+                    onMouseLeave={() => closeDropdownDelayed("operation")}
+                    style={{ position: "relative" }}
+                  >
+                    <Link href="/admin/operation" style={pillStyle(isOperationActive)} onMouseEnter={() => openDropdown("operation")}>
+                      운영
+                    </Link>
+
+                    {operationOpen && (
+                      <div
+                        onMouseEnter={() => openDropdown("operation")}
+                        onMouseLeave={() => closeDropdownDelayed("operation")}
+                        style={dropdownBoxStyle}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {OPERATION_ITEMS.map((it) => {
+                          const active = pathname === it.href || pathname.startsWith(it.href + "/");
+                          return (
+                            <Link key={it.href} href={it.href} style={dropdownItemStyle(active)}>
+                              {it.label}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 ) : null}
 
                 {canShowVehicle ? (
