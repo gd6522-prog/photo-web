@@ -162,7 +162,7 @@ async function fetchContactIndex(): Promise<Map<string, string>> {
   return index;
 }
 
-// ── 선작업/이동점포 공지 카드 (통합 가로, 동일 공지 묶음) ───────────────
+// ── 선작업/이동점포 공지 카드 ───────────────
 function StoreNoticeCardMulti({
   rows,
   noticeMap,
@@ -174,6 +174,7 @@ function StoreNoticeCardMulti({
   reportDate: string;
   cardRef: React.RefObject<HTMLDivElement | null>;
 }) {
+  // 호차·순번 오름차순 정렬
   const activeRows = rows
     .filter((r) => noticeMap[r.id]?.trim())
     .sort((a, b) => {
@@ -183,7 +184,7 @@ function StoreNoticeCardMulti({
     });
   if (!activeRows.length) return null;
 
-  // 동일 공지 내용끼리 묶기 (첫 등장 순서 유지)
+  // 동일 공지 내용끼리 묶기 (첫 등장 순서 유지 = 정렬 후 첫 번째 행 기준)
   const groups: { noticeText: string; rows: CargoRow[] }[] = [];
   const noticeIndexMap = new Map<string, number>();
   for (const row of activeRows) {
@@ -196,34 +197,90 @@ function StoreNoticeCardMulti({
     }
   }
 
+  const BORDER = "1px solid #cbd5e1";
+  const GROUP_COLORS = ["#f0f9ff", "#f0fdf4", "#fefce8", "#fdf4ff", "#fff7ed"];
+
   return (
-    <div ref={cardRef} style={{ width: "max-content", minWidth: 400, background: "#fff", padding: "16px 20px", fontFamily: "Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif", boxSizing: "border-box" }}>
-      {/* 공지 그룹 */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {groups.map((group, gi) => (
-          <div key={gi} style={{ display: "flex", alignItems: "stretch", borderRadius: 10, overflow: "hidden" }}>
-            {/* 왼쪽: 점포 목록 (하늘색) */}
-            <div style={{ background: "#e0f2fe", padding: "12px 16px" }}>
-              <table style={{ borderCollapse: "collapse" }}>
-                <tbody>
-                  {group.rows.map((row) => (
-                    <tr key={row.id}>
-                      <td style={{ padding: "2px 8px 2px 0", whiteSpace: "nowrap", fontSize: 13, fontWeight: 900, color: "#111827" }}>{normalizeCarNo(row.car_no)}호차</td>
-                      <td style={{ padding: "2px 8px 2px 0", whiteSpace: "nowrap", fontSize: 13, fontWeight: 900, color: "#111827", textAlign: "right" }}>{row.seq_no}번</td>
-                      <td style={{ padding: "2px 0", whiteSpace: "nowrap", fontSize: 13, fontWeight: 900, color: "#111827" }}>{row.store_name}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {/* 오른쪽: 공지 내용 (주황색) */}
-            <div style={{ borderLeft: "3px solid #f97316", background: "#fff7ed", padding: "12px 16px", display: "flex", flexDirection: "column", justifyContent: "center", minWidth: 140 }}>
-              <div style={{ fontSize: 10, color: "#9a3412", fontWeight: 700, marginBottom: 4 }}>공지사항</div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: "#111827", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{group.noticeText}</div>
-            </div>
-          </div>
-        ))}
+    <div
+      ref={cardRef}
+      style={{
+        width: "max-content",
+        minWidth: 480,
+        background: "#fff",
+        padding: "20px 22px",
+        fontFamily: "Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif",
+        boxSizing: "border-box",
+      }}
+    >
+      {/* 타이틀 */}
+      <div style={{ marginBottom: 14, paddingBottom: 10, borderBottom: "2px solid #0ea5e9", display: "flex", alignItems: "baseline", gap: 10 }}>
+        <div style={{ fontSize: 15, fontWeight: 950, color: "#0c4a6e", letterSpacing: -0.3 }}>선작업 / 이동점포 공지</div>
+        <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700 }}>{reportDate} · {activeRows.length}개 점포</div>
       </div>
+
+      {/* 테이블 */}
+      <table style={{ borderCollapse: "collapse", width: "100%" }}>
+        <thead>
+          <tr style={{ background: "#0ea5e9" }}>
+            {["호차", "순번", "점포명", "공지사항"].map((h) => (
+              <th
+                key={h}
+                style={{
+                  padding: "7px 14px",
+                  fontSize: 12,
+                  fontWeight: 900,
+                  color: "#fff",
+                  textAlign: "left",
+                  whiteSpace: "nowrap",
+                  border: BORDER,
+                  letterSpacing: 0.3,
+                }}
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {groups.map((group, gi) => {
+            const rowBg = GROUP_COLORS[gi % GROUP_COLORS.length];
+            return group.rows.map((row, ri) => (
+              <tr key={row.id}>
+                <td style={{ padding: "7px 14px", fontSize: 13, fontWeight: 900, color: "#1e3a5f", whiteSpace: "nowrap", background: rowBg, border: BORDER }}>
+                  {normalizeCarNo(row.car_no)}호차
+                </td>
+                <td style={{ padding: "7px 14px", fontSize: 13, fontWeight: 900, color: "#1e3a5f", whiteSpace: "nowrap", textAlign: "center", background: rowBg, border: BORDER }}>
+                  {row.seq_no}번
+                </td>
+                <td style={{ padding: "7px 14px", fontSize: 13, fontWeight: 900, color: "#111827", whiteSpace: "nowrap", background: rowBg, border: BORDER }}>
+                  {row.store_name}
+                </td>
+                {/* 공지사항: 그룹 첫 행에만 rowspan */}
+                {ri === 0 && (
+                  <td
+                    rowSpan={group.rows.length}
+                    style={{
+                      padding: "10px 16px",
+                      fontSize: 13,
+                      fontWeight: 800,
+                      color: "#9a3412",
+                      whiteSpace: "pre-wrap",
+                      lineHeight: 1.65,
+                      background: "#fff7ed",
+                      border: BORDER,
+                      borderLeft: "3px solid #f97316",
+                      verticalAlign: "middle",
+                      minWidth: 160,
+                    }}
+                  >
+                    {group.noticeText}
+                  </td>
+                )}
+              </tr>
+            ));
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
