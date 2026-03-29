@@ -199,11 +199,11 @@ function StoreNoticeCardMulti({
   return (
     <div ref={cardRef} style={{ width: "max-content", minWidth: 400, background: "#fff", padding: "16px 20px", fontFamily: "Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif", boxSizing: "border-box" }}>
       {/* 공지 그룹 */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {groups.map((group, gi) => (
-          <div key={gi} style={{ display: "flex", alignItems: "stretch", gap: 0 }}>
-            {/* 왼쪽: 점포 목록 */}
-            <div style={{ paddingRight: 16 }}>
+          <div key={gi} style={{ display: "flex", alignItems: "stretch", borderRadius: 10, overflow: "hidden" }}>
+            {/* 왼쪽: 점포 목록 (하늘색) */}
+            <div style={{ background: "#e0f2fe", padding: "12px 16px" }}>
               <table style={{ borderCollapse: "collapse" }}>
                 <tbody>
                   {group.rows.map((row) => (
@@ -216,9 +216,9 @@ function StoreNoticeCardMulti({
                 </tbody>
               </table>
             </div>
-            {/* 오른쪽: 공지 내용 */}
-            <div style={{ borderLeft: "2px solid #e2e8f0", paddingLeft: 16, display: "flex", flexDirection: "column", justifyContent: "center", minWidth: 120 }}>
-              <div style={{ fontSize: 10, color: "#6b7280", fontWeight: 700, marginBottom: 3 }}>공지사항</div>
+            {/* 오른쪽: 공지 내용 (주황색) */}
+            <div style={{ borderLeft: "3px solid #f97316", background: "#fff7ed", padding: "12px 16px", display: "flex", flexDirection: "column", justifyContent: "center", minWidth: 140 }}>
+              <div style={{ fontSize: 10, color: "#9a3412", fontWeight: 700, marginBottom: 4 }}>공지사항</div>
               <div style={{ fontSize: 13, fontWeight: 800, color: "#111827", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{group.noticeText}</div>
             </div>
           </div>
