@@ -1951,6 +1951,14 @@ export function VehiclePageScreen({
             cargoRows: Array.isArray(nextSnapshot.cargoRows) ? nextSnapshot.cargoRows : [],
           });
           void writeVehicleSnapshot(nextSnapshot).catch(() => {});
+        } else if (serverSaved) {
+          // 서버에 snapshot이 없으면 (cron 초기화 등) 로컬 데이터도 지운다
+          setFileName("");
+          setProductRows([]);
+          setCargoRows([]);
+          setCargoDirty(false);
+          lastServerSnapshotRef.current = "";
+          void clearVehicleSnapshot().catch(() => {});
         }
 
         if (serverSaved?.limits) {
