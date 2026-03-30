@@ -49,12 +49,22 @@ function findHeaderIndex(headers: string[], candidates: string[]) {
   return -1;
 }
 
+type SyncLog = {
+  id: number;
+  status: "pending" | "running" | "done" | "failed" | "cancelled";
+  requested_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  upserted: number | null;
+  error_text: string | null;
+  log_tail: string[] | null;
+};
+
 type AutoSyncStatus = {
-  supported: boolean;
+  ok: boolean;
+  latest: SyncLog | null;
   running: boolean;
-  pid: number | null;
-  startedAt: string | null;
-  logTail: string[];
+  pending: boolean;
 };
 
 export default function StoreMasterPage() {
@@ -85,10 +95,10 @@ export default function StoreMasterPage() {
   }, [fetchSyncStatus]);
 
   useEffect(() => {
-    if (!syncStatus?.running) return;
-    const interval = setInterval(fetchSyncStatus, 3000);
+    if (!syncStatus?.running && !syncStatus?.pending) return;
+    const interval = setInterval(fetchSyncStatus, 4000);
     return () => clearInterval(interval);
-  }, [syncStatus?.running, fetchSyncStatus]);
+  }, [syncStatus?.running, syncStatus?.pending, fetchSyncStatus]);
 
   const startSync = async () => {
     setSyncBusy(true);
@@ -96,11 +106,11 @@ export default function StoreMasterPage() {
     try {
       const res = await fetch("/api/admin/store-master/auto-sync/start", { method: "POST" });
       const json = await res.json();
-      if (!json.ok) throw new Error(json.message ?? "자동 동기화 시작에 실패했습니다.");
-      if (json.alreadyRunning) {
-        setSyncMessage("이미 실행 중입니다.");
+      if (!json.ok) throw new Error(json.message ?? "동기화 요청에 실패했습니다.");
+      if (json.alreadyQueued) {
+        setSyncMessage(json.status === "running" ? "이미 실행 중입니다." : "이미 대기 중인 요청이 있습니다.");
       } else {
-        setSyncMessage("자동 동기화를 시작했습니다. Chrome 창이 열립니다.");
+        setSyncMessage("동기화 요청이 접수되었습니다. 로컬 에이전트가 처리합니다.");
       }
       await fetchSyncStatus();
     } catch (error: any) {
@@ -329,120 +339,131 @@ export default function StoreMasterPage() {
       <h2 style={{ marginTop: 18, fontWeight: 900, fontSize: 22 }}>elogis 자동 동기화</h2>
 
       <div style={{ marginTop: 12, border: "1px solid #E5E7EB", borderRadius: 0, padding: 16, background: "#fff" }}>
-        {syncStatus?.supported === false ? (
-          <div style={{ color: "#92400E", background: "#FFFBEB", border: "1px solid #FCD34D", padding: 12, fontWeight: 700 }}>
-            이 기능은 로컬 PC에서만 사용 가능합니다. (배포 환경 미지원)
-          </div>
-        ) : (
-          <>
-            <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div
-                  style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: "50%",
-                    background: syncStatus?.running ? "#16A34A" : "#9CA3AF",
-                    flexShrink: 0,
-                  }}
-                />
-                <span style={{ fontWeight: 900, fontSize: 14 }}>
-                  {syncStatus?.running ? "동기화 실행 중..." : "대기 중"}
-                </span>
-                {syncStatus?.running && syncStatus.startedAt && (
-                  <span style={{ color: "#6B7280", fontSize: 12 }}>
-                    (시작: {new Date(syncStatus.startedAt).toLocaleTimeString("ko-KR")})
-                  </span>
-                )}
-              </div>
-
-              <div style={{ display: "flex", gap: 8 }}>
-                {!syncStatus?.running ? (
-                  <button
-                    onClick={startSync}
-                    disabled={syncBusy}
-                    style={{
-                      height: 40,
-                      padding: "0 18px",
-                      border: "1px solid #111827",
-                      background: "#111827",
-                      color: "#fff",
-                      fontWeight: 900,
-                      fontSize: 13,
-                      cursor: syncBusy ? "not-allowed" : "pointer",
-                      borderRadius: 0,
-                    }}
-                  >
-                    {syncBusy ? "처리 중..." : "elogis에서 자동 가져오기"}
-                  </button>
-                ) : (
-                  <button
-                    onClick={stopSync}
-                    disabled={syncBusy}
-                    style={{
-                      height: 40,
-                      padding: "0 18px",
-                      border: "1px solid #B91C1C",
-                      background: "#B91C1C",
-                      color: "#fff",
-                      fontWeight: 900,
-                      fontSize: 13,
-                      cursor: syncBusy ? "not-allowed" : "pointer",
-                      borderRadius: 0,
-                    }}
-                  >
-                    중단
-                  </button>
-                )}
-
-                <button
-                  onClick={fetchSyncStatus}
-                  disabled={syncBusy}
-                  style={{
-                    height: 40,
-                    padding: "0 14px",
-                    border: "1px solid #CBD5E1",
-                    background: "#fff",
-                    fontWeight: 700,
-                    fontSize: 13,
-                    cursor: syncBusy ? "not-allowed" : "pointer",
-                    borderRadius: 0,
-                  }}
-                >
-                  새로고침
-                </button>
-              </div>
-            </div>
-
-            {syncMessage && (
-              <div style={{ marginTop: 10, fontWeight: 700, color: "#111827" }}>{syncMessage}</div>
+        {/* 상태 표시줄 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: "50%",
+                background: syncStatus?.running ? "#16A34A" : syncStatus?.pending ? "#F59E0B" : "#9CA3AF",
+                flexShrink: 0,
+              }}
+            />
+            <span style={{ fontWeight: 900, fontSize: 14 }}>
+              {syncStatus?.running
+                ? "동기화 실행 중..."
+                : syncStatus?.pending
+                ? "에이전트 대기 중..."
+                : syncStatus?.latest?.status === "done"
+                ? "마지막 동기화 완료"
+                : syncStatus?.latest?.status === "failed"
+                ? "마지막 동기화 실패"
+                : "대기 중"}
+            </span>
+            {syncStatus?.latest?.started_at && (syncStatus.running || syncStatus.pending) && (
+              <span style={{ color: "#6B7280", fontSize: 12 }}>
+                (요청: {new Date(syncStatus.latest.requested_at).toLocaleTimeString("ko-KR")})
+              </span>
             )}
+            {syncStatus?.latest?.completed_at && !syncStatus.running && !syncStatus.pending && (
+              <span style={{ color: "#6B7280", fontSize: 12 }}>
+                ({new Date(syncStatus.latest.completed_at).toLocaleString("ko-KR")})
+              </span>
+            )}
+          </div>
 
-            <div style={{ marginTop: 10, color: "#6B7280", fontSize: 12 }}>
-              Chrome 창이 열리며 elogis → TMS → 노선-점포 매핑에서 엑셀을 다운로드하여 DB에 자동 반영합니다.
-              로그인이 필요한 경우 브라우저에서 직접 로그인하면 이어서 진행됩니다.
-            </div>
-
-            {syncStatus?.logTail && syncStatus.logTail.length > 0 && (
-              <div
+          <div style={{ display: "flex", gap: 8 }}>
+            {!syncStatus?.running && !syncStatus?.pending ? (
+              <button
+                onClick={startSync}
+                disabled={syncBusy}
                 style={{
-                  marginTop: 12,
-                  background: "#0F172A",
-                  color: "#E2E8F0",
+                  height: 40,
+                  padding: "0 18px",
+                  border: "1px solid #111827",
+                  background: "#111827",
+                  color: "#fff",
+                  fontWeight: 900,
+                  fontSize: 13,
+                  cursor: syncBusy ? "not-allowed" : "pointer",
                   borderRadius: 0,
-                  padding: 12,
-                  fontSize: 12,
-                  fontFamily: "monospace",
-                  maxHeight: 200,
-                  overflowY: "auto",
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-all",
                 }}
               >
-                {syncStatus.logTail.join("\n")}
-              </div>
+                {syncBusy ? "처리 중..." : "elogis 동기화 요청"}
+              </button>
+            ) : (
+              <button
+                onClick={stopSync}
+                disabled={syncBusy}
+                style={{
+                  height: 40,
+                  padding: "0 18px",
+                  border: "1px solid #B91C1C",
+                  background: "#B91C1C",
+                  color: "#fff",
+                  fontWeight: 900,
+                  fontSize: 13,
+                  cursor: syncBusy ? "not-allowed" : "pointer",
+                  borderRadius: 0,
+                }}
+              >
+                취소
+              </button>
             )}
-          </>
+
+            <button
+              onClick={fetchSyncStatus}
+              disabled={syncBusy}
+              style={{
+                height: 40,
+                padding: "0 14px",
+                border: "1px solid #CBD5E1",
+                background: "#fff",
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: syncBusy ? "not-allowed" : "pointer",
+                borderRadius: 0,
+              }}
+            >
+              새로고침
+            </button>
+          </div>
+        </div>
+
+        {syncMessage && (
+          <div style={{ marginTop: 10, fontWeight: 700, color: "#111827" }}>{syncMessage}</div>
+        )}
+
+        {syncStatus?.latest?.error_text && (
+          <div style={{ marginTop: 10, color: "#B91C1C", fontWeight: 700, fontSize: 13 }}>
+            오류: {syncStatus.latest.error_text}
+          </div>
+        )}
+
+        <div style={{ marginTop: 10, color: "#6B7280", fontSize: 12 }}>
+          버튼을 누르면 요청이 Supabase에 저장되고, 로컬 에이전트(Task Scheduler)가 감지하여 elogis에서 자동으로 다운로드 및 DB 반영합니다.
+        </div>
+
+        {syncStatus?.latest?.log_tail && syncStatus.latest.log_tail.length > 0 && (
+          <div
+            style={{
+              marginTop: 12,
+              background: "#0F172A",
+              color: "#E2E8F0",
+              borderRadius: 0,
+              padding: 12,
+              fontSize: 12,
+              fontFamily: "monospace",
+              maxHeight: 200,
+              overflowY: "auto",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-all",
+            }}
+          >
+            {syncStatus.latest.log_tail.join("\n")}
+          </div>
         )}
       </div>
 
