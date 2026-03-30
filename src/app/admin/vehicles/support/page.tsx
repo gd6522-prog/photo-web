@@ -337,7 +337,7 @@ function OverQuantityCarCard({
       <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 12 }}>
         <span style={{ fontSize: 20, fontWeight: 950, color: "#0f2940" }}>{carNo}호차</span>
         {extra !== 0 && (
-          <span style={{ fontSize: 16, fontWeight: 900, color: "#dc2626" }}>+{formatNumber(extra)}</span>
+          <span style={{ fontSize: 16, fontWeight: 900, color: "#dc2626" }}>+{formatNumber(extra)} <span style={{ fontSize: 11, fontWeight: 700 }}>추가금액</span></span>
         )}
       </div>
       {/* 대분 */}
@@ -898,19 +898,19 @@ export default function SupportPage() {
             const extraNum = extraNumbers[carNo] ?? "";
             const fakeRow: CargoRow = { id: copyKey, car_no: carNo, seq_no: 0, store_code: "", store_name: "부분합", large_box, large_inner, large_other, large_day2l, large_nb2l, small_low, small_high, event, tobacco, certificate, cdc, pbox: 0, standard_time: "", address: "" };
             return (
-              <div key={carNo} style={{ borderTop: "1px solid #fee2e2", paddingTop: 10, paddingBottom: 10, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 17, fontWeight: 950, color: "#0f2940", minWidth: 60 }}>{displayCarNo}호차</span>
-                <span style={{ fontSize: 16, fontWeight: 900, color: "#1d4ed8" }}>대 {largeTotal.toLocaleString()}</span>
-                <span style={{ fontSize: 16, fontWeight: 900, color: "#166534" }}>소 {smallTotal.toLocaleString()}</span>
+              <div key={carNo} style={{ borderTop: "1px solid #fee2e2", paddingTop: 10, paddingBottom: 10, display: "flex", alignItems: "center", gap: 12, flexWrap: "nowrap" }}>
+                <span style={{ fontSize: 17, fontWeight: 950, color: "#0f2940", whiteSpace: "nowrap", minWidth: 56 }}>{displayCarNo}호차</span>
+                <span style={{ fontSize: 15, fontWeight: 900, color: "#1d4ed8", whiteSpace: "nowrap" }}>대 {largeTotal.toLocaleString()}</span>
+                <span style={{ fontSize: 15, fontWeight: 900, color: "#166534", whiteSpace: "nowrap" }}>소 {smallTotal.toLocaleString()}</span>
                 <input
                   type="number"
                   value={extraNum}
                   onChange={(e) => setExtraNumbers((prev) => ({ ...prev, [carNo]: e.target.value }))}
-                  placeholder="+추가수량"
-                  style={{ width: 100, height: 34, padding: "0 8px", border: "1px solid #fca5a5", borderRadius: 4, fontSize: 14, fontWeight: 700, color: "#dc2626", outline: "none", boxSizing: "border-box" }}
+                  placeholder="+추가금액"
+                  style={{ width: 90, height: 32, padding: "0 8px", border: "1px solid #fca5a5", borderRadius: 4, fontSize: 13, fontWeight: 700, color: "#dc2626", outline: "none", boxSizing: "border-box", flexShrink: 0 }}
                 />
                 <button
-                  style={{ ...btnBase, background: copyStatus[copyKey] === "done" ? "#f0fdf4" : copyStatus[copyKey] === "error" ? "#fef2f2" : "linear-gradient(135deg,#991b1b 0%,#dc2626 100%)", color: (copyStatus[copyKey] === "done" || copyStatus[copyKey] === "error") ? "#374151" : "#fff", border: "1px solid #dc2626", opacity: copyStatus[copyKey] === "copying" ? 0.7 : 1, fontSize: 13, padding: "7px 14px" }}
+                  style={{ ...btnBase, background: copyStatus[copyKey] === "done" ? "#f0fdf4" : copyStatus[copyKey] === "error" ? "#fef2f2" : "linear-gradient(135deg,#991b1b 0%,#dc2626 100%)", color: (copyStatus[copyKey] === "done" || copyStatus[copyKey] === "error") ? "#374151" : "#fff", border: "1px solid #dc2626", opacity: copyStatus[copyKey] === "copying" ? 0.7 : 1, fontSize: 13, padding: "6px 12px", flexShrink: 0 }}
                   onClick={() => copyImage(copyKey, cardRef)}
                   disabled={copyStatus[copyKey] === "copying"}
                 >
