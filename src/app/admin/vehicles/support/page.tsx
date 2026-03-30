@@ -285,6 +285,93 @@ function StoreNoticeCardMulti({
   );
 }
 
+// ── 운송게시판용 카드 (호차/순번/점포명/지원기사) ───────────────
+function SupportBoardCard({
+  rows,
+  reportDate,
+  cardRef,
+}: {
+  rows: CargoRow[];
+  reportDate: string;
+  cardRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  const sorted = [...rows].sort((a, b) => {
+    const carA = normalizeCarNo(a.car_no).localeCompare(normalizeCarNo(b.car_no), "ko", { numeric: true });
+    if (carA !== 0) return carA;
+    return (a.seq_no ?? 0) - (b.seq_no ?? 0);
+  });
+  if (!sorted.length) return null;
+
+  const BORDER = "1px solid #cbd5e1";
+
+  return (
+    <div
+      ref={cardRef}
+      style={{
+        width: "max-content",
+        minWidth: 480,
+        background: "#fff",
+        padding: "20px 22px",
+        fontFamily: "Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif",
+        boxSizing: "border-box",
+      }}
+    >
+      {/* 타이틀 */}
+      <div style={{ marginBottom: 14, paddingBottom: 10, borderBottom: "2px solid #7c3aed", display: "flex", alignItems: "baseline", gap: 10 }}>
+        <div style={{ fontSize: 15, fontWeight: 950, color: "#4c1d95", letterSpacing: -0.3 }}>지원 배송 현황</div>
+        <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700 }}>{reportDate} · {sorted.length}개 점포</div>
+      </div>
+
+      {/* 테이블 */}
+      <table style={{ borderCollapse: "collapse", width: "100%" }}>
+        <thead>
+          <tr style={{ background: "#7c3aed" }}>
+            {["호차", "순번", "점포명", "지원기사"].map((h) => (
+              <th
+                key={h}
+                style={{
+                  padding: "7px 14px",
+                  fontSize: 12,
+                  fontWeight: 900,
+                  color: "#fff",
+                  textAlign: "left",
+                  whiteSpace: "nowrap",
+                  border: BORDER,
+                  letterSpacing: 0.3,
+                }}
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((row, i) => {
+            const bg = i % 2 === 0 ? "#faf5ff" : "#fff";
+            const driver = row.note?.trim() || "-";
+            return (
+              <tr key={row.id}>
+                <td style={{ padding: "7px 14px", fontSize: 13, fontWeight: 900, color: "#1e3a5f", whiteSpace: "nowrap", background: bg, border: BORDER }}>
+                  {normalizeCarNo(row.car_no)}호차
+                </td>
+                <td style={{ padding: "7px 14px", fontSize: 13, fontWeight: 900, color: "#1e3a5f", whiteSpace: "nowrap", textAlign: "center", background: bg, border: BORDER }}>
+                  {row.seq_no}번
+                </td>
+                <td style={{ padding: "7px 14px", fontSize: 13, fontWeight: 900, color: "#111827", whiteSpace: "nowrap", background: bg, border: BORDER }}>
+                  {row.store_name}
+                </td>
+                <td style={{ padding: "7px 14px", fontSize: 13, fontWeight: 800, color: driver === "-" ? "#9ca3af" : "#4c1d95", whiteSpace: "nowrap", background: bg, border: BORDER }}>
+                  {driver}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ── 기사 메시지 카드 (회전별 가로 레이아웃) ──────────────
 function DriverMessageCardHorizontal({
   rows,
@@ -661,6 +748,28 @@ export default function SupportPage() {
           </div>
         </div>
       )}
+
+      {/* 운송게시판용 복사 섹션 */}
+      {supportRows.length > 0 && (() => {
+        const boardRef = getNoticeRef("support-board");
+        return (
+          <div style={{ border: "1px solid #ddd6fe", background: "#faf5ff", padding: "16px 20px", marginBottom: 16, borderRadius: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+              <div style={{ fontSize: 15, fontWeight: 900, color: "#4c1d95" }}>📋 운송게시판 복사</div>
+              <button
+                style={{ ...btnBase, background: copyStatus["support-board"] === "done" ? "#f5f3ff" : copyStatus["support-board"] === "error" ? "#fef2f2" : "linear-gradient(135deg,#4c1d95 0%,#7c3aed 100%)", color: (copyStatus["support-board"] === "done" || copyStatus["support-board"] === "error") ? "#374151" : "#fff", border: "1px solid #7c3aed", opacity: copyStatus["support-board"] === "copying" ? 0.7 : 1, fontSize: 14, padding: "9px 18px" }}
+                onClick={() => copyImage("support-board", boardRef)}
+                disabled={copyStatus["support-board"] === "copying"}
+              >
+                {copyBtnLabel("support-board", "호차/순번/점포명/지원기사 복사")}
+              </button>
+            </div>
+            <div style={{ position: "fixed", top: -9999, left: -9999, pointerEvents: "none", zIndex: -1 }}>
+              <SupportBoardCard rows={supportRows} reportDate={reportDate} cardRef={boardRef} />
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 전체 선작업/이동점포 공지 섹션 */}
       {supportRows.some((r) => noticeInputs[r.id]?.trim()) && (() => {
