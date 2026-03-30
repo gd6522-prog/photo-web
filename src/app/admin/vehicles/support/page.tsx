@@ -693,10 +693,12 @@ export default function SupportPage() {
     await supabase.from("support_notices").upsert({ row_id: rowId, notice, updated_at: new Date().toISOString() }, { onConflict: "row_id" });
   }
 
-  function applySnapshot(s: SnapshotResult) {
+  // fallbackSubtotal: 서버 스냅샷에 subtotalSettings가 없을 때 IndexedDB 값으로 대체
+  function applySnapshot(s: SnapshotResult, fallbackSubtotal?: Record<string, SubtotalSetting>) {
     setCargoRows(s.cargoRows);
     setDeliveryDate(s.deliveryDate);
-    setSubtotalSettings(s.subtotalSettings);
+    const hasSub = Object.keys(s.subtotalSettings).length > 0;
+    setSubtotalSettings(hasSub ? s.subtotalSettings : (fallbackSubtotal ?? s.subtotalSettings));
     void loadIndexes(s.cargoRows);
     void loadRounds(s.cargoRows);
     void loadNotices(s.cargoRows);
@@ -712,7 +714,7 @@ export default function SupportPage() {
         const server = await fetchServerSnapshot();
         setRefreshing(false);
         lastSyncAtRef.current = Date.now();
-        if (server) applySnapshot(server);
+        if (server) applySnapshot(server, local.subtotalSettings);
         return;
       }
       try {
@@ -733,7 +735,7 @@ export default function SupportPage() {
       const local = await readLocalSnapshot();
       if (local) applySnapshot(local);
       const server = await fetchServerSnapshot();
-      if (server) applySnapshot(server);
+      if (server) applySnapshot(server, local?.subtotalSettings);
       else if (!local) { setCargoRows([]); setDeliveryDate(""); setSubtotalSettings({}); }
     } finally {
       setRefreshing(false);
