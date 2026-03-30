@@ -312,7 +312,7 @@ function OverQuantityCarCard({
   const f = (label: string, v: number) =>
     v > 0 ? (
       <div key={label} style={{ fontSize: 11, color: "#374151", display: "flex", justifyContent: "space-between", gap: 16 }}>
-        <span style={{ color: "#6b7280" }}>{label}</span>
+        <span style={{ color: "#111827" }}>{label}</span>
         <span style={{ fontWeight: 700 }}>{formatNumber(v)}</span>
       </div>
     ) : null;
