@@ -656,7 +656,8 @@ export default function SupportPage() {
   const [extraNumbers, setExtraNumbers] = useState<Record<string, string>>({});
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
-  const toggleCollapse = (key: string) => setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
+  // collapsed[key] === false → 펼침, undefined/true → 접힘 (기본값 접힘)
+  const toggleCollapse = (key: string) => setCollapsed((prev) => ({ ...prev, [key]: prev[key] === false }));
 
   const noticeCardRefs = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
   const driverCardRefs = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
@@ -870,14 +871,14 @@ export default function SupportPage() {
           <button
             onClick={() => {
               const allKeys = ["__ovq__", ...groupedByDriver.map(([d]) => `driver-${d || "_unassigned"}`)];
-              const allCollapsed = allKeys.every((k) => collapsed[k]);
+              const allCollapsed = allKeys.every((k) => collapsed[k] !== false);
               const next: Record<string, boolean> = {};
-              for (const k of allKeys) next[k] = !allCollapsed;
+              for (const k of allKeys) next[k] = allCollapsed ? false : true;
               setCollapsed(next);
             }}
             style={{ ...btnBase, background: "#f1f5f9", color: "#374151", border: "1px solid #cbd5e1" }}
           >
-            {["__ovq__", ...groupedByDriver.map(([d]) => `driver-${d || "_unassigned"}`)].every((k) => collapsed[k]) ? "▶ 모두 펴기" : "▼ 모두 접기"}
+            {["__ovq__", ...groupedByDriver.map(([d]) => `driver-${d || "_unassigned"}`)].every((k) => collapsed[k] !== false) ? "▶ 모두 펴기" : "▼ 모두 접기"}
           </button>
           <button onClick={manualRefresh} disabled={refreshing} style={{ ...btnBase, background: refreshing ? "#e2e8f0" : "#f1f5f9", color: "#374151", border: "1px solid #cbd5e1", cursor: refreshing ? "not-allowed" : "pointer" }}>
             {refreshing ? "동기화 중..." : "새로고침"}
@@ -898,7 +899,7 @@ export default function SupportPage() {
       {subtotalSupportRows.length > 0 && (
         <div style={{ border: "1px solid #fca5a5", background: "#fff", padding: "20px 20px 16px", marginBottom: 16 }}>
           <div
-            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: collapsed["__ovq__"] ? 0 : 14, flexWrap: "wrap", gap: 10, cursor: "pointer", userSelect: "none" }}
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: collapsed["__ovq__"] !== false ? 0 : 14, flexWrap: "wrap", gap: 10, cursor: "pointer", userSelect: "none" }}
             onClick={() => toggleCollapse("__ovq__")}
           >
             <div>
@@ -907,9 +908,9 @@ export default function SupportPage() {
                 {subtotalSupportRows.length}호차 · {subtotalSupportRows.map((r) => normalizeCarNo(r.carNo)).join(", ")}
               </span>
             </div>
-            <span style={{ fontSize: 18, color: "#dc2626", fontWeight: 900 }}>{collapsed["__ovq__"] ? "▶" : "▼"}</span>
+            <span style={{ fontSize: 18, color: "#dc2626", fontWeight: 900 }}>{collapsed["__ovq__"] !== false ? "▶" : "▼"}</span>
           </div>
-          {!collapsed["__ovq__"] && subtotalSupportRows.map((item) => {
+          {collapsed["__ovq__"] === false && subtotalSupportRows.map((item) => {
             const { carNo, largeTotal, smallTotal, large_box, large_inner, large_other, large_day2l, large_nb2l, small_low, small_high, event, tobacco, certificate, cdc } = item;
             const displayCarNo = normalizeCarNo(carNo);
             const copyKey = `ovq-${displayCarNo}`;
@@ -1010,7 +1011,7 @@ export default function SupportPage() {
           return Number(a[0]) - Number(b[0]);
         });
 
-        const isCollapsed = !!collapsed[driverKey];
+        const isCollapsed = collapsed[driverKey] !== false;
         return (
           <div key={driverKey} style={{ border: "1px solid #d6e4ee", background: "#fff", padding: "20px 20px 16px", marginBottom: 16 }}>
             {/* 기사 헤더 */}
