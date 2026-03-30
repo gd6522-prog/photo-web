@@ -24,28 +24,11 @@ New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 
 $argument = "/c node `"$agentScript`" >> `"$logFile`" 2>&1"
 
-$action = New-ScheduledTaskAction `
-  -Execute "cmd.exe" `
-  -Argument $argument `
-  -WorkingDirectory $projectRoot
+$action = New-ScheduledTaskAction -Execute "cmd.exe" -Argument $argument -WorkingDirectory $projectRoot
+$trigger = New-ScheduledTaskTrigger -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes) -Once -At (Get-Date)
+$settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew
 
-$trigger = New-ScheduledTaskTrigger `
-  -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes) `
-  -Once `
-  -At (Get-Date)
-
-$settings = New-ScheduledTaskSettingsSet `
-  -ExecutionTimeLimit (New-TimeSpan -Minutes ($IntervalMinutes + 1)) `
-  -StartWhenAvailable $true `
-  -MultipleInstances IgnoreNew
-
-Register-ScheduledTask `
-  -TaskName $TaskName `
-  -Action $action `
-  -Trigger $trigger `
-  -Settings $settings `
-  -RunLevel Highest `
-  -Force
+Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings -RunLevel Highest -Force
 
 Write-Host "Done. Task '$TaskName' runs every $IntervalMinutes min."
 Write-Host "Log: $logFile"
