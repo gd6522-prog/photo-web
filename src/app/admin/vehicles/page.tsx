@@ -114,10 +114,13 @@ const VEHICLE_STORE_NAME = "vehicle-page";
 const VEHICLE_STORE_KEY = "current";
 const VEHICLE_LIMITS_KEY = "limits";
 
+type SubtotalSetting = { support_excluded: boolean; note: string };
+
 type VehicleSnapshot = {
   fileName: string;
   productRows: ProductRow[];
   cargoRows: CargoRow[];
+  subtotalSettings?: Record<string, SubtotalSetting>;
   uploadedAt?: string;
   uploadedBy?: string;
 };
@@ -459,16 +462,16 @@ async function clearServerVehicleSnapshot() {
   }
 }
 
-async function saveServerVehicleSnapshot(fileName: string, productRows: ProductRow[], cargoRows: CargoRow[]) {
+async function saveServerVehicleSnapshot(fileName: string, _productRows: ProductRow[], cargoRows: CargoRow[], subtotalSettings?: Record<string, SubtotalSetting>) {
   const token = await getVehicleAdminToken();
-  const snapshot = { fileName, productRows, cargoRows, uploadedAt: new Date().toISOString(), uploadedBy: "" };
+  // productRows는 용량이 크기 때문에 제외하고 cargoRows만 전송 (서버에서 기존 productRows 유지)
   const response = await fetch("/api/admin/vehicles/current", {
     method: "PUT",
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ snapshot }),
+    body: JSON.stringify({ cargoRows, fileName, subtotalSettings }),
   });
 
   const payload = (await response.json().catch(() => ({}))) as { ok?: boolean; message?: string };
@@ -1259,6 +1262,7 @@ function getAddressTextStyle(value: unknown) {
 function buildReportGroups(cargoRows: CargoRow[], driverIndex: Map<string, DriverProfile>) {
   const grouped = new Map<string, CargoRow[]>();
   for (const row of cargoRows) {
+    if (row.id.startsWith("subtotal-")) continue; // 부분합 가상 행 제외
     const key = normalizeCarNo(row.car_no);
     if (!grouped.has(key)) grouped.set(key, []);
     grouped.get(key)!.push(row);
@@ -1380,7 +1384,7 @@ function buildSupportReportGroups(
   roundsMap: Record<string, string>,
   driverIndex: Map<string, DriverProfile>
 ): ReportGroup[] {
-  const supportRows = cargoRows.filter((r) => r.support_excluded);
+  const supportRows = cargoRows.filter((r) => r.support_excluded && !r.id.startsWith("subtotal-"));
   if (!supportRows.length) return [];
 
   const groups = new Map<string, CargoRow[]>();
@@ -1883,6 +1887,7 @@ export function VehiclePageScreen({
   const [limitsMessage, setLimitsMessage] = useState("");
   const [cargoSaveBusy, setCargoSaveBusy] = useState(false);
   const [cargoDirty, setCargoDirty] = useState(false);
+  const [subtotalSettings, setSubtotalSettings] = useState<Record<string, SubtotalSetting>>({});
   const [adhesionSnapshot, setAdhesionSnapshot] = useState<AdhesionSnapshot | null>(null);
   const [cdcSnapshot, setCdcSnapshot] = useState<CdcSnapshot | null>(null);
   const [inputPage, setInputPage] = useState(1);
@@ -1917,7 +1922,8 @@ export function VehiclePageScreen({
         if (localSnapshot) {
           setFileName(localSnapshot.fileName ?? "");
           setProductRows(Array.isArray(localSnapshot.productRows) ? localSnapshot.productRows : []);
-          setCargoRows(Array.isArray(localSnapshot.cargoRows) ? localSnapshot.cargoRows : []);
+          setCargoRows(Array.isArray(localSnapshot.cargoRows) ? localSnapshot.cargoRows.filter((r) => !r.id?.startsWith("subtotal-")) : []);
+          if (localSnapshot.subtotalSettings) setSubtotalSettings(localSnapshot.subtotalSettings);
           setCargoDirty(false);
           lastServerSnapshotRef.current = JSON.stringify({
             fileName: localSnapshot.fileName ?? "",
@@ -1946,13 +1952,19 @@ export function VehiclePageScreen({
           const nextSnapshot = serverSaved.snapshot;
           setFileName(nextSnapshot.fileName ?? "");
           setProductRows(Array.isArray(nextSnapshot.productRows) ? nextSnapshot.productRows : []);
-          setCargoRows(Array.isArray(nextSnapshot.cargoRows) ? nextSnapshot.cargoRows : []);
+          setCargoRows(Array.isArray(nextSnapshot.cargoRows) ? nextSnapshot.cargoRows.filter((r) => !r.id?.startsWith("subtotal-")) : []);
+          if (nextSnapshot.subtotalSettings) setSubtotalSettings(nextSnapshot.subtotalSettings);
           setCargoDirty(false);
           lastServerSnapshotRef.current = JSON.stringify({
             fileName: nextSnapshot.fileName ?? "",
             cargoRows: Array.isArray(nextSnapshot.cargoRows) ? nextSnapshot.cargoRows : [],
           });
-          void writeVehicleSnapshot(nextSnapshot).catch(() => {});
+          void writeVehicleSnapshot({
+            ...nextSnapshot,
+            cargoRows: Array.isArray(nextSnapshot.cargoRows)
+              ? nextSnapshot.cargoRows.filter((r: CargoRow) => !r.id?.startsWith("subtotal-"))
+              : [],
+          }).catch(() => {});
         } else if (serverSaved) {
           // 서버에 snapshot이 없으면 (cron 초기화 등) 로컬 데이터도 지운다
           setFileName("");
@@ -2013,16 +2025,24 @@ export function VehiclePageScreen({
     })();
   }, [initialSupportAuto, storageReady]);
 
+  // 가상행(subtotal-)이 cargoRows에 남아있으면 즉시 제거
+  useEffect(() => {
+    if (cargoRows.some((r) => r.id?.startsWith("subtotal-"))) {
+      setCargoRows((prev) => prev.filter((r) => !r.id?.startsWith("subtotal-")));
+    }
+  }, [cargoRows]);
+
   useEffect(() => {
     if (!storageReady) return;
     const snapshot = {
       fileName,
       productRows,
       cargoRows,
+      subtotalSettings,
     };
 
     void writeVehicleSnapshot(snapshot).catch(() => {});
-  }, [fileName, productRows, cargoRows, storageReady]);
+  }, [fileName, productRows, cargoRows, subtotalSettings, storageReady]);
 
   useEffect(() => {
     if (!storageReady || cargoRows.length === 0) return;
@@ -2268,7 +2288,8 @@ export function VehiclePageScreen({
   const filteredCargoRows = useMemo(() => {
     const carQ = normalizeStoreName(cargoQuery);
     const storeQ = normalizeStoreName(storeSearchQuery);
-    let rows = cargoRows;
+    // 부분합 가상 행은 물동량 테이블에 개별 행으로 표시하지 않음
+    let rows = cargoRows.filter((row) => !row.id.startsWith("subtotal-"));
     if (showSupportOnly) rows = rows.filter((row) => row.support_excluded);
     if (carQ) rows = rows.filter((row) => normalizeStoreName(row.car_no).includes(carQ));
     if (storeQ) rows = rows.filter((row) => normalizeStoreName(row.store_code).includes(storeQ) || normalizeStoreName(row.store_name).includes(storeQ));
@@ -2399,6 +2420,20 @@ export function VehiclePageScreen({
     );
   };
 
+  const bulkSetDriverNote = (sourceIndices: number[], note: string) => {
+    setCargoDirty(true);
+    setCargoRows((prev) =>
+      prev.map((row, i) => sourceIndices.includes(i) ? { ...row, note } : row)
+    );
+  };
+
+  const bulkToggleSupport = (allSourceIndices: number[], checked: boolean) => {
+    setCargoDirty(true);
+    setCargoRows((prev) =>
+      prev.map((row, i) => allSourceIndices.includes(i) ? { ...row, support_excluded: checked } : row)
+    );
+  };
+
   const saveCargoSettings = async () => {
     if (!serverSyncEnabledRef.current || !fileName || cargoRows.length === 0) {
       setMessage("먼저 단품별 파일을 업로드해 주세요.");
@@ -2409,7 +2444,7 @@ export function VehiclePageScreen({
     setMessage("");
 
     try {
-      await saveServerVehicleSnapshot(fileName, productRows, cargoRows);
+      await saveServerVehicleSnapshot(fileName, productRows, cargoRows, subtotalSettings);
       lastServerSnapshotRef.current = JSON.stringify({ fileName, cargoRows });
       setCargoDirty(false);
       setMessage("물동량 지원표시와 수정값을 서버에 저장했습니다.");
@@ -2423,19 +2458,33 @@ export function VehiclePageScreen({
   const cargoDisplayRows = useMemo(() => {
     const rows: Array<
       | { kind: "item"; row: CargoRow; sourceIndex: number }
-      | { kind: "subtotal"; carNo: string; total: CargoRow & { largeTotal: number; smallTotal: number } }
+      | { kind: "subtotal"; carNo: string; total: CargoRow & { largeTotal: number; smallTotal: number }; sourceIndices: number[]; allSourceIndices: number[]; groupNote: string; groupAllSupport: boolean }
     > = [];
+
+    // 호차별 전체 sourceIndex 목록 미리 계산 (filteredCargoRows 관계없이 전체 기준)
+    const carNoAllIndices = new Map<string, number[]>();
+    cargoRows.forEach((r, i) => {
+      const arr = carNoAllIndices.get(r.car_no) ?? [];
+      arr.push(i);
+      carNoAllIndices.set(r.car_no, arr);
+    });
 
     let currentCarNo = "";
     let subtotal: (CargoRow & { largeTotal: number; smallTotal: number }) | null = null;
+    let subtotalSourceIndices: number[] = [];
+    let subtotalGroupNote = "";
 
     for (const row of filteredCargoRows) {
       if (currentCarNo !== row.car_no) {
         if (subtotal) {
-          rows.push({ kind: "subtotal", carNo: currentCarNo, total: subtotal });
+          const allIdx = carNoAllIndices.get(currentCarNo) ?? [];
+          const groupAllSupport = allIdx.length > 0 && allIdx.every((i) => cargoRows[i]?.support_excluded);
+          rows.push({ kind: "subtotal", carNo: currentCarNo, total: subtotal, sourceIndices: subtotalSourceIndices, allSourceIndices: allIdx, groupNote: subtotalGroupNote, groupAllSupport });
         }
 
         currentCarNo = row.car_no;
+        subtotalSourceIndices = [];
+        subtotalGroupNote = "";
         subtotal = {
           id: `subtotal-${row.car_no}`,
           car_no: row.car_no,
@@ -2463,6 +2512,8 @@ export function VehiclePageScreen({
 
       const sourceIndex = cargoRows.findIndex((item) => item.id === row.id);
       rows.push({ kind: "item", row, sourceIndex });
+      subtotalSourceIndices.push(sourceIndex);
+      if (!subtotalGroupNote && row.note?.trim()) subtotalGroupNote = row.note.trim();
 
       if (subtotal && !row.support_excluded) {
         const totals = cargoTotals(row);
@@ -2482,11 +2533,56 @@ export function VehiclePageScreen({
     }
 
     if (subtotal) {
-      rows.push({ kind: "subtotal", carNo: currentCarNo, total: subtotal });
+      const allIdx = carNoAllIndices.get(currentCarNo) ?? [];
+      const groupAllSupport = allIdx.length > 0 && allIdx.every((i) => cargoRows[i]?.support_excluded);
+      rows.push({ kind: "subtotal", carNo: currentCarNo, total: subtotal, sourceIndices: subtotalSourceIndices, allSourceIndices: allIdx, groupNote: subtotalGroupNote, groupAllSupport });
+    }
+
+    // subtotalSettings에서 체크됐지만 filteredCargoRows에 행이 없는 호차 → 부분합 행 추가 (showSupportOnly 여부 무관)
+    {
+      const carsAlreadyInRows = new Set(rows.filter((r) => r.kind === "subtotal").map((r) => (r as { kind: "subtotal"; carNo: string }).carNo));
+      for (const [carNo, setting] of Object.entries(subtotalSettings)) {
+        if (!setting.support_excluded || carsAlreadyInRows.has(carNo)) continue;
+        const allIdx = carNoAllIndices.get(carNo) ?? [];
+        const groupAllSupport = allIdx.length > 0 && allIdx.every((i) => cargoRows[i]?.support_excluded);
+        const total: CargoRow & { largeTotal: number; smallTotal: number } = {
+          id: `subtotal-${carNo}`,
+          car_no: carNo,
+          seq_no: 0,
+          store_code: "",
+          store_name: `${carNo}호차 부분합`,
+          large_box: 0, large_inner: 0, large_other: 0, large_day2l: 0, large_nb2l: 0,
+          small_low: 0, small_high: 0, event: 0, tobacco: 0, certificate: 0, cdc: 0, pbox: 0,
+          standard_time: "", address: "",
+          largeTotal: 0, smallTotal: 0,
+        };
+        const sourceIndices: number[] = [];
+        for (const idx of allIdx) {
+          const row = cargoRows[idx];
+          if (!row || row.id?.startsWith("subtotal-")) continue;
+          sourceIndices.push(idx);
+          if (!row.support_excluded) {
+            const totals = cargoTotals(row);
+            total.large_box += row.large_box;
+            total.large_inner += row.large_inner;
+            total.large_other += row.large_other;
+            total.large_day2l += row.large_day2l;
+            total.large_nb2l += row.large_nb2l;
+            total.small_low += row.small_low;
+            total.small_high += row.small_high;
+            total.event += row.event;
+            total.tobacco += row.tobacco;
+            total.certificate += row.certificate;
+            total.largeTotal += totals.largeTotal;
+            total.smallTotal += totals.smallTotal;
+          }
+        }
+        rows.push({ kind: "subtotal", carNo, total, sourceIndices, allSourceIndices: allIdx, groupNote: "", groupAllSupport });
+      }
     }
 
     return rows;
-  }, [filteredCargoRows, cargoRows]);
+  }, [filteredCargoRows, cargoRows, subtotalSettings, showSupportOnly]);
 
   const resetStoredData = () => {
     setFileName("");
@@ -3443,14 +3539,48 @@ export function VehiclePageScreen({
             <tbody>
               {cargoDisplayRows.map((entry, index) => {
                 if (entry.kind === "subtotal") {
+                  const subSetting = subtotalSettings[entry.carNo] ?? { support_excluded: false, note: "" };
+                  if (showSupportOnly && !subSetting.support_excluded) return null;
+
                   const overLarge = Number(largeLimit || 0) > 0 && entry.total.largeTotal >= Number(largeLimit || 0);
                   const overSmall = Number(smallLimit || 0) > 0 && entry.total.smallTotal >= Number(smallLimit || 0);
-                  const subtotalBackground = overLarge || overSmall ? "#fee2e2" : "#eef6fb";
+                  const subtotalBackground = subSetting.support_excluded ? "#e5e7eb" : overLarge || overSmall ? "#fee2e2" : "#eef6fb";
                   const subtotalBorder = overLarge || overSmall ? "#fecaca" : "#d7e4ee";
 
                   return (
                     <tr key={`subtotal-${entry.carNo}-${index}`} style={{ background: subtotalBackground }}>
                       {cargoColumns.map((column) => {
+                        if (column.key === "support") {
+                          return (
+                            <td key={`subtotal-${entry.carNo}-support`} style={{ padding: "4px 8px", textAlign: "center", borderBottom: `1px solid ${subtotalBorder}`, ...getStickyCargoStyle("support", subtotalBackground) }}>
+                              <input
+                                type="checkbox"
+                                checked={Boolean(subSetting.support_excluded)}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  const newSetting = { ...subSetting, support_excluded: checked };
+                                  setCargoDirty(true);
+                                  setSubtotalSettings((prev) => ({ ...prev, [entry.carNo]: newSetting }));
+                                }}
+                              />
+                            </td>
+                          );
+                        }
+                        if (column.key === "note") {
+                          return (
+                            <td key={`subtotal-${entry.carNo}-note`} style={{ padding: "4px 8px", borderBottom: `1px solid ${subtotalBorder}`, ...getStickyCargoStyle("note", subtotalBackground) }}>
+                              <CargoDriverInput
+                                value={subSetting.note}
+                                onCommit={(v) => {
+                                  setCargoDirty(true);
+                                  setSubtotalSettings((prev) => ({ ...prev, [entry.carNo]: { ...subSetting, note: v } }));
+                                }}
+                                driverNames={allDriverNames}
+                              />
+                            </td>
+                          );
+                        }
+
                         let value: string | number = "";
                         if (column.key === "car_no") value = entry.carNo;
                         else if (column.key === "store_name") value = "부분합";
