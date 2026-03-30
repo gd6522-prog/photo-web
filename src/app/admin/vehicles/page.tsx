@@ -1397,17 +1397,7 @@ function buildSupportReportGroups(
     (r) => r.support_excluded && !r.id.startsWith("subtotal-") && !subtotalCarNos.has(normalizeCarNo(r.car_no))
   );
 
-  // 부분합 체크 호차 전체 행 → "과물량" 그룹으로 통합
-  const subtotalRows: CargoRow[] = [];
-  for (const carNo of subtotalCarNos) {
-    for (const row of cargoRows) {
-      if (normalizeCarNo(row.car_no) === carNo && !row.id.startsWith("subtotal-")) {
-        subtotalRows.push({ ...row, note: "과물량", support_excluded: true });
-      }
-    }
-  }
-
-  const supportRows = [...individualRows, ...subtotalRows];
+  const supportRows = [...individualRows];
   if (!supportRows.length) return [];
 
   const groups = new Map<string, CargoRow[]>();

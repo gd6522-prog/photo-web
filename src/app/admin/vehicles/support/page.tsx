@@ -923,7 +923,7 @@ export default function SupportPage() {
             <span style={{ fontSize: 18, color: "#dc2626", fontWeight: 900 }}>{collapsed["__ovq__"] !== false ? "▶" : "▼"}</span>
           </div>
           {collapsed["__ovq__"] === false && (
-            <div style={{ display: "table", width: "100%", borderCollapse: "collapse" }}>
+            <div style={{ display: "table", width: "auto", borderCollapse: "collapse" }}>
               {subtotalSupportRows.map((item) => {
                 const { carNo, largeTotal, smallTotal, large_box, large_inner, large_other, large_day2l, large_nb2l, small_low, small_high, event, tobacco, certificate, cdc } = item;
                 const displayCarNo = normalizeCarNo(carNo);
