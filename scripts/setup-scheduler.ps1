@@ -1,9 +1,6 @@
-# 점포마스터 동기화 에이전트 - Windows 작업 스케줄러 등록
-# 관리자 권한으로 실행하세요: 마우스 우클릭 > "PowerShell로 실행"
-
 param(
   [int]$IntervalMinutes = 1,
-  [string]$TaskName = "점포마스터_동기화에이전트"
+  [string]$TaskName = "StoreMaster_SyncAgent"
 )
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -13,13 +10,13 @@ $logDir = Join-Path $projectRoot ".automation\logs"
 $logFile = Join-Path $logDir "agent.log"
 
 if (-not (Test-Path $agentScript)) {
-  Write-Error "sync-agent.mjs 파일을 찾지 못했습니다: $agentScript"
+  Write-Error "sync-agent.mjs not found: $agentScript"
   exit 1
 }
 
 $nodeCheck = Get-Command node -ErrorAction SilentlyContinue
 if ($nodeCheck -eq $null) {
-  Write-Error "node 명령을 찾지 못했습니다. Node.js가 설치되어 있는지 확인하세요."
+  Write-Error "node not found. Please install Node.js."
   exit 1
 }
 
@@ -50,18 +47,8 @@ Register-ScheduledTask `
   -RunLevel Highest `
   -Force
 
+Write-Host "Done. Task '$TaskName' runs every $IntervalMinutes min."
+Write-Host "Log: $logFile"
 Write-Host ""
-Write-Host "====================================="
-Write-Host " 작업 스케줄러 등록 완료"
-Write-Host "====================================="
-Write-Host " 작업 이름 : $TaskName"
-Write-Host " 실행 주기 : $IntervalMinutes 분마다"
-Write-Host " 로그 파일 : $logFile"
-Write-Host "====================================="
-Write-Host ""
-Write-Host "즉시 테스트 실행:"
-Write-Host "  Start-ScheduledTask -TaskName '$TaskName'"
-Write-Host ""
-Write-Host "작업 삭제:"
-Write-Host "  Unregister-ScheduledTask -TaskName '$TaskName' -Confirm:`$false"
-Write-Host ""
+Write-Host "Test now: Start-ScheduledTask -TaskName '$TaskName'"
+Write-Host "Delete:   Unregister-ScheduledTask -TaskName '$TaskName' -Confirm:`$false"
