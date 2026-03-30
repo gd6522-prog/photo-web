@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 
 type Row = {
@@ -49,6 +49,14 @@ function findHeaderIndex(headers: string[], candidates: string[]) {
   return -1;
 }
 
+type AutoSyncStatus = {
+  supported: boolean;
+  running: boolean;
+  pid: number | null;
+  startedAt: string | null;
+  logTail: string[];
+};
+
 export default function StoreMasterPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -58,6 +66,65 @@ export default function StoreMasterPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [dragOver, setDragOver] = useState(false);
+
+  // auto-sync state
+  const [syncStatus, setSyncStatus] = useState<AutoSyncStatus | null>(null);
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
+
+  const fetchSyncStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/store-master/auto-sync/status");
+      const json = await res.json();
+      if (json.ok) setSyncStatus(json);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    fetchSyncStatus();
+  }, [fetchSyncStatus]);
+
+  useEffect(() => {
+    if (!syncStatus?.running) return;
+    const interval = setInterval(fetchSyncStatus, 3000);
+    return () => clearInterval(interval);
+  }, [syncStatus?.running, fetchSyncStatus]);
+
+  const startSync = async () => {
+    setSyncBusy(true);
+    setSyncMessage("");
+    try {
+      const res = await fetch("/api/admin/store-master/auto-sync/start", { method: "POST" });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.message ?? "자동 동기화 시작에 실패했습니다.");
+      if (json.alreadyRunning) {
+        setSyncMessage("이미 실행 중입니다.");
+      } else {
+        setSyncMessage("자동 동기화를 시작했습니다. Chrome 창이 열립니다.");
+      }
+      await fetchSyncStatus();
+    } catch (error: any) {
+      setSyncMessage(error?.message ?? String(error));
+    } finally {
+      setSyncBusy(false);
+    }
+  };
+
+  const stopSync = async () => {
+    setSyncBusy(true);
+    setSyncMessage("");
+    try {
+      const res = await fetch("/api/admin/store-master/auto-sync/stop", { method: "POST" });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.message ?? "중단 실패");
+      setSyncMessage("자동 동기화를 중단했습니다.");
+      await fetchSyncStatus();
+    } catch (error: any) {
+      setSyncMessage(error?.message ?? String(error));
+    } finally {
+      setSyncBusy(false);
+    }
+  };
 
   const uploadableRows = useMemo(
     () => rowsAll.filter((row) => !!String(row.car_no ?? "").trim()),
@@ -258,7 +325,128 @@ export default function StoreMasterPage() {
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: 24 }}>
       <h1 style={{ fontWeight: 900, fontSize: 32, letterSpacing: -0.4 }}>점포마스터 관리</h1>
 
-      <h2 style={{ marginTop: 18, fontWeight: 900, fontSize: 22 }}>점포마스터 최신본 엑셀 업로드</h2>
+      {/* elogis 자동 동기화 */}
+      <h2 style={{ marginTop: 18, fontWeight: 900, fontSize: 22 }}>elogis 자동 동기화</h2>
+
+      <div style={{ marginTop: 12, border: "1px solid #E5E7EB", borderRadius: 0, padding: 16, background: "#fff" }}>
+        {syncStatus?.supported === false ? (
+          <div style={{ color: "#92400E", background: "#FFFBEB", border: "1px solid #FCD34D", padding: 12, fontWeight: 700 }}>
+            이 기능은 로컬 PC에서만 사용 가능합니다. (배포 환경 미지원)
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    background: syncStatus?.running ? "#16A34A" : "#9CA3AF",
+                    flexShrink: 0,
+                  }}
+                />
+                <span style={{ fontWeight: 900, fontSize: 14 }}>
+                  {syncStatus?.running ? "동기화 실행 중..." : "대기 중"}
+                </span>
+                {syncStatus?.running && syncStatus.startedAt && (
+                  <span style={{ color: "#6B7280", fontSize: 12 }}>
+                    (시작: {new Date(syncStatus.startedAt).toLocaleTimeString("ko-KR")})
+                  </span>
+                )}
+              </div>
+
+              <div style={{ display: "flex", gap: 8 }}>
+                {!syncStatus?.running ? (
+                  <button
+                    onClick={startSync}
+                    disabled={syncBusy}
+                    style={{
+                      height: 40,
+                      padding: "0 18px",
+                      border: "1px solid #111827",
+                      background: "#111827",
+                      color: "#fff",
+                      fontWeight: 900,
+                      fontSize: 13,
+                      cursor: syncBusy ? "not-allowed" : "pointer",
+                      borderRadius: 0,
+                    }}
+                  >
+                    {syncBusy ? "처리 중..." : "elogis에서 자동 가져오기"}
+                  </button>
+                ) : (
+                  <button
+                    onClick={stopSync}
+                    disabled={syncBusy}
+                    style={{
+                      height: 40,
+                      padding: "0 18px",
+                      border: "1px solid #B91C1C",
+                      background: "#B91C1C",
+                      color: "#fff",
+                      fontWeight: 900,
+                      fontSize: 13,
+                      cursor: syncBusy ? "not-allowed" : "pointer",
+                      borderRadius: 0,
+                    }}
+                  >
+                    중단
+                  </button>
+                )}
+
+                <button
+                  onClick={fetchSyncStatus}
+                  disabled={syncBusy}
+                  style={{
+                    height: 40,
+                    padding: "0 14px",
+                    border: "1px solid #CBD5E1",
+                    background: "#fff",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    cursor: syncBusy ? "not-allowed" : "pointer",
+                    borderRadius: 0,
+                  }}
+                >
+                  새로고침
+                </button>
+              </div>
+            </div>
+
+            {syncMessage && (
+              <div style={{ marginTop: 10, fontWeight: 700, color: "#111827" }}>{syncMessage}</div>
+            )}
+
+            <div style={{ marginTop: 10, color: "#6B7280", fontSize: 12 }}>
+              Chrome 창이 열리며 elogis → TMS → 노선-점포 매핑에서 엑셀을 다운로드하여 DB에 자동 반영합니다.
+              로그인이 필요한 경우 브라우저에서 직접 로그인하면 이어서 진행됩니다.
+            </div>
+
+            {syncStatus?.logTail && syncStatus.logTail.length > 0 && (
+              <div
+                style={{
+                  marginTop: 12,
+                  background: "#0F172A",
+                  color: "#E2E8F0",
+                  borderRadius: 0,
+                  padding: 12,
+                  fontSize: 12,
+                  fontFamily: "monospace",
+                  maxHeight: 200,
+                  overflowY: "auto",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-all",
+                }}
+              >
+                {syncStatus.logTail.join("\n")}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      <h2 style={{ marginTop: 32, fontWeight: 900, fontSize: 22 }}>점포마스터 최신본 엑셀 업로드</h2>
 
       <div style={{ marginTop: 16, border: "1px solid #E5E7EB", borderRadius: 0, padding: 14, background: "#fff" }}>
         <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
