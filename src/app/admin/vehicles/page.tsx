@@ -1382,9 +1382,32 @@ function buildSupportReportGroup(
 function buildSupportReportGroups(
   cargoRows: CargoRow[],
   roundsMap: Record<string, string>,
-  driverIndex: Map<string, DriverProfile>
+  driverIndex: Map<string, DriverProfile>,
+  subtotalSettings: Record<string, { support_excluded: boolean; note: string }> = {}
 ): ReportGroup[] {
-  const supportRows = cargoRows.filter((r) => r.support_excluded && !r.id.startsWith("subtotal-"));
+  // 부분합 체크된 호차 (subtotalSettings 기준)
+  const subtotalCarNos = new Set(
+    Object.entries(subtotalSettings)
+      .filter(([, s]) => s.support_excluded)
+      .map(([carNo]) => normalizeCarNo(carNo))
+  );
+
+  // 개별 체크 행 (부분합 체크 호차는 아래에서 별도 처리)
+  const individualRows = cargoRows.filter(
+    (r) => r.support_excluded && !r.id.startsWith("subtotal-") && !subtotalCarNos.has(normalizeCarNo(r.car_no))
+  );
+
+  // 부분합 체크 호차 전체 행 → "과물량" 그룹으로 통합
+  const subtotalRows: CargoRow[] = [];
+  for (const carNo of subtotalCarNos) {
+    for (const row of cargoRows) {
+      if (normalizeCarNo(row.car_no) === carNo && !row.id.startsWith("subtotal-")) {
+        subtotalRows.push({ ...row, note: "과물량", support_excluded: true });
+      }
+    }
+  }
+
+  const supportRows = [...individualRows, ...subtotalRows];
   if (!supportRows.length) return [];
 
   const groups = new Map<string, CargoRow[]>();
@@ -2206,8 +2229,8 @@ export function VehiclePageScreen({
     [supportDriverNameInput, supportDriverProfile, supportMatchedRows, supportMode, supportStoreNameInputs]
   );
   const supportReportGroups = useMemo(
-    () => (supportMode ? buildSupportReportGroups(cargoRows, supportRoundsMap, driverIndex) : []),
-    [supportMode, cargoRows, supportRoundsMap, driverIndex]
+    () => (supportMode ? buildSupportReportGroups(cargoRows, supportRoundsMap, driverIndex, subtotalSettings) : []),
+    [supportMode, cargoRows, supportRoundsMap, driverIndex, subtotalSettings]
   );
   const updateSupportStoreNameInput = (index: number, value: string) => {
     setSupportStoreNameInputs((current) => current.map((entry, entryIndex) => (entryIndex === index ? value : entry)));
