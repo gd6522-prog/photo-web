@@ -88,6 +88,11 @@ async function main() {
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+  // heartbeat 업데이트 (에이전트 살아있음 표시)
+  await supabase
+    .from("store_master_agent_status")
+    .upsert({ id: 1, last_heartbeat_at: new Date().toISOString() });
+
   // 이미 실행 중인 동기화가 있는지 확인
   const { data: running } = await supabase
     .from("store_master_sync_log")

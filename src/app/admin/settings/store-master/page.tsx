@@ -65,6 +65,8 @@ type AutoSyncStatus = {
   latest: SyncLog | null;
   running: boolean;
   pending: boolean;
+  agentOnline: boolean;
+  lastHeartbeat: string | null;
 };
 
 export default function StoreMasterPage() {
@@ -339,7 +341,42 @@ export default function StoreMasterPage() {
       <h2 style={{ marginTop: 18, fontWeight: 900, fontSize: 22 }}>elogis 자동 동기화</h2>
 
       <div style={{ marginTop: 12, border: "1px solid #E5E7EB", borderRadius: 0, padding: 16, background: "#fff" }}>
-        {/* 상태 표시줄 */}
+
+        {/* 에이전트 상태 배너 */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 12px",
+            marginBottom: 14,
+            borderRadius: 0,
+            background: syncStatus?.agentOnline ? "#F0FDF4" : "#FFF7ED",
+            border: `1px solid ${syncStatus?.agentOnline ? "#86EFAC" : "#FED7AA"}`,
+          }}
+        >
+          <div
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              background: syncStatus?.agentOnline ? "#16A34A" : "#EA580C",
+              flexShrink: 0,
+            }}
+          />
+          <span style={{ fontSize: 13, fontWeight: 700, color: syncStatus?.agentOnline ? "#15803D" : "#C2410C" }}>
+            {syncStatus?.agentOnline
+              ? `로컬 에이전트 실행 중 (마지막 확인: ${syncStatus.lastHeartbeat ? new Date(syncStatus.lastHeartbeat).toLocaleTimeString("ko-KR") : "-"})`
+              : "로컬 에이전트 미실행 — 버튼을 눌러도 실행되지 않습니다"}
+          </span>
+          {!syncStatus?.agentOnline && (
+            <span style={{ fontSize: 12, color: "#9A3412", marginLeft: 4 }}>
+              → PowerShell에서 scripts\setup-scheduler.ps1 실행 후 재확인
+            </span>
+          )}
+        </div>
+
+        {/* 동기화 상태 + 버튼 */}
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div
@@ -355,18 +392,13 @@ export default function StoreMasterPage() {
               {syncStatus?.running
                 ? "동기화 실행 중..."
                 : syncStatus?.pending
-                ? "에이전트 대기 중..."
+                ? "에이전트 처리 대기 중..."
                 : syncStatus?.latest?.status === "done"
                 ? "마지막 동기화 완료"
                 : syncStatus?.latest?.status === "failed"
                 ? "마지막 동기화 실패"
                 : "대기 중"}
             </span>
-            {syncStatus?.latest?.started_at && (syncStatus.running || syncStatus.pending) && (
-              <span style={{ color: "#6B7280", fontSize: 12 }}>
-                (요청: {new Date(syncStatus.latest.requested_at).toLocaleTimeString("ko-KR")})
-              </span>
-            )}
             {syncStatus?.latest?.completed_at && !syncStatus.running && !syncStatus.pending && (
               <span style={{ color: "#6B7280", fontSize: 12 }}>
                 ({new Date(syncStatus.latest.completed_at).toLocaleString("ko-KR")})
@@ -441,10 +473,6 @@ export default function StoreMasterPage() {
             오류: {syncStatus.latest.error_text}
           </div>
         )}
-
-        <div style={{ marginTop: 10, color: "#6B7280", fontSize: 12 }}>
-          버튼을 누르면 요청이 Supabase에 저장되고, 로컬 에이전트(Task Scheduler)가 감지하여 elogis에서 자동으로 다운로드 및 DB 반영합니다.
-        </div>
 
         {syncStatus?.latest?.log_tail && syncStatus.latest.log_tail.length > 0 && (
           <div

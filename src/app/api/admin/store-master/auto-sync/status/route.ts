@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
+const AGENT_ONLINE_THRESHOLD_MS = 2 * 60 * 1000; // 2분 이내 heartbeat = 활성
+
 export async function GET() {
   try {
     const supabase = createClient(
@@ -10,18 +12,32 @@ export async function GET() {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    const { data: latest } = await supabase
-      .from("store_master_sync_log")
-      .select("id, status, requested_at, started_at, completed_at, upserted, error_text, log_tail")
-      .order("requested_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const [{ data: latest }, { data: agentStatus }] = await Promise.all([
+      supabase
+        .from("store_master_sync_log")
+        .select("id, status, requested_at, started_at, completed_at, upserted, error_text, log_tail")
+        .order("requested_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("store_master_agent_status")
+        .select("last_heartbeat_at")
+        .eq("id", 1)
+        .maybeSingle(),
+    ]);
+
+    const lastHeartbeat = agentStatus?.last_heartbeat_at ?? null;
+    const agentOnline = lastHeartbeat
+      ? Date.now() - new Date(lastHeartbeat).getTime() < AGENT_ONLINE_THRESHOLD_MS
+      : false;
 
     return NextResponse.json({
       ok: true,
       latest,
       running: latest?.status === "running",
       pending: latest?.status === "pending",
+      agentOnline,
+      lastHeartbeat,
     });
   } catch (error: any) {
     return NextResponse.json(
