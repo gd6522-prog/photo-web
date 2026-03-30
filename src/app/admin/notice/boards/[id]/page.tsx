@@ -29,6 +29,7 @@ export default function BoardDetailPage() {
   const [canManageAll, setCanManageAll] = useState(false);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -88,6 +89,18 @@ export default function BoardDetailPage() {
 
   const bodyHtml = useMemo(() => noticeBodyToHtml(item?.body ?? ""), [item?.body]);
 
+  useEffect(() => {
+    const imgs = document.querySelectorAll<HTMLImageElement>("img[data-notice-image='1']");
+    const handlers: Array<() => void> = [];
+    imgs.forEach((img) => {
+      const handler = () => setLightboxSrc(img.src);
+      img.style.cursor = "zoom-in";
+      img.addEventListener("click", handler);
+      handlers.push(() => img.removeEventListener("click", handler));
+    });
+    return () => handlers.forEach((fn) => fn());
+  }, [bodyHtml]);
+
   if (loading) return <div style={{ color: "#557186" }}>불러오는 중...</div>;
   if (err) return <div style={{ color: "#b42318" }}>{err}</div>;
   if (!item) return <div style={{ color: "#b42318" }}>게시글을 찾지 못했습니다.</div>;
@@ -99,6 +112,39 @@ export default function BoardDetailPage() {
 
   return (
     <div style={boardPageShellStyle}>
+      {lightboxSrc && (
+        <div
+          onClick={() => setLightboxSrc(null)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            background: "rgba(0,0,0,0.85)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "zoom-out",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightboxSrc}
+            alt=""
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: "92vw", maxHeight: "92vh",
+              objectFit: "contain",
+              boxShadow: "0 8px 48px rgba(0,0,0,0.6)",
+            }}
+          />
+          <button
+            onClick={() => setLightboxSrc(null)}
+            style={{
+              position: "fixed", top: 18, right: 22,
+              background: "none", border: "none",
+              color: "#fff", fontSize: 32, cursor: "pointer", lineHeight: 1,
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
       <section style={boardCardStyle}>
         <div style={{ padding: "18px 22px", borderBottom: "1px solid #d9e6ef", display: "flex", justifyContent: "space-between", gap: 14, flexWrap: "wrap", alignItems: "flex-start" }}>
           <div style={{ minWidth: 0, display: "grid", gap: 12 }}>
