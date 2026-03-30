@@ -79,7 +79,7 @@ type RedeliveryDoneRow = {
 type DriverCategory = "bottle" | "tobacco" | "miochul" | "wash";
 type MiochulFlags = { redelivery: boolean; damage: boolean; other: boolean };
 
-const PAGE_SIZE = 60;
+const PAGE_SIZE = 15;
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
