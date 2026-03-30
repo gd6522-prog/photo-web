@@ -3130,7 +3130,7 @@ export function VehiclePageScreen({
               style={{
                 width: 14,
                 height: 14,
-                borderRadius: 4,
+                borderRadius: "50%",
                 border: "2px solid rgba(29,78,216,0.25)",
                 borderTopColor: "#1d4ed8",
                 display: "inline-block",
