@@ -56,7 +56,10 @@ function openVehicleDb() {
   });
 }
 
-async function readLocalSnapshot(): Promise<{ cargoRows: CargoRow[]; deliveryDate: string; fileName?: string } | null> {
+type SubtotalSetting = { support_excluded: boolean; note: string };
+type SnapshotResult = { cargoRows: CargoRow[]; deliveryDate: string; fileName?: string; subtotalSettings: Record<string, SubtotalSetting> };
+
+async function readLocalSnapshot(): Promise<SnapshotResult | null> {
   try {
     const db = await openVehicleDb();
     const data = await new Promise<Record<string, unknown> | null>((resolve, reject) => {
@@ -67,10 +70,13 @@ async function readLocalSnapshot(): Promise<{ cargoRows: CargoRow[]; deliveryDat
       req.onerror = () => { reject(req.error); db.close(); };
     });
     if (!data) return null;
-    const cargoRows = Array.isArray(data.cargoRows) ? (data.cargoRows as CargoRow[]) : [];
+    const cargoRows = Array.isArray(data.cargoRows)
+      ? (data.cargoRows as CargoRow[]).filter((r) => !r.id?.startsWith("subtotal-"))
+      : [];
     const productRows = Array.isArray(data.productRows) ? (data.productRows as Array<{ delivery_date?: string }>) : [];
     const deliveryDate = productRows.find((r) => r.delivery_date)?.delivery_date ?? "";
-    return { cargoRows, deliveryDate, fileName: data.fileName as string | undefined };
+    const subtotalSettings = (data.subtotalSettings ?? {}) as Record<string, SubtotalSetting>;
+    return { cargoRows, deliveryDate, fileName: data.fileName as string | undefined, subtotalSettings };
   } catch {
     return null;
   }
@@ -110,7 +116,7 @@ async function getToken() {
   return d2.session?.access_token ?? null;
 }
 
-async function fetchServerSnapshot(): Promise<{ cargoRows: CargoRow[]; deliveryDate: string; fileName?: string } | null> {
+async function fetchServerSnapshot(): Promise<SnapshotResult | null> {
   try {
     const token = await getToken();
     if (!token) return null;
@@ -120,7 +126,7 @@ async function fetchServerSnapshot(): Promise<{ cargoRows: CargoRow[]; deliveryD
     });
     const payload = (await res.json().catch(() => ({}))) as {
       ok?: boolean; snapshotUrl?: string;
-      snapshot?: { fileName?: string; productRows?: Array<{ delivery_date?: string }>; cargoRows?: CargoRow[] } | null;
+      snapshot?: { fileName?: string; productRows?: Array<{ delivery_date?: string }>; cargoRows?: CargoRow[]; subtotalSettings?: Record<string, SubtotalSetting> } | null;
     };
     if (!res.ok || !payload?.ok) return null;
     let snapshot = payload.snapshot ?? null;
@@ -128,9 +134,12 @@ async function fetchServerSnapshot(): Promise<{ cargoRows: CargoRow[]; deliveryD
       snapshot = await fetch(payload.snapshotUrl, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null));
     }
     if (!snapshot) return null;
-    const cargoRows: CargoRow[] = Array.isArray(snapshot.cargoRows) ? (snapshot.cargoRows as CargoRow[]) : [];
+    const cargoRows: CargoRow[] = Array.isArray(snapshot.cargoRows)
+      ? (snapshot.cargoRows as CargoRow[]).filter((r) => !r.id?.startsWith("subtotal-"))
+      : [];
     const deliveryDate = (snapshot.productRows ?? []).find((r) => r.delivery_date)?.delivery_date ?? "";
-    return { cargoRows, deliveryDate, fileName: snapshot.fileName };
+    const subtotalSettings = (snapshot.subtotalSettings ?? {}) as Record<string, SubtotalSetting>;
+    return { cargoRows, deliveryDate, fileName: snapshot.fileName, subtotalSettings };
   } catch { return null; }
 }
 
@@ -285,6 +294,43 @@ function StoreNoticeCardMulti({
   );
 }
 
+// ── 과물량 호차별 복사 카드 ───────────────────────────────────
+function OverQuantityCarCard({
+  row,
+  reportDate,
+  cardRef,
+}: {
+  row: CargoRow;
+  reportDate: string;
+  cardRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  const { largeTotal, smallTotal } = cargoTotals(row);
+  const carNo = normalizeCarNo(row.car_no);
+  return (
+    <div
+      ref={cardRef}
+      style={{
+        width: "max-content",
+        minWidth: 280,
+        background: "#fff",
+        padding: "18px 22px",
+        fontFamily: "Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif",
+        boxSizing: "border-box",
+      }}
+    >
+      <div style={{ marginBottom: 12, paddingBottom: 8, borderBottom: "2px solid #dc2626", display: "flex", alignItems: "baseline", gap: 10 }}>
+        <div style={{ fontSize: 15, fontWeight: 950, color: "#991b1b", letterSpacing: -0.3 }}>과물량 처리</div>
+        {reportDate && <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700 }}>{reportDate}</div>}
+      </div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
+        <span style={{ fontSize: 20, fontWeight: 950, color: "#0f2940" }}>{carNo}호차</span>
+        <span style={{ fontSize: 16, fontWeight: 900, color: "#1d4ed8" }}>대 {largeTotal.toLocaleString()}</span>
+        <span style={{ fontSize: 16, fontWeight: 900, color: "#166534" }}>소 {smallTotal.toLocaleString()}</span>
+      </div>
+    </div>
+  );
+}
+
 // ── 운송게시판용 카드 (호차/순번/점포명/지원기사) ───────────────
 function SupportBoardCard({
   rows,
@@ -297,8 +343,11 @@ function SupportBoardCard({
 }) {
   if (!rows.length) return null;
 
+  // 부분합 가상행 제외 (id가 subtotal- 로 시작하는 행)
+  const actualRows = rows.filter((r) => !r.id.startsWith("subtotal-"));
+
   // 호차·순번 오름차순 전체 정렬 후, 연속된 같은 기사끼리 그룹
-  const sorted = [...rows].sort((a, b) => {
+  const sorted = [...actualRows].sort((a, b) => {
     const c = normalizeCarNo(a.car_no).localeCompare(normalizeCarNo(b.car_no), "ko", { numeric: true });
     return c !== 0 ? c : (a.seq_no ?? 0) - (b.seq_no ?? 0);
   });
@@ -547,6 +596,7 @@ function DriverMessageCardHorizontal({
 // ── 메인 페이지 ──────────────────────────────────────────
 export default function SupportPage() {
   const [cargoRows, setCargoRows] = useState<CargoRow[]>([]);
+  const [subtotalSettings, setSubtotalSettings] = useState<Record<string, SubtotalSetting>>({});
   const [deliveryDate, setDeliveryDate] = useState("");
   const [driverIndex, setDriverIndex] = useState<Map<string, DriverProfile>>(new Map());
   const [contactIndex, setContactIndex] = useState<Map<string, string>>(new Map());
@@ -571,10 +621,30 @@ export default function SupportPage() {
   }
 
   const supportRows = useMemo(() => cargoRows.filter((r) => r.support_excluded), [cargoRows]);
+  // 부분합 체크된 호차의 행은 과물량 섹션에만 표시 — 기사별 그룹에서 제외
+  const regularSupportRows = useMemo(
+    () => supportRows.filter((r) => !r.id.startsWith("subtotal-") && !subtotalSettings[normalizeCarNo(r.car_no)]?.support_excluded),
+    [supportRows, subtotalSettings]
+  );
+
+  // 부분합 체크된 호차 — subtotalSettings 기준, cargoRows에서 합계 계산
+  const subtotalSupportRows = useMemo(() => {
+    return Object.entries(subtotalSettings)
+      .filter(([, s]) => s.support_excluded)
+      .map(([carNo]) => {
+        const rows = cargoRows.filter(
+          (r) => normalizeCarNo(r.car_no) === normalizeCarNo(carNo) && !r.id.startsWith("subtotal-")
+        );
+        const largeTotal = rows.reduce((sum, r) => sum + cargoTotals(r).largeTotal, 0);
+        const smallTotal = rows.reduce((sum, r) => sum + cargoTotals(r).smallTotal, 0);
+        return { carNo, largeTotal, smallTotal };
+      })
+      .sort((a, b) => normalizeCarNo(a.carNo).localeCompare(normalizeCarNo(b.carNo), "ko", { numeric: true }));
+  }, [subtotalSettings, cargoRows]);
 
   const groupedByDriver = useMemo(() => {
     const groups = new Map<string, CargoRow[]>();
-    for (const row of supportRows) {
+    for (const row of regularSupportRows) {
       const key = row.note?.trim() ?? "";
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(row);
@@ -584,7 +654,7 @@ export default function SupportPage() {
       if (a[0] && !b[0]) return -1;
       return a[0].localeCompare(b[0], "ko");
     });
-  }, [supportRows]);
+  }, [regularSupportRows]);
 
   const reportDate = useMemo(() => formatDisplayDate(deliveryDate), [deliveryDate]);
 
@@ -623,37 +693,32 @@ export default function SupportPage() {
     await supabase.from("support_notices").upsert({ row_id: rowId, notice, updated_at: new Date().toISOString() }, { onConflict: "row_id" });
   }
 
+  function applySnapshot(s: SnapshotResult) {
+    setCargoRows(s.cargoRows);
+    setDeliveryDate(s.deliveryDate);
+    setSubtotalSettings(s.subtotalSettings);
+    void loadIndexes(s.cargoRows);
+    void loadRounds(s.cargoRows);
+    void loadNotices(s.cargoRows);
+  }
+
   useEffect(() => {
     void (async () => {
       const local = await readLocalSnapshot();
       if (local) {
-        setCargoRows(local.cargoRows);
-        setDeliveryDate(local.deliveryDate);
+        applySnapshot(local);
         setLoading(false);
-        void loadIndexes(local.cargoRows);
-        void loadRounds(local.cargoRows);
-        void loadNotices(local.cargoRows);
         setRefreshing(true);
         const server = await fetchServerSnapshot();
         setRefreshing(false);
         lastSyncAtRef.current = Date.now();
-        if (server && server.fileName !== local.fileName) {
-          setCargoRows(server.cargoRows);
-          setDeliveryDate(server.deliveryDate);
-          void loadIndexes(server.cargoRows);
-          void loadRounds(server.cargoRows);
-          void loadNotices(server.cargoRows);
-        }
+        if (server) applySnapshot(server);
         return;
       }
       try {
         const server = await fetchServerSnapshot();
         if (!server) throw new Error("서버 저장 데이터를 불러오지 못했습니다.");
-        setCargoRows(server.cargoRows);
-        setDeliveryDate(server.deliveryDate);
-        void loadIndexes(server.cargoRows);
-        void loadRounds(server.cargoRows);
-        void loadNotices(server.cargoRows);
+        applySnapshot(server);
       } catch (e) {
         setError((e as Error)?.message ?? "오류가 발생했습니다.");
       } finally {
@@ -665,27 +730,11 @@ export default function SupportPage() {
   const manualRefresh = async () => {
     setRefreshing(true);
     try {
-      // local IndexedDB 먼저 반영 (빠름)
       const local = await readLocalSnapshot();
-      if (local) {
-        setCargoRows(local.cargoRows);
-        setDeliveryDate(local.deliveryDate);
-        void loadIndexes(local.cargoRows);
-        void loadRounds(local.cargoRows);
-        void loadNotices(local.cargoRows);
-      }
-      // 서버와 동기화
+      if (local) applySnapshot(local);
       const server = await fetchServerSnapshot();
-      if (server) {
-        setCargoRows(server.cargoRows);
-        setDeliveryDate(server.deliveryDate);
-        void loadIndexes(server.cargoRows);
-        void loadRounds(server.cargoRows);
-        void loadNotices(server.cargoRows);
-      } else if (!local) {
-        setCargoRows([]);
-        setDeliveryDate("");
-      }
+      if (server) applySnapshot(server);
+      else if (!local) { setCargoRows([]); setDeliveryDate(""); setSubtotalSettings({}); }
     } finally {
       setRefreshing(false);
       lastSyncAtRef.current = Date.now();
@@ -740,8 +789,10 @@ export default function SupportPage() {
           <div style={{ fontSize: 28, fontWeight: 950, color: "#0f2940", letterSpacing: -0.5 }}>지원 물동량</div>
           {reportDate && <div style={{ fontSize: 14, color: "#5a7385", fontWeight: 700, marginTop: 6 }}>{reportDate}</div>}
           <div style={{ fontSize: 13, color: "#374151", fontWeight: 700, marginTop: 6 }}>
-            지원 체크 점포 <strong style={{ color: "#0f2940" }}>{supportRows.length}개</strong>
+            지원 체크 점포 <strong style={{ color: "#0f2940" }}>{regularSupportRows.length}개</strong>
             {groupedByDriver.length > 0 && <span style={{ color: "#6b7280" }}> · {groupedByDriver.length}명 기사</span>}
+            {subtotalSupportRows.length > 0 && <span style={{ color: "#dc2626" }}> · 과물량 {subtotalSupportRows.length}호차</span>}
+
             {refreshing && <span style={{ color: "#0369a1", marginLeft: 10, fontSize: 12 }}>서버 동기화 중...</span>}
           </div>
         </div>
@@ -756,7 +807,7 @@ export default function SupportPage() {
         </div>
       </div>
 
-      {supportRows.length === 0 && (
+      {supportRows.length === 0 && subtotalSupportRows.length === 0 && (
         <div style={{ border: "1px solid #d6e4ee", background: "#fff", padding: "32px 24px", color: "#6b7280", fontWeight: 700, fontSize: 15, textAlign: "center" }}>
           지원 체크된 점포가 없습니다.
           <div style={{ marginTop: 8, fontSize: 13 }}>
@@ -765,8 +816,46 @@ export default function SupportPage() {
         </div>
       )}
 
+      {/* 과물량 섹션 — 부분합 체크된 호차 전체를 하나로 묶어 표시 */}
+      {subtotalSupportRows.length > 0 && (
+        <div style={{ border: "1px solid #fca5a5", background: "#fff", padding: "20px 20px 16px", marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
+            <div>
+              <span style={{ fontSize: 20, fontWeight: 950, color: "#991b1b" }}>과물량</span>
+              <span style={{ fontSize: 13, color: "#6b7280", fontWeight: 700, marginLeft: 12 }}>
+                {subtotalSupportRows.length}호차 · {subtotalSupportRows.map((r) => normalizeCarNo(r.carNo)).join(", ")}
+              </span>
+            </div>
+          </div>
+          {subtotalSupportRows.map(({ carNo, largeTotal, smallTotal }) => {
+            const displayCarNo = normalizeCarNo(carNo);
+            const copyKey = `ovq-${displayCarNo}`;
+            const cardRef = getNoticeRef(copyKey);
+            // 복사용 임시 CargoRow
+            const fakeRow: CargoRow = { id: copyKey, car_no: carNo, seq_no: 0, store_code: "", store_name: "부분합", large_box: largeTotal, large_inner: 0, large_other: 0, large_day2l: 0, large_nb2l: 0, small_low: smallTotal, small_high: 0, event: 0, tobacco: 0, certificate: 0, cdc: 0, pbox: 0, standard_time: "", address: "" };
+            return (
+              <div key={carNo} style={{ borderTop: "1px solid #fee2e2", paddingTop: 10, paddingBottom: 10, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 17, fontWeight: 950, color: "#0f2940", minWidth: 60 }}>{displayCarNo}호차</span>
+                <span style={{ fontSize: 16, fontWeight: 900, color: "#1d4ed8" }}>대 {largeTotal.toLocaleString()}</span>
+                <span style={{ fontSize: 16, fontWeight: 900, color: "#166534" }}>소 {smallTotal.toLocaleString()}</span>
+                <button
+                  style={{ ...btnBase, background: copyStatus[copyKey] === "done" ? "#f0fdf4" : copyStatus[copyKey] === "error" ? "#fef2f2" : "linear-gradient(135deg,#991b1b 0%,#dc2626 100%)", color: (copyStatus[copyKey] === "done" || copyStatus[copyKey] === "error") ? "#374151" : "#fff", border: "1px solid #dc2626", opacity: copyStatus[copyKey] === "copying" ? 0.7 : 1, fontSize: 13, padding: "7px 14px" }}
+                  onClick={() => copyImage(copyKey, cardRef)}
+                  disabled={copyStatus[copyKey] === "copying"}
+                >
+                  {copyBtnLabel(copyKey, `${displayCarNo}호차 복사`)}
+                </button>
+                <div style={{ position: "fixed", top: -9999, left: -9999, pointerEvents: "none", zIndex: -1 }}>
+                  <OverQuantityCarCard row={fakeRow} reportDate={reportDate} cardRef={cardRef} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* 운송게시판용 복사 섹션 */}
-      {supportRows.length > 0 && (() => {
+      {regularSupportRows.length > 0 && (() => {
         const boardRef = getNoticeRef("support-board");
         return (
           <div style={{ border: "1px solid #ddd6fe", background: "#faf5ff", padding: "16px 20px", marginBottom: 16, borderRadius: 4 }}>
@@ -781,14 +870,14 @@ export default function SupportPage() {
               </button>
             </div>
             <div style={{ position: "fixed", top: -9999, left: -9999, pointerEvents: "none", zIndex: -1 }}>
-              <SupportBoardCard rows={supportRows} reportDate={reportDate} cardRef={boardRef} />
+              <SupportBoardCard rows={regularSupportRows} reportDate={reportDate} cardRef={boardRef} />
             </div>
           </div>
         );
       })()}
 
       {/* 전체 선작업/이동점포 공지 섹션 */}
-      {supportRows.some((r) => noticeInputs[r.id]?.trim()) && (() => {
+      {regularSupportRows.some((r) => noticeInputs[r.id]?.trim()) && (() => {
         const globalNoticeRef = getNoticeRef("global-notice");
         return (
           <div style={{ border: "1px solid #a7f3d0", background: "#f0fdf4", padding: "16px 20px", marginBottom: 16, borderRadius: 4 }}>
@@ -804,7 +893,7 @@ export default function SupportPage() {
             </div>
             {/* 숨김 전체 공지 카드 */}
             <div style={{ position: "fixed", top: -9999, left: -9999, pointerEvents: "none", zIndex: -1 }}>
-              <StoreNoticeCardMulti rows={supportRows} noticeMap={noticeInputs} reportDate={reportDate} cardRef={globalNoticeRef} />
+              <StoreNoticeCardMulti rows={regularSupportRows} noticeMap={noticeInputs} reportDate={reportDate} cardRef={globalNoticeRef} />
             </div>
           </div>
         );
@@ -814,11 +903,27 @@ export default function SupportPage() {
         const driverKey = `driver-${driverName || "_unassigned"}`;
         const driverRef = getDriverGroupRef(driverKey);
         const carNos = [...new Set(rows.map((r) => normalizeCarNo(r.car_no)))].sort((a, b) => a.localeCompare(b, "ko", { numeric: true }));
+        const totalLarge = rows.reduce((s, r) => s + cargoTotals(r).largeTotal, 0);
+        const totalSmall = rows.reduce((s, r) => s + cargoTotals(r).smallTotal, 0);
+        // 회전별 집계
+        const roundMap = new Map<string, { large: number; small: number }>();
+        for (const r of rows) {
+          const rv = roundInputs[r.id]?.trim() || "";
+          const key = rv || "미입력";
+          const prev = roundMap.get(key) ?? { large: 0, small: 0 };
+          const { largeTotal: l, smallTotal: s } = cargoTotals(r);
+          roundMap.set(key, { large: prev.large + l, small: prev.small + s });
+        }
+        const roundEntries = [...roundMap.entries()].sort((a, b) => {
+          if (a[0] === "미입력") return 1;
+          if (b[0] === "미입력") return -1;
+          return Number(a[0]) - Number(b[0]);
+        });
 
         return (
           <div key={driverKey} style={{ border: "1px solid #d6e4ee", background: "#fff", padding: "20px 20px 16px", marginBottom: 16 }}>
             {/* 기사 헤더 */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 10 }}>
               <div>
                 <span style={{ fontSize: 20, fontWeight: 950, color: driverName ? "#4c1d95" : "#6b7280" }}>
                   {driverName ? `${driverName} 기사님` : "기사 미지정"}
@@ -827,6 +932,26 @@ export default function SupportPage() {
                   {rows.length}개 점포 · {carNos.join(", ")}호차
                 </span>
               </div>
+            </div>
+            {/* 회전별 대/소 합계 */}
+            <div style={{ display: "flex", flexWrap: "nowrap", gap: 10, marginBottom: 14, overflowX: "auto" }}>
+              {roundEntries.map(([round, { large, small }]) => (
+                <div key={round} style={{ background: "linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)", border: "1.5px solid #c4b5fd", borderRadius: 10, padding: "10px 20px", flexShrink: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "#7c3aed", marginBottom: 6, letterSpacing: 1 }}>
+                    {round === "미입력" ? "미입력" : `${round}회전`}
+                  </div>
+                  <div style={{ display: "flex", gap: 16, alignItems: "baseline" }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+                      <span style={{ fontSize: 17, fontWeight: 900, color: "#6b7280" }}>대</span>
+                      <span style={{ fontSize: 26, fontWeight: 950, color: "#1d4ed8", lineHeight: 1 }}>{large.toLocaleString()}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+                      <span style={{ fontSize: 17, fontWeight: 900, color: "#6b7280" }}>소</span>
+                      <span style={{ fontSize: 26, fontWeight: 950, color: "#b45309", lineHeight: 1 }}>{small.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* 버튼 행 */}
