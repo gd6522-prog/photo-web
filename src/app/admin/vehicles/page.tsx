@@ -3645,6 +3645,7 @@ export function VehiclePageScreen({
                             padding: 8,
                             borderBottom: "1px solid #f0f4f7",
                             ...getCargoGroupStyle(String(column.key)),
+                            ...(row.support_excluded ? { background: "#e5e7eb" } : {}),
                             ...getStickyCargoStyle(
                               String(column.key),
                               row.support_excluded ? "#e5e7eb" : index % 2 === 0 ? "#fff" : "#fbfdff"
