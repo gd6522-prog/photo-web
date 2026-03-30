@@ -368,7 +368,7 @@ function SupportBoardCard({
                       padding: "7px 16px",
                       fontSize: 13,
                       fontWeight: 900,
-                      color: driver === "-" ? "#9ca3af" : "#4c1d95",
+                      color: driver === "-" ? "#9ca3af" : "#111827",
                       whiteSpace: "nowrap",
                       background: bg,
                       border: BORDER,
