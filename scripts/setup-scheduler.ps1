@@ -5,12 +5,10 @@ param(
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = Split-Path -Parent $scriptDir
-$agentScript = Join-Path $scriptDir "sync-agent.mjs"
-$logDir = Join-Path $projectRoot ".automation\logs"
-$logFile = Join-Path $logDir "agent.log"
+$runnerScript = Join-Path $scriptDir "run-agent-hidden.ps1"
 
-if (-not (Test-Path $agentScript)) {
-  Write-Error "sync-agent.mjs not found: $agentScript"
+if (-not (Test-Path $runnerScript)) {
+  Write-Error "run-agent-hidden.ps1 not found: $runnerScript"
   exit 1
 }
 
@@ -20,10 +18,7 @@ if ($nodeCheck -eq $null) {
   exit 1
 }
 
-New-Item -ItemType Directory -Path $logDir -Force | Out-Null
-
-# PowerShell -WindowStyle Hidden 으로 실행해서 창 안 뜨게
-$psArg = "-WindowStyle Hidden -NonInteractive -Command `"node '$agentScript' *>> '$logFile'`""
+$psArg = "-WindowStyle Hidden -NonInteractive -File `"$runnerScript`""
 
 $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $psArg -WorkingDirectory $projectRoot
 $trigger = New-ScheduledTaskTrigger -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes) -Once -At (Get-Date)
@@ -32,7 +27,6 @@ $settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings -RunLevel Highest -Force
 
 Write-Host "Done. Task '$TaskName' runs every $IntervalMinutes min (hidden)."
-Write-Host "Log: $logFile"
 Write-Host ""
 Write-Host "Test now: Start-ScheduledTask -TaskName '$TaskName'"
 Write-Host "Delete:   Unregister-ScheduledTask -TaskName '$TaskName' -Confirm:`$false"
