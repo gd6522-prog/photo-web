@@ -867,6 +867,18 @@ export default function SupportPage() {
             style={{ ...btnBase, background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", color: "#fff", border: "1px solid #0e7490", textDecoration: "none" }}>
             지원(자동) 운행일보 →
           </Link>
+          <button
+            onClick={() => {
+              const allKeys = ["__ovq__", ...groupedByDriver.map(([d]) => `driver-${d || "_unassigned"}`)];
+              const allCollapsed = allKeys.every((k) => collapsed[k]);
+              const next: Record<string, boolean> = {};
+              for (const k of allKeys) next[k] = !allCollapsed;
+              setCollapsed(next);
+            }}
+            style={{ ...btnBase, background: "#f1f5f9", color: "#374151", border: "1px solid #cbd5e1" }}
+          >
+            {["__ovq__", ...groupedByDriver.map(([d]) => `driver-${d || "_unassigned"}`)].every((k) => collapsed[k]) ? "▶ 모두 펴기" : "▼ 모두 접기"}
+          </button>
           <button onClick={manualRefresh} disabled={refreshing} style={{ ...btnBase, background: refreshing ? "#e2e8f0" : "#f1f5f9", color: "#374151", border: "1px solid #cbd5e1", cursor: refreshing ? "not-allowed" : "pointer" }}>
             {refreshing ? "동기화 중..." : "새로고침"}
           </button>
