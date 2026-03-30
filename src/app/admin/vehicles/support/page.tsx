@@ -934,10 +934,10 @@ export default function SupportPage() {
                 const cellBorder: React.CSSProperties = { borderTop: "1px solid #fee2e2", paddingTop: 9, paddingBottom: 9 };
                 return (
                   <div key={carNo} style={{ display: "table-row" }}>
-                    <span style={{ display: "table-cell", verticalAlign: "middle", paddingRight: 28, whiteSpace: "nowrap", fontSize: 16, fontWeight: 950, color: "#0f2940", ...cellBorder }}>{displayCarNo}호차</span>
-                    <span style={{ display: "table-cell", verticalAlign: "middle", paddingRight: 8, whiteSpace: "nowrap", fontSize: 14, fontWeight: 900, color: "#1d4ed8", ...cellBorder }}>대 {largeTotal.toLocaleString()}</span>
-                    <span style={{ display: "table-cell", verticalAlign: "middle", paddingRight: 8, whiteSpace: "nowrap", fontSize: 14, fontWeight: 900, color: "#166534", ...cellBorder }}>소 {smallTotal.toLocaleString()}</span>
-                    <div style={{ display: "table-cell", verticalAlign: "middle", paddingRight: 8, ...cellBorder }}>
+                    <span style={{ display: "table-cell", verticalAlign: "middle", paddingRight: 20, whiteSpace: "nowrap", fontSize: 16, fontWeight: 950, color: "#0f2940", ...cellBorder }}>{displayCarNo}호차</span>
+                    <span style={{ display: "table-cell", verticalAlign: "middle", paddingRight: 4, whiteSpace: "nowrap", fontSize: 14, fontWeight: 900, color: "#1d4ed8", ...cellBorder }}>대 {largeTotal.toLocaleString()}</span>
+                    <span style={{ display: "table-cell", verticalAlign: "middle", paddingRight: 4, whiteSpace: "nowrap", fontSize: 14, fontWeight: 900, color: "#166534", ...cellBorder }}>소 {smallTotal.toLocaleString()}</span>
+                    <div style={{ display: "table-cell", verticalAlign: "middle", paddingRight: 6, ...cellBorder }}>
                       <input
                         type="number"
                         value={extraNum}
