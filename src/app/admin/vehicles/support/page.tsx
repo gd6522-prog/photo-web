@@ -653,7 +653,18 @@ export default function SupportPage() {
   const [copyStatus, setCopyStatus] = useState<Record<string, "copying" | "done" | "error">>({});
   const [roundInputs, setRoundInputs] = useState<Record<string, string>>({});
   const [noticeInputs, setNoticeInputs] = useState<Record<string, string>>({});
-  const [extraNumbers, setExtraNumbers] = useState<Record<string, string>>({});
+  const EXTRA_STORAGE_KEY = "han-admin-ovq-extra";
+  const [extraNumbers, setExtraNumbers] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem(EXTRA_STORAGE_KEY) ?? "{}"); } catch { return {}; }
+  });
+
+  const updateExtraNumber = (carNo: string, value: string) => {
+    setExtraNumbers((prev) => {
+      const next = { ...prev, [carNo]: value };
+      try { localStorage.setItem(EXTRA_STORAGE_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   // collapsed[key] === false → 펼침, undefined/true → 접힘 (기본값 접힘)
@@ -925,7 +936,7 @@ export default function SupportPage() {
                 <input
                   type="number"
                   value={extraNum}
-                  onChange={(e) => setExtraNumbers((prev) => ({ ...prev, [carNo]: e.target.value }))}
+                  onChange={(e) => updateExtraNumber(carNo, e.target.value)}
                   placeholder="+추가금액"
                   style={{ width: 90, height: 32, padding: "0 8px", border: "1px solid #fca5a5", borderRadius: 4, fontSize: 13, fontWeight: 700, color: "#dc2626", outline: "none", boxSizing: "border-box", flexShrink: 0 }}
                 />
