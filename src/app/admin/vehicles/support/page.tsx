@@ -861,6 +861,7 @@ export default function SupportPage() {
 
   return (
     <div style={{ fontFamily: "Pretendard, system-ui, sans-serif" }}>
+      <style>{`.ovq-extra-input::placeholder { color: #dc2626; opacity: 0.5; }`}</style>
       {/* 헤더 */}
       <div style={{ marginBottom: 24, display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
         <div>
@@ -929,19 +930,20 @@ export default function SupportPage() {
             const extraNum = extraNumbers[carNo] ?? "";
             const fakeRow: CargoRow = { id: copyKey, car_no: carNo, seq_no: 0, store_code: "", store_name: "부분합", large_box, large_inner, large_other, large_day2l, large_nb2l, small_low, small_high, event, tobacco, certificate, cdc, pbox: 0, standard_time: "", address: "" };
             return (
-              <div key={carNo} style={{ borderTop: "1px solid #fee2e2", paddingTop: 10, paddingBottom: 10, display: "flex", alignItems: "center", gap: 12, flexWrap: "nowrap" }}>
-                <span style={{ fontSize: 17, fontWeight: 950, color: "#0f2940", whiteSpace: "nowrap", minWidth: 56 }}>{displayCarNo}호차</span>
-                <span style={{ fontSize: 15, fontWeight: 900, color: "#1d4ed8", whiteSpace: "nowrap" }}>대 {largeTotal.toLocaleString()}</span>
-                <span style={{ fontSize: 15, fontWeight: 900, color: "#166534", whiteSpace: "nowrap" }}>소 {smallTotal.toLocaleString()}</span>
+              <div key={carNo} style={{ borderTop: "1px solid #fee2e2", paddingTop: 9, paddingBottom: 9, display: "flex", alignItems: "center", gap: 0 }}>
+                <span style={{ fontSize: 16, fontWeight: 950, color: "#0f2940", whiteSpace: "nowrap", width: 72, flexShrink: 0 }}>{displayCarNo}호차</span>
+                <span style={{ fontSize: 14, fontWeight: 900, color: "#1d4ed8", whiteSpace: "nowrap", width: 72, flexShrink: 0 }}>대 {largeTotal.toLocaleString()}</span>
+                <span style={{ fontSize: 14, fontWeight: 900, color: "#166534", whiteSpace: "nowrap", width: 80, flexShrink: 0 }}>소 {smallTotal.toLocaleString()}</span>
                 <input
                   type="number"
                   value={extraNum}
                   onChange={(e) => updateExtraNumber(carNo, e.target.value)}
                   placeholder="+추가금액"
-                  style={{ width: 90, height: 32, padding: "0 8px", border: "1px solid #fca5a5", borderRadius: 4, fontSize: 13, fontWeight: 700, color: "#dc2626", outline: "none", boxSizing: "border-box", flexShrink: 0 }}
+                  className="ovq-extra-input"
+                  style={{ width: 100, height: 32, padding: "0 8px", border: "1px solid #fca5a5", borderRadius: 4, fontSize: 13, fontWeight: 700, color: "#dc2626", outline: "none", boxSizing: "border-box", flexShrink: 0 }}
                 />
                 <button
-                  style={{ ...btnBase, background: copyStatus[copyKey] === "done" ? "#f0fdf4" : copyStatus[copyKey] === "error" ? "#fef2f2" : "linear-gradient(135deg,#991b1b 0%,#dc2626 100%)", color: (copyStatus[copyKey] === "done" || copyStatus[copyKey] === "error") ? "#374151" : "#fff", border: "1px solid #dc2626", opacity: copyStatus[copyKey] === "copying" ? 0.7 : 1, fontSize: 13, padding: "6px 12px", flexShrink: 0 }}
+                  style={{ ...btnBase, marginLeft: 8, background: copyStatus[copyKey] === "done" ? "#f0fdf4" : copyStatus[copyKey] === "error" ? "#fef2f2" : "linear-gradient(135deg,#991b1b 0%,#dc2626 100%)", color: (copyStatus[copyKey] === "done" || copyStatus[copyKey] === "error") ? "#374151" : "#fff", border: "1px solid #dc2626", opacity: copyStatus[copyKey] === "copying" ? 0.7 : 1, fontSize: 13, padding: "6px 14px", flexShrink: 0, height: 32 }}
                   onClick={() => copyImage(copyKey, cardRef)}
                   disabled={copyStatus[copyKey] === "copying"}
                 >
