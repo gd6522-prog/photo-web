@@ -295,14 +295,26 @@ function SupportBoardCard({
   reportDate: string;
   cardRef: React.RefObject<HTMLDivElement | null>;
 }) {
-  const sorted = [...rows].sort((a, b) => {
-    const carA = normalizeCarNo(a.car_no).localeCompare(normalizeCarNo(b.car_no), "ko", { numeric: true });
-    if (carA !== 0) return carA;
-    return (a.seq_no ?? 0) - (b.seq_no ?? 0);
-  });
-  if (!sorted.length) return null;
+  if (!rows.length) return null;
+
+  const carSort = (a: CargoRow, b: CargoRow) => {
+    const c = normalizeCarNo(a.car_no).localeCompare(normalizeCarNo(b.car_no), "ko", { numeric: true });
+    return c !== 0 ? c : (a.seq_no ?? 0) - (b.seq_no ?? 0);
+  };
+
+  // 기사별 그룹 → 그룹 내 호차·순번 오름차순 → 그룹 순서는 그룹 내 최솟값 기준
+  const groupMap = new Map<string, CargoRow[]>();
+  for (const row of rows) {
+    const key = row.note?.trim() || "";
+    if (!groupMap.has(key)) groupMap.set(key, []);
+    groupMap.get(key)!.push(row);
+  }
+  const groups = [...groupMap.entries()]
+    .map(([driver, groupRows]) => ({ driver, rows: [...groupRows].sort(carSort) }))
+    .sort((a, b) => carSort(a.rows[0], b.rows[0]));
 
   const BORDER = "1px solid #cbd5e1";
+  const GROUP_COLORS = ["#f0f9ff", "#f0fdf4", "#fefce8", "#fdf4ff", "#fff7ed"];
 
   return (
     <div
@@ -319,7 +331,7 @@ function SupportBoardCard({
       {/* 타이틀 */}
       <div style={{ marginBottom: 14, paddingBottom: 10, borderBottom: "2px solid #7c3aed", display: "flex", alignItems: "baseline", gap: 10 }}>
         <div style={{ fontSize: 15, fontWeight: 950, color: "#4c1d95", letterSpacing: -0.3 }}>지원 배송 현황</div>
-        <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700 }}>{reportDate} · {sorted.length}개 점포</div>
+        <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700 }}>{reportDate} · {rows.length}개 점포</div>
       </div>
 
       {/* 테이블 */}
@@ -327,29 +339,17 @@ function SupportBoardCard({
         <thead>
           <tr style={{ background: "#7c3aed" }}>
             {["호차", "순번", "점포명", "지원기사"].map((h) => (
-              <th
-                key={h}
-                style={{
-                  padding: "7px 14px",
-                  fontSize: 12,
-                  fontWeight: 900,
-                  color: "#fff",
-                  textAlign: "left",
-                  whiteSpace: "nowrap",
-                  border: BORDER,
-                  letterSpacing: 0.3,
-                }}
-              >
+              <th key={h} style={{ padding: "7px 14px", fontSize: 12, fontWeight: 900, color: "#fff", textAlign: "left", whiteSpace: "nowrap", border: BORDER, letterSpacing: 0.3 }}>
                 {h}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {sorted.map((row, i) => {
-            const bg = i % 2 === 0 ? "#faf5ff" : "#fff";
-            const driver = row.note?.trim() || "-";
-            return (
+          {groups.map((group, gi) => {
+            const bg = GROUP_COLORS[gi % GROUP_COLORS.length];
+            const driver = group.driver || "-";
+            return group.rows.map((row, ri) => (
               <tr key={row.id}>
                 <td style={{ padding: "7px 14px", fontSize: 13, fontWeight: 900, color: "#1e3a5f", whiteSpace: "nowrap", background: bg, border: BORDER }}>
                   {normalizeCarNo(row.car_no)}호차
@@ -360,11 +360,27 @@ function SupportBoardCard({
                 <td style={{ padding: "7px 14px", fontSize: 13, fontWeight: 900, color: "#111827", whiteSpace: "nowrap", background: bg, border: BORDER }}>
                   {row.store_name}
                 </td>
-                <td style={{ padding: "7px 14px", fontSize: 13, fontWeight: 800, color: driver === "-" ? "#9ca3af" : "#4c1d95", whiteSpace: "nowrap", background: bg, border: BORDER }}>
-                  {driver}
-                </td>
+                {/* 지원기사: 그룹 첫 행에만 rowspan */}
+                {ri === 0 && (
+                  <td
+                    rowSpan={group.rows.length}
+                    style={{
+                      padding: "7px 16px",
+                      fontSize: 13,
+                      fontWeight: 900,
+                      color: driver === "-" ? "#9ca3af" : "#4c1d95",
+                      whiteSpace: "nowrap",
+                      background: bg,
+                      border: BORDER,
+                      verticalAlign: "middle",
+                      textAlign: "center",
+                    }}
+                  >
+                    {driver}
+                  </td>
+                )}
               </tr>
-            );
+            ));
           })}
         </tbody>
       </table>
