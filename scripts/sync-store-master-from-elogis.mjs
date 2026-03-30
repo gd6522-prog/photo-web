@@ -165,30 +165,77 @@ async function upsertStoreMaster(env, rows) {
   return payload.length;
 }
 
-async function waitForManualLogin(page) {
+async function autoLogin(page, env) {
+  const elogisId = env.ELOGIS_ID;
+  const elogisPw = env.ELOGIS_PW;
+  if (!elogisId || !elogisPw) fail(".env.local에 ELOGIS_ID와 ELOGIS_PW를 설정해주세요.");
+
   await page.goto(ELOGIS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle").catch(() => {});
 
   const loginNow = page.getByRole("button", { name: /login now/i });
-  if ((await loginNow.count()) === 0) return;
-
-  log("브라우저를 로그인 세션 유지용으로 열어 둡니다. 필요하면 직접 닫아주세요.");
-  log("elogis 로그인 후 자동으로 다음 단계로 진행합니다.");
-
-  const timeoutAt = Date.now() + 10 * 60 * 1000;
-  while (Date.now() < timeoutAt) {
-    await page.waitForTimeout(1500);
-    await page.reload({ waitUntil: "domcontentloaded" }).catch(() => {});
-
-    if ((await loginNow.count()) === 0) {
-      await page.waitForLoadState("networkidle").catch(() => {});
-      await page.waitForTimeout(1000);
-      log("elogis 로그인 완료를 감지했습니다.");
-      return;
-    }
+  if ((await loginNow.count()) === 0) {
+    log("이미 로그인된 세션입니다.");
+    return;
   }
 
-  fail("elogis 로그인 대기 시간이 초과되었습니다. 다시 실행해주세요.");
+  log("로그인 시작...");
+  await loginNow.first().click().catch(() => {});
+  await page.waitForLoadState("domcontentloaded").catch(() => {});
+  await page.waitForLoadState("networkidle").catch(() => {});
+  await page.waitForTimeout(1500);
+
+  // ID 입력칸 찾기 (여러 selector 시도)
+  const idSelectors = [
+    "input[name='userId']",
+    "input[name='id']",
+    "input[name='loginId']",
+    "input[name='username']",
+    "input[name='login_id']",
+    "input[type='text'][placeholder*='아이디']",
+    "input[type='text'][placeholder*='ID']",
+    "input[type='text'][placeholder*='id']",
+    "input[type='text']:not([readonly]):not([disabled])",
+  ];
+
+  let idInput = null;
+  for (const selector of idSelectors) {
+    const el = page.locator(selector).first();
+    if ((await el.count()) > 0) {
+      idInput = el;
+      break;
+    }
+  }
+  if (!idInput) fail("로그인 ID 입력칸을 찾지 못했습니다. selector를 확인해주세요.");
+
+  const pwInput = page.locator("input[type='password']").first();
+  if ((await pwInput.count()) === 0) fail("비밀번호 입력칸을 찾지 못했습니다.");
+
+  await idInput.click({ force: true });
+  await idInput.fill(elogisId);
+  await pwInput.click({ force: true });
+  await pwInput.fill(elogisPw);
+
+  const submitButton = page.locator(
+    "button[type='submit'], input[type='submit'], button:has-text('로그인'), button:has-text('LOGIN'), button:has-text('Log In')"
+  ).first();
+  if ((await submitButton.count()) > 0) {
+    await submitButton.click();
+  } else {
+    await pwInput.press("Enter");
+  }
+
+  await page.waitForLoadState("domcontentloaded").catch(() => {});
+  await page.waitForLoadState("networkidle").catch(() => {});
+  await page.waitForTimeout(3000);
+
+  // 로그인 성공 확인
+  const stillLoginNow = page.getByRole("button", { name: /login now/i });
+  if ((await stillLoginNow.count()) > 0) {
+    fail("로그인에 실패했습니다. .env.local의 ELOGIS_ID, ELOGIS_PW를 확인해주세요.");
+  }
+
+  log("로그인 완료.");
 }
 
 async function findByTexts(page, texts, timeout = 15000) {
@@ -370,22 +417,25 @@ async function main() {
 
   const env = { ...process.env, ...loadEnvFile(ENV_PATH) };
 
-  log("반자동 점포마스터 동기화를 시작합니다.");
+  log("완전자동 점포마스터 동기화를 시작합니다.");
   log(`전용 프로필 경로: ${PROFILE_DIR}`);
 
   const context = await chromium.launchPersistentContext(PROFILE_DIR, {
-    headless: false,
+    headless: true,
     channel: "chrome",
     acceptDownloads: true,
     downloadsPath: DOWNLOAD_DIR,
-    viewport: null,
-    args: ["--start-maximized"],
+    args: [
+      "--disable-blink-features=AutomationControlled",
+      "--no-sandbox",
+      "--disable-dev-shm-usage",
+    ],
   });
 
   let page = context.pages()[0];
   if (!page) page = await context.newPage();
 
-  await waitForManualLogin(page);
+  await autoLogin(page, env);
   const elogisPage = context.pages().find((candidate) => candidate.url().includes("elogis.emart24.co.kr")) ?? page;
   const tmsPage = await openTmsPage(elogisPage, context);
   await navigateToMappingPage(tmsPage);
@@ -403,6 +453,8 @@ async function main() {
   const count = await upsertStoreMaster(env, parsed.rows);
   log(`store_map 반영 완료: ${count}건`);
   log("동기화가 완료되었습니다.");
+
+  await context.close();
 }
 
 main().catch((error) => {
