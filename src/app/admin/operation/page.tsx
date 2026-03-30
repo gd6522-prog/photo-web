@@ -3,5 +3,5 @@
 import { VehiclePageScreen } from "../vehicles/page";
 
 export default function OperationPage() {
-  return <VehiclePageScreen initialTab="input" allowedTabs={["input"]} />;
+  return <VehiclePageScreen initialTab="input" allowedTabs={["input"]} title="단품별" />;
 }

@@ -1842,11 +1842,13 @@ export function VehiclePageScreen({
   allowedTabs = ["input", "cargo", "report"],
   initialCarNo,
   initialSupportAuto,
+  title = "차량",
 }: {
   initialTab?: VehicleTab;
   allowedTabs?: VehicleTab[];
   initialCarNo?: string;
   initialSupportAuto?: boolean;
+  title?: string;
 }) {
   const INPUT_PAGE_SIZE = 50;
   const REPORT_PREVIEW_BASE_WIDTH = 1620;
@@ -2923,7 +2925,7 @@ export function VehiclePageScreen({
       >
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
           <div>
-            <div style={{ fontSize: 30, fontWeight: 950, color: "#0f2940", letterSpacing: -0.5 }}>차량</div>
+            <div style={{ fontSize: 30, fontWeight: 950, color: "#0f2940", letterSpacing: -0.5 }}>{title}</div>
             <div style={{ marginTop: 8, color: "#486274", lineHeight: 1.6, fontSize: 14 }}>
               단품별 파일을 올리면 점포명 기준으로 점포마스터의 호차와 순번을 먼저 반영한 뒤 물동량과 운행일보를 만듭니다.
             </div>
