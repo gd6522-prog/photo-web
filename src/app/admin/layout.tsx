@@ -108,7 +108,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const OPERATION_ITEMS = useMemo(
     () => [
-      { label: "단품별도", href: "/admin/operation" },
+      { label: "단품별", href: "/admin/operation" },
       { label: "CDC", href: "/admin/vehicles/cdc" },
     ],
     []
