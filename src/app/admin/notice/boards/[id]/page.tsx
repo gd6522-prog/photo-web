@@ -89,17 +89,6 @@ export default function BoardDetailPage() {
 
   const bodyHtml = useMemo(() => noticeBodyToHtml(item?.body ?? ""), [item?.body]);
 
-  useEffect(() => {
-    const imgs = document.querySelectorAll<HTMLImageElement>("img[data-notice-image='1']");
-    const handlers: Array<() => void> = [];
-    imgs.forEach((img) => {
-      const handler = () => setLightboxSrc(img.src);
-      img.style.cursor = "zoom-in";
-      img.addEventListener("click", handler);
-      handlers.push(() => img.removeEventListener("click", handler));
-    });
-    return () => handlers.forEach((fn) => fn());
-  }, [bodyHtml]);
 
   if (loading) return <div style={{ color: "#557186" }}>불러오는 중...</div>;
   if (err) return <div style={{ color: "#b42318" }}>{err}</div>;
@@ -201,6 +190,12 @@ export default function BoardDetailPage() {
               fontSize: 15,
               lineHeight: 1.9,
             }}
+            onClick={(e) => {
+              const target = e.target as HTMLElement;
+              if (target.tagName === "IMG" && target.getAttribute("data-notice-image") === "1") {
+                setLightboxSrc((target as HTMLImageElement).src);
+              }
+            }}
             dangerouslySetInnerHTML={{ __html: bodyHtml || "<p></p>" }}
           />
         </div>
@@ -269,6 +264,7 @@ export default function BoardDetailPage() {
           border-radius: 0;
           border: 1px solid #d9e6ef;
           background: #fff;
+          cursor: zoom-in;
         }
         @media (max-width: 900px) {
           .notice-body-html {
