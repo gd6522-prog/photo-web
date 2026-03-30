@@ -22,15 +22,16 @@ if ($nodeCheck -eq $null) {
 
 New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 
-$argument = "/c node `"$agentScript`" >> `"$logFile`" 2>&1"
+# PowerShell -WindowStyle Hidden 으로 실행해서 창 안 뜨게
+$psArg = "-WindowStyle Hidden -NonInteractive -Command `"node '$agentScript' *>> '$logFile'`""
 
-$action = New-ScheduledTaskAction -Execute "cmd.exe" -Argument $argument -WorkingDirectory $projectRoot
+$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $psArg -WorkingDirectory $projectRoot
 $trigger = New-ScheduledTaskTrigger -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes) -Once -At (Get-Date)
 $settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew
 
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings -RunLevel Highest -Force
 
-Write-Host "Done. Task '$TaskName' runs every $IntervalMinutes min."
+Write-Host "Done. Task '$TaskName' runs every $IntervalMinutes min (hidden)."
 Write-Host "Log: $logFile"
 Write-Host ""
 Write-Host "Test now: Start-ScheduledTask -TaskName '$TaskName'"
