@@ -299,34 +299,81 @@ function OverQuantityCarCard({
   row,
   reportDate,
   cardRef,
+  extraNumber,
 }: {
   row: CargoRow;
   reportDate: string;
   cardRef: React.RefObject<HTMLDivElement | null>;
+  extraNumber?: string;
 }) {
   const { largeTotal, smallTotal } = cargoTotals(row);
   const carNo = normalizeCarNo(row.car_no);
+  const extra = extraNumber ? Number(extraNumber) : 0;
+  const f = (label: string, v: number) =>
+    v > 0 ? (
+      <div key={label} style={{ fontSize: 11, color: "#374151", display: "flex", justifyContent: "space-between", gap: 16 }}>
+        <span style={{ color: "#6b7280" }}>{label}</span>
+        <span style={{ fontWeight: 700 }}>{formatNumber(v)}</span>
+      </div>
+    ) : null;
   return (
     <div
       ref={cardRef}
       style={{
         width: "max-content",
-        minWidth: 280,
+        minWidth: 260,
         background: "#fff",
         padding: "18px 22px",
         fontFamily: "Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif",
         boxSizing: "border-box",
       }}
     >
+      {/* 헤더 */}
       <div style={{ marginBottom: 12, paddingBottom: 8, borderBottom: "2px solid #dc2626", display: "flex", alignItems: "baseline", gap: 10 }}>
         <div style={{ fontSize: 15, fontWeight: 950, color: "#991b1b", letterSpacing: -0.3 }}>과물량 처리</div>
         {reportDate && <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700 }}>{reportDate}</div>}
       </div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
+      {/* 호차 + 추가수량 */}
+      <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 12 }}>
         <span style={{ fontSize: 20, fontWeight: 950, color: "#0f2940" }}>{carNo}호차</span>
-        <span style={{ fontSize: 16, fontWeight: 900, color: "#1d4ed8" }}>대 {largeTotal.toLocaleString()}</span>
-        <span style={{ fontSize: 16, fontWeight: 900, color: "#166534" }}>소 {smallTotal.toLocaleString()}</span>
+        {extra !== 0 && (
+          <span style={{ fontSize: 16, fontWeight: 900, color: "#dc2626" }}>+{formatNumber(extra)}</span>
+        )}
       </div>
+      {/* 대분 */}
+      <div style={{ background: "#f0f4f8", borderRadius: 6, padding: "8px 10px", marginBottom: 8 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #bae6fd", marginBottom: 4, paddingBottom: 2 }}>
+          <span style={{ fontSize: 11, fontWeight: 950, color: "#0369a1" }}>대분</span>
+          <span style={{ fontSize: 14, fontWeight: 950, color: "#0369a1" }}>{formatNumber(largeTotal)}</span>
+        </div>
+        <div style={{ paddingLeft: 4, display: "flex", flexDirection: "column", gap: 1 }}>
+          {f("박스존", row.large_box)}
+          {f("이너존", row.large_inner)}
+          {f("기타", row.large_other)}
+          {f("올데이2L", row.large_day2l)}
+          {f("노브랜드2L", row.large_nb2l)}
+        </div>
+      </div>
+      {/* 소분 */}
+      <div style={{ background: "#f0fdf4", borderRadius: 6, padding: "8px 10px", marginBottom: (row.event > 0 || row.tobacco > 0 || row.certificate > 0 || row.cdc > 0) ? 8 : 0 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #bbf7d0", marginBottom: 4, paddingBottom: 2 }}>
+          <span style={{ fontSize: 11, fontWeight: 950, color: "#166534" }}>소분</span>
+          <span style={{ fontSize: 14, fontWeight: 950, color: "#166534" }}>{formatNumber(smallTotal)}</span>
+        </div>
+        <div style={{ paddingLeft: 4, display: "flex", flexDirection: "column", gap: 1 }}>
+          {f("경량존", row.small_low)}
+          {f("슬라존", row.small_high)}
+        </div>
+      </div>
+      {/* 기타 */}
+      {(row.event > 0 || row.tobacco > 0 || row.certificate > 0 || row.cdc > 0) && (
+        <div style={{ background: "#fefce8", borderRadius: 6, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 1 }}>
+          {f("행사", row.event)}
+          {f("담배", row.tobacco)}
+          {f("유가증권", row.certificate)}
+          {f("CDC", row.cdc)}
+        </div>
+      )}
     </div>
   );
 }
@@ -606,6 +653,7 @@ export default function SupportPage() {
   const [copyStatus, setCopyStatus] = useState<Record<string, "copying" | "done" | "error">>({});
   const [roundInputs, setRoundInputs] = useState<Record<string, string>>({});
   const [noticeInputs, setNoticeInputs] = useState<Record<string, string>>({});
+  const [extraNumbers, setExtraNumbers] = useState<Record<string, string>>({});
 
   const noticeCardRefs = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
   const driverCardRefs = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
@@ -627,7 +675,7 @@ export default function SupportPage() {
     [supportRows, subtotalSettings]
   );
 
-  // 부분합 체크된 호차 — subtotalSettings 기준, cargoRows에서 합계 계산
+  // 부분합 체크된 호차 — subtotalSettings 기준, cargoRows에서 합계 계산 (상세 포함)
   const subtotalSupportRows = useMemo(() => {
     return Object.entries(subtotalSettings)
       .filter(([, s]) => s.support_excluded)
@@ -635,9 +683,22 @@ export default function SupportPage() {
         const rows = cargoRows.filter(
           (r) => normalizeCarNo(r.car_no) === normalizeCarNo(carNo) && !r.id.startsWith("subtotal-")
         );
-        const largeTotal = rows.reduce((sum, r) => sum + cargoTotals(r).largeTotal, 0);
-        const smallTotal = rows.reduce((sum, r) => sum + cargoTotals(r).smallTotal, 0);
-        return { carNo, largeTotal, smallTotal };
+        return {
+          carNo,
+          largeTotal: rows.reduce((sum, r) => sum + cargoTotals(r).largeTotal, 0),
+          smallTotal: rows.reduce((sum, r) => sum + cargoTotals(r).smallTotal, 0),
+          large_box: rows.reduce((sum, r) => sum + r.large_box, 0),
+          large_inner: rows.reduce((sum, r) => sum + r.large_inner, 0),
+          large_other: rows.reduce((sum, r) => sum + r.large_other, 0),
+          large_day2l: rows.reduce((sum, r) => sum + r.large_day2l, 0),
+          large_nb2l: rows.reduce((sum, r) => sum + r.large_nb2l, 0),
+          small_low: rows.reduce((sum, r) => sum + r.small_low, 0),
+          small_high: rows.reduce((sum, r) => sum + r.small_high, 0),
+          event: rows.reduce((sum, r) => sum + r.event, 0),
+          tobacco: rows.reduce((sum, r) => sum + r.tobacco, 0),
+          certificate: rows.reduce((sum, r) => sum + r.certificate, 0),
+          cdc: rows.reduce((sum, r) => sum + r.cdc, 0),
+        };
       })
       .sort((a, b) => normalizeCarNo(a.carNo).localeCompare(normalizeCarNo(b.carNo), "ko", { numeric: true }));
   }, [subtotalSettings, cargoRows]);
@@ -829,17 +890,25 @@ export default function SupportPage() {
               </span>
             </div>
           </div>
-          {subtotalSupportRows.map(({ carNo, largeTotal, smallTotal }) => {
+          {subtotalSupportRows.map((item) => {
+            const { carNo, largeTotal, smallTotal, large_box, large_inner, large_other, large_day2l, large_nb2l, small_low, small_high, event, tobacco, certificate, cdc } = item;
             const displayCarNo = normalizeCarNo(carNo);
             const copyKey = `ovq-${displayCarNo}`;
             const cardRef = getNoticeRef(copyKey);
-            // 복사용 임시 CargoRow
-            const fakeRow: CargoRow = { id: copyKey, car_no: carNo, seq_no: 0, store_code: "", store_name: "부분합", large_box: largeTotal, large_inner: 0, large_other: 0, large_day2l: 0, large_nb2l: 0, small_low: smallTotal, small_high: 0, event: 0, tobacco: 0, certificate: 0, cdc: 0, pbox: 0, standard_time: "", address: "" };
+            const extraNum = extraNumbers[carNo] ?? "";
+            const fakeRow: CargoRow = { id: copyKey, car_no: carNo, seq_no: 0, store_code: "", store_name: "부분합", large_box, large_inner, large_other, large_day2l, large_nb2l, small_low, small_high, event, tobacco, certificate, cdc, pbox: 0, standard_time: "", address: "" };
             return (
               <div key={carNo} style={{ borderTop: "1px solid #fee2e2", paddingTop: 10, paddingBottom: 10, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 17, fontWeight: 950, color: "#0f2940", minWidth: 60 }}>{displayCarNo}호차</span>
                 <span style={{ fontSize: 16, fontWeight: 900, color: "#1d4ed8" }}>대 {largeTotal.toLocaleString()}</span>
                 <span style={{ fontSize: 16, fontWeight: 900, color: "#166534" }}>소 {smallTotal.toLocaleString()}</span>
+                <input
+                  type="number"
+                  value={extraNum}
+                  onChange={(e) => setExtraNumbers((prev) => ({ ...prev, [carNo]: e.target.value }))}
+                  placeholder="+추가수량"
+                  style={{ width: 100, height: 34, padding: "0 8px", border: "1px solid #fca5a5", borderRadius: 4, fontSize: 14, fontWeight: 700, color: "#dc2626", outline: "none", boxSizing: "border-box" }}
+                />
                 <button
                   style={{ ...btnBase, background: copyStatus[copyKey] === "done" ? "#f0fdf4" : copyStatus[copyKey] === "error" ? "#fef2f2" : "linear-gradient(135deg,#991b1b 0%,#dc2626 100%)", color: (copyStatus[copyKey] === "done" || copyStatus[copyKey] === "error") ? "#374151" : "#fff", border: "1px solid #dc2626", opacity: copyStatus[copyKey] === "copying" ? 0.7 : 1, fontSize: 13, padding: "7px 14px" }}
                   onClick={() => copyImage(copyKey, cardRef)}
@@ -848,7 +917,7 @@ export default function SupportPage() {
                   {copyBtnLabel(copyKey, `${displayCarNo}호차 복사`)}
                 </button>
                 <div style={{ position: "fixed", top: -9999, left: -9999, pointerEvents: "none", zIndex: -1 }}>
-                  <OverQuantityCarCard row={fakeRow} reportDate={reportDate} cardRef={cardRef} />
+                  <OverQuantityCarCard row={fakeRow} reportDate={reportDate} cardRef={cardRef} extraNumber={extraNum} />
                 </div>
               </div>
             );
