@@ -806,7 +806,7 @@ function NoticeMainCard() {
                       }}
                       title={n.title}
                     >
-                      {n.is_pinned ? "[고정] " : ""}
+                      {n.is_pinned ? `[${getNoticeBoardDef(n.board_key).shortLabel}] ` : ""}
                       {n.title}
                     </div>
 
