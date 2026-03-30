@@ -297,21 +297,21 @@ function SupportBoardCard({
 }) {
   if (!rows.length) return null;
 
-  const carSort = (a: CargoRow, b: CargoRow) => {
+  // 호차·순번 오름차순 전체 정렬 후, 연속된 같은 기사끼리 그룹
+  const sorted = [...rows].sort((a, b) => {
     const c = normalizeCarNo(a.car_no).localeCompare(normalizeCarNo(b.car_no), "ko", { numeric: true });
     return c !== 0 ? c : (a.seq_no ?? 0) - (b.seq_no ?? 0);
-  };
-
-  // 기사별 그룹 → 그룹 내 호차·순번 오름차순 → 그룹 순서는 그룹 내 최솟값 기준
-  const groupMap = new Map<string, CargoRow[]>();
-  for (const row of rows) {
-    const key = row.note?.trim() || "";
-    if (!groupMap.has(key)) groupMap.set(key, []);
-    groupMap.get(key)!.push(row);
+  });
+  const groups: { driver: string; rows: CargoRow[] }[] = [];
+  for (const row of sorted) {
+    const driver = row.note?.trim() || "";
+    const last = groups[groups.length - 1];
+    if (last && last.driver === driver) {
+      last.rows.push(row);
+    } else {
+      groups.push({ driver, rows: [row] });
+    }
   }
-  const groups = [...groupMap.entries()]
-    .map(([driver, groupRows]) => ({ driver, rows: [...groupRows].sort(carSort) }))
-    .sort((a, b) => carSort(a.rows[0], b.rows[0]));
 
   const BORDER = "1px solid #cbd5e1";
   const GROUP_COLORS = ["#f0f9ff", "#f0fdf4", "#fefce8", "#fdf4ff", "#fff7ed"];
