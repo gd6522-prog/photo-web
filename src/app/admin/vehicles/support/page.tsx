@@ -654,6 +654,9 @@ export default function SupportPage() {
   const [roundInputs, setRoundInputs] = useState<Record<string, string>>({});
   const [noticeInputs, setNoticeInputs] = useState<Record<string, string>>({});
   const [extraNumbers, setExtraNumbers] = useState<Record<string, string>>({});
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  const toggleCollapse = (key: string) => setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const noticeCardRefs = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
   const driverCardRefs = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
@@ -882,15 +885,19 @@ export default function SupportPage() {
       {/* 과물량 섹션 — 부분합 체크된 호차 전체를 하나로 묶어 표시 */}
       {subtotalSupportRows.length > 0 && (
         <div style={{ border: "1px solid #fca5a5", background: "#fff", padding: "20px 20px 16px", marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
+          <div
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: collapsed["__ovq__"] ? 0 : 14, flexWrap: "wrap", gap: 10, cursor: "pointer", userSelect: "none" }}
+            onClick={() => toggleCollapse("__ovq__")}
+          >
             <div>
               <span style={{ fontSize: 20, fontWeight: 950, color: "#991b1b" }}>과물량</span>
               <span style={{ fontSize: 13, color: "#6b7280", fontWeight: 700, marginLeft: 12 }}>
                 {subtotalSupportRows.length}호차 · {subtotalSupportRows.map((r) => normalizeCarNo(r.carNo)).join(", ")}
               </span>
             </div>
+            <span style={{ fontSize: 18, color: "#dc2626", fontWeight: 900 }}>{collapsed["__ovq__"] ? "▶" : "▼"}</span>
           </div>
-          {subtotalSupportRows.map((item) => {
+          {!collapsed["__ovq__"] && subtotalSupportRows.map((item) => {
             const { carNo, largeTotal, smallTotal, large_box, large_inner, large_other, large_day2l, large_nb2l, small_low, small_high, event, tobacco, certificate, cdc } = item;
             const displayCarNo = normalizeCarNo(carNo);
             const copyKey = `ovq-${displayCarNo}`;
@@ -991,21 +998,28 @@ export default function SupportPage() {
           return Number(a[0]) - Number(b[0]);
         });
 
+        const isCollapsed = !!collapsed[driverKey];
         return (
           <div key={driverKey} style={{ border: "1px solid #d6e4ee", background: "#fff", padding: "20px 20px 16px", marginBottom: 16 }}>
             {/* 기사 헤더 */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 10 }}>
+            <div
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: isCollapsed ? 0 : 10, flexWrap: "wrap", gap: 10, cursor: "pointer", userSelect: "none" }}
+              onClick={() => toggleCollapse(driverKey)}
+            >
               <div>
                 <span style={{ fontSize: 20, fontWeight: 950, color: driverName ? "#4c1d95" : "#6b7280" }}>
                   {driverName ? `${driverName} 기사님` : "기사 미지정"}
                 </span>
                 <span style={{ fontSize: 13, color: "#6b7280", fontWeight: 700, marginLeft: 12 }}>
                   {rows.length}개 점포 · {carNos.join(", ")}호차
+                  {isCollapsed && <span style={{ marginLeft: 10, color: "#1d4ed8" }}>대 {totalLarge.toLocaleString()}</span>}
+                  {isCollapsed && <span style={{ marginLeft: 8, color: "#166534" }}>소 {totalSmall.toLocaleString()}</span>}
                 </span>
               </div>
+              <span style={{ fontSize: 18, color: "#7c3aed", fontWeight: 900 }}>{isCollapsed ? "▶" : "▼"}</span>
             </div>
             {/* 회전별 대/소 합계 */}
-            <div style={{ display: "flex", flexWrap: "nowrap", gap: 10, marginBottom: 14, overflowX: "auto" }}>
+            {!isCollapsed && <div style={{ display: "flex", flexWrap: "nowrap", gap: 10, marginBottom: 14, overflowX: "auto" }}>
               {roundEntries.map(([round, { large, small }]) => (
                 <div key={round} style={{ background: "linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)", border: "1.5px solid #c4b5fd", borderRadius: 10, padding: "10px 20px", flexShrink: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 800, color: "#7c3aed", marginBottom: 6, letterSpacing: 1 }}>
@@ -1023,10 +1037,10 @@ export default function SupportPage() {
                   </div>
                 </div>
               ))}
-            </div>
+            </div>}
 
             {/* 버튼 행 */}
-            <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+            {!isCollapsed && <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
               <button
                 style={{ ...btnBase, background: copyStatus[driverKey] === "done" ? "#f0fdf4" : copyStatus[driverKey] === "error" ? "#fef2f2" : "linear-gradient(135deg,#4c1d95 0%,#7c3aed 100%)", color: (copyStatus[driverKey] === "done" || copyStatus[driverKey] === "error") ? "#374151" : "#fff", border: "1px solid #7c3aed", opacity: copyStatus[driverKey] === "copying" ? 0.7 : 1, fontSize: 14, padding: "9px 18px" }}
                 onClick={() => copyImage(driverKey, driverRef)}
@@ -1034,10 +1048,10 @@ export default function SupportPage() {
               >
                 🚗 {copyBtnLabel(driverKey, `${driverName ? driverName + " 기사" : "지원기사"} 메시지 복사`)}
               </button>
-            </div>
+            </div>}
 
             {/* 점포 행 목록 */}
-            {rows.map((row) => {
+            {!isCollapsed && rows.map((row) => {
               const { largeTotal, smallTotal } = cargoTotals(row);
               const roundVal = roundInputs[row.id] ?? "";
               const noticeVal = noticeInputs[row.id] ?? "";
