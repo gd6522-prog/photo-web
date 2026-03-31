@@ -348,6 +348,11 @@ export default function AdminHazardsPage() {
   const [previewReportId, setPreviewReportId] = useState<string | null>(null);
   const [previewBeforePhotoPath, setPreviewBeforePhotoPath] = useState<string | null>(null);
 
+  const [editingResolutionId, setEditingResolutionId] = useState<string | null>(null);
+  const [editAfterMemoById, setEditAfterMemoById] = useState<Record<string, string>>({});
+  const [editAfterFileById, setEditAfterFileById] = useState<Record<string, File | null>>({});
+  const [previewEditMode, setPreviewEditMode] = useState(false);
+
   const [msg, setMsg] = useState("");
   const [toastMsg, setToastMsg] = useState("");
   const [toastTone, setToastTone] = useState<"success" | "error">("success");
@@ -605,6 +610,7 @@ export default function AdminHazardsPage() {
       if (e.key === "Escape") {
         setPreviewReportId(null);
         setPreviewBeforePhotoPath(null);
+        setPreviewEditMode(false);
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -710,6 +716,68 @@ export default function AdminHazardsPage() {
       await loadRows(true);
     } catch (e) {
       setMsg((e as Error)?.message ?? "개선사진 업로드 실패");
+    } finally {
+      setSavingAfterId(null);
+    }
+  };
+
+  const saveEditResolution = async (report: ReportRow) => {
+    const existing = resMap[report.id];
+    if (!existing?.after_public_url) return;
+
+    const newFile = editAfterFileById[report.id] ?? null;
+    const newMemo = (editAfterMemoById[report.id] ?? "").trim();
+
+    setSavingAfterId(report.id);
+    setMsg("");
+    try {
+      let afterPath = existing.after_path;
+      let afterUrl = existing.after_public_url;
+      let improvedAt = existing.improved_at;
+
+      if (newFile) {
+        const day = toKstDate(report.created_at);
+        const ext = extFromName(newFile.name);
+        const path = `resolved/${day}/${sessionUid}/${Date.now()}_${randomId()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("hazard-reports").upload(path, newFile, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: newFile.type || undefined,
+        });
+        if (upErr) throw upErr;
+
+        const { data: pub } = supabase.storage.from("hazard-reports").getPublicUrl(path);
+        if (existing.after_path) {
+          await supabase.storage.from("hazard-reports").remove([existing.after_path]);
+        }
+        afterPath = path;
+        afterUrl = pub.publicUrl;
+        improvedAt = new Date().toISOString();
+      }
+
+      const { error: upsertErr } = await supabase.from("hazard_report_resolutions").upsert(
+        {
+          report_id: report.id,
+          after_path: afterPath,
+          after_public_url: afterUrl,
+          after_memo: newMemo || null,
+          improved_by: sessionUid,
+          improved_at: improvedAt,
+          planned_due_date: null,
+        },
+        { onConflict: "report_id" }
+      );
+      if (upsertErr) throw upsertErr;
+
+      setEditingResolutionId(null);
+      setPreviewEditMode(false);
+      setEditAfterFileById((p) => ({ ...p, [report.id]: null }));
+      setEditAfterMemoById((p) => ({ ...p, [report.id]: "" }));
+      setMsg("개선 내용을 수정했습니다.");
+      setPageCache({});
+      await loadRows(true);
+    } catch (e) {
+      setMsg((e as Error)?.message ?? "수정에 실패했습니다.");
     } finally {
       setSavingAfterId(null);
     }
@@ -869,12 +937,32 @@ export default function AdminHazardsPage() {
                       </section>
 
                       {res?.after_public_url ? (
-                        <section style={{ border: "1px solid #BFDBFE", borderRadius: 0, background: "#EFF6FF", padding: 10, height: 138, boxSizing: "border-box", overflow: "auto" }}>
-                          <div style={{ fontSize: 12, fontWeight: 900, color: "#1D4ED8", marginBottom: 6 }}>개선 후 설명</div>
-                          <div style={{ fontSize: 14, lineHeight: 1.55, color: "#1F2937", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                            {res.after_memo ?? "개선 설명이 입력되지 않았습니다."}
-                          </div>
-                        </section>
+                        editingResolutionId === r.id ? (
+                          <section style={{ border: "1px solid #FCD34D", borderRadius: 0, background: "#FFFBEB", padding: 10 }}>
+                            <div style={{ fontSize: 13, fontWeight: 900, color: "#0F172A", marginBottom: 8 }}>개선 내용 수정</div>
+                            <input id={`edit-file-${r.id}`} type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0] ?? null; if (f && !f.type.startsWith("image/")) return; setEditAfterFileById((p) => ({ ...p, [r.id]: f })); }} style={{ display: "none" }} />
+                            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                              <label htmlFor={`edit-file-${r.id}`} style={{ height: 32, padding: "0 10px", border: "1px solid #CBD5E1", borderRadius: 4, background: "white", fontSize: 12, fontWeight: 900, display: "inline-flex", alignItems: "center", cursor: "pointer", whiteSpace: "nowrap", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {editAfterFileById[r.id] ? "✓ " + editAfterFileById[r.id]!.name.slice(0, 10) : "새 사진 (선택)"}
+                              </label>
+                              <input value={editAfterMemoById[r.id] ?? ""} onChange={(e) => setEditAfterMemoById((p) => ({ ...p, [r.id]: e.target.value }))} placeholder="개선내용" style={{ flex: 1, minWidth: 100, height: 32, padding: "0 8px", borderRadius: 4, border: "1px solid #CBD5E1", background: "white", fontSize: 13 }} />
+                            </div>
+                            <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                              <button onClick={() => { setEditingResolutionId(null); setEditAfterFileById((p) => ({ ...p, [r.id]: null })); }} style={{ height: 30, padding: "0 10px", border: "1px solid #CBD5E1", borderRadius: 4, background: "white", fontWeight: 900, fontSize: 12, cursor: "pointer" }}>취소</button>
+                              <button onClick={() => saveEditResolution(r)} disabled={savingAfterId === r.id} style={{ height: 30, padding: "0 10px", border: "1px solid #B45309", borderRadius: 4, background: "#FFF7ED", color: "#B45309", fontWeight: 900, fontSize: 12, cursor: "pointer" }}>{savingAfterId === r.id ? "저장 중..." : "수정 저장"}</button>
+                            </div>
+                          </section>
+                        ) : (
+                          <section style={{ border: "1px solid #BFDBFE", borderRadius: 0, background: "#EFF6FF", padding: 10, height: 138, boxSizing: "border-box", overflow: "auto" }}>
+                            <div style={{ fontSize: 12, fontWeight: 900, color: "#1D4ED8", marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <span>개선 후 설명</span>
+                              <button onClick={() => { setEditingResolutionId(r.id); setEditAfterMemoById((p) => ({ ...p, [r.id]: res.after_memo ?? "" })); setEditAfterFileById((p) => ({ ...p, [r.id]: null })); }} style={{ height: 22, padding: "0 8px", border: "1px solid #93C5FD", borderRadius: 4, background: "white", color: "#1D4ED8", fontSize: 11, fontWeight: 900, cursor: "pointer" }}>수정</button>
+                            </div>
+                            <div style={{ fontSize: 14, lineHeight: 1.55, color: "#1F2937", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                              {res.after_memo ?? "개선 설명이 입력되지 않았습니다."}
+                            </div>
+                          </section>
+                        )
                       ) : (
                         <section style={{ border: "1px solid #E2E8F0", borderRadius: 0, background: "#F8FAFC", padding: 10 }}>
                           <div style={{ fontSize: 13, fontWeight: 900, color: "#0F172A", marginBottom: 8 }}>개선 등록</div>
@@ -1000,6 +1088,7 @@ export default function AdminHazardsPage() {
             if (e.target === e.currentTarget) {
               setPreviewReportId(null);
               setPreviewBeforePhotoPath(null);
+              setPreviewEditMode(false);
             }
           }}
           style={{
@@ -1085,6 +1174,7 @@ export default function AdminHazardsPage() {
                   onClick={() => {
                     setPreviewReportId(null);
                     setPreviewBeforePhotoPath(null);
+                    setPreviewEditMode(false);
                   }}
                   style={{ width: 30, height: 30, borderRadius: 4, border: "1px solid #CBD5E1", background: "white", cursor: "pointer", fontWeight: 900 }}
                 >
@@ -1174,6 +1264,25 @@ export default function AdminHazardsPage() {
                     </span>
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
+                    {previewStatus.key === "done" ? (
+                      <button
+                        onClick={() => {
+                          if (previewEditMode) {
+                            setPreviewEditMode(false);
+                            if (previewReport) setEditAfterFileById((p) => ({ ...p, [previewReport.id]: null }));
+                          } else {
+                            setPreviewEditMode(true);
+                            if (previewReport) {
+                              setEditAfterMemoById((p) => ({ ...p, [previewReport.id]: previewResolution?.after_memo ?? "" }));
+                              setEditAfterFileById((p) => ({ ...p, [previewReport.id]: null }));
+                            }
+                          }
+                        }}
+                        style={{ height: 28, padding: "0 9px", borderRadius: 4, border: previewEditMode ? "1px solid #F59E0B" : "1px solid #CBD5E1", background: previewEditMode ? "#FFF7ED" : "white", color: previewEditMode ? "#B45309" : "#111827", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
+                      >
+                        {previewEditMode ? "수정취소" : "수정"}
+                      </button>
+                    ) : null}
                     <button
                       onClick={async () => {
                         if (!previewResolution?.after_public_url) return;
@@ -1226,26 +1335,51 @@ export default function AdminHazardsPage() {
                   </div>
                 </div>
                 <div style={{ padding: 12 }}>
-                  {previewResolution?.after_public_url ? (
-                    <img
-                      src={previewAfterImageUrl}
-                      alt="hazard-after"
-                      loading="eager"
-                      decoding="async"
-                      fetchPriority="high"
-                      style={{ width: "100%", maxHeight: 420, objectFit: "contain", borderRadius: 0, border: "1px solid #E5E7EB", background: "white" }}
-                    />
+                  {previewEditMode && previewReport ? (
+                    <div style={{ border: "1px solid #FCD34D", borderRadius: 0, background: "#FFFBEB", padding: 14 }}>
+                      <div style={{ fontSize: 14, fontWeight: 900, color: "#0F172A", marginBottom: 12 }}>개선 내용 수정</div>
+                      <input id="preview-edit-file" type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0] ?? null; if (f && !f.type.startsWith("image/")) return; setEditAfterFileById((p) => ({ ...p, [previewReport.id]: f })); }} style={{ display: "none" }} />
+                      <div style={{ marginBottom: 10 }}>
+                        <label htmlFor="preview-edit-file" style={{ display: "inline-flex", alignItems: "center", height: 34, padding: "0 14px", border: "1px solid #CBD5E1", borderRadius: 4, background: "white", fontSize: 13, fontWeight: 900, cursor: "pointer" }}>
+                          {editAfterFileById[previewReport.id] ? "✓ " + editAfterFileById[previewReport.id]!.name : "새 사진 선택 (선택사항)"}
+                        </label>
+                      </div>
+                      <textarea
+                        value={editAfterMemoById[previewReport.id] ?? ""}
+                        onChange={(e) => setEditAfterMemoById((p) => ({ ...p, [previewReport.id]: e.target.value }))}
+                        placeholder="개선내용 입력"
+                        rows={4}
+                        style={{ width: "100%", padding: "8px 10px", borderRadius: 4, border: "1px solid #CBD5E1", background: "white", fontSize: 14, resize: "vertical", boxSizing: "border-box" }}
+                      />
+                      <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                        <button onClick={() => { setPreviewEditMode(false); setEditAfterFileById((p) => ({ ...p, [previewReport.id]: null })); }} style={{ height: 34, padding: "0 14px", border: "1px solid #CBD5E1", borderRadius: 4, background: "white", fontWeight: 900, cursor: "pointer" }}>취소</button>
+                        <button onClick={() => saveEditResolution(previewReport)} disabled={savingAfterId === previewReport.id} style={{ height: 34, padding: "0 14px", border: "1px solid #B45309", borderRadius: 4, background: "#FFF7ED", color: "#B45309", fontWeight: 900, cursor: "pointer" }}>{savingAfterId === previewReport.id ? "저장 중..." : "수정 저장"}</button>
+                      </div>
+                    </div>
                   ) : (
-                    <div style={{ height: 260, border: "1px dashed #CBD5E1", borderRadius: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#64748B", fontSize: 13 }}>
-                      아직 개선사진이 등록되지 않았습니다.
-                    </div>
+                    <>
+                      {previewResolution?.after_public_url ? (
+                        <img
+                          src={previewAfterImageUrl}
+                          alt="hazard-after"
+                          loading="eager"
+                          decoding="async"
+                          fetchPriority="high"
+                          style={{ width: "100%", maxHeight: 420, objectFit: "contain", borderRadius: 0, border: "1px solid #E5E7EB", background: "white" }}
+                        />
+                      ) : (
+                        <div style={{ height: 260, border: "1px dashed #CBD5E1", borderRadius: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#64748B", fontSize: 13 }}>
+                          아직 개선사진이 등록되지 않았습니다.
+                        </div>
+                      )}
+                      <div style={{ marginTop: 10, border: "1px solid #BFDBFE", borderRadius: 0, background: "#EFF6FF", padding: 12 }}>
+                        <div style={{ fontSize: 12, fontWeight: 900, color: "#1D4ED8", marginBottom: 6 }}>개선 후 설명</div>
+                        <div style={{ fontSize: 15, lineHeight: 1.6, color: "#1F2937", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                          {previewResolution?.after_memo || "개선 설명이 입력되지 않았습니다."}
+                        </div>
+                      </div>
+                    </>
                   )}
-                  <div style={{ marginTop: 10, border: "1px solid #BFDBFE", borderRadius: 0, background: "#EFF6FF", padding: 12 }}>
-                    <div style={{ fontSize: 12, fontWeight: 900, color: "#1D4ED8", marginBottom: 6 }}>개선 후 설명</div>
-                    <div style={{ fontSize: 15, lineHeight: 1.6, color: "#1F2937", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                      {previewResolution?.after_memo || "개선 설명이 입력되지 않았습니다."}
-                    </div>
-                  </div>
                 </div>
               </section>
             </div>
