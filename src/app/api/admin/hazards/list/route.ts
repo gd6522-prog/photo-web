@@ -55,66 +55,43 @@ export async function GET(req: NextRequest) {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  // Phase 1: 전체 보고서 조회 (앱 레벨에서 유효 sort_key 계산 후 정렬)
-  const allReportsResult = await guard.sbAdmin
+  // DB 레벨 페이징: sort_key ASC → created_at DESC
+  const reportsQuery = guard.sbAdmin
     .from("hazard_reports")
-    .select("id,user_id,comment,photo_path,photo_url,created_at,sort_key")
-    .order("created_at", { ascending: false });
+    .select("id,user_id,comment,photo_path,photo_url,created_at,sort_key", { count: "exact" })
+    .order("sort_key", { ascending: true })
+    .order("created_at", { ascending: false })
+    .range(from, to);
 
-  if (allReportsResult.error) return json(false, allReportsResult.error.message, null, 500);
+  const summaryQueries = includeSummary
+    ? [
+        guard.sbAdmin.from("hazard_reports").select("id", { count: "exact", head: true }).eq("sort_key", 0),
+        guard.sbAdmin.from("hazard_reports").select("id", { count: "exact", head: true }).eq("sort_key", 1),
+        guard.sbAdmin.from("hazard_reports").select("id", { count: "exact", head: true }).eq("sort_key", 2),
+      ]
+    : [
+        Promise.resolve({ count: null as number | null, error: null }),
+        Promise.resolve({ count: null as number | null, error: null }),
+        Promise.resolve({ count: null as number | null, error: null }),
+      ];
 
-  const allReports = (allReportsResult.data ?? []) as ReportRow[];
-  const today = new Date().toISOString().slice(0, 10);
+  const [reportsResult, unresolvedResult, pendingResult, resolvedResult] = await Promise.all([
+    reportsQuery,
+    ...summaryQueries,
+  ]);
 
-  // 처리완료(sort_key=2) 제외한 전체 항목의 최신 resolution 조회
-  // → sort_key와 무관하게 실제 resolution 데이터로 유효 상태 판단
-  const nonCompletedIds = allReports.filter((r) => r.sort_key !== 2).map((r) => r.id);
-  type ShortRes = { report_id: string; planned_due_date: string | null; after_public_url: string | null; improved_at: string | null };
-  const latestResMap = new Map<string, ShortRes>();
-  if (nonCompletedIds.length > 0) {
-    const { data: resData } = await guard.sbAdmin
-      .from("hazard_report_resolutions")
-      .select("report_id, planned_due_date, after_public_url, improved_at")
-      .in("report_id", nonCompletedIds);
-    for (const res of (resData ?? []) as ShortRes[]) {
-      const ex = latestResMap.get(res.report_id);
-      if (!ex || (res.improved_at ?? "") >= (ex.improved_at ?? "")) {
-        latestResMap.set(res.report_id, res);
-      }
-    }
-  }
+  if (reportsResult.error) return json(false, reportsResult.error.message, null, 500);
 
-  function effectiveSortKey(r: ReportRow): number {
-    if (r.sort_key === 2) return 2;
-    const res = latestResMap.get(r.id);
-    if (res?.after_public_url) return 2;
-    if (res?.planned_due_date && res.planned_due_date >= today) return 1; // 유효한 처리대기
-    return 0; // 미처리 or 기간 만료
-  }
-
-  // 유효 sort_key 오름차순, 동일하면 created_at 내림차순
-  const sorted = [...allReports].sort((a, b) => {
-    const diff = effectiveSortKey(a) - effectiveSortKey(b);
-    if (diff !== 0) return diff;
-    return b.created_at.localeCompare(a.created_at);
-  });
-
-  const totalCount = sorted.length;
-  const reports = sorted.slice(from, to + 1);
+  const reports = (reportsResult.data ?? []) as ReportRow[];
+  const totalCount = reportsResult.count ?? 0;
   const reportIds = reports.map((r) => r.id);
   const creatorIds = Array.from(new Set(reports.map((r) => r.user_id)));
 
-  // 요약 카운트 집계
-  let unresolvedTotalCount: number | null = null;
-  let pendingTotalCount: number | null = null;
-  let resolvedTotalCount: number | null = null;
-  if (includeSummary) {
-    unresolvedTotalCount = sorted.filter((r) => effectiveSortKey(r) === 0).length;
-    pendingTotalCount = sorted.filter((r) => effectiveSortKey(r) === 1).length;
-    resolvedTotalCount = sorted.filter((r) => effectiveSortKey(r) === 2).length;
-  }
+  const unresolvedTotalCount = includeSummary ? (unresolvedResult.count ?? 0) : null;
+  const pendingTotalCount = includeSummary ? (pendingResult.count ?? 0) : null;
+  const resolvedTotalCount = includeSummary ? (resolvedResult.count ?? 0) : null;
 
-  // Phase 2: 현재 페이지 항목에 대한 상세 데이터 병렬 조회 (최대 pageSize건)
+  // 현재 페이지 항목 상세 데이터 병렬 조회
   const [resResult, extraResult, profilesResult] = await Promise.all([
     reportIds.length > 0
       ? guard.sbAdmin
