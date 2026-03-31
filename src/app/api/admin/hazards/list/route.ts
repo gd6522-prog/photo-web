@@ -55,6 +55,9 @@ export async function GET(req: NextRequest) {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
+  // 만료된 처리대기(planned_due_date < 오늘) → 미처리(0)로 교정
+  await guard.sbAdmin.rpc("fix_expired_hazard_sort_keys");
+
   // DB 레벨 페이징: sort_key ASC → created_at DESC
   const reportsQuery = guard.sbAdmin
     .from("hazard_reports")
