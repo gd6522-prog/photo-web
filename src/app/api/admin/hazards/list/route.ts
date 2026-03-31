@@ -55,32 +55,20 @@ export async function GET(req: NextRequest) {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  // 만료된 처리대기(planned_due_date < 오늘) → 미처리(0)로 교정
-  await guard.sbAdmin.rpc("fix_expired_hazard_sort_keys");
+  // 만료된 처리대기 교정 — fire-and-forget (요청 블로킹 없음)
+  void guard.sbAdmin.rpc("fix_expired_hazard_sort_keys");
 
-  // DB 레벨 페이징: sort_key ASC → created_at DESC
-  const reportsQuery = guard.sbAdmin
-    .from("hazard_reports")
-    .select("id,user_id,comment,photo_path,photo_url,created_at,sort_key", { count: "exact" })
-    .order("sort_key", { ascending: true })
-    .order("created_at", { ascending: false })
-    .range(from, to);
-
-  const summaryQueries = includeSummary
-    ? [
-        guard.sbAdmin.from("hazard_reports").select("id", { count: "exact", head: true }).eq("sort_key", 0),
-        guard.sbAdmin.from("hazard_reports").select("id", { count: "exact", head: true }).eq("sort_key", 1),
-        guard.sbAdmin.from("hazard_reports").select("id", { count: "exact", head: true }).eq("sort_key", 2),
-      ]
-    : [
-        Promise.resolve({ count: null as number | null, error: null }),
-        Promise.resolve({ count: null as number | null, error: null }),
-        Promise.resolve({ count: null as number | null, error: null }),
-      ];
-
-  const [reportsResult, unresolvedResult, pendingResult, resolvedResult] = await Promise.all([
-    reportsQuery,
-    ...summaryQueries,
+  // Phase 1: 페이지 데이터 + 요약 카운트 병렬 조회
+  const [reportsResult, summaryResult] = await Promise.all([
+    guard.sbAdmin
+      .from("hazard_reports")
+      .select("id,user_id,comment,photo_path,photo_url,created_at,sort_key", { count: "exact" })
+      .order("sort_key", { ascending: true })
+      .order("created_at", { ascending: false })
+      .range(from, to),
+    includeSummary
+      ? guard.sbAdmin.rpc("get_hazard_summary")
+      : Promise.resolve({ data: null, error: null }),
   ]);
 
   if (reportsResult.error) return json(false, reportsResult.error.message, null, 500);
@@ -88,30 +76,37 @@ export async function GET(req: NextRequest) {
   const reports = (reportsResult.data ?? []) as ReportRow[];
   const totalCount = reportsResult.count ?? 0;
   const reportIds = reports.map((r) => r.id);
-  const creatorIds = Array.from(new Set(reports.map((r) => r.user_id)));
 
-  const unresolvedTotalCount = includeSummary ? (unresolvedResult.count ?? 0) : null;
-  const pendingTotalCount = includeSummary ? (pendingResult.count ?? 0) : null;
-  const resolvedTotalCount = includeSummary ? (resolvedResult.count ?? 0) : null;
+  type SummaryRow = { sort_key: number; cnt: number };
+  const summaryRows = (summaryResult.data ?? []) as SummaryRow[];
+  const unresolvedTotalCount = includeSummary ? (summaryRows.find((r) => r.sort_key === 0)?.cnt ?? 0) : null;
+  const pendingTotalCount    = includeSummary ? (summaryRows.find((r) => r.sort_key === 1)?.cnt ?? 0) : null;
+  const resolvedTotalCount   = includeSummary ? (summaryRows.find((r) => r.sort_key === 2)?.cnt ?? 0) : null;
 
-  // 현재 페이지 항목 상세 데이터 병렬 조회
-  const [resResult, extraResult, profilesResult] = await Promise.all([
-    reportIds.length > 0
-      ? guard.sbAdmin
-          .from("hazard_report_resolutions")
-          .select("report_id,after_path,after_public_url,after_memo,improved_by,improved_at,planned_due_date")
-          .in("report_id", reportIds)
-      : Promise.resolve({ data: [] as ResolutionRow[], error: null }),
-    reportIds.length > 0
-      ? guard.sbAdmin
-          .from("hazard_report_photos")
-          .select("id,report_id,photo_path,photo_url,created_at")
-          .in("report_id", reportIds)
-          .order("created_at", { ascending: false })
-      : Promise.resolve({ data: [] as ExtraPhotoRow[], error: null }),
-    creatorIds.length > 0
-      ? guard.sbAdmin.from("profiles").select("id,name").in("id", creatorIds)
-      : Promise.resolve({ data: [] as { id: string; name: string | null }[], error: null }),
+  if (reportIds.length === 0) {
+    return json(true, undefined, {
+      items: [],
+      totalCount,
+      unresolvedTotalCount,
+      pendingTotalCount,
+      resolvedTotalCount,
+      page,
+      pageSize,
+      includeSummary,
+    });
+  }
+
+  // Phase 2: 현재 페이지 상세 데이터 병렬 조회
+  const [resResult, extraResult] = await Promise.all([
+    guard.sbAdmin
+      .from("hazard_report_resolutions")
+      .select("report_id,after_path,after_public_url,after_memo,improved_by,improved_at,planned_due_date")
+      .in("report_id", reportIds),
+    guard.sbAdmin
+      .from("hazard_report_photos")
+      .select("id,report_id,photo_path,photo_url,created_at")
+      .in("report_id", reportIds)
+      .order("created_at", { ascending: false }),
   ]);
 
   if (resResult.error) return json(false, resResult.error.message, null, 500);
@@ -129,18 +124,19 @@ export async function GET(req: NextRequest) {
     extraPhotoMap[photo.report_id].push(photo);
   }
 
-  const nameMap: Record<string, string | null> = {};
-  for (const p of (profilesResult.data ?? []) as { id: string; name: string | null }[]) {
-    nameMap[p.id] = p.name;
-  }
+  // Phase 3: 창작자 + 처리자 프로필 단일 조회 (2번→1번)
+  const allProfileIds = Array.from(new Set([
+    ...reports.map((r) => r.user_id),
+    ...resolutions.map((r) => r.improved_by).filter((v): v is string => !!v),
+  ]));
 
-  // 처리자(improved_by) 중 아직 조회되지 않은 ID만 추가 조회
-  const improverIds = Array.from(
-    new Set(resolutions.map((r) => r.improved_by).filter((v): v is string => !!v && !(v in nameMap)))
-  );
-  if (improverIds.length > 0) {
-    const { data: improverData } = await guard.sbAdmin.from("profiles").select("id,name").in("id", improverIds);
-    for (const p of (improverData ?? []) as { id: string; name: string | null }[]) {
+  const nameMap: Record<string, string | null> = {};
+  if (allProfileIds.length > 0) {
+    const { data: profileData } = await guard.sbAdmin
+      .from("profiles")
+      .select("id,name")
+      .in("id", allProfileIds);
+    for (const p of (profileData ?? []) as { id: string; name: string | null }[]) {
       nameMap[p.id] = p.name;
     }
   }
@@ -158,7 +154,7 @@ export async function GET(req: NextRequest) {
 
   return json(true, undefined, {
     items,
-    totalCount: includeSummary ? totalCount : null,
+    totalCount,
     unresolvedTotalCount,
     pendingTotalCount,
     resolvedTotalCount,
