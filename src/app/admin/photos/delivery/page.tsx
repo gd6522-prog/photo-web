@@ -1116,7 +1116,7 @@ export default function AdminDeliveryPhotosPage() {
                             onClick={() => openPreview(gIdx, 0)}
                             style={{ width: "100%", border: "none", padding: 0, margin: 0, background: "transparent", cursor: "pointer" }}
                           >
-                            <img src={rep.public_url} alt={rep.id} loading="lazy" decoding="async" style={{ width: "100%", height: 170, objectFit: "cover", display: "block" }} />
+                            <img src={rep.public_url} alt={rep.id} loading="eager" fetchPriority="high" decoding="async" style={{ width: "100%", height: 170, objectFit: "cover", display: "block" }} />
                           </button>
 
                           {/* ✅ 사진 장수 배지: 2장 이상일 때만 표시 */}

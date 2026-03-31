@@ -912,7 +912,7 @@ export default function AdminPhotosPage() {
                             justifyContent: "center",
                           }}
                         >
-                          <img src={p.original_url} alt="photo" loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                          <img src={p.original_url} alt="photo" loading="eager" fetchPriority="high" decoding="async" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
                         </div>
                       </button>
 
