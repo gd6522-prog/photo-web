@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { AdminAccessProvider, AccessLevel, MenuAccessMap } from "@/lib/admin-access";
-import { getSettingsItems, findMenuKeyByPath } from "@/lib/menu-registry";
+import { getSettingsItems, getSubItems, findMenuKeyByPath } from "@/lib/menu-registry";
 import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 
 const MAX_W = 1700;
@@ -87,49 +87,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const SETTINGS_ITEMS = useMemo(() => getSettingsItems(), []);
   const SETTINGS_ROOT = "/admin/settings/store-master";
 
-  const PHOTO_ITEMS = useMemo(
-    () => [
-      { label: "현장사진", href: "/admin/photos" },
-      { label: "배송사진", href: "/admin/photos/delivery" },
-      { label: "위험요인", href: "/admin/hazards" },
-    ],
-    []
-  );
-
-  const VEHICLE_ITEMS = useMemo(
-    () => [
-      { label: "물동량", href: "/admin/vehicles" },
-      { label: "운행일보", href: "/admin/vehicles/report" },
-      { label: "지원", href: "/admin/vehicles/support" },
-      { label: "점착", href: "/admin/vehicles/adhesion" },
-    ],
-    []
-  );
-
-  const OPERATION_ITEMS = useMemo(
-    () => [
-      { label: "단품별", href: "/admin/operation" },
-      { label: "CDC", href: "/admin/vehicles/cdc" },
-    ],
-    []
-  );
-
-  // 게시판 섹션: 달력/게시판을 /admin/notice/* 로 통일
-  const NOTICE_ITEMS = useMemo(
-    () => [
-      { label: "\uac8c\uc2dc\ud310", href: "/admin/notice/boards?board=notice" },
-      { label: "\uc77c\uc815\ub2ec\ub825", href: "/admin/notice/calendar" },
-    ],
-    []
-  );
-
-  const WORK_LOG_ITEMS = useMemo(
-    () => [
-      { label: "기본근태", href: "/admin/work-log?tab=basic" },
-      { label: "상세근태", href: "/admin/work-log?tab=detail" },
-    ],
-    []
-  );
+  const PHOTO_ITEMS     = useMemo(() => getSubItems("admin_photos"),    []);
+  const VEHICLE_ITEMS   = useMemo(() => getSubItems("admin_vehicle"),   []);
+  const OPERATION_ITEMS = useMemo(() => getSubItems("admin_operation"), []);
+  const NOTICE_ITEMS    = useMemo(() => getSubItems("admin_notice"),    []);
+  const WORK_LOG_ITEMS  = useMemo(() => getSubItems("admin_work_log"),  []);
 
   const getAccess = (menuKey: string, mainOnly?: boolean): AccessLevel => {
     if (isMainAdmin) return "full";
@@ -534,20 +496,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         style={dropdownBoxStyle}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {PHOTO_ITEMS.map((it) => {
+                        {PHOTO_ITEMS.filter((it) => canShow(it.key)).map((it) => {
                           let active = false;
                           if (it.href === "/admin/photos") {
                             active = isExact(pathname, "/admin/photos");
-                          } else if (it.href === "/admin/photos/delivery") {
+                          } else if (it.href.startsWith("/admin/photos/delivery")) {
                             active = isSection(pathname, "/admin/photos/delivery");
-                          } else if (it.href === "/admin/hazards") {
+                          } else if (it.href.startsWith("/admin/hazards")) {
                             active = isSection(pathname, "/admin/hazards");
                           } else {
-                            active = pathname === it.href;
+                            active = pathname === it.href.split("?")[0];
                           }
 
                           return (
-                            <Link key={it.href} href={it.href} style={dropdownItemStyle(active)}>
+                            <Link key={it.key} href={it.href} style={dropdownItemStyle(active)}>
                               {it.label}
                             </Link>
                           );
@@ -574,10 +536,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         style={dropdownBoxStyle}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {OPERATION_ITEMS.map((it) => {
-                          const active = pathname === it.href || pathname.startsWith(it.href + "/");
+                        {OPERATION_ITEMS.filter((it) => canShow(it.key)).map((it) => {
+                          const base = it.href.split("?")[0];
+                          const active = pathname === base || pathname.startsWith(base + "/");
                           return (
-                            <Link key={it.href} href={it.href} style={dropdownItemStyle(active)}>
+                            <Link key={it.key} href={it.href} style={dropdownItemStyle(active)}>
                               {it.label}
                             </Link>
                           );
@@ -604,13 +567,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         style={dropdownBoxStyle}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {VEHICLE_ITEMS.map((it) => {
-                          const active =
-                            it.href === "/admin/vehicles"
-                              ? pathname === "/admin/vehicles"
-                              : pathname === it.href || pathname.startsWith(it.href + "/");
+                        {VEHICLE_ITEMS.filter((it) => canShow(it.key)).map((it) => {
+                          const base = it.href.split("?")[0];
+                          const active = base === "/admin/vehicles"
+                            ? pathname === "/admin/vehicles"
+                            : pathname === base || pathname.startsWith(base + "/");
                           return (
-                            <Link key={it.href} href={it.href} style={dropdownItemStyle(active)}>
+                            <Link key={it.key} href={it.href} style={dropdownItemStyle(active)}>
                               {it.label}
                             </Link>
                           );
@@ -637,11 +600,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       style={dropdownBoxStyle}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {NOTICE_ITEMS.map((it) => {
-                        const baseHref = it.href.replace(/\?.*/, "");
+                      {NOTICE_ITEMS.filter((it) => canShow(it.key)).map((it) => {
+                        const baseHref = it.href.split("?")[0];
                         const active = pathname === baseHref || pathname.startsWith(baseHref + "/");
                         return (
-                          <Link key={it.href} href={it.href} style={dropdownItemStyle(active)}>
+                          <Link key={it.key} href={it.href} style={dropdownItemStyle(active)}>
                             {it.label}
                           </Link>
                         );
@@ -667,13 +630,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         style={dropdownBoxStyle}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {WORK_LOG_ITEMS.map((it) => {
+                        {WORK_LOG_ITEMS.filter((it) => canShow(it.key)).map((it) => {
                           const active = it.href.includes("tab=detail")
                             ? pathname.startsWith("/admin/work-log") && workLogTab === "detail"
                             : pathname === "/admin/work-log" && workLogTab === "basic";
 
                           return (
-                            <Link key={it.href} href={it.href} style={dropdownItemStyle(active)}>
+                            <Link key={it.key} href={it.href} style={dropdownItemStyle(active)}>
                               {it.label}
                             </Link>
                           );

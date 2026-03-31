@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import type { AccessLevel } from "@/lib/admin-access";
-import { getAllItems } from "@/lib/menu-registry";
+import { getAllItems, MENU_REGISTRY } from "@/lib/menu-registry";
 
 type DbRow = {
   menu_key: string;
@@ -17,18 +17,41 @@ type UiRow = {
   menu_key: string;
   label: string;
   general_access: AccessLevel;
+  parent?: string;
+  mainOnly?: boolean;
 };
 
-const OPTIONS: { value: AccessLevel; label: string }[] = [
-  { value: "full", label: "FULL (사용 가능)" },
-  { value: "view", label: "VIEW (읽기 전용)" },
-  { value: "hidden", label: "HIDDEN (안 보임 + 접근 차단)" },
-];
+type SectionGroup = {
+  parent: UiRow;
+  children: UiRow[];
+};
+
+const ACCESS_CONFIG: Record<AccessLevel, { label: string; short: string; bg: string; color: string; border: string }> = {
+  full:   { label: "사용 가능",          short: "FULL",   bg: "#DCFCE7", color: "#166534", border: "#86EFAC" },
+  view:   { label: "읽기 전용",          short: "VIEW",   bg: "#DBEAFE", color: "#1E40AF", border: "#93C5FD" },
+  hidden: { label: "숨김 + 접근 차단",   short: "숨김",   bg: "#FEE2E2", color: "#991B1B", border: "#FCA5A5" },
+  edit:   { label: "편집",              short: "EDIT",   bg: "#FEF3C7", color: "#92400E", border: "#FCD34D" },
+};
+
+const OPTIONS: AccessLevel[] = ["full", "view", "hidden"];
 
 function keysToInList(keys: string[]) {
-  // PostgREST in() 포맷: ("a","b","c")
   const quoted = keys.map((k) => `"${k.replaceAll('"', '\\"')}"`).join(",");
   return `(${quoted})`;
+}
+
+function AccessBadge({ value }: { value: AccessLevel }) {
+  const cfg = ACCESS_CONFIG[value] ?? ACCESS_CONFIG.hidden;
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center",
+      padding: "2px 8px", borderRadius: 99,
+      fontSize: 11, fontWeight: 900,
+      background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`,
+    }}>
+      {cfg.short}
+    </span>
+  );
 }
 
 export default function PermissionsPage() {
@@ -37,265 +60,305 @@ export default function PermissionsPage() {
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [rows, setRows] = useState<UiRow[]>([]);
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [syncing, setSyncing] = useState(false);
 
   const registry = useMemo(() => getAllItems(), []);
   const registryKeys = useMemo(() => registry.map((m) => m.key), [registry]);
 
-  const tips = useMemo(
-    () => [
-      "FULL: 일반관리자 메뉴 보임 + 접근 가능",
-      "VIEW: 메뉴 보임 + 접근 가능 (※ 각 페이지에서 저장/작성 버튼을 끄는 추가 작업이 필요)",
-      "HIDDEN: 메뉴 숨김 + 주소로 접근도 차단",
-      "※ 이 화면은 '레지스트리(menu-registry.ts)' 기준으로만 목록을 보여줍니다. DB에 남은 찌꺼기 키는 자동 정리됩니다.",
-    ],
-    []
-  );
+  /** 레지스트리 기준 UiRow 생성 */
+  const buildUiRows = (db: DbRow[]): UiRow[] => {
+    const map: Record<string, AccessLevel> = {};
+    for (const r of db ?? []) {
+      if (r?.menu_key) map[r.menu_key] = (r.general_access ?? "full") as AccessLevel;
+    }
+    return registry.map((m) => ({
+      menu_key: m.key,
+      label: m.label,
+      general_access: (map[m.key] ?? "full") as AccessLevel,
+      parent: m.parent,
+      mainOnly: m.mainOnly,
+    }));
+  };
+
+  /** 레지스트리에 없는 DB row 삭제 */
+  const pruneDb = async () => {
+    const { error } = await supabase
+      .from("admin_menu_permissions")
+      .delete()
+      .not("menu_key", "in", keysToInList(registryKeys));
+    if (error) throw error;
+  };
+
+  /** 누락된 레지스트리 키만 DB에 삽입 (기존 권한 덮어쓰지 않음) */
+  const insertMissingKeys = async (dbKeys: Set<string>) => {
+    const missing = registry.filter((m) => !dbKeys.has(m.key));
+    if (missing.length === 0) return;
+    const { error } = await supabase.from("admin_menu_permissions").insert(
+      missing.map((m) => ({
+        menu_key: m.key,
+        label: m.label,
+        general_access: "full" as AccessLevel,
+        updated_at: new Date().toISOString(),
+      }))
+    );
+    if (error && !error.message.includes("duplicate")) throw error;
+  };
 
   const assertMainAdmin = async () => {
     const { data: s, error: sErr } = await supabase.auth.getSession();
     if (sErr) throw sErr;
-
     const uid = s.session?.user?.id;
-    if (!uid) {
-      router.replace("/login");
-      return { ok: false as const };
-    }
-
-    const { data: prof, error: pErr } = await supabase
-      .from("profiles")
-      .select("is_admin,approval_status")
-      .eq("id", uid)
-      .single();
-
+    if (!uid) { router.replace("/login"); return { ok: false as const }; }
+    const { data: prof, error: pErr } = await supabase.from("profiles").select("is_admin,approval_status").eq("id", uid).single();
     if (pErr) throw pErr;
-
-    if (!prof || prof.approval_status !== "approved" || !prof.is_admin) {
-      router.replace("/admin");
-      return { ok: false as const };
-    }
-
+    if (!prof || prof.approval_status !== "approved" || !prof.is_admin) { router.replace("/admin"); return { ok: false as const }; }
     return { ok: true as const };
   };
 
-  const buildUiRows = (db: DbRow[]) => {
-    const map: Record<string, AccessLevel> = {};
-    for (const r of db ?? []) {
-      if (!r?.menu_key) continue;
-      map[r.menu_key] = (r.general_access ?? "full") as AccessLevel;
-    }
-
-    // ✅ 레지스트리 기준으로만 UI를 만듦 (DB 찌꺼기 키는 표시 안 됨)
-    const ui: UiRow[] = registry.map((m) => ({
-      menu_key: m.key,
-      label: m.label,
-      general_access: (map[m.key] ?? "full") as AccessLevel,
-    }));
-
-    return ui;
-  };
-
-  const pruneDb = async () => {
-    // ✅ 레지스트리에 없는 row 삭제 (찔끔 남는 중복/구버전 키 정리)
-    const inList = keysToInList(registryKeys);
-    const { error } = await supabase
-      .from("admin_menu_permissions")
-      .delete()
-      .not("menu_key", "in", inList);
-
-    if (error) throw error;
-  };
-
-  const syncRegistryToDb = async () => {
-    // ✅ 레지스트리 키는 upsert로 보장(기본 general_access=full)
-    const rows = registry.map((m) => ({
-      menu_key: m.key,
-      label: m.label,
-      general_access: "full" as AccessLevel,
-      updated_at: new Date().toISOString(),
-    }));
-
-    const { error } = await supabase
-      .from("admin_menu_permissions")
-      .upsert(rows, { onConflict: "menu_key" });
-
-    if (error) throw error;
-  };
-
   const load = async () => {
-    setMsg("");
+    setMsg(null);
     setLoading(true);
     try {
       const ok = await assertMainAdmin();
       if (!ok.ok) return;
 
-      // 1) DB에서 현재 권한 읽기
       const { data, error } = await supabase
         .from("admin_menu_permissions")
-        .select("menu_key,label,general_access,updated_at")
-        .order("menu_key", { ascending: true });
-
+        .select("menu_key,label,general_access,updated_at");
       if (error) throw error;
 
-      // 2) UI는 레지스트리 기준으로만 생성
-      setRows(buildUiRows((data as DbRow[]) ?? []));
+      const dbRows = (data as DbRow[]) ?? [];
+      const dbKeys = new Set(dbRows.map((r) => r.menu_key));
 
-      // 3) (자동) 찌꺼기 키 정리
-      //    - 권한 화면 들어올 때마다 한번 정리되도록
-      await pruneDb();
-    } catch (e: any) {
-      setMsg(e?.message ?? String(e));
+      await Promise.all([insertMissingKeys(dbKeys), pruneDb()]);
+
+      // 재조회 (삽입 후 최신 반영)
+      const { data: fresh, error: e2 } = await supabase
+        .from("admin_menu_permissions")
+        .select("menu_key,label,general_access,updated_at");
+      if (e2) throw e2;
+
+      setRows(buildUiRows((fresh as DbRow[]) ?? []));
+    } catch (e: unknown) {
+      setMsg({ text: (e as Error)?.message ?? String(e), ok: false });
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onChange = async (menu_key: string, next: AccessLevel) => {
-    setMsg("");
+    setMsg(null);
     setSavingKey(menu_key);
     try {
-      // ✅ 없을 수도 있으니 update가 아니라 upsert로 처리
       const found = registry.find((x) => x.key === menu_key);
-      const label = found?.label ?? menu_key;
-
-      const { error } = await supabase
-        .from("admin_menu_permissions")
-        .upsert(
-          {
-            menu_key,
-            label,
-            general_access: next,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "menu_key" }
-        );
-
+      const { error } = await supabase.from("admin_menu_permissions").upsert(
+        { menu_key, label: found?.label ?? menu_key, general_access: next, updated_at: new Date().toISOString() },
+        { onConflict: "menu_key" }
+      );
       if (error) throw error;
-
-      setRows((prev) => prev.map((r) => (r.menu_key === menu_key ? { ...r, general_access: next } : r)));
-    } catch (e: any) {
-      setMsg(e?.message ?? String(e));
+      setRows((prev) => prev.map((r) => r.menu_key === menu_key ? { ...r, general_access: next } : r));
+    } catch (e: unknown) {
+      setMsg({ text: (e as Error)?.message ?? String(e), ok: false });
     } finally {
       setSavingKey(null);
     }
   };
 
   const onSyncPrune = async () => {
-    setMsg("");
+    setMsg(null);
     setSyncing(true);
     try {
       const ok = await assertMainAdmin();
       if (!ok.ok) return;
 
-      // 1) 레지스트리 upsert(누락키 생성, label 최신화)
-      await syncRegistryToDb();
-      // 2) 레지스트리에 없는 찌꺼기 키 삭제
+      // 모든 레지스트리 키 upsert (label 최신화, general_access는 기존 값 보존 안 됨 → full 리셋)
+      await supabase.from("admin_menu_permissions").upsert(
+        registry.map((m) => ({ menu_key: m.key, label: m.label, general_access: "full" as AccessLevel, updated_at: new Date().toISOString() })),
+        { onConflict: "menu_key" }
+      );
       await pruneDb();
 
-      // 3) 다시 로드
-      const { data, error } = await supabase
-        .from("admin_menu_permissions")
-        .select("menu_key,label,general_access,updated_at")
-        .order("menu_key", { ascending: true });
-
+      const { data, error } = await supabase.from("admin_menu_permissions").select("menu_key,label,general_access,updated_at");
       if (error) throw error;
       setRows(buildUiRows((data as DbRow[]) ?? []));
-
-      setMsg("동기화/정리 완료");
-    } catch (e: any) {
-      setMsg(e?.message ?? String(e));
+      setMsg({ text: "동기화/정리 완료 (모든 권한이 FULL로 초기화됨)", ok: true });
+    } catch (e: unknown) {
+      setMsg({ text: (e as Error)?.message ?? String(e), ok: false });
     } finally {
       setSyncing(false);
     }
   };
 
-  return (
-    <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 0, padding: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <div>
-          <div style={{ fontWeight: 950, fontSize: 18 }}>일반관리자 메뉴 권한 설정</div>
-          <div style={{ marginTop: 6, color: "#6B7280", fontSize: 13 }}>
-            메인관리자만 변경 가능합니다. 기본값은 전부 FULL 입니다.
-          </div>
-        </div>
+  // 표시용 그룹 구조 생성
+  const { navGroups, settingsRows } = useMemo(() => {
+    const rowMap: Record<string, UiRow> = {};
+    for (const r of rows) rowMap[r.menu_key] = r;
 
+    // Nav 최상위 (parent 없음, nav group)
+    const navParents = MENU_REGISTRY
+      .filter((m) => m.group === "nav" && !m.parent)
+      .sort((a, b) => a.order - b.order)
+      .map((m) => rowMap[m.key])
+      .filter(Boolean) as UiRow[];
+
+    const groups: SectionGroup[] = navParents.map((parent) => {
+      const children = MENU_REGISTRY
+        .filter((m) => m.parent === parent.menu_key)
+        .sort((a, b) => a.order - b.order)
+        .map((m) => rowMap[m.key])
+        .filter(Boolean) as UiRow[];
+      return { parent, children };
+    });
+
+    const settingsRows = MENU_REGISTRY
+      .filter((m) => m.group === "settings")
+      .sort((a, b) => a.order - b.order)
+      .map((m) => rowMap[m.key])
+      .filter(Boolean) as UiRow[];
+
+    return { navGroups: groups, settingsRows };
+  }, [rows]);
+
+  const PermSelect = ({ row }: { row: UiRow }) => {
+    if (row.mainOnly) {
+      return (
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <AccessBadge value="full" />
+          <span style={{ fontSize: 11, color: "#6B7280" }}>메인관리자 전용</span>
+        </div>
+      );
+    }
+    const isSaving = savingKey === row.menu_key;
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <AccessBadge value={row.general_access} />
+        <select
+          value={row.general_access}
+          onChange={(e) => onChange(row.menu_key, e.target.value as AccessLevel)}
+          disabled={isSaving}
+          style={{
+            height: 30, padding: "0 8px", borderRadius: 6,
+            border: `1px solid ${ACCESS_CONFIG[row.general_access]?.border ?? "#D1D5DB"}`,
+            background: "white", fontWeight: 700, fontSize: 12,
+            color: "#111827", cursor: isSaving ? "not-allowed" : "pointer",
+            opacity: isSaving ? 0.6 : 1,
+          }}
+        >
+          {OPTIONS.map((v) => (
+            <option key={v} value={v}>{ACCESS_CONFIG[v].label}</option>
+          ))}
+        </select>
+        {isSaving && <span style={{ fontSize: 11, color: "#6B7280" }}>저장 중...</span>}
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ fontFamily: "Pretendard, system-ui, -apple-system, sans-serif", maxWidth: 860, margin: "0 auto" }}>
+      {/* 헤더 */}
+      <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 0, padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <div>
+          <div style={{ fontWeight: 950, fontSize: 18, color: "#0F172A" }}>일반관리자 메뉴 권한 설정</div>
+          <div style={{ marginTop: 4, color: "#6B7280", fontSize: 13 }}>메인관리자만 변경 가능 · 신규 메뉴는 페이지 접속 시 자동으로 추가됩니다</div>
+        </div>
         <button
           onClick={onSyncPrune}
           disabled={loading || syncing}
           style={{
-            height: 38,
-            padding: "0 12px",
-            borderRadius: 0,
-            border: "1px solid #111827",
-            background: syncing ? "#CBD5E1" : "#111827",
-            color: "white",
-            fontWeight: 950,
-            cursor: loading || syncing ? "not-allowed" : "pointer",
+            height: 36, padding: "0 14px", borderRadius: 6,
+            border: "1px solid #111827", background: syncing ? "#6B7280" : "#111827",
+            color: "white", fontWeight: 900, fontSize: 13, cursor: loading || syncing ? "not-allowed" : "pointer",
             whiteSpace: "nowrap",
           }}
         >
-          {syncing ? "동기화 중..." : "메뉴 동기화/정리"}
+          {syncing ? "동기화 중..." : "전체 초기화 (FULL)"}
         </button>
       </div>
 
-      <div style={{ marginTop: 10, color: "#374151", fontSize: 12, lineHeight: 1.6 }}>
-        {tips.map((t) => (
-          <div key={t}>• {t}</div>
-        ))}
+      {/* 범례 */}
+      <div style={{ marginTop: 8, background: "#F8FAFC", border: "1px solid #E2E8F0", padding: "10px 16px", display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+        {OPTIONS.map((v) => {
+          const cfg = ACCESS_CONFIG[v];
+          return (
+            <div key={v} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+              <AccessBadge value={v} />
+              <span style={{ color: "#374151" }}>{cfg.label}</span>
+            </div>
+          );
+        })}
+        <span style={{ color: "#9CA3AF", fontSize: 12, marginLeft: "auto" }}>변경 즉시 저장됩니다</span>
       </div>
 
-      {msg && <div style={{ marginTop: 10, color: msg.includes("완료") ? "#065F46" : "#B91C1C", fontWeight: 900 }}>{msg}</div>}
+      {msg && (
+        <div style={{ marginTop: 8, padding: "10px 16px", borderRadius: 6, background: msg.ok ? "#DCFCE7" : "#FEE2E2", border: `1px solid ${msg.ok ? "#86EFAC" : "#FCA5A5"}`, color: msg.ok ? "#166534" : "#991B1B", fontWeight: 700, fontSize: 13 }}>
+          {msg.text}
+        </div>
+      )}
 
       {loading ? (
-        <div style={{ marginTop: 16, color: "#6B7280", fontWeight: 800 }}>불러오는 중...</div>
+        <div style={{ marginTop: 20, textAlign: "center", color: "#6B7280", fontWeight: 700 }}>불러오는 중...</div>
       ) : (
-        <div style={{ marginTop: 16 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 10, fontWeight: 950, fontSize: 13, color: "#111827" }}>
-            <div>메뉴</div>
-            <div>일반관리자 권한</div>
+        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+
+          {/* 상단 메뉴 섹션 */}
+          <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 0, overflow: "hidden" }}>
+            <div style={{ padding: "10px 16px", background: "#F1F5F9", borderBottom: "1px solid #E2E8F0", fontWeight: 950, fontSize: 13, color: "#1E293B", letterSpacing: "0.03em" }}>
+              상단 메뉴
+            </div>
+            {navGroups.map(({ parent, children }) => (
+              <div key={parent.menu_key} style={{ borderBottom: "1px solid #F1F5F9" }}>
+                {/* 최상위 메뉴 행 */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", background: "#FAFAFA", gap: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontWeight: 900, fontSize: 14, color: "#0F172A" }}>{parent.label}</span>
+                    {children.length > 0 && (
+                      <span style={{ fontSize: 11, color: "#94A3B8" }}>하위 {children.length}개</span>
+                    )}
+                  </div>
+                  <PermSelect row={parent} />
+                </div>
+                {/* 하위 메뉴 행 */}
+                {children.map((child, idx) => (
+                  <div
+                    key={child.menu_key}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      padding: "8px 16px 8px 36px", gap: 12,
+                      borderTop: "1px solid #F1F5F9",
+                      background: idx % 2 === 0 ? "#FFFFFF" : "#FAFEFE",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ color: "#CBD5E1", fontSize: 14 }}>└</span>
+                      <span style={{ fontSize: 13, color: "#374151", fontWeight: 700 }}>{child.label}</span>
+                    </div>
+                    <PermSelect row={child} />
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
 
-          <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-            {rows.map((r) => (
+          {/* 설정 메뉴 섹션 */}
+          <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 0, overflow: "hidden" }}>
+            <div style={{ padding: "10px 16px", background: "#F1F5F9", borderBottom: "1px solid #E2E8F0", fontWeight: 950, fontSize: 13, color: "#1E293B", letterSpacing: "0.03em" }}>
+              설정 메뉴
+            </div>
+            {settingsRows.map((row, idx) => (
               <div
-                key={r.menu_key}
+                key={row.menu_key}
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "1.6fr 1fr",
-                  gap: 10,
-                  padding: 12,
-                  border: "1px solid #E5E7EB",
-                  borderRadius: 0,
-                  alignItems: "center",
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "10px 16px", gap: 12,
+                  borderBottom: idx < settingsRows.length - 1 ? "1px solid #F1F5F9" : "none",
+                  background: idx % 2 === 0 ? "#FFFFFF" : "#FAFAFA",
                 }}
               >
-                <div style={{ fontWeight: 900, color: "#111827" }}>{r.label}</div>
-
-                <select
-                  value={r.general_access}
-                  onChange={(e) => onChange(r.menu_key, e.target.value as AccessLevel)}
-                  disabled={savingKey === r.menu_key}
-                  style={{
-                    height: 38,
-                    borderRadius: 0,
-                    border: "1px solid #D1D5DB",
-                    padding: "0 10px",
-                    fontWeight: 900,
-                    background: "white",
-                  }}
-                >
-                  {OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+                <span style={{ fontWeight: 700, fontSize: 13, color: "#374151" }}>{row.label}</span>
+                <PermSelect row={row} />
               </div>
             ))}
           </div>
