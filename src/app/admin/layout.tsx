@@ -263,6 +263,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const canShow = (menuKey: string, mainOnly?: boolean) => getAccess(menuKey, mainOnly) !== "hidden";
   const visibleSettingsItems = SETTINGS_ITEMS.filter((it) => canShow(it.key, it.mainOnly));
   const canShowPhotos = canShow("admin_photos");
+  const canShowOperation = canShow("admin_operation");
   const canShowVehicle = canShow("admin_vehicle");
 
   useEffect(() => {
@@ -556,7 +557,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   </div>
                 ) : null}
 
-                {canShowVehicle ? (
+                {canShowOperation ? (
                   <div
                     onMouseEnter={() => openDropdown("operation")}
                     onMouseLeave={() => closeDropdownDelayed("operation")}
