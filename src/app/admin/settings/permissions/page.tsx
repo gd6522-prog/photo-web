@@ -157,13 +157,20 @@ export default function PermissionsPage() {
     setMsg(null);
     setSavingKey(`${menu_key}__${field}`);
     try {
-      const found = registry.find((x) => x.key === menu_key);
-      const { error } = await supabase.from("admin_menu_permissions").upsert(
-        { menu_key, label: found?.label ?? menu_key, [field]: next, updated_at: new Date().toISOString() },
-        { onConflict: "menu_key" }
-      );
+      // 해당 키의 자식들 수집 (상위 메뉴 변경 시 하위도 함께 변경)
+      const children = MENU_REGISTRY.filter((m) => m.parent === menu_key);
+      const allKeys = [menu_key, ...children.map((c) => c.key)];
+
+      const upsertRows = allKeys.map((key) => {
+        const item = registry.find((x) => x.key === key);
+        return { menu_key: key, label: item?.label ?? key, [field]: next, updated_at: new Date().toISOString() };
+      });
+
+      const { error } = await supabase.from("admin_menu_permissions").upsert(upsertRows, { onConflict: "menu_key" });
       if (error) throw error;
-      setRows((prev) => prev.map((r) => r.menu_key === menu_key ? { ...r, [field]: next } : r));
+
+      const keySet = new Set(allKeys);
+      setRows((prev) => prev.map((r) => keySet.has(r.menu_key) ? { ...r, [field]: next } : r));
     } catch (e: unknown) {
       setMsg({ text: (e as Error)?.message ?? String(e), ok: false });
     } finally {
