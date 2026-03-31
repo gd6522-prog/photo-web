@@ -114,17 +114,6 @@ function getHazardImageUrl(_photoPath: string | null | undefined, photoUrl: stri
   return String(photoUrl || "").trim();
 }
 
-function toThumbUrl(url: string | null | undefined, width = 480): string {
-  const s = String(url || "").trim();
-  if (!s) return s;
-  // Supabase Storage → render/image 로 변환하여 리사이징
-  const transformed = s.replace(
-    /\/storage\/v1\/object\/public\//,
-    "/storage/v1/render/image/public/"
-  );
-  if (transformed === s) return s; // 변환 불가한 URL은 원본 반환
-  return `${transformed}?width=${width}&quality=75&resize=contain`;
-}
 
 function getReportBeforePhotos(report: HazardListItem | null | undefined) {
   if (!report) return [];
@@ -876,8 +865,8 @@ export default function AdminHazardsPage() {
             const isDragOver = dragOverId === r.id;
             const plannedDueDate = plannedDueDateById[r.id] ?? "";
             const beforePhotos = getReportBeforePhotos(r);
-            const beforeThumbUrl = toThumbUrl(beforePhotos[0]?.url ?? getHazardImageUrl(r.photo_path, r.photo_url));
-            const afterThumbUrl = toThumbUrl(getHazardImageUrl(res?.after_path, res?.after_public_url));
+            const beforeThumbUrl = beforePhotos[0]?.url ?? getHazardImageUrl(r.photo_path, r.photo_url);
+            const afterThumbUrl = getHazardImageUrl(res?.after_path, res?.after_public_url);
 
             return (
               <div key={r.id} style={{ border: "1px solid #DDE3EA", borderRadius: 0, background: "white", padding: 10, boxShadow: "0 4px 14px rgba(15,23,42,0.05)" }}>
