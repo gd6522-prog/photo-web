@@ -898,15 +898,43 @@ export default function AdminHazardsPage() {
                   <span style={{ fontSize: 12, color: "#6B7280" }}>사진 {beforePhotos.length}장</span>
                   <span style={{ fontSize: 12, color: "#6B7280" }}>개선: {formatKST(res?.improved_at ?? null)} / {improver}</span>
                   {status.key === "pending" ? <span style={{ fontSize: 12, color: "#B45309", fontWeight: 800 }}>예정일: {formatDueDateLabel(res?.planned_due_date ?? null)}</span> : null}
-                  {isMainAdmin ? (
-                    <button
-                      onClick={() => deleteReport(r)}
-                      disabled={deletingReportId === r.id}
-                      style={{ marginLeft: "auto", height: 28, padding: "0 10px", border: "1px solid #FCA5A5", borderRadius: 4, background: "#FEF2F2", color: "#B91C1C", fontWeight: 900, fontSize: 12 }}
-                    >
-                      {deletingReportId === r.id ? "삭제 중..." : "삭제"}
-                    </button>
-                  ) : null}
+                  <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                    {done ? (
+                      <button
+                        onClick={() => {
+                          try {
+                            const beforeOriginalUrl = beforePhotos[0]?.url ?? getHazardImageUrl(r.photo_path, r.photo_url);
+                            const afterOriginalUrl = getHazardImageUrl(res?.after_path, res?.after_public_url);
+                            printHazardResolutionSheet({
+                              reportId: r.id,
+                              createdAt: formatKST(r.created_at),
+                              creator,
+                              improvedAt: formatKST(res?.improved_at ?? null),
+                              improver,
+                              beforeImageUrl: beforeOriginalUrl,
+                              afterImageUrl: afterOriginalUrl,
+                              beforeMemo: r.comment || "-",
+                              afterMemo: res?.after_memo || "개선 설명이 입력되지 않았습니다.",
+                            });
+                          } catch (e) {
+                            setMsg(normalizeActionError(e, "출력에 실패했습니다."));
+                          }
+                        }}
+                        style={{ height: 28, padding: "0 10px", border: "1px solid #1D4ED8", borderRadius: 4, background: "#EFF6FF", color: "#1D4ED8", fontWeight: 900, fontSize: 12, cursor: "pointer" }}
+                      >
+                        출력
+                      </button>
+                    ) : null}
+                    {isMainAdmin ? (
+                      <button
+                        onClick={() => deleteReport(r)}
+                        disabled={deletingReportId === r.id}
+                        style={{ height: 28, padding: "0 10px", border: "1px solid #FCA5A5", borderRadius: 4, background: "#FEF2F2", color: "#B91C1C", fontWeight: 900, fontSize: 12, cursor: "pointer" }}
+                      >
+                        {deletingReportId === r.id ? "삭제 중..." : "삭제"}
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 10, alignItems: "start" }}>
@@ -967,7 +995,7 @@ export default function AdminHazardsPage() {
                           <section style={{ border: "1px solid #BFDBFE", borderRadius: 0, background: "#EFF6FF", padding: 10, height: 138, boxSizing: "border-box", overflow: "auto" }}>
                             <div style={{ fontSize: 12, fontWeight: 900, color: "#1D4ED8", marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                               <span>개선 후 설명</span>
-                              <button onClick={() => { setEditingResolutionId(r.id); setEditAfterMemoById((p) => ({ ...p, [r.id]: res.after_memo ?? "" })); setEditAfterFileById((p) => ({ ...p, [r.id]: null })); }} style={{ height: 22, padding: "0 8px", border: "1px solid #93C5FD", borderRadius: 4, background: "white", color: "#1D4ED8", fontSize: 11, fontWeight: 900, cursor: "pointer" }}>수정</button>
+                              <button onClick={() => { setEditingResolutionId(r.id); setEditAfterMemoById((p) => ({ ...p, [r.id]: res.after_memo ?? "" })); setEditAfterFileById((p) => ({ ...p, [r.id]: null })); }} style={{ height: 28, padding: "0 10px", border: "1px solid #93C5FD", borderRadius: 4, background: "white", color: "#1D4ED8", fontSize: 12, fontWeight: 900, cursor: "pointer" }}>수정</button>
                             </div>
                             <div style={{ fontSize: 14, lineHeight: 1.55, color: "#1F2937", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                               {res.after_memo ?? "개선 설명이 입력되지 않았습니다."}
