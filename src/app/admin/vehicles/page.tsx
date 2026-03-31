@@ -3504,16 +3504,16 @@ export function VehiclePageScreen({
             </button>
             <button
               onClick={() => void saveCargoSettings()}
-              disabled={cargoSaveBusy || cargoRows.length === 0 || !cargoDirty}
+              disabled={cargoSaveBusy || cargoRows.length === 0}
               style={{
                 height: 42,
                 padding: "0 18px",
                 borderRadius: 0,
                 border: "1px solid #113247",
-                background: cargoSaveBusy || cargoRows.length === 0 || !cargoDirty ? "#cbd5e1" : "#113247",
+                background: cargoSaveBusy || cargoRows.length === 0 ? "#cbd5e1" : "#113247",
                 color: "#fff",
                 fontWeight: 900,
-                cursor: cargoSaveBusy || cargoRows.length === 0 || !cargoDirty ? "not-allowed" : "pointer",
+                cursor: cargoSaveBusy || cargoRows.length === 0 ? "not-allowed" : "pointer",
                 marginLeft: "auto",
               }}
             >
