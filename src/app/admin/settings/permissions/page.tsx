@@ -10,6 +10,7 @@ type DbRow = {
   menu_key: string;
   label: string | null;
   general_access: AccessLevel | null;
+  company_access: AccessLevel | null;
   updated_at: string | null;
 };
 
@@ -17,6 +18,7 @@ type UiRow = {
   menu_key: string;
   label: string;
   general_access: AccessLevel;
+  company_access: AccessLevel;
   parent?: string;
   mainOnly?: boolean;
 };
@@ -27,10 +29,10 @@ type SectionGroup = {
 };
 
 const ACCESS_CONFIG: Record<AccessLevel, { label: string; short: string; bg: string; color: string; border: string }> = {
-  full:   { label: "사용 가능",          short: "FULL",   bg: "#DCFCE7", color: "#166534", border: "#86EFAC" },
-  view:   { label: "읽기 전용",          short: "VIEW",   bg: "#DBEAFE", color: "#1E40AF", border: "#93C5FD" },
-  hidden: { label: "숨김 + 접근 차단",   short: "숨김",   bg: "#FEE2E2", color: "#991B1B", border: "#FCA5A5" },
-  edit:   { label: "편집",              short: "EDIT",   bg: "#FEF3C7", color: "#92400E", border: "#FCD34D" },
+  full:   { label: "사용 가능",        short: "FULL",  bg: "#DCFCE7", color: "#166534", border: "#86EFAC" },
+  view:   { label: "읽기 전용",        short: "VIEW",  bg: "#DBEAFE", color: "#1E40AF", border: "#93C5FD" },
+  hidden: { label: "숨김 + 접근 차단", short: "숨김",  bg: "#FEE2E2", color: "#991B1B", border: "#FCA5A5" },
+  edit:   { label: "편집",            short: "EDIT",  bg: "#FEF3C7", color: "#92400E", border: "#FCD34D" },
 };
 
 const OPTIONS: AccessLevel[] = ["full", "view", "hidden"];
@@ -66,22 +68,25 @@ export default function PermissionsPage() {
   const registry = useMemo(() => getAllItems(), []);
   const registryKeys = useMemo(() => registry.map((m) => m.key), [registry]);
 
-  /** 레지스트리 기준 UiRow 생성 */
   const buildUiRows = (db: DbRow[]): UiRow[] => {
-    const map: Record<string, AccessLevel> = {};
+    const gMap: Record<string, AccessLevel> = {};
+    const cMap: Record<string, AccessLevel> = {};
     for (const r of db ?? []) {
-      if (r?.menu_key) map[r.menu_key] = (r.general_access ?? "full") as AccessLevel;
+      if (r?.menu_key) {
+        gMap[r.menu_key] = (r.general_access ?? "full") as AccessLevel;
+        cMap[r.menu_key] = (r.company_access ?? "full") as AccessLevel;
+      }
     }
     return registry.map((m) => ({
       menu_key: m.key,
       label: m.label,
-      general_access: (map[m.key] ?? "full") as AccessLevel,
+      general_access: (gMap[m.key] ?? "full") as AccessLevel,
+      company_access: (cMap[m.key] ?? "full") as AccessLevel,
       parent: m.parent,
       mainOnly: m.mainOnly,
     }));
   };
 
-  /** 레지스트리에 없는 DB row 삭제 */
   const pruneDb = async () => {
     const { error } = await supabase
       .from("admin_menu_permissions")
@@ -90,7 +95,6 @@ export default function PermissionsPage() {
     if (error) throw error;
   };
 
-  /** 누락된 레지스트리 키만 DB에 삽입 (기존 권한 덮어쓰지 않음) */
   const insertMissingKeys = async (dbKeys: Set<string>) => {
     const missing = registry.filter((m) => !dbKeys.has(m.key));
     if (missing.length === 0) return;
@@ -99,6 +103,7 @@ export default function PermissionsPage() {
         menu_key: m.key,
         label: m.label,
         general_access: "full" as AccessLevel,
+        company_access: "full" as AccessLevel,
         updated_at: new Date().toISOString(),
       }))
     );
@@ -125,7 +130,7 @@ export default function PermissionsPage() {
 
       const { data, error } = await supabase
         .from("admin_menu_permissions")
-        .select("menu_key,label,general_access,updated_at");
+        .select("menu_key,label,general_access,company_access,updated_at");
       if (error) throw error;
 
       const dbRows = (data as DbRow[]) ?? [];
@@ -133,10 +138,9 @@ export default function PermissionsPage() {
 
       await Promise.all([insertMissingKeys(dbKeys), pruneDb()]);
 
-      // 재조회 (삽입 후 최신 반영)
       const { data: fresh, error: e2 } = await supabase
         .from("admin_menu_permissions")
-        .select("menu_key,label,general_access,updated_at");
+        .select("menu_key,label,general_access,company_access,updated_at");
       if (e2) throw e2;
 
       setRows(buildUiRows((fresh as DbRow[]) ?? []));
@@ -149,17 +153,17 @@ export default function PermissionsPage() {
 
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const onChange = async (menu_key: string, next: AccessLevel) => {
+  const onChange = async (menu_key: string, field: "general_access" | "company_access", next: AccessLevel) => {
     setMsg(null);
-    setSavingKey(menu_key);
+    setSavingKey(`${menu_key}__${field}`);
     try {
       const found = registry.find((x) => x.key === menu_key);
       const { error } = await supabase.from("admin_menu_permissions").upsert(
-        { menu_key, label: found?.label ?? menu_key, general_access: next, updated_at: new Date().toISOString() },
+        { menu_key, label: found?.label ?? menu_key, [field]: next, updated_at: new Date().toISOString() },
         { onConflict: "menu_key" }
       );
       if (error) throw error;
-      setRows((prev) => prev.map((r) => r.menu_key === menu_key ? { ...r, general_access: next } : r));
+      setRows((prev) => prev.map((r) => r.menu_key === menu_key ? { ...r, [field]: next } : r));
     } catch (e: unknown) {
       setMsg({ text: (e as Error)?.message ?? String(e), ok: false });
     } finally {
@@ -174,14 +178,19 @@ export default function PermissionsPage() {
       const ok = await assertMainAdmin();
       if (!ok.ok) return;
 
-      // 모든 레지스트리 키 upsert (label 최신화, general_access는 기존 값 보존 안 됨 → full 리셋)
       await supabase.from("admin_menu_permissions").upsert(
-        registry.map((m) => ({ menu_key: m.key, label: m.label, general_access: "full" as AccessLevel, updated_at: new Date().toISOString() })),
+        registry.map((m) => ({
+          menu_key: m.key,
+          label: m.label,
+          general_access: "full" as AccessLevel,
+          company_access: "full" as AccessLevel,
+          updated_at: new Date().toISOString(),
+        })),
         { onConflict: "menu_key" }
       );
       await pruneDb();
 
-      const { data, error } = await supabase.from("admin_menu_permissions").select("menu_key,label,general_access,updated_at");
+      const { data, error } = await supabase.from("admin_menu_permissions").select("menu_key,label,general_access,company_access,updated_at");
       if (error) throw error;
       setRows(buildUiRows((data as DbRow[]) ?? []));
       setMsg({ text: "동기화/정리 완료 (모든 권한이 FULL로 초기화됨)", ok: true });
@@ -192,12 +201,10 @@ export default function PermissionsPage() {
     }
   };
 
-  // 표시용 그룹 구조 생성
   const { navGroups, settingsRows } = useMemo(() => {
     const rowMap: Record<string, UiRow> = {};
     for (const r of rows) rowMap[r.menu_key] = r;
 
-    // Nav 최상위 (parent 없음, nav group)
     const navParents = MENU_REGISTRY
       .filter((m) => m.group === "nav" && !m.parent)
       .sort((a, b) => a.order - b.order)
@@ -222,26 +229,28 @@ export default function PermissionsPage() {
     return { navGroups: groups, settingsRows };
   }, [rows]);
 
-  const PermSelect = ({ row }: { row: UiRow }) => {
+  const AccessSelect = ({
+    row,
+    field,
+  }: {
+    row: UiRow;
+    field: "general_access" | "company_access";
+  }) => {
     if (row.mainOnly) {
-      return (
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <AccessBadge value="full" />
-          <span style={{ fontSize: 11, color: "#6B7280" }}>메인관리자 전용</span>
-        </div>
-      );
+      return <span style={{ fontSize: 11, color: "#9CA3AF" }}>메인전용</span>;
     }
-    const isSaving = savingKey === row.menu_key;
+    const isSaving = savingKey === `${row.menu_key}__${field}`;
+    const value = row[field];
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <AccessBadge value={row.general_access} />
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <AccessBadge value={value} />
         <select
-          value={row.general_access}
-          onChange={(e) => onChange(row.menu_key, e.target.value as AccessLevel)}
+          value={value}
+          onChange={(e) => onChange(row.menu_key, field, e.target.value as AccessLevel)}
           disabled={isSaving}
           style={{
-            height: 30, padding: "0 8px", borderRadius: 6,
-            border: `1px solid ${ACCESS_CONFIG[row.general_access]?.border ?? "#D1D5DB"}`,
+            height: 28, padding: "0 6px", borderRadius: 6,
+            border: `1px solid ${ACCESS_CONFIG[value]?.border ?? "#D1D5DB"}`,
             background: "white", fontWeight: 700, fontSize: 12,
             color: "#111827", cursor: isSaving ? "not-allowed" : "pointer",
             opacity: isSaving ? 0.6 : 1,
@@ -251,17 +260,34 @@ export default function PermissionsPage() {
             <option key={v} value={v}>{ACCESS_CONFIG[v].label}</option>
           ))}
         </select>
-        {isSaving && <span style={{ fontSize: 11, color: "#6B7280" }}>저장 중...</span>}
+        {isSaving && <span style={{ fontSize: 11, color: "#6B7280" }}>저장...</span>}
       </div>
     );
   };
 
+  // 행 공통 레이아웃 (grid)
+  const ROW_GRID: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "1fr 90px 220px 220px",
+    alignItems: "center",
+    gap: 12,
+  };
+
+  const ColHeader = () => (
+    <div style={{ ...ROW_GRID, padding: "6px 16px", background: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}>
+      <div />
+      <div style={{ fontSize: 11, fontWeight: 900, color: "#475569", textAlign: "center" }}>메인관리자</div>
+      <div style={{ fontSize: 11, fontWeight: 900, color: "#475569" }}>일반관리자</div>
+      <div style={{ fontSize: 11, fontWeight: 900, color: "#475569" }}>업체관리자</div>
+    </div>
+  );
+
   return (
-    <div style={{ fontFamily: "Pretendard, system-ui, -apple-system, sans-serif", maxWidth: 860, margin: "0 auto" }}>
+    <div style={{ fontFamily: "Pretendard, system-ui, -apple-system, sans-serif", maxWidth: 1000, margin: "0 auto" }}>
       {/* 헤더 */}
       <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: 0, padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <div>
-          <div style={{ fontWeight: 950, fontSize: 18, color: "#0F172A" }}>일반관리자 메뉴 권한 설정</div>
+          <div style={{ fontWeight: 950, fontSize: 18, color: "#0F172A" }}>메뉴 권한 설정</div>
           <div style={{ marginTop: 4, color: "#6B7280", fontSize: 13 }}>메인관리자만 변경 가능 · 신규 메뉴는 페이지 접속 시 자동으로 추가됩니다</div>
         </div>
         <button
@@ -308,25 +334,30 @@ export default function PermissionsPage() {
             <div style={{ padding: "10px 16px", background: "#F1F5F9", borderBottom: "1px solid #E2E8F0", fontWeight: 950, fontSize: 13, color: "#1E293B", letterSpacing: "0.03em" }}>
               상단 메뉴
             </div>
+            <ColHeader />
             {navGroups.map(({ parent, children }) => (
               <div key={parent.menu_key} style={{ borderBottom: "1px solid #F1F5F9" }}>
                 {/* 최상위 메뉴 행 */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", background: "#FAFAFA", gap: 12 }}>
+                <div style={{ ...ROW_GRID, padding: "10px 16px", background: "#FAFAFA" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontWeight: 900, fontSize: 14, color: "#0F172A" }}>{parent.label}</span>
                     {children.length > 0 && (
                       <span style={{ fontSize: 11, color: "#94A3B8" }}>하위 {children.length}개</span>
                     )}
                   </div>
-                  <PermSelect row={parent} />
+                  <div style={{ display: "flex", justifyContent: "center" }}>
+                    <AccessBadge value="full" />
+                  </div>
+                  <AccessSelect row={parent} field="general_access" />
+                  <AccessSelect row={parent} field="company_access" />
                 </div>
                 {/* 하위 메뉴 행 */}
                 {children.map((child, idx) => (
                   <div
                     key={child.menu_key}
                     style={{
-                      display: "flex", alignItems: "center", justifyContent: "space-between",
-                      padding: "8px 16px 8px 36px", gap: 12,
+                      ...ROW_GRID,
+                      padding: "8px 16px 8px 36px",
                       borderTop: "1px solid #F1F5F9",
                       background: idx % 2 === 0 ? "#FFFFFF" : "#FAFEFE",
                     }}
@@ -335,7 +366,11 @@ export default function PermissionsPage() {
                       <span style={{ color: "#CBD5E1", fontSize: 14 }}>└</span>
                       <span style={{ fontSize: 13, color: "#374151", fontWeight: 700 }}>{child.label}</span>
                     </div>
-                    <PermSelect row={child} />
+                    <div style={{ display: "flex", justifyContent: "center" }}>
+                      <AccessBadge value="full" />
+                    </div>
+                    <AccessSelect row={child} field="general_access" />
+                    <AccessSelect row={child} field="company_access" />
                   </div>
                 ))}
               </div>
@@ -347,18 +382,26 @@ export default function PermissionsPage() {
             <div style={{ padding: "10px 16px", background: "#F1F5F9", borderBottom: "1px solid #E2E8F0", fontWeight: 950, fontSize: 13, color: "#1E293B", letterSpacing: "0.03em" }}>
               설정 메뉴
             </div>
+            <ColHeader />
             {settingsRows.map((row, idx) => (
               <div
                 key={row.menu_key}
                 style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  padding: "10px 16px", gap: 12,
+                  ...ROW_GRID,
+                  padding: "10px 16px",
                   borderBottom: idx < settingsRows.length - 1 ? "1px solid #F1F5F9" : "none",
                   background: idx % 2 === 0 ? "#FFFFFF" : "#FAFAFA",
                 }}
               >
-                <span style={{ fontWeight: 700, fontSize: 13, color: "#374151" }}>{row.label}</span>
-                <PermSelect row={row} />
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontWeight: 700, fontSize: 13, color: "#374151" }}>{row.label}</span>
+                  {row.mainOnly && <span style={{ fontSize: 11, color: "#9CA3AF" }}>메인전용</span>}
+                </div>
+                <div style={{ display: "flex", justifyContent: "center" }}>
+                  <AccessBadge value="full" />
+                </div>
+                <AccessSelect row={row} field="general_access" />
+                <AccessSelect row={row} field="company_access" />
               </div>
             ))}
           </div>

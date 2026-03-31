@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { AdminAccessProvider, AccessLevel, MenuAccessMap } from "@/lib/admin-access";
 import { getSettingsItems, getSubItems, findMenuKeyByPath } from "@/lib/menu-registry";
-import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
+import { isGeneralAdminWorkPart, isMainAdminIdentity, isCompanyAdminWorkPart } from "@/lib/admin-role";
 
 const MAX_W = 1700;
 const AUTO_LOGOUT_MS = 60 * 60 * 1000;
@@ -22,6 +22,7 @@ type Profile = {
 type PermRow = {
   menu_key: string;
   general_access: AccessLevel;
+  company_access: AccessLevel;
 };
 
 async function waitForSession(retry = 6, delayMs = 500) {
@@ -96,8 +97,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const getAccess = (menuKey: string, mainOnly?: boolean): AccessLevel => {
     if (isMainAdmin) return "full";
     if (mainOnly) return "hidden";
-    if (isCompanyAdmin && menuKey === "settings_driver_master") return "hidden";
-    if (isCompanyAdmin && (menuKey === "admin_work_log" || menuKey === "settings_user_master")) return "full";
     return (menuAccess?.[menuKey] ?? "hidden") as AccessLevel;
   };
 
@@ -267,8 +266,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         const hardMain = isMainAdminIdentity(uid, session.user.email ?? "");
         const main = hardMain || !!p?.is_admin;
         const general = isGeneralAdminWorkPart(p?.work_part);
+        const company = isCompanyAdminWorkPart(p?.work_part);
 
-        if (!main && !general) {
+        if (!main && !general && !company) {
           try {
             await supabase.auth.signOut();
           } catch {}
@@ -280,7 +280,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         setIsMainAdmin(main);
         setIsGeneralAdmin(!main && general);
-        setIsCompanyAdmin(false);
+        setIsCompanyAdmin(!main && !general && company);
         setLoginUserName(String(p?.name ?? "").trim());
 
         if (main) {
@@ -289,24 +289,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         } else {
           const { data: perms, error: permErr } = await supabase
             .from("admin_menu_permissions")
-            .select("menu_key,general_access");
+            .select("menu_key,general_access,company_access");
           if (permErr) throw permErr;
 
           const map: MenuAccessMap = {};
-          for (const r of (perms as PermRow[]) ?? []) map[r.menu_key] = r.general_access;
+          for (const r of (perms as PermRow[]) ?? []) {
+            map[r.menu_key] = company ? r.company_access : r.general_access;
+          }
 
           if (!mounted || runId !== my) return;
           setMenuAccess(map);
 
           const menuKey = findMenuKeyByPath(pathname);
           if (menuKey) {
-            if (false && menuKey === "settings_driver_master") {
-              router.replace("/admin");
-              return;
-            }
             const access = (map?.[menuKey] ?? "hidden") as AccessLevel;
-            const vendorOverride = false;
-            if (access === "hidden" && !vendorOverride) {
+            if (access === "hidden") {
               router.replace("/admin");
               return;
             }
@@ -368,14 +365,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     const menuKey = findMenuKeyByPath(pathname);
     if (!menuKey) return;
-    if (isCompanyAdmin && menuKey === "settings_driver_master") {
-      router.replace("/admin");
-      return;
-    }
 
     const access = getAccess(menuKey);
-    const vendorOverride = isCompanyAdmin && (menuKey === "admin_work_log" || menuKey === "settings_user_master");
-    if (access === "hidden" && !vendorOverride) {
+    if (access === "hidden") {
       router.replace("/admin");
     }
   }, [isAdminPath, pathname, checking, isMainAdmin, isCompanyAdmin, menuAccess, router]);
