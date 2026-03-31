@@ -284,8 +284,8 @@ export default function PermissionsPage() {
     <div style={{ ...ROW_GRID, padding: "6px 16px", background: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}>
       <div />
       <div style={{ fontSize: 11, fontWeight: 900, color: "#475569", textAlign: "center" }}>메인관리자</div>
-      <div style={{ fontSize: 11, fontWeight: 900, color: "#475569" }}>일반관리자</div>
       <div style={{ fontSize: 11, fontWeight: 900, color: "#475569" }}>업체관리자</div>
+      <div style={{ fontSize: 11, fontWeight: 900, color: "#475569" }}>일반관리자</div>
     </div>
   );
 
@@ -355,8 +355,8 @@ export default function PermissionsPage() {
                   <div style={{ display: "flex", justifyContent: "center" }}>
                     <AccessBadge value="full" />
                   </div>
-                  <AccessSelect row={parent} field="general_access" />
                   <AccessSelect row={parent} field="company_access" />
+                  <AccessSelect row={parent} field="general_access" />
                 </div>
                 {/* 하위 메뉴 행 */}
                 {children.map((child, idx) => (
@@ -376,8 +376,8 @@ export default function PermissionsPage() {
                     <div style={{ display: "flex", justifyContent: "center" }}>
                       <AccessBadge value="full" />
                     </div>
-                    <AccessSelect row={child} field="general_access" />
                     <AccessSelect row={child} field="company_access" />
+                    <AccessSelect row={child} field="general_access" />
                   </div>
                 ))}
               </div>
@@ -407,8 +407,8 @@ export default function PermissionsPage() {
                 <div style={{ display: "flex", justifyContent: "center" }}>
                   <AccessBadge value="full" />
                 </div>
-                <AccessSelect row={row} field="general_access" />
                 <AccessSelect row={row} field="company_access" />
+                <AccessSelect row={row} field="general_access" />
               </div>
             ))}
           </div>
