@@ -137,6 +137,7 @@ type VehicleSnapshot = {
   fileName: string;
   productRows: ProductRow[];
   cargoRows: CargoRow[];
+  subtotalSettings?: Record<string, { support_excluded: boolean; note: string }>;
   uploadedAt: string;
   uploadedBy: string;
 };
@@ -644,6 +645,7 @@ export async function PUT(req: NextRequest) {
       snapshot?: VehicleSnapshot | null;
       fileName?: string;
       cargoRows?: CargoRow[] | null;
+      subtotalSettings?: Record<string, { support_excluded: boolean; note: string }> | null;
       limits?: VehicleLimitsSnapshot | null;
     };
 
@@ -672,6 +674,31 @@ export async function PUT(req: NextRequest) {
       if (storeUpdates.length > 0) {
         void guard.sbAdmin.from("store_map").upsert(storeUpdates, { onConflict: "store_code" });
       }
+    } else if (Array.isArray(body.cargoRows)) {
+      // cargoRows만 업데이트 (지원체크/기사 저장) — 기존 snapshot의 productRows는 유지
+      const existing = await readCurrentSnapshot(guard.sbAdmin);
+      if (!existing) throw new Error("기존 스냅샷이 없습니다. 먼저 파일을 업로드해 주세요.");
+
+      // 실제 행은 incoming 기준으로 업데이트, 가상 부분합 행(subtotal-)은 제거
+      const incomingMap = new Map(body.cargoRows.map((r) => [r.id, r]));
+      const mergedRealRows = existing.cargoRows
+        .filter((r) => !r.id.startsWith("subtotal-"))
+        .map((row) => incomingMap.get(row.id) ?? row);
+      const mergedCargoRows = mergedRealRows;
+
+      const merged: VehicleSnapshot = {
+        ...existing,
+        fileName: body.fileName ?? existing.fileName,
+        cargoRows: mergedCargoRows,
+        subtotalSettings: body.subtotalSettings ?? existing.subtotalSettings,
+        uploadedAt: new Date().toISOString(),
+      };
+      const snapshotBlob = new Blob([JSON.stringify(merged)], { type: "application/json" });
+      const { error } = await guard.sbAdmin.storage.from(BUCKET).upload(CURRENT_PATH, snapshotBlob, {
+        upsert: true,
+        contentType: "application/json",
+      });
+      if (error) throw new Error(error.message);
     }
 
     if (body.limits) {
