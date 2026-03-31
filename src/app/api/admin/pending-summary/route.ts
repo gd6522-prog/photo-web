@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   const [hazardReportsRes, hazardResolutionsRes, redeliveryPhotosRes, redeliveryDoneRes] = await Promise.all([
     sb.from("hazard_reports").select("id"),
     sb.from("hazard_report_resolutions").select("report_id, after_public_url, planned_due_date, improved_at"),
-    sb.from("delivery_photos").select("id").ilike("path", "miochul/%").ilike("memo", "%?щ같??"),
+    sb.from("delivery_photos").select("id").ilike("path", "miochul/%").ilike("memo", "%재배송%"),
     sb.from("delivery_redelivery_done").select("photo_id"),
   ]);
 
