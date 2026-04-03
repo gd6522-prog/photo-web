@@ -46,31 +46,16 @@ export async function GET(req: NextRequest) {
   const qCompany = (req.nextUrl.searchParams.get("qCompany") ?? "").trim();
   const qWorkTable = (req.nextUrl.searchParams.get("qWorkTable") ?? "").trim();
 
-  let myProf:
-    | {
-        work_part?: string | null;
-        is_company_admin?: boolean | null;
-      }
-    | null = null;
-  let meErr: unknown = null;
-  {
-    const result = await guard.sbAdmin.from("profiles").select("work_part,is_company_admin").eq("id", guard.uid).maybeSingle();
-    myProf = result.data;
-    meErr = result.error;
-  }
-  if (isMissingColumnError(meErr, "is_company_admin")) {
-    const retry = await guard.sbAdmin.from("profiles").select("work_part").eq("id", guard.uid).maybeSingle();
-    myProf = retry.data;
-    meErr = retry.error;
-  }
-  if (meErr) {
-    const message = meErr instanceof Error ? meErr.message : String(meErr);
-    return json(false, message, null, 500);
-  }
-
+  // requireAdmin에서 이미 내 프로필을 조회했으므로 추가 쿼리 불필요
   const isCompanyAdminRole =
-    isCompanyAdminFlag(myProf?.is_company_admin) || isCompanyAdminWorkPart((myProf as { work_part?: string | null } | null)?.work_part);
+    isCompanyAdminFlag(guard.myIsCompanyAdmin) || isCompanyAdminWorkPart(guard.myWorkPart);
   const effectiveCompany = isCompanyAdminRole && qCompany === BLOCKED_COMPANY ? "" : qCompany;
+
+  // 오늘 출퇴근 조회를 profiles 목록 조회와 병렬 실행
+  const shiftsPromise = guard.sbAdmin
+    .from("work_shifts")
+    .select("user_id,clock_in_at,clock_out_at")
+    .eq("work_date", kstTodayYMD());
 
   const loadProfiles = async (includeRoleFlags: boolean) => {
     const columns = [
@@ -104,30 +89,22 @@ export async function GET(req: NextRequest) {
     return await q;
   };
 
-  let { data, error } = await loadProfiles(true);
+  // profiles 목록과 오늘 출퇴근을 병렬로 실행
+  let [{ data, error }, shiftsResult] = await Promise.all([loadProfiles(true), shiftsPromise]);
   if (isMissingColumnError(error, "is_general_admin") || isMissingColumnError(error, "is_company_admin")) {
     ({ data, error } = await loadProfiles(false));
   }
   if (error) return json(false, error.message, null, 500);
+  if (shiftsResult.error) return json(false, shiftsResult.error.message, null, 500);
 
   const rows = ((data ?? []) as unknown as ProfileRow[]).map((row) => ({
     ...row,
     work_part: displayWorkPart(row.work_part),
   }));
-  const ids = rows.map((r) => r.id);
 
   const todayShiftMap: Record<string, { inAt: string | null; outAt: string | null }> = {};
-  if (ids.length > 0) {
-    const { data: shifts, error: sErr } = await guard.sbAdmin
-      .from("work_shifts")
-      .select("user_id,clock_in_at,clock_out_at")
-      .eq("work_date", kstTodayYMD())
-      .in("user_id", ids);
-    if (sErr) return json(false, sErr.message, null, 500);
-
-    for (const r of (shifts ?? []) as ShiftTodayRow[]) {
-      todayShiftMap[r.user_id] = { inAt: r.clock_in_at, outAt: r.clock_out_at };
-    }
+  for (const r of (shiftsResult.data ?? []) as ShiftTodayRow[]) {
+    todayShiftMap[r.user_id] = { inAt: r.clock_in_at, outAt: r.clock_out_at };
   }
 
   return json(true, undefined, { rows, todayShiftMap, isCompanyAdminRole });

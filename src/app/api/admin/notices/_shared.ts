@@ -22,7 +22,7 @@ export function json(ok: boolean, message?: string, extra?: any, status = 200) {
 
 export async function requireAdmin(req: NextRequest): Promise<
   | { ok: false; res: NextResponse }
-  | { ok: true; sbAdmin: SupabaseClient; uid: string; email: string; isMainAdmin: boolean }
+  | { ok: true; sbAdmin: SupabaseClient; uid: string; email: string; isMainAdmin: boolean; myWorkPart: string | null; myIsCompanyAdmin: boolean | null }
 > {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return { ok: false, res: json(false, "Missing Supabase env", null, 500) };
   if (!SUPABASE_SERVICE_ROLE_KEY) return { ok: false, res: json(false, "Missing SUPABASE_SERVICE_ROLE_KEY", null, 500) };
@@ -54,7 +54,7 @@ export async function requireAdmin(req: NextRequest): Promise<
 
   const { data: prof, error: pErr } = await sbAdmin
     .from("profiles")
-    .select("id, work_part, is_admin, approval_status")
+    .select("id, work_part, is_admin, is_company_admin, approval_status")
     .eq("id", uid)
     .maybeSingle();
 
@@ -72,5 +72,13 @@ export async function requireAdmin(req: NextRequest): Promise<
 
   if (!isAdmin) return { ok: false, res: json(false, "Forbidden", null, 403) };
 
-  return { ok: true, sbAdmin, uid, email, isMainAdmin: main };
+  return {
+    ok: true,
+    sbAdmin,
+    uid,
+    email,
+    isMainAdmin: main,
+    myWorkPart: (prof as any)?.work_part ?? null,
+    myIsCompanyAdmin: (prof as any)?.is_company_admin ?? null,
+  };
 }
