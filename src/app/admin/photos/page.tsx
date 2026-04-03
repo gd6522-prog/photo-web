@@ -177,8 +177,8 @@ export default function AdminPhotosPage() {
     };
   }, []);
 
-  useEffect(() => {
-    fetch("/api/admin/vehicles/current?includeSnapshot=1", { cache: "no-store" })
+  const fetchCargoForDate = (date: string) => {
+    fetch(`/api/admin/vehicles/current?includeSnapshot=1&date=${date}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         const rows: any[] = data.payload?.snapshot?.cargoRows ?? [];
@@ -198,7 +198,12 @@ export default function AdminPhotosPage() {
         setCargoByStoreCode(map);
       })
       .catch(() => {});
-  }, []);
+  };
+
+  useEffect(() => {
+    fetchCargoForDate(dateFrom);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateFrom]);
 
   // ---------- derive ----------
   const carOptions = useMemo(() => {
@@ -737,7 +742,7 @@ export default function AdminPhotosPage() {
                 <span style={{ fontSize: 11, fontWeight: 900, color: "#94A3B8", marginRight: 2, whiteSpace: "nowrap" }}>촬영</span>
                 {orderedWorkParts.map(({ label }) => {
                   const count = selectedStoreWorkPartCount[label] ?? 0;
-                  const complete = count >= 2;
+                  const complete = label === "이형존" ? count >= 1 : count >= 2;
                   return (
                     <div key={label} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 7, background: complete ? "#DCFCE7" : "#FEF2F2", border: `1px solid ${complete ? "rgba(22,163,74,0.25)" : "rgba(220,38,38,0.2)"}` }}>
                       <span style={{ fontSize: 12, fontWeight: 900, color: complete ? "#16A34A" : "#DC2626" }}>{label}</span>

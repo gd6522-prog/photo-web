@@ -8,6 +8,15 @@ const BUCKET = "vehicle-data";
 const CURRENT_PATH = "current/latest.json";
 const LIMITS_PATH = "current/limits.json";
 
+function kstTodayYYYYMMDD(isoNow?: string) {
+  const d = isoNow ? new Date(isoNow) : new Date();
+  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  const yyyy = kst.getUTCFullYear();
+  const mm = String(kst.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(kst.getUTCDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 type ProductRow = {
   warehouse_code: string;
   outbound_no: string;
@@ -576,6 +585,7 @@ export async function GET(req: NextRequest) {
     const includeSnapshot = req.nextUrl.searchParams.get("includeSnapshot") === "1";
     const includeLimits = req.nextUrl.searchParams.get("includeLimits") === "1";
     const includeReportBase = req.nextUrl.searchParams.get("includeReportBase") === "1";
+    const dateParam = req.nextUrl.searchParams.get("date"); // YYYY-MM-DD
     const names = await getCurrentObjectNames(guard.sbAdmin);
     let snapshotUrl: string | null = null;
     let limitsUrl: string | null = null;
@@ -583,7 +593,15 @@ export async function GET(req: NextRequest) {
     let limits: VehicleLimitsSnapshot | null = null;
     let reportBaseRows: CargoRow[] = [];
 
-    if (names.has("latest.json")) {
+    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      // 날짜별 스냅샷 읽기
+      if (includeSnapshot) {
+        const { data, error } = await guard.sbAdmin.storage.from(BUCKET).download(`daily/${dateParam}.json`);
+        if (!error && data) {
+          try { snapshot = JSON.parse(await data.text()) as VehicleSnapshot; } catch {}
+        }
+      }
+    } else if (names.has("latest.json")) {
       if (includeSnapshot) {
         snapshot = await readCurrentSnapshot(guard.sbAdmin);
       } else {
@@ -846,6 +864,13 @@ export async function POST(req: NextRequest) {
     if (archiveUploadError && !/already exists/i.test(archiveUploadError.message)) {
       throw new Error(archiveUploadError.message);
     }
+
+    // 날짜별 스냅샷 저장 (daily/YYYY-MM-DD.json) — 이전 파일 덮어쓰기
+    const dailyPath = `daily/${kstTodayYYYYMMDD(uploadedAt)}.json`;
+    void guard.sbAdmin.storage.from(BUCKET).upload(dailyPath, snapshotBlob, {
+      upsert: true,
+      contentType: "application/json",
+    });
 
     return json(true, undefined, { snapshot, matchedCount });
   } catch (e) {
