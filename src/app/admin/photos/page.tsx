@@ -90,7 +90,7 @@ async function forceDownload(url: string, fileName: string) {
 }
 
 async function copyImageToClipboard(url: string) {
-  await copyCompressedImageUrlToClipboard(url, { maxBytes: 1024 * 1024 });
+  await copyCompressedImageUrlToClipboard(url, { maxBytes: 20 * 1024 * 1024, maxDimension: 2000 });
 }
 
 const WORK_PART_OPTIONS = [
@@ -212,29 +212,20 @@ export default function AdminPhotosPage() {
 
   const WORK_PARTS = ["박스존", "이너존", "슬라존", "경량존", "이형존", "담배존"];
 
-  const workPartStatus = useMemo(() => {
-    if (inspectionStoreCodes.size === 0 || allPhotosUnfiltered.length === 0) return null;
-    const result: Record<string, { done: number; total: number }> = {};
-    for (const wp of WORK_PARTS) {
-      const byStore: Record<string, number> = {};
-      for (const p of allPhotosUnfiltered) {
-        if ((profilesById[p.user_id]?.work_part ?? "") === wp) {
-          byStore[p.store_code] = (byStore[p.store_code] ?? 0) + 1;
-        }
-      }
-      let done = 0;
-      for (const code of inspectionStoreCodes) {
-        if ((byStore[code] ?? 0) >= 2) done++;
-      }
-      result[wp] = { done, total: inspectionStoreCodes.size };
+  // 선택 점포의 작업파트별 사진 수
+  const selectedStoreWorkPartCount = useMemo(() => {
+    const result: Record<string, number> = {};
+    for (const p of selectedStorePhotos) {
+      const wp = profilesById[p.user_id]?.work_part ?? "";
+      if (wp) result[wp] = (result[wp] ?? 0) + 1;
     }
     return result;
-  }, [allPhotosUnfiltered, profilesById, inspectionStoreCodes]);
+  }, [selectedStorePhotos, profilesById]);
 
   // 일요일 여부 (선택 날짜 기준)
   const isSingleDaySunday =
     dateFrom === dateTo && new Date(`${dateFrom}T00:00:00+09:00`).getDay() === 0;
-  const showWorkPartStatus = !isSingleDaySunday && inspectionStoreCodes.size > 0 && workPartStatus !== null;
+  const showWorkPartStatus = !isSingleDaySunday && !!selectedStoreCode && Object.keys(selectedStoreWorkPartCount).length > 0;
 
   const selectedStoreTitle = "선택 점포 사진";
   const selectedStoreSubTitle = selectedStore
@@ -712,15 +703,15 @@ export default function AdminPhotosPage() {
             {/* 작업파트 촬영 현황 */}
             {showWorkPartStatus && (
               <div style={{ padding: "10px 16px", borderBottom: "1px solid #F1F5F9", display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                <span style={{ fontSize: 11, fontWeight: 900, color: "#94A3B8", marginRight: 4, whiteSpace: "nowrap" }}>촬영 현황</span>
-                {WORK_PARTS.map((wp) => {
-                  const s = workPartStatus![wp];
-                  const complete = s.done === s.total;
+                <span style={{ fontSize: 11, fontWeight: 900, color: "#94A3B8", marginRight: 2, whiteSpace: "nowrap" }}>촬영</span>
+                {WORK_PARTS.filter((wp) => (selectedStoreWorkPartCount[wp] ?? 0) > 0).map((wp) => {
+                  const count = selectedStoreWorkPartCount[wp] ?? 0;
+                  const complete = count >= 2;
                   return (
                     <div key={wp} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 7, background: complete ? "#DCFCE7" : "#FEF2F2", border: `1px solid ${complete ? "rgba(22,163,74,0.25)" : "rgba(220,38,38,0.2)"}` }}>
                       <span style={{ fontSize: 12, fontWeight: 900, color: complete ? "#16A34A" : "#DC2626" }}>{wp}</span>
                       <span style={{ fontSize: 11, fontWeight: 800, color: complete ? "#16A34A" : "#DC2626" }}>
-                        {complete ? "✅" : `${s.done}/${s.total}`}
+                        {complete ? "✅" : `${count}장`}
                       </span>
                     </div>
                   );
