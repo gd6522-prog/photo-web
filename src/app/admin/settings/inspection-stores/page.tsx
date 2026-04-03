@@ -263,7 +263,7 @@ export default function InspectionStoresPage() {
                         {isDirty && <span style={{ marginLeft: 6, width: 6, height: 6, borderRadius: "50%", background: "#F59E0B", display: "inline-block", verticalAlign: "middle" }} />}
                       </td>
                       <td style={{ padding: "10px 14px", color: "#374151" }}>{r.store_name}</td>
-                      <td style={{ padding: "10px 14px" }}>
+                      <td style={{ padding: "10px 14px", whiteSpace: "nowrap" }}>
                         <label style={{ display: "inline-flex", alignItems: "center", gap: 7, cursor: "pointer", userSelect: "none" }}>
                           <div style={{
                             width: 40, height: 22, borderRadius: 11, flexShrink: 0,
@@ -277,7 +277,7 @@ export default function InspectionStoresPage() {
                               boxShadow: "0 1px 3px rgba(0,0,0,0.18)", transition: "left 0.15s",
                             }} />
                           </div>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: checked ? "#0369A1" : "#94A3B8" }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: checked ? "#0369A1" : "#94A3B8", whiteSpace: "nowrap" }}>
                             {checked ? "검수" : "미검수"}
                           </span>
                         </label>
