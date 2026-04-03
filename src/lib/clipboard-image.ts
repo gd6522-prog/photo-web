@@ -135,18 +135,17 @@ async function writeBlobToClipboard(blob: Blob) {
 
 export async function copyCompressedImageUrlToClipboard(url: string, options?: ClipboardImageOptions) {
   ensureClipboardSupport();
-  await ensureFocusedDocument();
 
-  const sourceBlob = await fetchImageBlob(url);
-  try {
-    const blob = await makeCompressedClipboardBlob(sourceBlob, options, "image/png");
-    await writeBlobToClipboard(blob);
-    return { bytes: blob.size, mime: blob.type };
-  } catch (e: any) {
-    const first = String(e?.message ?? e ?? "");
-    if (first.startsWith("UNSUPPORTED:")) {
-      throw new Error("현재 브라우저가 복사 가능한 이미지 형식을 지원하지 않습니다.");
-    }
-    throw new Error(first || "이미지 복사에 실패했습니다.");
-  }
+  const clipboard = navigator.clipboard as unknown as { write: (items: unknown[]) => Promise<void> };
+  const clipboardCtor = window as unknown as {
+    ClipboardItem: new (arg: Record<string, Promise<Blob>>) => unknown;
+  };
+
+  // Promise를 ClipboardItem에 직접 전달 — 클릭 컨텍스트가 유지되어 focus 에러 방지
+  const blobPromise: Promise<Blob> = fetchImageBlob(url).then((sourceBlob) =>
+    makeCompressedClipboardBlob(sourceBlob, options, "image/png")
+  );
+
+  const item = new clipboardCtor.ClipboardItem({ "image/png": blobPromise });
+  await clipboard.write([item]);
 }
