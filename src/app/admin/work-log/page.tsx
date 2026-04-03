@@ -57,8 +57,9 @@ const DETAIL_LEFT_STICKY = [
   DETAIL_LEFT_WIDTHS[0] + DETAIL_LEFT_WIDTHS[1] + DETAIL_LEFT_WIDTHS[2] + DETAIL_LEFT_WIDTHS[3] + DETAIL_LEFT_WIDTHS[4],
 ] as const;
 
-const card: React.CSSProperties = { border: "1px solid #DDE3EA", borderRadius: 0, background: "#fff", boxShadow: "0 8px 24px rgba(15,23,42,.05)" };
-const input: React.CSSProperties = { height: 38, borderRadius: 0, border: "1px solid #D1D5DB", padding: "0 10px", background: "#fff" };
+const card: React.CSSProperties = { background: "#fff", borderRadius: 10, border: "1px solid #E8EDF2", boxShadow: "0 1px 4px rgba(15,23,42,0.06)" };
+const inp: React.CSSProperties = { height: 38, borderRadius: 7, border: "1px solid #D1D9E0", padding: "0 11px", background: "#fff", fontSize: 13, color: "#1E293B", outline: "none", boxSizing: "border-box" as const, width: "100%" };
+const lbl: React.CSSProperties = { fontSize: 11, color: "#64748B", marginBottom: 5, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" as const };
 
 function kstToday() {
   const now = new Date();
@@ -550,74 +551,146 @@ export default function WorkLogPage() {
     XLSX.writeFile(wb, `상세근태_${month}.xlsx`);
   }
 
+  const statusChip = (s: Shift | null) => {
+    const label = statusLabel(s);
+    const styles: Record<string, React.CSSProperties> = {
+      "미출근": { background: "#F1F5F9", color: "#94A3B8" },
+      "근무중": { background: "#ECFDF5", color: "#065F46" },
+      "퇴근":   { background: "#EFF6FF", color: "#1D4ED8" },
+      "기록":   { background: "#FEF9C3", color: "#854D0E" },
+    };
+    const s2 = styles[label] ?? styles["기록"];
+    return <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 800, ...s2 }}>{label}</span>;
+  };
+
+  const TD: React.CSSProperties = { padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151", whiteSpace: "nowrap" };
+
   return (
-    <div style={{ padding: 16, maxWidth: 1920, margin: "0 auto", fontFamily: "Pretendard, system-ui, sans-serif", background: "#F3F5F8", minHeight: "100vh" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 style={{ fontSize: 24, fontWeight: 900, margin: 0 }}>근태 관리</h1>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => (tab === "basic" ? downloadBasic() : downloadDetail())} disabled={loading || (tab === "basic" ? basicRows.length === 0 : profiles.length === 0)} style={{ ...input, height: 34, cursor: "pointer", background: "#14B8A6", color: "#fff", fontWeight: 900, border: "1px solid #0F766E", opacity: loading || (tab === "basic" ? basicRows.length === 0 : profiles.length === 0) ? 0.6 : 1 }}>엑셀 다운로드</button>
+    <div style={{ padding: "20px 24px", maxWidth: 1920, margin: "0 auto", fontFamily: "Pretendard, system-ui, sans-serif", color: "#1E293B" }}>
+
+      {/* ── 헤더 ── */}
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 20 }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: "#0F172A" }}>근태 관리</h1>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: "#94A3B8" }}>
+            {tab === "basic" ? `기본근태 · ${day} · 총 ${basicRows.length}명` : `상세근태 · ${month} · 총 ${profiles.length}명`}
+          </p>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {/* 탭 토글 */}
+          <div style={{ display: "flex", background: "#F1F5F9", borderRadius: 8, padding: 3, gap: 2 }}>
+            {(["basic", "detail"] as const).map((t) => (
+              <Link key={t} href={`?tab=${t}`} style={{
+                display: "inline-block", height: 32, padding: "0 16px", lineHeight: "32px",
+                borderRadius: 6, textDecoration: "none", fontWeight: 700, fontSize: 13,
+                background: tab === t ? "#1E293B" : "transparent",
+                color: tab === t ? "#fff" : "#64748B",
+              }}>
+                {t === "basic" ? "기본근태" : "상세근태"}
+              </Link>
+            ))}
+          </div>
+          <button
+            onClick={() => (tab === "basic" ? downloadBasic() : downloadDetail())}
+            disabled={loading || (tab === "basic" ? basicRows.length === 0 : profiles.length === 0)}
+            style={{ height: 38, padding: "0 16px", borderRadius: 7, border: "none", background: "#0F766E", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", opacity: loading || (tab === "basic" ? basicRows.length === 0 : profiles.length === 0) ? 0.5 : 1 }}
+          >
+            엑셀 다운로드
+          </button>
         </div>
       </div>
 
-      <div style={{ color: "#64748B", fontSize: 13, fontWeight: 700, marginTop: 8 }}>{tab === "basic" ? `총 ${basicRows.length}명` : `총 ${profiles.length}명 / ${month}`}</div>
-
-      <div style={{ ...card, marginTop: 12, padding: 12, display: "grid", gridTemplateColumns: "170px 220px 220px 1fr 260px auto", gap: 10, alignItems: "end" }}>
-        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 12, color: "#64748B", fontWeight: 700 }}>{tab === "basic" ? "날짜" : "월"}</span>
-          {tab === "basic" ? <input type="date" value={day} onChange={(e) => setDay(e.target.value)} style={input} /> : <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} style={input} />}
-        </label>
-
-        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 12, color: "#64748B", fontWeight: 700 }}>회사명</span>
-          <select value={company} onChange={(e) => setCompany(e.target.value)} style={input}><option value="">전체</option>{companyOptions.map((x) => <option key={x}>{x}</option>)}</select>
-        </label>
-
-        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 12, color: "#64748B", fontWeight: 700 }}>작업파트</span>
-          <select value={workPart} onChange={(e) => setWorkPart(e.target.value)} style={input}><option value="">전체</option>{workPartOptions.map((x) => <option key={x}>{x}</option>)}</select>
-        </label>
-
-        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 12, color: "#64748B", fontWeight: 700 }}>이름</span>
-          <input value={nameQ} onChange={(e) => setNameQ(e.target.value)} placeholder="이름 검색" style={input} />
-        </label>
-
-        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 12, color: "#64748B", fontWeight: 700 }}>근무테이블</span>
-          <select value={workTable} onChange={(e) => setWorkTable(e.target.value)} style={input}><option value="">전체</option>{workTableOptions.map((x) => <option key={x}>{x}</option>)}</select>
-        </label>
-
-        <button onClick={load} disabled={loading} style={{ ...input, height: 38, background: "#111827", color: "#fff", fontWeight: 900, cursor: "pointer" }}>{loading ? "불러오는 중.." : "조회"}</button>
+      {/* ── 필터 카드 ── */}
+      <div style={{ ...card, padding: "16px 18px", marginBottom: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "160px 1fr 1fr 1fr 1fr auto", gap: 10, alignItems: "flex-end" }}>
+          <div>
+            <div style={lbl}>{tab === "basic" ? "날짜" : "월"}</div>
+            {tab === "basic"
+              ? <input type="date" value={day} onChange={(e) => setDay(e.target.value)} style={inp} />
+              : <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} style={inp} />}
+          </div>
+          <div>
+            <div style={lbl}>회사명</div>
+            <select value={company} onChange={(e) => setCompany(e.target.value)} style={inp}>
+              <option value="">전체</option>
+              {companyOptions.map((x) => <option key={x}>{x}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={lbl}>작업파트</div>
+            <select value={workPart} onChange={(e) => setWorkPart(e.target.value)} style={inp}>
+              <option value="">전체</option>
+              {workPartOptions.map((x) => <option key={x}>{x}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={lbl}>근무테이블</div>
+            <select value={workTable} onChange={(e) => setWorkTable(e.target.value)} style={inp}>
+              <option value="">전체</option>
+              {workTableOptions.map((x) => <option key={x}>{x}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={lbl}>이름</div>
+            <input value={nameQ} onChange={(e) => setNameQ(e.target.value)} placeholder="이름 검색" style={inp} onKeyDown={(e) => e.key === "Enter" && load()} />
+          </div>
+          <button onClick={load} disabled={loading} style={{ height: 38, padding: "0 20px", borderRadius: 7, border: "none", background: "#1E293B", color: "#fff", fontWeight: 700, fontSize: 13, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1, whiteSpace: "nowrap" }}>
+            {loading ? "불러오는 중..." : "조회"}
+          </button>
+        </div>
       </div>
 
-      {err && <div style={{ marginTop: 12, padding: 12, borderRadius: 0, background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: 13, fontWeight: 700 }}>{err}</div>}
+      {err && <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 8, background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: 13, fontWeight: 700 }}>{err}</div>}
 
       {tab === "basic" ? (
-        <div style={{ ...card, marginTop: 12, overflowX: "auto", padding: 0 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff" }}>
-            <thead><tr>{["날짜", "회사", "근무", "파트", "이름", "상태", "출근", "퇴근", "근무시간", "출근위치", "퇴근위치", "상세"].map((h) => <th key={h} style={{ textAlign: "left", padding: "10px", fontSize: 12, color: "#64748B", background: "#F8FAFC", borderBottom: "1px solid #E2E8F0", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
-            <tbody>
-              {!basicRows.length && !loading ? <tr><td colSpan={12} style={{ padding: 16, color: "#64748B" }}>데이터가 없습니다.</td></tr> : basicRows.map(({ profile, shift }, i) => {
-                const bg = i % 2 ? "#FCFDFE" : "#fff";
-                const inLink = gm(shift?.clock_in_lat ?? null, shift?.clock_in_lng ?? null);
-                const outLink = gm(shift?.clock_out_lat ?? null, shift?.clock_out_lng ?? null);
-                return <tr key={profile.id}>
-                  <td style={{ padding: "9px", background: bg, borderBottom: "1px solid #EEF2F6" }}>{day}</td>
-                  <td style={{ padding: "9px", background: bg, borderBottom: "1px solid #EEF2F6" }}>{profile.company_name ?? "-"}</td>
-                  <td style={{ padding: "9px", background: bg, borderBottom: "1px solid #EEF2F6" }}>{parseWorkSchedule(profile.work_table).label ?? "-"}</td>
-                  <td style={{ padding: "9px", background: bg, borderBottom: "1px solid #EEF2F6" }}>{profile.work_part ?? "-"}</td>
-                  <td style={{ padding: "9px", background: bg, borderBottom: "1px solid #EEF2F6", fontWeight: 900 }}>{profile.name ?? "(이름없음)"}</td>
-                  <td style={{ padding: "9px", background: bg, borderBottom: "1px solid #EEF2F6" }}>{statusLabel(shift)}</td>
-                  <td style={{ padding: "9px", background: bg, borderBottom: "1px solid #EEF2F6" }}>{fmt(shift?.clock_in_at ?? null)}</td>
-                  <td style={{ padding: "9px", background: bg, borderBottom: "1px solid #EEF2F6" }}>{fmt(shift?.clock_out_at ?? null)}</td>
-                  <td style={{ padding: "9px", background: bg, borderBottom: "1px solid #EEF2F6" }}>{hhmm(diffMin(shift?.clock_in_at ?? null, shift?.clock_out_at ?? null))}</td>
-                  <td style={{ padding: "9px", background: bg, borderBottom: "1px solid #EEF2F6" }}>{inLink ? <a href={inLink} target="_blank" rel="noreferrer">지도</a> : "-"}</td>
-                  <td style={{ padding: "9px", background: bg, borderBottom: "1px solid #EEF2F6" }}>{outLink ? <a href={outLink} target="_blank" rel="noreferrer">지도</a> : "-"}</td>
-                  <td style={{ padding: "9px", background: bg, borderBottom: "1px solid #EEF2F6" }}>{shift ? <Link href={`/admin/work-log/${shift.id}`}>보기</Link> : "-"}</td>
-                </tr>;
-              })}
-            </tbody>
-          </table>
+        <div style={{ ...card, overflow: "hidden" }}>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: "#F8FAFC" }}>
+                  {["날짜", "회사", "근무구분", "파트", "이름", "상태", "출근", "퇴근", "근무시간", "출근위치", "퇴근위치", "상세"].map((h) => (
+                    <th key={h} style={{ ...TD, padding: "10px 12px", fontWeight: 700, color: "#64748B", fontSize: 12, textAlign: "left", borderBottom: "2px solid #E8EDF2" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {!basicRows.length && !loading ? (
+                  <tr><td colSpan={12} style={{ padding: 32, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>데이터가 없습니다.</td></tr>
+                ) : basicRows.map(({ profile, shift }) => {
+                  const inLink = gm(shift?.clock_in_lat ?? null, shift?.clock_in_lng ?? null);
+                  const outLink = gm(shift?.clock_out_lat ?? null, shift?.clock_out_lng ?? null);
+                  const st = statusLabel(shift);
+                  return (
+                    <tr key={profile.id} style={{ background: "#fff" }}>
+                      <td style={{ ...TD, color: "#94A3B8", fontSize: 12 }}>{day}</td>
+                      <td style={{ ...TD, color: "#64748B" }}>{profile.company_name ?? "-"}</td>
+                      <td style={{ ...TD, color: "#64748B" }}>{parseWorkSchedule(profile.work_table).label ?? "-"}</td>
+                      <td style={{ ...TD, color: "#64748B" }}>{profile.work_part ?? "-"}</td>
+                      <td style={{ ...TD, fontWeight: 700, color: "#0F172A" }}>{profile.name ?? "(이름없음)"}</td>
+                      <td style={TD}>{statusChip(shift)}</td>
+                      <td style={{ ...TD, color: st === "미출근" ? "#CBD5E1" : "#0F172A" }}>{fmt(shift?.clock_in_at ?? null)}</td>
+                      <td style={{ ...TD, color: st === "미출근" || st === "근무중" ? "#CBD5E1" : "#0F172A" }}>{fmt(shift?.clock_out_at ?? null)}</td>
+                      <td style={{ ...TD, fontWeight: 700 }}>{hhmm(diffMin(shift?.clock_in_at ?? null, shift?.clock_out_at ?? null))}</td>
+                      <td style={TD}>
+                        {inLink ? <a href={inLink} target="_blank" rel="noreferrer" style={{ color: "#0EA5E9", fontWeight: 700, textDecoration: "none", fontSize: 12 }}>지도</a> : <span style={{ color: "#CBD5E1" }}>-</span>}
+                      </td>
+                      <td style={TD}>
+                        {outLink ? <a href={outLink} target="_blank" rel="noreferrer" style={{ color: "#0EA5E9", fontWeight: 700, textDecoration: "none", fontSize: 12 }}>지도</a> : <span style={{ color: "#CBD5E1" }}>-</span>}
+                      </td>
+                      <td style={TD}>
+                        {shift ? <Link href={`/admin/work-log/${shift.id}`} style={{ color: "#6366F1", fontWeight: 700, textDecoration: "none", fontSize: 12 }}>보기</Link> : <span style={{ color: "#CBD5E1" }}>-</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {basicRows.length > 0 && (
+            <div style={{ padding: "10px 16px", borderTop: "1px solid #F1F5F9", fontSize: 12, color: "#94A3B8", textAlign: "right" }}>
+              총 {basicRows.length.toLocaleString()}명
+            </div>
+          )}
         </div>
       ) : (
         <div style={{ ...card, marginTop: 12, overflow: "auto", height: "calc(100vh - 260px)", minHeight: 420, position: "relative", padding: 0 }}>
@@ -811,26 +884,23 @@ export default function WorkLogPage() {
 
       {tab === "detail" && detailUserId && detailProfile ? (
         <div
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setDetailUserId(null);
-          }}
-          style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,.55)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setDetailUserId(null); }}
+          style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
         >
-          <div style={{ width: "min(980px, 100%)", maxHeight: "88vh", overflow: "auto", background: "white", borderRadius: 0, border: "1px solid #CBD5E1", boxShadow: "0 24px 56px rgba(2,6,23,.30)" }}>
-            <div style={{ padding: "12px 14px", borderBottom: "1px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-              <div style={{ fontWeight: 900, color: "#0F172A" }}>
-                {detailProfile.name ?? "(이름없음)"} 월 상세근태
-                <span style={{ marginLeft: 8, color: "#64748B", fontSize: 12, fontWeight: 700 }}>{month}</span>
+          <div style={{ width: "min(520px, 100%)", maxHeight: "90vh", display: "flex", flexDirection: "column", background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 24px 60px rgba(2,6,23,0.28)" }}>
+            <div style={{ padding: "18px 22px", borderBottom: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 16, color: "#0F172A" }}>{detailProfile.name ?? "(이름없음)"}</div>
+                <div style={{ marginTop: 2, fontSize: 12, color: "#94A3B8" }}>{month} 월 상세근태</div>
               </div>
-              <button onClick={() => setDetailUserId(null)} style={{ width: 30, height: 30, borderRadius: 4, border: "1px solid #CBD5E1", background: "white", cursor: "pointer", fontWeight: 900 }}>×</button>
+              <button onClick={() => setDetailUserId(null)} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid #E8EDF2", background: "#F8FAFC", fontSize: 16, cursor: "pointer", color: "#64748B", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
             </div>
-
-            <div style={{ padding: 12 }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+            <div style={{ overflowY: "auto", padding: "14px 22px" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
-                  <tr>
-                    {["일자", "요일", "출근", "퇴근", "타결시간"].map((h) => (
-                      <th key={h} style={{ border: "1px solid #CBD5E1", background: "#F8FAFC", color: "#334155", fontSize: 12, padding: "8px 6px", textAlign: "center" }}>{h}</th>
+                  <tr style={{ background: "#F8FAFC" }}>
+                    {["일자", "요일", "출근", "퇴근", "근무시간"].map((h) => (
+                      <th key={h} style={{ padding: "9px 10px", fontWeight: 700, color: "#64748B", fontSize: 12, textAlign: "center", borderBottom: "2px solid #E8EDF2" }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -839,13 +909,14 @@ export default function WorkLogPage() {
                     const s = (shiftByUserDay.get(detailUserId) ?? new Map<number, Shift>()).get(d) ?? null;
                     const mins = diffMin(s?.clock_in_at ?? null, s?.clock_out_at ?? null);
                     const hol = isWeekend(month, d) || holidaySet.has(`${month}-${String(d).padStart(2, "0")}`);
+                    const dayBg = hol ? "#FFFBEB" : "#fff";
                     return (
-                      <tr key={`detail-row-${d}`}>
-                        <td style={{ border: "1px solid #E2E8F0", padding: "7px 6px", textAlign: "center", fontSize: 12, background: hol ? "#FFF9C4" : "white" }}>{String(d).padStart(2, "0")}</td>
-                        <td style={{ border: "1px solid #E2E8F0", padding: "7px 6px", textAlign: "center", fontSize: 12, background: hol ? "#FFF9C4" : "white" }}>{wkKo(month, d)}</td>
-                        <td style={{ border: "1px solid #E2E8F0", padding: "7px 6px", textAlign: "center", fontSize: 12 }}>{fmtKstTime(s?.clock_in_at ?? null)}</td>
-                        <td style={{ border: "1px solid #E2E8F0", padding: "7px 6px", textAlign: "center", fontSize: 12 }}>{fmtKstTime(s?.clock_out_at ?? null)}</td>
-                        <td style={{ border: "1px solid #E2E8F0", padding: "7px 6px", textAlign: "center", fontSize: 12, fontWeight: 800 }}>{hhmm(mins)}</td>
+                      <tr key={`detail-row-${d}`} style={{ borderBottom: "1px solid #F1F5F9" }}>
+                        <td style={{ padding: "8px 10px", textAlign: "center", background: dayBg, fontWeight: 700, color: "#0F172A" }}>{String(d).padStart(2, "0")}</td>
+                        <td style={{ padding: "8px 10px", textAlign: "center", background: dayBg, color: hol ? "#DC2626" : "#64748B", fontWeight: hol ? 800 : 600 }}>{wkKo(month, d)}</td>
+                        <td style={{ padding: "8px 10px", textAlign: "center", color: "#374151" }}>{fmtKstTime(s?.clock_in_at ?? null)}</td>
+                        <td style={{ padding: "8px 10px", textAlign: "center", color: "#374151" }}>{fmtKstTime(s?.clock_out_at ?? null)}</td>
+                        <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 700, color: mins ? "#1D4ED8" : "#CBD5E1" }}>{hhmm(mins)}</td>
                       </tr>
                     );
                   })}
