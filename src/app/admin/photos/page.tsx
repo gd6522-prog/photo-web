@@ -536,693 +536,216 @@ export default function AdminPhotosPage() {
   }
 
   return (
-    <div
-      style={{
-        fontFamily: "Pretendard, system-ui, -apple-system, Segoe UI, sans-serif",
-        width: "100%",
-        position: "relative",
-        background: "transparent",
-        minHeight: 0,
-        padding: "0 6px 8px",
-      }}
-    >
+    <div style={{ fontFamily: "Pretendard, system-ui, -apple-system, Segoe UI, sans-serif", width: "100%", position: "relative", background: "transparent", minHeight: 0, padding: "0 6px 8px" }}>
+      <style>{`
+        .btn-primary { transition: all 0.15s ease; }
+        .btn-primary:hover:not(:disabled) { filter: brightness(0.82); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(30,41,59,0.32) !important; }
+        .btn-primary:active:not(:disabled) { transform: translateY(0); filter: brightness(0.75); }
+        .btn-secondary { transition: all 0.15s ease; }
+        .btn-secondary:hover:not(:disabled) { background: #F1F5F9 !important; border-color: #94A3B8 !important; }
+        .btn-secondary:active:not(:disabled) { background: #E2E8F0 !important; }
+        .btn-danger { transition: all 0.15s ease; }
+        .btn-danger:hover:not(:disabled) { filter: brightness(0.88); transform: translateY(-1px); box-shadow: 0 5px 14px rgba(239,68,68,0.35) !important; }
+        .btn-danger:active:not(:disabled) { transform: translateY(0); filter: brightness(0.8); }
+        .photo-card-site { transition: box-shadow 0.18s ease, transform 0.18s ease; }
+        .photo-card-site:hover { box-shadow: 0 16px 36px rgba(2,32,46,0.18) !important; transform: translateY(-3px); }
+        .store-row { transition: background 0.12s ease; }
+        .store-row:hover { background: #F8FAFC !important; }
+        .filter-input:focus { border-color: #103b53 !important; box-shadow: 0 0 0 3px rgba(16,59,83,0.10); outline: none; }
+      `}</style>
+
+      {/* Toast */}
       {toastMsg && (
-        <div
-          style={{
-            position: "fixed",
-            right: 18,
-            bottom: 18,
-            zIndex: 80,
-            background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
-            color: "white",
-            padding: "10px 12px",
-            borderRadius: 0,
-            fontWeight: 900,
-            fontSize: 13,
-            boxShadow: "0 12px 26px rgba(16,59,83,0.30)",
-          }}
-        >
+        <div style={{ position: "fixed", right: 20, bottom: 20, zIndex: 200, background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", color: "white", padding: "11px 18px", borderRadius: 10, fontWeight: 900, fontSize: 13, boxShadow: "0 8px 24px rgba(16,59,83,0.38)" }}>
           {toastMsg}
         </div>
       )}
 
       <div style={{ width: "100%", maxWidth: 1880, margin: "0 auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "380px minmax(0, 1fr)", gap: 14, alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "300px minmax(0, 1fr)", gap: 16, alignItems: "start" }}>
+
           {/* LEFT */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {/* filters */}
-            <div style={{ border: "1px solid #bdd0de", borderRadius: 0, padding: 14, background: "rgba(255,255,255,0.94)", boxShadow: "0 14px 30px rgba(2,32,46,0.10)" }}>
-              {/* ✅ 여기서 TopModeButtons 제거 */}
-              <div style={{ fontWeight: 900, marginBottom: 10 }}>조회 조건</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, position: "sticky", top: 14 }}>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 900, color: "#374151", marginBottom: 6 }}>시작일</div>
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    style={{
-                      width: "100%",
-                      height: 40,
-                      borderRadius: 0,
-                      border: "1px solid #E5E7EB",
-                      padding: "0 12px",
-                      fontWeight: 700,
-                      outline: "none",
-                    }}
-                  />
-                </div>
+            {/* 필터 */}
+            <div style={{ borderRadius: 14, border: "1px solid #E2E8F0", padding: "18px 16px", background: "white", boxShadow: "0 4px 20px rgba(2,32,46,0.08)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18 }}>
+                <div style={{ width: 4, height: 18, borderRadius: 2, background: "linear-gradient(180deg,#103b53,#0f766e)", flexShrink: 0 }} />
+                <div style={{ fontWeight: 900, fontSize: 15, color: "#0F172A" }}>조회 필터</div>
+              </div>
 
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 900, color: "#374151", marginBottom: 6 }}>종료일</div>
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    style={{
-                      width: "100%",
-                      height: 40,
-                      borderRadius: 0,
-                      border: "1px solid #E5E7EB",
-                      padding: "0 12px",
-                      fontWeight: 700,
-                      outline: "none",
-                    }}
-                  />
+              {/* 날짜 */}
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 10, fontWeight: 900, color: "#94A3B8", letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>날짜 범위</div>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 6 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10, fontWeight: 800, color: "#94A3B8", marginBottom: 4 }}>시작일</div>
+                    <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="filter-input" style={{ width: "100%", height: 38, borderRadius: 8, border: "1.5px solid #E2E8F0", padding: "0 9px", fontWeight: 800, fontSize: 12, color: "#0F172A", boxSizing: "border-box" }} />
+                  </div>
+                  <div style={{ color: "#CBD5E1", fontSize: 16, paddingBottom: 8, flexShrink: 0 }}>→</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10, fontWeight: 800, color: "#94A3B8", marginBottom: 4 }}>종료일</div>
+                    <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="filter-input" style={{ width: "100%", height: 38, borderRadius: 8, border: "1.5px solid #E2E8F0", padding: "0 9px", fontWeight: 800, fontSize: 12, color: "#0F172A", boxSizing: "border-box" }} />
+                  </div>
                 </div>
               </div>
 
-              <div style={{ height: 10 }} />
+              <div style={{ height: 1, background: "#F1F5F9", margin: "0 0 14px" }} />
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {/* 호차 + 작업파트 */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 900, color: "#374151", marginBottom: 6 }}>호차</div>
-                  <select
-                    value={carNo}
-                    onChange={(e) => setCarNo(e.target.value)}
-                    style={{
-                      width: "100%",
-                      height: 40,
-                      borderRadius: 0,
-                      border: "1px solid #E5E7EB",
-                      padding: "0 12px",
-                      fontWeight: 700,
-                      outline: "none",
-                      background: "white",
-                    }}
-                  >
-                    {carOptions.map((c) => (
-                      <option key={c} value={c}>
-                        {c === "ALL" ? "전체" : `호차 ${c}`}
-                      </option>
-                    ))}
+                  <div style={{ fontSize: 10, fontWeight: 900, color: "#94A3B8", letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>호차</div>
+                  <select value={carNo} onChange={(e) => setCarNo(e.target.value)} className="filter-input" style={{ width: "100%", height: 38, borderRadius: 8, border: "1.5px solid #E2E8F0", padding: "0 8px", fontWeight: 800, fontSize: 12, color: "#0F172A", background: "white", cursor: "pointer", outline: "none" }}>
+                    {carOptions.map((c) => (<option key={c} value={c}>{c === "ALL" ? "전체" : `${c}호`}</option>))}
                   </select>
                 </div>
-
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 900, color: "#374151", marginBottom: 6 }}>작업파트</div>
-                  <select
-                    value={workPart}
-                    onChange={(e) => setWorkPart(e.target.value)}
-                    style={{
-                      width: "100%",
-                      height: 40,
-                      borderRadius: 0,
-                      border: "1px solid #E5E7EB",
-                      padding: "0 12px",
-                      fontWeight: 700,
-                      outline: "none",
-                      background: "white",
-                    }}
-                  >
-                    {WORK_PART_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
+                  <div style={{ fontSize: 10, fontWeight: 900, color: "#94A3B8", letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>작업파트</div>
+                  <select value={workPart} onChange={(e) => setWorkPart(e.target.value)} className="filter-input" style={{ width: "100%", height: 38, borderRadius: 8, border: "1.5px solid #E2E8F0", padding: "0 8px", fontWeight: 800, fontSize: 12, color: "#0F172A", background: "white", cursor: "pointer", outline: "none" }}>
+                    {WORK_PART_OPTIONS.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
                   </select>
                 </div>
               </div>
 
-              <div style={{ height: 10 }} />
-
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 900, color: "#374151", marginBottom: 6 }}>검색어(코드/점포명)</div>
-                <input
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  placeholder="예: 화성 / 27148"
-                  style={{
-                    width: "100%",
-                    height: 40,
-                    borderRadius: 0,
-                    border: "1px solid #E5E7EB",
-                    padding: "0 12px",
-                    fontWeight: 700,
-                    outline: "none",
-                  }}
-                />
+              {/* 검색 */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 10, fontWeight: 900, color: "#94A3B8", letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>검색</div>
+                <input value={searchText} onChange={(e) => setSearchText(e.target.value)} placeholder="점포코드, 점포명..." className="filter-input" style={{ width: "100%", height: 38, borderRadius: 8, border: "1.5px solid #E2E8F0", padding: "0 12px", fontWeight: 700, fontSize: 13, color: "#0F172A", outline: "none", boxSizing: "border-box" }} />
               </div>
 
-              <div style={{ height: 12 }} />
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <button
-                  onClick={fetchData}
-                  disabled={loading}
-                  style={{
-                    height: 44,
-                    borderRadius: 0,
-                    border: "1px solid #0e7490",
-                    background: loading ? "#9fb8c9" : "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
-                    color: "white",
-                    fontWeight: 900,
-                    cursor: loading ? "not-allowed" : "pointer",
-                    boxShadow: loading ? "none" : "0 10px 22px rgba(16,59,83,0.22)",
-                  }}
-                >
-                  {loading ? "조회중" : "조회"}
+              {/* 조회/초기화 */}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn-primary" onClick={fetchData} disabled={loading} style={{ flex: 1, height: 42, borderRadius: 9, border: "none", background: loading ? "#94A3B8" : "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", color: "white", fontWeight: 900, fontSize: 14, cursor: loading ? "not-allowed" : "pointer", boxShadow: loading ? "none" : "0 5px 16px rgba(16,59,83,0.30)" }}>
+                  {loading ? "조회중..." : "조회"}
                 </button>
-
-                <button
-                  onClick={() => {
-                    setSearchText("");
-                    setCarNo("ALL");
-                    setWorkPart("ALL");
-                    setDateFrom(kstTodayYYYYMMDD());
-                    setDateTo(kstTodayYYYYMMDD());
-                    setSelectedStore(null);
-                    resetSelection();
-                  }}
-                  disabled={loading}
-                  style={{
-                    height: 44,
-                    borderRadius: 0,
-                    border: "1px solid #c4d5e3",
-                    background: "rgba(255,255,255,0.92)",
-                    fontWeight: 900,
-                    cursor: loading ? "not-allowed" : "pointer",
-                  }}
-                >
+                <button className="btn-secondary" onClick={() => { setSearchText(""); setCarNo("ALL"); setWorkPart("ALL"); setDateFrom(kstTodayYYYYMMDD()); setDateTo(kstTodayYYYYMMDD()); setSelectedStore(null); resetSelection(); }} disabled={loading} style={{ height: 42, padding: "0 14px", borderRadius: 9, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 800, fontSize: 13, cursor: loading ? "not-allowed" : "pointer", color: "#64748B" }}>
                   초기화
                 </button>
               </div>
-
             </div>
 
-            {/* store list */}
-            <div style={{ border: "1px solid #bdd0de", borderRadius: 0, background: "rgba(255,255,255,0.94)", overflow: "hidden", boxShadow: "0 14px 30px rgba(2,32,46,0.10)" }}>
-              <div style={{ padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ fontWeight: 900 }}>점포 목록</div>
-                <div style={{ fontSize: 12, color: "#6B7280" }}>총 {storeCount}개</div>
+            {/* 점포 목록 */}
+            <div style={{ borderRadius: 14, border: "1px solid #E2E8F0", background: "white", overflow: "hidden", boxShadow: "0 4px 20px rgba(2,32,46,0.08)" }}>
+              <div style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #F1F5F9", background: "#FAFBFC" }}>
+                <div style={{ fontWeight: 900, fontSize: 14, color: "#0F172A" }}>점포 목록</div>
+                <div style={{ fontSize: 12, color: "#94A3B8", fontWeight: 700 }}>총 {storeCount}개</div>
               </div>
-
-              <div style={{ borderTop: "1px solid #F3F4F6" }}>
-                {stores.length === 0 ? (
-                  <div style={{ padding: 12, color: "#6B7280" }}>조회 결과가 없습니다.</div>
-                ) : (
-                  <div style={{ maxHeight: 520, overflow: "auto" }}>
-                    {stores.map((s) => {
-                      const active = selectedStore?.store_code === s.store_code;
-                      return (
-                        <button
-                          key={s.store_code}
-                          onClick={() => {
-                            setSelectedStore(s);
-                            resetSelection();
-                          }}
-                          style={{
-                            width: "100%",
-                            textAlign: "left",
-                            padding: 12,
-                            border: "none",
-                            borderBottom: "1px solid #F3F4F6",
-                            background: active ? "linear-gradient(135deg,#e8f3f8 0%,#e0f2f1 100%)" : "transparent",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <div style={{ fontWeight: 900 }}>
-                            [{s.store_code}] {s.store_name}
-                          </div>
-                          <div style={{ marginTop: 4, fontSize: 12, color: "#6B7280" }}>
-                            호차:{s.car_no ?? "-"} / 순번:{s.seq_no ?? "-"}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              {stores.length === 0 ? (
+                <div style={{ padding: 16, color: "#94A3B8", fontSize: 13, fontWeight: 700 }}>조회 결과가 없습니다.</div>
+              ) : (
+                <div style={{ maxHeight: 460, overflow: "auto" }}>
+                  {stores.map((s) => {
+                    const active = selectedStore?.store_code === s.store_code;
+                    return (
+                      <button key={s.store_code} className="store-row" onClick={() => { setSelectedStore(s); resetSelection(); }} style={{ width: "100%", textAlign: "left", padding: "10px 16px", border: "none", borderBottom: "1px solid #F8FAFC", background: active ? "linear-gradient(135deg,#EFF6FF 0%,#F0FDF4 100%)" : "white", cursor: "pointer", borderLeft: active ? "3px solid #103b53" : "3px solid transparent" }}>
+                        <div style={{ fontWeight: 900, fontSize: 13, color: active ? "#103b53" : "#0F172A" }}>[{s.store_code}] {s.store_name}</div>
+                        <div style={{ marginTop: 2, fontSize: 11, color: "#94A3B8", fontWeight: 700 }}>호차 {s.car_no ?? "-"} · 순번 {s.seq_no ?? "-"}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
           {/* RIGHT */}
-          <div style={{ border: "1px solid #bdd0de", borderRadius: 0, background: "rgba(255,255,255,0.94)", padding: 14, boxShadow: "0 14px 30px rgba(2,32,46,0.10)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+          <div style={{ borderRadius: 14, border: "1px solid #E2E8F0", background: "white", overflow: "hidden", boxShadow: "0 4px 20px rgba(2,32,46,0.08)" }}>
+
+            {/* 헤더 */}
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", background: "#FAFBFC" }}>
               <div>
-                <div style={{ fontWeight: 950, fontSize: 16, color: "#103b53" }}>{selectedStoreTitle}</div>
-                <div style={{ marginTop: 4, fontSize: 13, color: "#6B7280" }}>{selectedStoreSubTitle}</div>
+                <div style={{ fontWeight: 900, fontSize: 15, color: "#0F172A" }}>{selectedStoreTitle}</div>
+                <div style={{ marginTop: 3, fontSize: 12, color: "#94A3B8", fontWeight: 700 }}>{selectedStoreSubTitle}</div>
               </div>
-
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                <button
-                  onClick={onSelectAll}
-                  disabled={!selectedStoreCode || selectedStorePhotos.length === 0}
-                  style={{
-                    height: 36,
-                    padding: "0 12px",
-                    borderRadius: 0,
-                    border: "1px solid #c4d5e3",
-                    background: "rgba(255,255,255,0.92)",
-                    fontWeight: 900,
-                    cursor: "pointer",
-                  }}
-                >
-                  전체선택
-                </button>
-
-                <button
-                  onClick={onClearSelect}
-                  disabled={!selectedStoreCode}
-                  style={{
-                    height: 36,
-                    padding: "0 12px",
-                    borderRadius: 0,
-                    border: "1px solid #c4d5e3",
-                    background: "rgba(255,255,255,0.92)",
-                    fontWeight: 900,
-                    cursor: "pointer",
-                  }}
-                >
-                  선택해제
-                </button>
-
-                <button
-                  onClick={() => setSelectMode((v) => !v)}
-                  disabled={!selectedStoreCode}
-                  style={{
-                    height: 36,
-                    padding: "0 12px",
-                    borderRadius: 0,
-                    border: "1px solid #c4d5e3",
-                    background: selectMode ? "linear-gradient(135deg,#e8f3f8 0%,#e0f2f1 100%)" : "rgba(255,255,255,0.92)",
-                    fontWeight: 900,
-                    cursor: "pointer",
-                  }}
-                >
-                  선택모드 {selectMode ? "ON" : "OFF"} ({selectedPhotoIds.size})
-                </button>
-
-                <button
-                  onClick={onBulkDownload}
-                  disabled={selectedPhotoIds.size === 0}
-                  style={{
-                    height: 36,
-                    padding: "0 12px",
-                    borderRadius: 0,
-                    border: "1px solid #c4d5e3",
-                    background: selectedPhotoIds.size === 0 ? "#e9eef3" : "rgba(255,255,255,0.92)",
-                    fontWeight: 900,
-                    cursor: selectedPhotoIds.size === 0 ? "not-allowed" : "pointer",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  선택 다운로드 ({selectedPhotoIds.size})
-                </button>
-
-                <button
-                  onClick={onBulkDelete}
-                  disabled={selectedPhotoIds.size === 0}
-                  style={{
-                    height: 36,
-                    padding: "0 12px",
-                    borderRadius: 0,
-                    border: "1px solid #EF4444",
-                    background: selectedPhotoIds.size === 0 ? "#fee2e2" : "#fff5f5",
-                    color: "#EF4444",
-                    fontWeight: 900,
-                    cursor: selectedPhotoIds.size === 0 ? "not-allowed" : "pointer",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  선택 삭제 ({selectedPhotoIds.size})
-                </button>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
+                <button className="btn-secondary" onClick={onSelectAll} disabled={!selectedStoreCode || selectedStorePhotos.length === 0} style={{ height: 32, padding: "0 12px", borderRadius: 7, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 800, fontSize: 13, cursor: "pointer", color: "#374151" }}>전체선택</button>
+                <button className="btn-secondary" onClick={onClearSelect} disabled={!selectedStoreCode} style={{ height: 32, padding: "0 12px", borderRadius: 7, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 800, fontSize: 13, cursor: "pointer", color: "#374151" }}>선택해제</button>
+                <button className="btn-secondary" onClick={() => setSelectMode((v) => !v)} disabled={!selectedStoreCode} style={{ height: 32, padding: "0 12px", borderRadius: 7, border: `1.5px solid ${selectMode ? "#103b53" : "#E2E8F0"}`, background: selectMode ? "#EFF6FF" : "white", fontWeight: 800, fontSize: 13, cursor: "pointer", color: selectMode ? "#103b53" : "#374151" }}>선택모드 {selectMode ? "ON" : "OFF"} ({selectedPhotoIds.size})</button>
+                <button className="btn-primary" onClick={onBulkDownload} disabled={selectedPhotoIds.size === 0} style={{ height: 32, padding: "0 12px", borderRadius: 7, border: "none", background: selectedPhotoIds.size === 0 ? "#CBD5E1" : "#1E293B", color: "white", fontWeight: 800, fontSize: 13, cursor: selectedPhotoIds.size === 0 ? "not-allowed" : "pointer", boxShadow: selectedPhotoIds.size === 0 ? "none" : "0 3px 8px rgba(30,41,59,0.28)", whiteSpace: "nowrap" }}>다운로드 ({selectedPhotoIds.size})</button>
+                <button className="btn-danger" onClick={onBulkDelete} disabled={selectedPhotoIds.size === 0} style={{ height: 32, padding: "0 12px", borderRadius: 7, border: "none", background: selectedPhotoIds.size === 0 ? "#FECACA" : "#EF4444", color: "white", fontWeight: 800, fontSize: 13, cursor: selectedPhotoIds.size === 0 ? "not-allowed" : "pointer", boxShadow: selectedPhotoIds.size === 0 ? "none" : "0 3px 8px rgba(239,68,68,0.30)", whiteSpace: "nowrap" }}>삭제 ({selectedPhotoIds.size})</button>
               </div>
             </div>
 
-            <div style={{ height: 12 }} />
+            <div style={{ padding: 14 }}>
+              {!selectedStoreCode ? (
+                <div style={{ borderRadius: 10, padding: 20, color: "#94A3B8", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0" }}>
+                  왼쪽 점포 목록에서 점포를 선택하세요.
+                </div>
+              ) : selectedStorePhotos.length === 0 ? (
+                <div style={{ borderRadius: 10, padding: 20, color: "#94A3B8", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0" }}>
+                  선택 점포의 사진이 없습니다.
+                </div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(178px, 1fr))", gap: 10 }}>
+                  {selectedStorePhotos.map((p, idx) => {
+                    const selected = selectedPhotoIds.has(p.id);
+                    const prof = profilesById[p.user_id];
+                    const uploaderName = prof?.name?.trim() ? prof.name.trim() : "-";
 
-            {!selectedStoreCode ? (
-              <div style={{ border: "1px solid #d3e1eb", borderRadius: 0, padding: 14, color: "#5b7386", background: "#f8fcff" }}>
-                왼쪽 점포 목록에서 점포를 선택하세요.
-              </div>
-            ) : selectedStorePhotos.length === 0 ? (
-              <div style={{ border: "1px solid #d3e1eb", borderRadius: 0, padding: 14, color: "#5b7386", background: "#f8fcff" }}>
-                선택 점포의 사진이 없습니다.
-              </div>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
-                {selectedStorePhotos.map((p, idx) => {
-                  const selected = selectedPhotoIds.has(p.id);
-                  const prof = profilesById[p.user_id];
-                  const uploaderName = prof?.name?.trim() ? prof.name.trim() : "-";
+                    return (
+                      <div key={p.id} className="photo-card-site" style={{ borderRadius: 10, border: selected ? "2px solid #103b53" : "1px solid #E8EFF5", overflow: "hidden", background: selected ? "#EFF6FF" : "white", boxShadow: "0 2px 10px rgba(2,32,46,0.07)" }}>
 
-                  return (
-                    <div
-                      key={p.id}
-                      style={{
-                        border: selected ? "1px solid #0f766e" : "1px solid #d9e6ef",
-                        borderRadius: 0,
-                        overflow: "hidden",
-                        background: selected ? "linear-gradient(135deg,#e8f3f8 0%,#e0f2f1 100%)" : "rgba(255,255,255,0.94)",
-                        boxShadow: "0 10px 22px rgba(2,32,46,0.10)",
-                      }}
-                    >
-                      <button
-                        onClick={() => {
-                          if (selectMode) onToggleSelect(p.id);
-                          else openPreview(idx);
-                        }}
-                        style={{
-                          width: "100%",
-                          border: "none",
-                          padding: 0,
-                          cursor: "pointer",
-                          background: "transparent",
-                        }}
-                      >
-                        <div
-                          style={{
-                            height: 240,
-                            background: "#F3F4F6",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <img src={p.original_url} alt="photo" loading="eager" fetchPriority="high" decoding="async" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                        </div>
-                      </button>
-
-                      <div style={{ padding: 10 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                          <div style={{ fontSize: 12, fontWeight: 900, color: "#111827" }}>{formatKST(p.created_at)}</div>
-                          <div style={{ fontSize: 12, color: "#6B7280", whiteSpace: "nowrap" }}>
-                            업로더: <b style={{ color: "#111827" }}>{uploaderName}</b>
-                          </div>
-                        </div>
-
-                        <div style={{ marginTop: 6, fontSize: 12, color: "#6B7280" }}>
-                          점포코드: <b style={{ color: "#111827" }}>{p.store_code}</b>
-                        </div>
-
-                        <div style={{ height: 8 }} />
-
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                          <button
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              await onDownloadPhoto(p);
-                            }}
-                            style={{
-                              height: 36,
-                              borderRadius: 0,
-                              border: "1px solid #E5E7EB",
-                              background: "white",
-                              fontWeight: 900,
-                              cursor: "pointer",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            다운로드
-                          </button>
-
-                          <button
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              await onCopyPhoto(p);
-                            }}
-                            style={{
-                              height: 36,
-                              borderRadius: 0,
-                              border: "1px solid #E5E7EB",
-                              background: "white",
-                              fontWeight: 900,
-                              cursor: "pointer",
-                              whiteSpace: "nowrap",
-                            }}
-                            title="이미지를 클립보드에 복사"
-                          >
-                            복사
-                          </button>
-
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectMode(true);
-                              onToggleSelect(p.id);
-                            }}
-                            style={{
-                              height: 36,
-                              borderRadius: 0,
-                              border: "1px solid #111827",
-                              background: selected ? "#111827" : "white",
-                              color: selected ? "white" : "#111827",
-                              fontWeight: 900,
-                              cursor: "pointer",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {selected ? "선택됨" : "선택"}
-                          </button>
-                        </div>
-
-                        <div style={{ height: 8 }} />
-
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeletePhoto(p);
-                          }}
-                          style={{
-                            width: "100%",
-                            height: 38,
-                            borderRadius: 0,
-                            border: "1px solid #EF4444",
-                            background: "#FEE2E2",
-                            color: "#EF4444",
-                            fontWeight: 900,
-                            cursor: "pointer",
-                          }}
-                        >
-                          삭제
+                        {/* 썸네일 */}
+                        <button onClick={() => { if (selectMode) onToggleSelect(p.id); else openPreview(idx); }} style={{ width: "100%", border: "none", padding: 0, cursor: "pointer", background: "#0B1220", display: "block" }}>
+                          <img src={p.original_url} alt="photo" loading="eager" fetchPriority="high" decoding="async" style={{ width: "100%", height: 140, objectFit: "cover", display: "block" }} />
                         </button>
+
+                        {/* 메타 */}
+                        <div style={{ padding: "9px 10px 10px" }}>
+                          <div style={{ fontSize: 11, fontWeight: 900, color: "#0F172A" }}>{formatKST(p.created_at)}</div>
+                          <div style={{ marginTop: 1, fontSize: 10, color: "#94A3B8", fontWeight: 700 }}>
+                            <span style={{ color: "#64748B" }}>[{p.store_code}]</span> · {uploaderName}
+                          </div>
+
+                          {/* 버튼 */}
+                          <div style={{ marginTop: 9, display: "flex", gap: 5 }}>
+                            <button className="btn-primary" onClick={async (e) => { e.stopPropagation(); await onDownloadPhoto(p); }} style={{ flex: 1, height: 30, borderRadius: 7, border: "none", background: "#1E293B", color: "white", fontWeight: 900, fontSize: 11, cursor: "pointer", boxShadow: "0 2px 7px rgba(30,41,59,0.28)" }}>다운</button>
+                            <button className="btn-secondary" onClick={async (e) => { e.stopPropagation(); await onCopyPhoto(p); }} style={{ flex: 1, height: 30, borderRadius: 7, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 900, fontSize: 11, cursor: "pointer", color: "#374151" }}>복사</button>
+                            <button className="btn-secondary" onClick={(e) => { e.stopPropagation(); setSelectMode(true); onToggleSelect(p.id); }} style={{ height: 30, padding: "0 9px", borderRadius: 7, border: `1.5px solid ${selected ? "#103b53" : "#E2E8F0"}`, background: selected ? "#103b53" : "white", color: selected ? "white" : "#374151", fontWeight: 900, fontSize: 11, cursor: "pointer" }}>{selected ? "✓" : "선택"}</button>
+                          </div>
+                          <button className="btn-danger" onClick={(e) => { e.stopPropagation(); onDeletePhoto(p); }} style={{ width: "100%", marginTop: 5, height: 28, borderRadius: 7, border: "none", background: "#FEE2E2", color: "#DC2626", fontWeight: 900, fontSize: 11, cursor: "pointer" }}>삭제</button>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
       {/* PREVIEW MODAL */}
       {previewOpen && previewPhoto && (
-        <div
-          onClick={closePreview}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(17, 24, 39, 0.55)",
-            zIndex: 50,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 18,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "min(1100px, 96vw)",
-              height: "min(820px, 92vh)",
-              background: "white",
-              borderRadius: 0,
-              overflow: "hidden",
-              display: "flex",
-              flexDirection: "column",
-              border: "1px solid #E5E7EB",
-            }}
-          >
-            <div
-              style={{
-                padding: "12px 14px",
-                borderBottom: "1px solid #E5E7EB",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 12,
-              }}
-            >
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 900, color: "#111827" }}>
-                  {formatKST(previewPhoto.created_at)} / 점포코드 {previewPhoto.store_code}
+        <div onClick={closePreview} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.82)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, backdropFilter: "blur(6px)" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: "min(1100px, 96vw)", height: "min(820px, 92vh)", background: "white", borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px rgba(0,0,0,0.45)" }}>
+
+            {/* 모달 헤더 */}
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, background: "#FAFBFC" }}>
+              <div>
+                <div style={{ fontWeight: 900, color: "#0F172A", fontSize: 15 }}>
+                  <span style={{ color: "#94A3B8", fontWeight: 800 }}>[{previewPhoto.store_code}]</span> {formatKST(previewPhoto.created_at)}
                 </div>
-                <div style={{ marginTop: 3, fontSize: 12, color: "#6B7280" }}>
-                  업로더: <b style={{ color: "#111827" }}>{previewUploader}</b>
-                </div>
+                <div style={{ marginTop: 2, fontSize: 12, color: "#94A3B8", fontWeight: 700 }}>업로더: {previewUploader}</div>
               </div>
-
-              <button
-                onClick={closePreview}
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 0,
-                  border: "1px solid #E5E7EB",
-                  background: "white",
-                  fontWeight: 900,
-                  cursor: "pointer",
-                }}
-                aria-label="close"
-                title="닫기"
-              >
-                ✕
-              </button>
+              <button className="btn-secondary" onClick={closePreview} style={{ width: 36, height: 36, borderRadius: 8, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 900, fontSize: 16, cursor: "pointer", color: "#64748B", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
             </div>
 
-            <div
-              style={{
-                flex: 1,
-                background: "#F3F4F6",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 12,
-                minHeight: 0,
-              }}
-            >
-              <img
-                src={previewPhoto.original_url}
-                alt="preview"
-                decoding="async"
-                style={{
-                  maxWidth: "100%",
-                  maxHeight: "100%",
-                  width: "auto",
-                  height: "auto",
-                  objectFit: "contain",
-                  display: "block",
-                }}
-              />
+            {/* 사진 */}
+            <div style={{ flex: 1, background: "#0B1220", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 0 }}>
+              <img src={previewPhoto.original_url} alt="preview" decoding="async" style={{ maxWidth: "100%", maxHeight: "100%", width: "auto", height: "auto", objectFit: "contain", display: "block" }} />
             </div>
 
-            <div style={{ padding: 12, borderTop: "1px solid #E5E7EB", display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button
-                onClick={async () => onDownloadPhoto(previewPhoto)}
-                style={{
-                  height: 40,
-                  padding: "0 14px",
-                  borderRadius: 0,
-                  border: "1px solid #E5E7EB",
-                  background: "white",
-                  fontWeight: 900,
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                다운로드
-              </button>
-
-              <button
-                onClick={onCopyPreview}
-                style={{
-                  height: 40,
-                  padding: "0 14px",
-                  borderRadius: 0,
-                  border: "1px solid #E5E7EB",
-                  background: "white",
-                  fontWeight: 900,
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                }}
-                title="이미지를 클립보드에 복사"
-              >
-                이미지 복사
-              </button>
-
-              <button
-                onClick={() => {
-                  setSelectMode(true);
-                  onToggleSelect(previewPhoto.id);
-                }}
-                style={{
-                  height: 40,
-                  padding: "0 14px",
-                  borderRadius: 0,
-                  border: "1px solid #111827",
-                  background: selectedPhotoIds.has(previewPhoto.id) ? "#111827" : "white",
-                  color: selectedPhotoIds.has(previewPhoto.id) ? "white" : "#111827",
-                  fontWeight: 900,
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {selectedPhotoIds.has(previewPhoto.id) ? "선택됨" : "선택"}
-              </button>
-
-              <button
-                onClick={() => onDeletePhoto(previewPhoto)}
-                style={{
-                  height: 40,
-                  padding: "0 14px",
-                  borderRadius: 0,
-                  border: "1px solid #EF4444",
-                  background: "#FEE2E2",
-                  color: "#EF4444",
-                  fontWeight: 900,
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                삭제
-              </button>
-
+            {/* 모달 푸터 버튼 */}
+            <div style={{ padding: "11px 16px", borderTop: "1px solid #F1F5F9", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", background: "#FAFBFC" }}>
+              <button className="btn-primary" onClick={async () => onDownloadPhoto(previewPhoto)} style={{ height: 36, padding: "0 14px", borderRadius: 8, border: "none", background: "#1E293B", color: "white", fontWeight: 900, fontSize: 13, cursor: "pointer", boxShadow: "0 3px 9px rgba(30,41,59,0.28)" }}>다운로드</button>
+              <button className="btn-secondary" onClick={onCopyPreview} style={{ height: 36, padding: "0 14px", borderRadius: 8, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 900, fontSize: 13, cursor: "pointer", color: "#374151" }}>복사</button>
+              <button className="btn-secondary" onClick={() => { setSelectMode(true); onToggleSelect(previewPhoto.id); }} style={{ height: 36, padding: "0 14px", borderRadius: 8, border: `1.5px solid ${selectedPhotoIds.has(previewPhoto.id) ? "#103b53" : "#E2E8F0"}`, background: selectedPhotoIds.has(previewPhoto.id) ? "#103b53" : "white", color: selectedPhotoIds.has(previewPhoto.id) ? "white" : "#374151", fontWeight: 900, fontSize: 13, cursor: "pointer" }}>{selectedPhotoIds.has(previewPhoto.id) ? "✓ 선택됨" : "선택"}</button>
+              <button className="btn-danger" onClick={() => onDeletePhoto(previewPhoto)} style={{ height: 36, padding: "0 14px", borderRadius: 8, border: "none", background: "#EF4444", color: "white", fontWeight: 900, fontSize: 13, cursor: "pointer", boxShadow: "0 3px 9px rgba(239,68,68,0.28)" }}>삭제</button>
               <div style={{ flex: 1 }} />
-
-              <button
-                onClick={() => setPreviewIndex((v) => Math.max(0, v - 1))}
-                disabled={previewIndex === 0}
-                style={{
-                  height: 40,
-                  padding: "0 14px",
-                  borderRadius: 0,
-                  border: "1px solid #E5E7EB",
-                  background: previewIndex === 0 ? "#F3F4F6" : "white",
-                  fontWeight: 900,
-                  cursor: previewIndex === 0 ? "not-allowed" : "pointer",
-                }}
-              >
-                ← 이전
-              </button>
-
-              <button
-                onClick={() => setPreviewIndex((v) => Math.min(selectedStorePhotos.length - 1, v + 1))}
-                disabled={previewIndex >= selectedStorePhotos.length - 1}
-                style={{
-                  height: 40,
-                  padding: "0 14px",
-                  borderRadius: 0,
-                  border: "1px solid #E5E7EB",
-                  background: previewIndex >= selectedStorePhotos.length - 1 ? "#F3F4F6" : "white",
-                  fontWeight: 900,
-                  cursor: previewIndex >= selectedStorePhotos.length - 1 ? "not-allowed" : "pointer",
-                }}
-              >
-                다음 →
-              </button>
+              <button className="btn-secondary" onClick={() => setPreviewIndex((v) => Math.max(0, v - 1))} disabled={previewIndex === 0} style={{ height: 36, padding: "0 14px", borderRadius: 8, border: "1.5px solid #E2E8F0", background: previewIndex === 0 ? "#F8FAFC" : "white", fontWeight: 900, fontSize: 13, cursor: previewIndex === 0 ? "not-allowed" : "pointer", color: previewIndex === 0 ? "#CBD5E1" : "#374151" }}>← 이전</button>
+              <button className="btn-secondary" onClick={() => setPreviewIndex((v) => Math.min(selectedStorePhotos.length - 1, v + 1))} disabled={previewIndex >= selectedStorePhotos.length - 1} style={{ height: 36, padding: "0 14px", borderRadius: 8, border: "1.5px solid #E2E8F0", background: previewIndex >= selectedStorePhotos.length - 1 ? "#F8FAFC" : "white", fontWeight: 900, fontSize: 13, cursor: previewIndex >= selectedStorePhotos.length - 1 ? "not-allowed" : "pointer", color: previewIndex >= selectedStorePhotos.length - 1 ? "#CBD5E1" : "#374151" }}>다음 →</button>
             </div>
           </div>
         </div>
