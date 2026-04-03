@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
     let q = guard.sbAdmin
       .from("profiles")
       .select(columns.join(","))
-      .not("work_part", "ilike", "%\uAE30\uC0AC%");
+      .or("work_part.is.null,work_part.not.ilike.%기사%");
 
     if (qName) q = q.ilike("name", `%${qName}%`);
     if (qPart) q = q.eq("work_part", qPart);
