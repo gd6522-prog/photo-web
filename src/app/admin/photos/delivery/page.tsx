@@ -700,110 +700,108 @@ export default function AdminDeliveryPhotosPage() {
     : "";
 
   return (
-    <div
-      style={{
-        fontFamily: "Pretendard, system-ui, -apple-system, Segoe UI, sans-serif",
-        background: "transparent",
-        minHeight: 0,
-        padding: "0 6px 8px",
-      }}
-    >
+    <div style={{ fontFamily: "Pretendard, system-ui, -apple-system, Segoe UI, sans-serif", background: "transparent", minHeight: 0, padding: "0 6px 8px" }}>
+      <style>{`
+        .btn-primary { transition: all 0.15s ease; }
+        .btn-primary:hover:not(:disabled) { filter: brightness(0.82); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(30,41,59,0.32) !important; }
+        .btn-primary:active:not(:disabled) { transform: translateY(0); filter: brightness(0.75); }
+        .btn-secondary { transition: all 0.15s ease; }
+        .btn-secondary:hover:not(:disabled) { background: #F1F5F9 !important; border-color: #94A3B8 !important; }
+        .btn-secondary:active:not(:disabled) { background: #E2E8F0 !important; }
+        .btn-danger { transition: all 0.15s ease; }
+        .btn-danger:hover:not(:disabled) { filter: brightness(0.88); transform: translateY(-1px); box-shadow: 0 5px 14px rgba(239,68,68,0.35) !important; }
+        .btn-danger:active:not(:disabled) { transform: translateY(0); filter: brightness(0.8); }
+        .btn-success { transition: all 0.15s ease; }
+        .btn-success:hover:not(:disabled) { filter: brightness(0.92); }
+        .photo-card { transition: box-shadow 0.18s ease, transform 0.18s ease; }
+        .photo-card:hover { box-shadow: 0 16px 36px rgba(2,32,46,0.18) !important; transform: translateY(-3px); }
+        .filter-input:focus { border-color: #103b53 !important; box-shadow: 0 0 0 3px rgba(16,59,83,0.10); outline: none; }
+        .category-btn { transition: all 0.15s ease; }
+        .category-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+        .category-btn:active { transform: translateY(0); opacity: 0.75; }
+      `}</style>
+
+      {/* Toast */}
       {toastMsg && (
-        <div
-          style={{
-            position: "fixed",
-            right: 18,
-            bottom: 18,
-            zIndex: 80,
-            background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
-            color: "white",
-            padding: "10px 12px",
-            borderRadius: 0,
-            fontWeight: 900,
-            fontSize: 13,
-            boxShadow: "0 12px 26px rgba(16,59,83,0.30)",
-          }}
-        >
+        <div style={{ position: "fixed", right: 20, bottom: 20, zIndex: 200, background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", color: "white", padding: "11px 18px", borderRadius: 10, fontWeight: 900, fontSize: 13, boxShadow: "0 8px 24px rgba(16,59,83,0.38)", letterSpacing: -0.2 }}>
           {toastMsg}
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 14, padding: 0, alignItems: "flex-start", maxWidth: 1900, margin: "0 auto" }}>
-        {/* LEFT */}
-        <div
-          style={{
-            width: 376,
-            minWidth: 376,
-            maxWidth: 376,
-            position: "sticky",
-            top: 14,
-            maxHeight: "calc(100vh - 28px)",
-            overflow: "auto",
-          }}
-        >
-          <div style={{ border: "1px solid #bdd0de", borderRadius: 0, padding: 14, background: "rgba(255,255,255,0.94)", boxShadow: "0 14px 30px rgba(2,32,46,0.10)" }}>
-            <div style={{ fontWeight: 900, color: "#111827" }}>조회</div>
-            <div style={{ height: 12 }} />
+      <div style={{ display: "flex", gap: 16, padding: 0, alignItems: "flex-start", maxWidth: 1900, margin: "0 auto" }}>
 
-            <div style={{ fontSize: 12, fontWeight: 900, color: "#374151", marginBottom: 6 }}>조회구분</div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {(["miochul", "bottle", "tobacco", "wash"] as DriverCategory[]).map((c) => {
-                const on = driverCategory === c;
-                const color = categoryColor(c);
-                return (
-                  <button
-                    key={c}
-                    onClick={() => {
-                      setDriverCategory(c);
-                      if (c !== "miochul") setMiochulFlags({ redelivery: false, damage: false, other: false });
-                      if (c === "bottle" || c === "tobacco") { setDateFrom(today); setDateTo(today); }
-                      if (c === "wash") { const { firstDay, lastDay } = kstCurrentMonthRange(); setDateFrom(firstDay); setDateTo(lastDay); }
-                      if (c === "miochul") { setDateFrom(defaultDateFrom); setDateTo(today); }
-                      setCarNo("ALL");
-                      setSearchText("");
-                    }}
-                    style={{
-                      flex: "1 1 0",
-                      minWidth: 90,
-                      height: 40,
-                      borderRadius: 0,
-                      border: `1px solid ${on ? color : "#E5E7EB"}`,
-                      background: on ? "#F9FAFB" : "white",
-                      fontWeight: 900,
-                      cursor: "pointer",
-                      color: on ? color : "#111827",
-                    }}
-                  >
-                    {categoryLabel(c)}
-                  </button>
-                );
-              })}
+        {/* LEFT SIDEBAR */}
+        <div style={{ width: 300, minWidth: 300, maxWidth: 300, position: "sticky", top: 14, maxHeight: "calc(100vh - 28px)", overflow: "auto" }}>
+          <div style={{ borderRadius: 14, border: "1px solid #E2E8F0", padding: "18px 16px", background: "white", boxShadow: "0 4px 20px rgba(2,32,46,0.08)" }}>
+
+            {/* 사이드바 헤더 */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+              <div style={{ width: 4, height: 18, borderRadius: 2, background: "linear-gradient(180deg,#103b53,#0f766e)", flexShrink: 0 }} />
+              <div style={{ fontWeight: 900, fontSize: 15, color: "#0F172A" }}>조회 필터</div>
             </div>
 
+            {/* 조회구분 */}
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 10, fontWeight: 900, color: "#94A3B8", letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>조회구분</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                {(["miochul", "bottle", "tobacco", "wash"] as DriverCategory[]).map((c) => {
+                  const on = driverCategory === c;
+                  const color = categoryColor(c);
+                  return (
+                    <button
+                      key={c}
+                      className="category-btn"
+                      onClick={() => {
+                        setDriverCategory(c);
+                        if (c !== "miochul") setMiochulFlags({ redelivery: false, damage: false, other: false });
+                        if (c === "bottle" || c === "tobacco") { setDateFrom(today); setDateTo(today); }
+                        if (c === "wash") { const { firstDay, lastDay } = kstCurrentMonthRange(); setDateFrom(firstDay); setDateTo(lastDay); }
+                        if (c === "miochul") { setDateFrom(defaultDateFrom); setDateTo(today); }
+                        setCarNo("ALL");
+                        setSearchText("");
+                      }}
+                      style={{
+                        height: 38,
+                        borderRadius: 8,
+                        border: `2px solid ${on ? color : "#E2E8F0"}`,
+                        background: on ? color : "white",
+                        fontWeight: 900,
+                        fontSize: 13,
+                        cursor: "pointer",
+                        color: on ? "white" : "#475569",
+                        boxShadow: on ? `0 4px 12px ${color}55` : "none",
+                      }}
+                    >
+                      {categoryLabel(c)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 미오출 상세 */}
             {driverCategory === "miochul" && (
-              <div style={{ marginTop: 12 }}>
-                <div style={{ fontSize: 12, fontWeight: 900, color: "#374151", marginBottom: 6 }}>미오출 상세</div>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  {[
-                    { key: "redelivery", label: "재배송" },
-                    { key: "damage", label: "파손" },
-                    { key: "other", label: "기타" },
-                  ].map((x) => {
+              <div style={{ marginBottom: 18, background: "#F5F3FF", borderRadius: 10, padding: "11px 12px", border: "1px solid #EDE9FE" }}>
+                <div style={{ fontSize: 10, fontWeight: 900, color: "#7C3AED", letterSpacing: 1, marginBottom: 9 }}>미오출 상세</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {[{ key: "redelivery", label: "재배송" }, { key: "damage", label: "파손" }, { key: "other", label: "기타" }].map((x) => {
                     const on = (miochulFlags as any)[x.key] as boolean;
                     return (
                       <button
                         key={x.key}
+                        className="category-btn"
                         onClick={() => setMiochulFlags((p) => ({ ...p, [x.key]: !on } as any))}
                         style={{
-                          flex: "1 1 0",
-                          minWidth: 100,
-                          height: 40,
-                          borderRadius: 0,
-                          border: `1px solid ${on ? "rgba(124,58,237,0.45)" : "#E5E7EB"}`,
-                          background: on ? "#F5F3FF" : "white",
-                          fontWeight: 900,
+                          flex: 1,
+                          height: 34,
+                          borderRadius: 7,
+                          border: `1.5px solid ${on ? "#7C3AED" : "#DDD6FE"}`,
+                          background: on ? "#7C3AED" : "white",
+                          fontWeight: 800,
+                          fontSize: 12,
                           cursor: "pointer",
-                          color: on ? "#7C3AED" : "#111827",
+                          color: on ? "white" : "#7C3AED",
+                          boxShadow: on ? "0 3px 8px rgba(124,58,237,0.3)" : "none",
                         }}
                       >
                         {x.label}
@@ -811,367 +809,148 @@ export default function AdminDeliveryPhotosPage() {
                     );
                   })}
                 </div>
-
               </div>
             )}
 
-            <div style={{ height: 12 }} />
-
-            <div style={{ fontSize: 12, fontWeight: 900, color: "#374151", marginBottom: 6 }}>날짜 범위</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 900, color: "#6B7280", marginBottom: 6 }}>시작일</div>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  style={{
-                    width: "100%",
-                    height: 40,
-                    borderRadius: 0,
-                    border: "1px solid #E5E7EB",
-                    padding: "0 12px",
-                    fontWeight: 800,
-                    outline: "none",
-                  }}
-                />
-              </div>
-
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 900, color: "#6B7280", marginBottom: 6 }}>종료일</div>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  style={{
-                    width: "100%",
-                    height: 40,
-                    borderRadius: 0,
-                    border: "1px solid #E5E7EB",
-                    padding: "0 12px",
-                    fontWeight: 800,
-                    outline: "none",
-                  }}
-                />
+            {/* 날짜 범위 */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 900, color: "#94A3B8", letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>날짜 범위</div>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 6 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: "#94A3B8", marginBottom: 4 }}>시작일</div>
+                  <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="filter-input" style={{ width: "100%", height: 38, borderRadius: 8, border: "1.5px solid #E2E8F0", padding: "0 9px", fontWeight: 800, fontSize: 12, color: "#0F172A", boxSizing: "border-box" }} />
+                </div>
+                <div style={{ color: "#CBD5E1", fontSize: 16, paddingBottom: 8, flexShrink: 0 }}>→</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: "#94A3B8", marginBottom: 4 }}>종료일</div>
+                  <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="filter-input" style={{ width: "100%", height: 38, borderRadius: 8, border: "1.5px solid #E2E8F0", padding: "0 9px", fontWeight: 800, fontSize: 12, color: "#0F172A", boxSizing: "border-box" }} />
+                </div>
               </div>
             </div>
 
-            <div style={{ height: 12 }} />
+            {/* 구분선 */}
+            <div style={{ height: 1, background: "#F1F5F9", margin: "0 0 16px" }} />
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 900, color: "#374151", marginBottom: 6 }}>호차</div>
-                <select
-                  value={carNo}
-                  onChange={(e) => setCarNo(e.target.value)}
-                  style={{
-                    width: "100%",
-                    height: 40,
-                    borderRadius: 0,
-                    border: "1px solid #E5E7EB",
-                    padding: "0 12px",
-                    fontWeight: 800,
-                    outline: "none",
-                    background: "white",
-                  }}
-                >
-                  {carOptions.map((c) => (
-                    <option key={c} value={c}>
-                      {c === "ALL" ? "전체" : `호차 ${c}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 900, color: "#374151", marginBottom: 6 }}>검색어</div>
-                <input
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  placeholder="예: 27148 / 점포명 / 재배송 / 파손 / 메모"
-                  style={{
-                    width: "100%",
-                    height: 40,
-                    borderRadius: 0,
-                    border: "1px solid #E5E7EB",
-                    padding: "0 12px",
-                    fontWeight: 800,
-                    outline: "none",
-                  }}
-                />
-              </div>
-
-              <div style={{ display: "flex", gap: 10 }}>
-                <button
-                  onClick={fetchFirstPage}
-                  disabled={loading}
-                  style={{
-                    flex: 1,
-                    height: 44,
-                    borderRadius: 0,
-                    border: "1px solid #0e7490",
-                    background: loading ? "#9fb8c9" : "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
-                    color: "white",
-                    fontWeight: 900,
-                    cursor: loading ? "not-allowed" : "pointer",
-                    boxShadow: loading ? "none" : "0 10px 22px rgba(16,59,83,0.22)",
-                  }}
-                >
-                  {loading ? "조회중" : "조회"}
-                </button>
-
-                <button
-                  onClick={() => {
-                    setDateFrom(defaultDateFrom);
-                    setDateTo(today);
-                    setDriverCategory("miochul");
-                    setMiochulFlags({ redelivery: false, damage: false, other: false });
-                    setCarNo("ALL");
-                    setSearchText("");
-                  }}
-                  disabled={loading}
-                  style={{
-                    flex: 1,
-                    height: 44,
-                    borderRadius: 0,
-                    border: "1px solid #c4d5e3",
-                    background: "rgba(255,255,255,0.92)",
-                    fontWeight: 900,
-                    cursor: loading ? "not-allowed" : "pointer",
-                  }}
-                >
-                  초기화
-                </button>
-              </div>
+            {/* 호차 */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 10, fontWeight: 900, color: "#94A3B8", letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>호차</div>
+              <select value={carNo} onChange={(e) => setCarNo(e.target.value)} className="filter-input" style={{ width: "100%", height: 38, borderRadius: 8, border: "1.5px solid #E2E8F0", padding: "0 10px", fontWeight: 800, fontSize: 13, color: "#0F172A", background: "white", cursor: "pointer", outline: "none" }}>
+                {carOptions.map((c) => (<option key={c} value={c}>{c === "ALL" ? "전체" : `${c}호차`}</option>))}
+              </select>
             </div>
 
+            {/* 검색어 */}
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 10, fontWeight: 900, color: "#94A3B8", letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>검색</div>
+              <input value={searchText} onChange={(e) => setSearchText(e.target.value)} placeholder="점포코드, 점포명, 메모..." className="filter-input" style={{ width: "100%", height: 38, borderRadius: 8, border: "1.5px solid #E2E8F0", padding: "0 12px", fontWeight: 700, fontSize: 13, color: "#0F172A", outline: "none", boxSizing: "border-box" }} />
+            </div>
+
+            {/* 조회 / 초기화 */}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="btn-primary" onClick={fetchFirstPage} disabled={loading} style={{ flex: 1, height: 42, borderRadius: 9, border: "none", background: loading ? "#94A3B8" : "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", color: "white", fontWeight: 900, fontSize: 14, cursor: loading ? "not-allowed" : "pointer", boxShadow: loading ? "none" : "0 5px 16px rgba(16,59,83,0.30)" }}>
+                {loading ? "조회중..." : "조회"}
+              </button>
+              <button className="btn-secondary" onClick={() => { setDateFrom(defaultDateFrom); setDateTo(today); setDriverCategory("miochul"); setMiochulFlags({ redelivery: false, damage: false, other: false }); setCarNo("ALL"); setSearchText(""); }} disabled={loading} style={{ height: 42, padding: "0 14px", borderRadius: 9, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 800, fontSize: 13, cursor: loading ? "not-allowed" : "pointer", color: "#64748B" }}>
+                초기화
+              </button>
+            </div>
           </div>
         </div>
 
         {/* RIGHT */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ border: "1px solid #bdd0de", borderRadius: 0, background: "rgba(255,255,255,0.94)", overflow: "hidden", boxShadow: "0 14px 30px rgba(2,32,46,0.10)" }}>
-            <div
-              style={{
-                padding: 12,
-                borderBottom: "1px solid #F3F4F6",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 10,
-                flexWrap: "wrap",
-              }}
-            >
-              <div style={{ minWidth: 220 }}>
-                <div style={{ fontWeight: 950, color: "#103b53" }}>
-                  {dateFrom} ~ {dateTo} · {categoryLabel(driverCategory)} · 총 {photos.length}장
+          <div style={{ borderRadius: 14, border: "1px solid #E2E8F0", background: "white", overflow: "hidden", boxShadow: "0 4px 20px rgba(2,32,46,0.08)" }}>
+
+            {/* 헤더 */}
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", background: "#FAFBFC" }}>
+              <div>
+                <div style={{ fontWeight: 900, fontSize: 14, color: "#0F172A", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span>{dateFrom} ~ {dateTo}</span>
+                  <span style={{ padding: "2px 9px", borderRadius: 6, background: categoryColor(driverCategory) + "20", color: categoryColor(driverCategory), fontWeight: 900, fontSize: 12 }}>{categoryLabel(driverCategory)}</span>
+                  <span style={{ color: "#94A3B8", fontWeight: 700, fontSize: 13 }}>총 {photos.length}장</span>
                 </div>
-                <div style={{ fontSize: 12, color: "#6B7280", marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 3, fontWeight: 700 }}>
                   {driverCategory === "miochul" && miochulFlags.redelivery ? "정렬: 재배송 미처리 우선" : "정렬: 최신순"}
                 </div>
               </div>
-
               {rightHeaderActions}
             </div>
 
             {photos.length === 0 ? (
-              <div style={{ padding: 14, color: "#6B7280" }}>{loading ? "불러오는 중..." : "해당 조건의 사진이 없습니다."}</div>
+              <div style={{ padding: 36, color: "#94A3B8", textAlign: "center", fontWeight: 700, fontSize: 14 }}>{loading ? "불러오는 중..." : "해당 조건의 사진이 없습니다."}</div>
             ) : (
-              <div style={{ padding: 12 }}>
-                {/* ✅ 그룹(날짜+점포) 단위 카드 그리드 */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
+              <div style={{ padding: 14 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(178px, 1fr))", gap: 10 }}>
                   {groupedPhotos.map((group, gIdx) => {
-                    // 대표 사진: 그룹 내 첫 번째(최신)
                     const rep = group.photos[0];
                     const prof = profilesById[rep.created_by];
                     const uploader = prof?.name?.trim() ? prof.name.trim() : "-";
                     const isSel = group.photos.some((p) => selectedPhotoIds.has(p.id));
                     const photoCount = group.photos.length;
-
-                    // 재배송 여부: 그룹 내 하나라도 재배송이면 표시
                     const isRedelivery = group.photos.some((p) => isRedeliveryMemo(p.memo));
                     const doneRow = redeliveryDoneByPhotoId[rep.id];
                     const doneByName = doneRow ? profilesById[doneRow.done_by]?.name?.trim() || doneRow.done_by : "";
 
                     return (
-                      <div key={group.key} style={{ border: "1px solid #d9e6ef", borderRadius: 0, overflow: "hidden", background: "rgba(255,255,255,0.94)", boxShadow: "0 10px 22px rgba(2,32,46,0.10)" }}>
+                      <div key={group.key} className="photo-card" style={{ borderRadius: 10, border: "1px solid #E8EFF5", overflow: "hidden", background: "white", boxShadow: "0 2px 10px rgba(2,32,46,0.07)" }}>
+
+                        {/* 썸네일 */}
                         <div style={{ position: "relative", background: "#0B1220" }}>
-                          {/* ✅ 클릭 시 해당 그룹의 첫 사진 슬라이드로 모달 열기 */}
-                          <button
-                            onClick={() => openPreview(gIdx, 0)}
-                            style={{ width: "100%", border: "none", padding: 0, margin: 0, background: "transparent", cursor: "pointer" }}
-                          >
-                            <img src={rep.public_url} alt={rep.id} loading="eager" fetchPriority="high" decoding="async" style={{ width: "100%", height: 170, objectFit: "cover", display: "block" }} />
+                          <button onClick={() => openPreview(gIdx, 0)} style={{ width: "100%", border: "none", padding: 0, margin: 0, background: "transparent", cursor: "pointer", display: "block" }}>
+                            <img src={rep.public_url} alt={rep.id} loading="eager" fetchPriority="high" decoding="async" style={{ width: "100%", height: 118, objectFit: "cover", display: "block" }} />
                           </button>
 
-                          {/* ✅ 사진 장수 배지: 2장 이상일 때만 표시 */}
                           {photoCount > 1 && (
-                            <div
-                              style={{
-                                position: "absolute",
-                                left: 10,
-                                bottom: 10,
-                                height: 26,
-                                padding: "0 10px",
-                                borderRadius: 4,
-                                background: "rgba(17,24,39,0.75)",
-                                color: "white",
-                                fontWeight: 900,
-                                fontSize: 12,
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 4,
-                              }}
-                            >
-                              📷 {photoCount}장
+                            <div style={{ position: "absolute", left: 7, bottom: 7, height: 21, padding: "0 7px", borderRadius: 5, background: "rgba(15,23,42,0.82)", color: "white", fontWeight: 800, fontSize: 10, display: "flex", alignItems: "center", gap: 3 }}>
+                              📷 {photoCount}
                             </div>
                           )}
 
                           {selectMode && (
-                            <button
-                              onClick={() => group.photos.forEach((p) => onToggleSelect(p.id))}
-                              style={{
-                                position: "absolute",
-                                right: 10,
-                                top: 10,
-                                height: 30,
-                                padding: "0 10px",
-                                borderRadius: 4,
-                                border: isSel ? "1px solid #111827" : "1px solid rgba(255,255,255,0.25)",
-                                background: isSel ? "#111827" : "rgba(17,24,39,0.55)",
-                                color: "white",
-                                fontWeight: 900,
-                                fontSize: 12,
-                                cursor: "pointer",
-                              }}
-                            >
-                              {isSel ? "선택됨" : "선택"}
+                            <button className="category-btn" onClick={() => group.photos.forEach((p) => onToggleSelect(p.id))} style={{ position: "absolute", right: 7, top: 7, height: 26, padding: "0 8px", borderRadius: 6, border: isSel ? "2px solid white" : "1.5px solid rgba(255,255,255,0.55)", background: isSel ? "white" : "rgba(15,23,42,0.60)", color: isSel ? "#0F172A" : "white", fontWeight: 900, fontSize: 11, cursor: "pointer" }}>
+                              {isSel ? "✓ 선택됨" : "선택"}
                             </button>
                           )}
 
                           {isRedelivery && (
-                            <div
-                              style={{
-                                position: "absolute",
-                                right: 10,
-                                bottom: 10,
-                                height: 28,
-                                padding: "0 10px",
-                                borderRadius: 4,
-                                border: `1px solid ${doneRow ? "rgba(22,163,74,0.35)" : "rgba(239,68,68,0.35)"}`,
-                                background: doneRow ? "rgba(236,253,245,0.95)" : "rgba(254,242,242,0.95)",
-                                color: doneRow ? "#16A34A" : "#EF4444",
-                                display: "flex",
-                                alignItems: "center",
-                                fontWeight: 900,
-                                fontSize: 12,
-                              }}
-                            >
-                              {doneRow ? "처리완료" : "미처리"}
+                            <div style={{ position: "absolute", right: 7, bottom: 7, height: 21, padding: "0 7px", borderRadius: 5, background: doneRow ? "rgba(220,252,231,0.97)" : "rgba(254,226,226,0.97)", color: doneRow ? "#16A34A" : "#DC2626", display: "flex", alignItems: "center", fontWeight: 900, fontSize: 10, border: `1px solid ${doneRow ? "rgba(22,163,74,0.3)" : "rgba(220,38,38,0.3)"}` }}>
+                              {doneRow ? "완료" : "미처리"}
                             </div>
                           )}
                         </div>
 
-                        <div style={{ padding: 10 }}>
-                          <div style={{ fontWeight: 900, fontSize: 12, color: "#111827" }}>{group.dateKST}</div>
-                          <div style={{ marginTop: 3, fontSize: 12, color: "#6B7280" }}>
-                            [{group.store_code}] {group.store_name ?? ""} {group.car_no ? `· 호차 ${group.car_no}` : ""}
+                        {/* 메타 */}
+                        <div style={{ padding: "9px 10px 10px" }}>
+                          <div style={{ fontSize: 11, fontWeight: 900, color: "#0F172A" }}>{group.dateKST}</div>
+                          <div style={{ marginTop: 2, fontSize: 11, color: "#475569", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            <span style={{ color: "#94A3B8" }}>[{group.store_code}]</span> {group.store_name ?? ""}{group.car_no ? ` · ${group.car_no}호` : ""}
                           </div>
-                          <div style={{ marginTop: 3, fontSize: 12, color: "#6B7280" }}>업로더: {uploader}</div>
+                          <div style={{ marginTop: 1, fontSize: 10, color: "#94A3B8", fontWeight: 700 }}>{uploader}</div>
 
                           {isRedelivery && (
-                            <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                              <button
-                                onClick={() => toggleRedeliveryDone(rep)}
-                                style={{
-                                  height: 28,
-                                  padding: "0 10px",
-                                  borderRadius: 4,
-                                  border: `1px solid ${doneRow ? "rgba(22,163,74,0.35)" : "rgba(239,68,68,0.35)"}`,
-                                  background: doneRow ? "#ECFDF5" : "#FEF2F2",
-                                  fontWeight: 900,
-                                  cursor: "pointer",
-                                  color: doneRow ? "#16A34A" : "#EF4444",
-                                  fontSize: 12,
-                                }}
-                                title="재배송 처리완료 체크/해제"
-                              >
-                                {doneRow ? "✅ 처리완료" : "⬜ 미처리"}
+                            <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+                              <button className={doneRow ? "btn-success" : "btn-danger"} onClick={() => toggleRedeliveryDone(rep)} style={{ height: 24, padding: "0 8px", borderRadius: 5, border: "none", background: doneRow ? "#DCFCE7" : "#FEE2E2", fontWeight: 900, cursor: "pointer", color: doneRow ? "#16A34A" : "#DC2626", fontSize: 10, boxShadow: "none" }}>
+                                {doneRow ? "✅ 완료" : "⬜ 미처리"}
                               </button>
-
-                              {doneRow && (
-                                <div style={{ fontSize: 12, color: "#374151", fontWeight: 800 }}>
-                                  {doneByName} · {formatKST(doneRow.done_at)}
-                                </div>
-                              )}
+                              {doneRow && <div style={{ fontSize: 10, color: "#64748B", fontWeight: 700 }}>{doneByName}</div>}
                             </div>
                           )}
 
                           {rep.memo && (
-                            <div
-                              style={{
-                                marginTop: 8,
-                                fontSize: 12,
-                                color: "#374151",
-                                fontWeight: 800,
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                              title={rep.memo}
-                            >
-                              메모: {rep.memo}
+                            <div style={{ marginTop: 5, fontSize: 10, color: "#475569", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", background: "#F8FAFC", borderRadius: 5, padding: "3px 7px" }} title={rep.memo}>
+                              {rep.memo}
                             </div>
                           )}
 
-                          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                            <button
-                              onClick={() => onDownloadPhoto(rep)}
-                              style={{
-                                height: 30,
-                                padding: "0 10px",
-                                borderRadius: 0,
-                                border: "1px solid #111827",
-                                background: "#111827",
-                                color: "white",
-                                fontWeight: 900,
-                                fontSize: 12,
-                                cursor: "pointer",
-                              }}
-                            >
+                          {/* 버튼 */}
+                          <div style={{ marginTop: 9, display: "flex", gap: 5 }}>
+                            <button className="btn-primary" onClick={() => onDownloadPhoto(rep)} style={{ flex: 1, height: 30, borderRadius: 7, border: "none", background: "#1E293B", color: "white", fontWeight: 900, fontSize: 11, cursor: "pointer", boxShadow: "0 2px 7px rgba(30,41,59,0.28)" }}>
                               다운
                             </button>
-
-                            <button
-                              onClick={() => onCopyPhoto(rep)}
-                              style={{
-                                height: 30,
-                                padding: "0 10px",
-                                borderRadius: 0,
-                                border: "1px solid #E5E7EB",
-                                background: "white",
-                                fontWeight: 900,
-                                fontSize: 12,
-                                cursor: "pointer",
-                              }}
-                            >
+                            <button className="btn-secondary" onClick={() => onCopyPhoto(rep)} style={{ flex: 1, height: 30, borderRadius: 7, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 900, fontSize: 11, cursor: "pointer", color: "#374151" }}>
                               복사
                             </button>
-
-                            <button
-                              onClick={() => onDeletePhoto(rep)}
-                              style={{
-                                height: 30,
-                                padding: "0 10px",
-                                borderRadius: 0,
-                                border: "1px solid #EF4444",
-                                background: "#EF4444",
-                                color: "white",
-                                fontWeight: 900,
-                                fontSize: 12,
-                                cursor: "pointer",
-                              }}
-                            >
+                            <button className="btn-danger" onClick={() => onDeletePhoto(rep)} style={{ height: 30, padding: "0 10px", borderRadius: 7, border: "none", background: "#EF4444", color: "white", fontWeight: 900, fontSize: 11, cursor: "pointer", boxShadow: "0 2px 7px rgba(239,68,68,0.30)" }}>
                               삭제
                             </button>
                           </div>
@@ -1181,26 +960,14 @@ export default function AdminDeliveryPhotosPage() {
                   })}
                 </div>
 
-                {/* ✅ 더보기 */}
-                <div style={{ display: "flex", justifyContent: "center", padding: "18px 0 6px" }}>
+                {/* 더보기 */}
+                <div style={{ display: "flex", justifyContent: "center", padding: "20px 0 6px" }}>
                   {hasMore ? (
-                    <button
-                      onClick={fetchMore}
-                      disabled={loadingMore}
-                      style={{
-                        height: 44,
-                        padding: "0 18px",
-                        borderRadius: 0,
-                        border: "1px solid #E5E7EB",
-                        background: loadingMore ? "#F3F4F6" : "white",
-                        fontWeight: 900,
-                        cursor: loadingMore ? "not-allowed" : "pointer",
-                      }}
-                    >
-                      {loadingMore ? "불러오는 중..." : "더보기"}
+                    <button className="btn-secondary" onClick={fetchMore} disabled={loadingMore} style={{ height: 40, padding: "0 28px", borderRadius: 9, border: "1.5px solid #E2E8F0", background: loadingMore ? "#F8FAFC" : "white", fontWeight: 800, fontSize: 13, cursor: loadingMore ? "not-allowed" : "pointer", color: "#64748B", boxShadow: "0 2px 8px rgba(2,32,46,0.06)" }}>
+                      {loadingMore ? "불러오는 중..." : "더 보기"}
                     </button>
                   ) : (
-                    <div style={{ fontSize: 12, color: "#6B7280", fontWeight: 800 }}>마지막입니다.</div>
+                    <div style={{ fontSize: 12, color: "#CBD5E1", fontWeight: 700 }}>— 마지막입니다 —</div>
                   )}
                 </div>
               </div>
@@ -1209,287 +976,71 @@ export default function AdminDeliveryPhotosPage() {
         </div>
       </div>
 
-      {/* ✅ Preview Modal - 그룹 내 슬라이드 방식 */}
+      {/* Preview Modal */}
       {previewOpen && previewPhoto && previewGroup && (
-        <div
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closePreview();
-          }}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 90,
-            background: "rgba(17,24,39,0.78)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            padding: 18,
-          }}
-        >
-          <div
-            style={{
-              width: "min(1200px, 96vw)",
-              height: "min(820px, 92vh)",
-              background: "white",
-              borderRadius: 0,
-              overflow: "hidden",
-              display: "grid",
-              gridTemplateRows: "auto 1fr auto",
-              boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
-            }}
-          >
-            {/* 헤더 */}
-            <div
-              style={{
-                padding: 12,
-                borderBottom: "1px solid #E5E7EB",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 10,
-                flexWrap: "wrap",
-              }}
-            >
+        <div onClick={(e) => { if (e.target === e.currentTarget) closePreview(); }} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(15,23,42,0.82)", display: "flex", justifyContent: "center", alignItems: "center", padding: 20, backdropFilter: "blur(6px)" }}>
+          <div style={{ width: "min(1200px, 96vw)", height: "min(820px, 92vh)", background: "white", borderRadius: 16, overflow: "hidden", display: "grid", gridTemplateRows: "auto 1fr auto", boxShadow: "0 24px 64px rgba(0,0,0,0.45)" }}>
+
+            {/* Modal 헤더 */}
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", background: "#FAFBFC" }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 900, color: "#111827" }}>
-                  [{previewGroup.store_code}] {previewGroup.store_name ?? ""}
-                  {previewGroup.car_no ? ` · 호차 ${previewGroup.car_no}` : ""}
+                <div style={{ fontWeight: 900, color: "#0F172A", fontSize: 15 }}>
+                  <span style={{ color: "#94A3B8", fontWeight: 800 }}>[{previewGroup.store_code}]</span> {previewGroup.store_name ?? ""}{previewGroup.car_no ? ` · ${previewGroup.car_no}호차` : ""}
                 </div>
-                {/* 날짜 + 슬라이드 인덱스 표시 */}
-                <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>
+                <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 2, fontWeight: 700 }}>
                   {formatKST(previewPhoto.created_at)} · {previewSlideIndex + 1} / {previewGroup.photos.length}장
                 </div>
 
                 {isRedeliveryMemo(previewPhoto.memo) && (
                   <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <button
-                      onClick={() => toggleRedeliveryDone(previewPhoto)}
-                      style={{
-                        height: 30,
-                        padding: "0 10px",
-                        borderRadius: 4,
-                        border: `1px solid ${doneRowForPreview ? "rgba(22,163,74,0.35)" : "rgba(239,68,68,0.35)"}`,
-                        background: doneRowForPreview ? "#ECFDF5" : "#FEF2F2",
-                        fontWeight: 900,
-                        cursor: "pointer",
-                        color: doneRowForPreview ? "#16A34A" : "#EF4444",
-                      }}
-                      title="재배송 처리완료 체크/해제"
-                    >
-                      {doneRowForPreview ? "✅ 재배송 처리완료" : "⬜ 재배송 미처리"}
+                    <button className={doneRowForPreview ? "btn-success" : "btn-danger"} onClick={() => toggleRedeliveryDone(previewPhoto)} style={{ height: 30, padding: "0 12px", borderRadius: 7, border: "none", background: doneRowForPreview ? "#DCFCE7" : "#FEE2E2", fontWeight: 900, cursor: "pointer", color: doneRowForPreview ? "#16A34A" : "#DC2626", fontSize: 12, boxShadow: "none" }}>
+                      {doneRowForPreview ? "✅ 처리완료" : "⬜ 미처리"}
                     </button>
-
                     {doneRowForPreview && (
-                      <div style={{ fontSize: 12, color: "#374151", fontWeight: 800 }}>
-                        체크: <span style={{ fontWeight: 900 }}>{doneByNameForPreview}</span> · {formatKST(doneRowForPreview.done_at)}
+                      <div style={{ fontSize: 12, color: "#475569", fontWeight: 700 }}>
+                        {doneByNameForPreview} · {formatKST(doneRowForPreview.done_at)}
                       </div>
                     )}
                   </div>
                 )}
 
-                {previewPhoto.memo && <div style={{ fontSize: 12, color: "#374151", marginTop: 8, fontWeight: 800 }}>메모: {previewPhoto.memo}</div>}
+                {previewPhoto.memo && (
+                  <div style={{ fontSize: 12, color: "#475569", marginTop: 6, fontWeight: 700, background: "#F8FAFC", borderRadius: 6, padding: "3px 9px", display: "inline-block", border: "1px solid #F1F5F9" }}>
+                    {previewPhoto.memo}
+                  </div>
+                )}
               </div>
 
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                {/* ✅ 그룹 내 슬라이드 이전/다음 */}
-                <button
-                  onClick={goPrevSlide}
-                  disabled={previewSlideIndex === 0}
-                  style={{
-                    height: 34,
-                    padding: "0 12px",
-                    borderRadius: 0,
-                    border: "1px solid #E5E7EB",
-                    background: previewSlideIndex === 0 ? "#F3F4F6" : "white",
-                    fontWeight: 900,
-                    cursor: previewSlideIndex === 0 ? "not-allowed" : "pointer",
-                  }}
-                >
-                  ← 이전
-                </button>
-
-                <button
-                  onClick={goNextSlide}
-                  disabled={previewSlideIndex >= previewGroup.photos.length - 1}
-                  style={{
-                    height: 34,
-                    padding: "0 12px",
-                    borderRadius: 0,
-                    border: "1px solid #E5E7EB",
-                    background: previewSlideIndex >= previewGroup.photos.length - 1 ? "#F3F4F6" : "white",
-                    fontWeight: 900,
-                    cursor: previewSlideIndex >= previewGroup.photos.length - 1 ? "not-allowed" : "pointer",
-                  }}
-                >
-                  다음 →
-                </button>
-
-                <button
-                  onClick={async () => onDownloadPhoto(previewPhoto)}
-                  style={{
-                    height: 34,
-                    padding: "0 12px",
-                    borderRadius: 0,
-                    border: "1px solid #111827",
-                    background: "#111827",
-                    color: "white",
-                    fontWeight: 900,
-                    cursor: "pointer",
-                  }}
-                >
-                  다운로드
-                </button>
-
-                <button
-                  onClick={() => onCopyPhoto(previewPhoto)}
-                  style={{
-                    height: 34,
-                    padding: "0 12px",
-                    borderRadius: 0,
-                    border: "1px solid #E5E7EB",
-                    background: "white",
-                    fontWeight: 900,
-                    cursor: "pointer",
-                  }}
-                >
-                  복사
-                </button>
-
-                <button
-                  onClick={async () => {
-                    await onDeletePhoto(previewPhoto);
-                    // 삭제 후 슬라이드 인덱스 보정
-                    setPreviewSlideIndex((v) => Math.max(0, Math.min(v, (previewGroup.photos.length || 1) - 2)));
-                  }}
-                  style={{
-                    height: 34,
-                    padding: "0 12px",
-                    borderRadius: 0,
-                    border: "1px solid #EF4444",
-                    background: "#EF4444",
-                    color: "white",
-                    fontWeight: 900,
-                    cursor: "pointer",
-                  }}
-                >
-                  삭제
-                </button>
-
-                <button
-                  onClick={closePreview}
-                  style={{
-                    height: 34,
-                    padding: "0 12px",
-                    borderRadius: 0,
-                    border: "1px solid #E5E7EB",
-                    background: "white",
-                    fontWeight: 900,
-                    cursor: "pointer",
-                  }}
-                >
-                  닫기 (Esc)
-                </button>
+              <div style={{ display: "flex", gap: 7, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
+                <button className="btn-secondary" onClick={goPrevSlide} disabled={previewSlideIndex === 0} style={{ height: 34, padding: "0 13px", borderRadius: 8, border: "1.5px solid #E2E8F0", background: previewSlideIndex === 0 ? "#F8FAFC" : "white", fontWeight: 900, cursor: previewSlideIndex === 0 ? "not-allowed" : "pointer", color: previewSlideIndex === 0 ? "#CBD5E1" : "#374151", fontSize: 13 }}>← 이전</button>
+                <button className="btn-secondary" onClick={goNextSlide} disabled={previewSlideIndex >= previewGroup.photos.length - 1} style={{ height: 34, padding: "0 13px", borderRadius: 8, border: "1.5px solid #E2E8F0", background: previewSlideIndex >= previewGroup.photos.length - 1 ? "#F8FAFC" : "white", fontWeight: 900, cursor: previewSlideIndex >= previewGroup.photos.length - 1 ? "not-allowed" : "pointer", color: previewSlideIndex >= previewGroup.photos.length - 1 ? "#CBD5E1" : "#374151", fontSize: 13 }}>다음 →</button>
+                <div style={{ width: 1, height: 22, background: "#E2E8F0", margin: "0 2px" }} />
+                <button className="btn-primary" onClick={async () => onDownloadPhoto(previewPhoto)} style={{ height: 34, padding: "0 14px", borderRadius: 8, border: "none", background: "#1E293B", color: "white", fontWeight: 900, fontSize: 13, cursor: "pointer", boxShadow: "0 3px 9px rgba(30,41,59,0.28)" }}>다운로드</button>
+                <button className="btn-secondary" onClick={() => onCopyPhoto(previewPhoto)} style={{ height: 34, padding: "0 14px", borderRadius: 8, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 900, fontSize: 13, cursor: "pointer", color: "#374151" }}>복사</button>
+                <button className="btn-danger" onClick={async () => { await onDeletePhoto(previewPhoto); setPreviewSlideIndex((v) => Math.max(0, Math.min(v, (previewGroup.photos.length || 1) - 2))); }} style={{ height: 34, padding: "0 14px", borderRadius: 8, border: "none", background: "#EF4444", color: "white", fontWeight: 900, fontSize: 13, cursor: "pointer", boxShadow: "0 3px 9px rgba(239,68,68,0.28)" }}>삭제</button>
+                <button className="btn-secondary" onClick={closePreview} style={{ height: 34, padding: "0 13px", borderRadius: 8, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 800, fontSize: 13, cursor: "pointer", color: "#64748B" }}>✕ 닫기</button>
               </div>
             </div>
 
             {/* 사진 영역 */}
             <div style={{ background: "#0B1220", overflow: "hidden", position: "relative" }}>
-              <img
-                key={previewPhoto.id}
-                src={previewPhoto.public_url}
-                alt="preview"
-                decoding="async"
-                style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
-              />
+              <img key={previewPhoto.id} src={previewPhoto.public_url} alt="preview" decoding="async" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
 
-              {/* ✅ 좌우 화살표 오버레이 버튼 (사진이 2장 이상일 때) */}
               {previewGroup.photos.length > 1 && (
                 <>
-                  <button
-                    onClick={goPrevSlide}
-                    disabled={previewSlideIndex === 0}
-                    style={{
-                      position: "absolute",
-                      left: 12,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      width: 44,
-                      height: 44,
-                      borderRadius: 4,
-                      border: "none",
-                      background: previewSlideIndex === 0 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.85)",
-                      color: previewSlideIndex === 0 ? "rgba(0,0,0,0.3)" : "#111827",
-                      fontWeight: 900,
-                      fontSize: 20,
-                      cursor: previewSlideIndex === 0 ? "not-allowed" : "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
-                    }}
-                  >
-                    ‹
-                  </button>
-
-                  <button
-                    onClick={goNextSlide}
-                    disabled={previewSlideIndex >= previewGroup.photos.length - 1}
-                    style={{
-                      position: "absolute",
-                      right: 12,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      width: 44,
-                      height: 44,
-                      borderRadius: 4,
-                      border: "none",
-                      background: previewSlideIndex >= previewGroup.photos.length - 1 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.85)",
-                      color: previewSlideIndex >= previewGroup.photos.length - 1 ? "rgba(0,0,0,0.3)" : "#111827",
-                      fontWeight: 900,
-                      fontSize: 20,
-                      cursor: previewSlideIndex >= previewGroup.photos.length - 1 ? "not-allowed" : "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
-                    }}
-                  >
-                    ›
-                  </button>
-
-                  {/* 하단 인디케이터 점 */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: 12,
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      display: "flex",
-                      gap: 6,
-                    }}
-                  >
+                  <button onClick={goPrevSlide} disabled={previewSlideIndex === 0} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", width: 44, height: 44, borderRadius: 10, border: "none", background: previewSlideIndex === 0 ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.90)", color: previewSlideIndex === 0 ? "rgba(255,255,255,0.25)" : "#0F172A", fontWeight: 900, fontSize: 22, cursor: previewSlideIndex === 0 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 14px rgba(0,0,0,0.28)", transition: "all 0.15s" }}>‹</button>
+                  <button onClick={goNextSlide} disabled={previewSlideIndex >= previewGroup.photos.length - 1} style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", width: 44, height: 44, borderRadius: 10, border: "none", background: previewSlideIndex >= previewGroup.photos.length - 1 ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.90)", color: previewSlideIndex >= previewGroup.photos.length - 1 ? "rgba(255,255,255,0.25)" : "#0F172A", fontWeight: 900, fontSize: 22, cursor: previewSlideIndex >= previewGroup.photos.length - 1 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 14px rgba(0,0,0,0.28)", transition: "all 0.15s" }}>›</button>
+                  <div style={{ position: "absolute", bottom: 14, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 6 }}>
                     {previewGroup.photos.map((_, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setPreviewSlideIndex(i)}
-                        style={{
-                          width: i === previewSlideIndex ? 20 : 8,
-                          height: 8,
-                          borderRadius: 4,
-                          border: "none",
-                          background: i === previewSlideIndex ? "white" : "rgba(255,255,255,0.45)",
-                          cursor: "pointer",
-                          padding: 0,
-                          transition: "width 0.2s",
-                        }}
-                      />
+                      <button key={i} onClick={() => setPreviewSlideIndex(i)} style={{ width: i === previewSlideIndex ? 22 : 8, height: 8, borderRadius: 4, border: "none", background: i === previewSlideIndex ? "white" : "rgba(255,255,255,0.38)", cursor: "pointer", padding: 0, transition: "all 0.2s", boxShadow: i === previewSlideIndex ? "0 0 0 2px rgba(255,255,255,0.3)" : "none" }} />
                     ))}
                   </div>
                 </>
               )}
             </div>
 
-            <div style={{ padding: 10, borderTop: "1px solid #E5E7EB", fontSize: 12, color: "#6B7280" }}>
+            {/* 푸터 */}
+            <div style={{ padding: "9px 16px", borderTop: "1px solid #F1F5F9", fontSize: 11, color: "#94A3B8", fontWeight: 700, background: "#FAFBFC" }}>
               단축키: ← / → 이동 · Esc 닫기
             </div>
           </div>
