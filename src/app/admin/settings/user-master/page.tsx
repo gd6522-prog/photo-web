@@ -142,52 +142,54 @@ function isWorkingNow(today: { inAt: string | null; outAt: string | null } | und
   return !!today?.inAt && !today?.outAt;
 }
 
-const panelStyle: React.CSSProperties = {
-  padding: 14,
-  borderRadius: 0,
-  border: "1px solid #E2E8F0",
-  background: "white",
-  boxShadow: "0 8px 20px rgba(15,23,42,0.04)",
+const card: React.CSSProperties = {
+  background: "#fff",
+  borderRadius: 10,
+  border: "1px solid #E8EDF2",
+  boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
 };
 
 function inputStyle(disabled?: boolean): React.CSSProperties {
   return {
     width: "100%",
-    height: 40,
-    padding: "0 12px",
-    borderRadius: 0,
-    border: "1px solid #D7DCE2",
-    background: disabled ? "#F3F4F6" : "white",
+    height: 38,
+    padding: "0 11px",
+    borderRadius: 7,
+    border: "1px solid #D1D9E0",
+    background: disabled ? "#F5F7F9" : "#fff",
     fontSize: 13,
+    color: "#1E293B",
     outline: "none",
+    boxSizing: "border-box",
   };
 }
 
 function buttonStyle(disabled?: boolean, dark?: boolean): React.CSSProperties {
   return {
     height: 38,
-    padding: "0 14px",
-    borderRadius: 0,
-    border: dark ? "1px solid #111827" : "1px solid #D7DCE2",
-    background: dark ? "#0F172A" : "white",
-    color: dark ? "white" : "#111827",
-    fontWeight: 800,
+    padding: "0 16px",
+    borderRadius: 7,
+    border: dark ? "none" : "1px solid #D1D9E0",
+    background: dark ? "#1E293B" : "#fff",
+    color: dark ? "#fff" : "#374151",
+    fontWeight: 700,
     fontSize: 13,
     cursor: disabled ? "not-allowed" : "pointer",
-    opacity: disabled ? 0.65 : 1,
+    opacity: disabled ? 0.5 : 1,
+    whiteSpace: "nowrap" as const,
   };
 }
 
 function fieldLabelStyle(): React.CSSProperties {
-  return { fontSize: 12, color: "#475467", marginBottom: 6, fontWeight: 700 };
+  return { fontSize: 11, color: "#64748B", marginBottom: 5, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" as const };
 }
 
 function sectionStyle(): React.CSSProperties {
   return {
-    border: "1px solid #E2E8F0",
-    borderRadius: 0,
-    padding: 12,
-    background: "#FCFDFE",
+    border: "1px solid #EEF2F7",
+    borderRadius: 8,
+    padding: 16,
+    background: "#FAFBFC",
   };
 }
 

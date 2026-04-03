@@ -163,7 +163,7 @@ async function forceDownload(url: string, fileName: string) {
 }
 
 async function copyImageToClipboard(url: string) {
-  await copyCompressedImageUrlToClipboard(url, { maxBytes: 4 * 1024 * 1024, maxDimension: 1200 });
+  await copyCompressedImageUrlToClipboard(url, { maxBytes: 20 * 1024 * 1024, maxDimension: 2000 });
 }
 
 function escapeHtml(value: string) {
