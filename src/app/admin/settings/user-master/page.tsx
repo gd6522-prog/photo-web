@@ -395,7 +395,7 @@ export default function UserMasterPage() {
         join_date: f.join_date || null,
         leave_date: f.leave_date || null,
         nationality: (f.nationality === "__custom__" ? nationalityCustom : f.nationality).trim() || null,
-        visa: ((f.nationality === "__custom__" ? nationalityCustom : f.nationality).trim() && (f.nationality === "__custom__" ? nationalityCustom : f.nationality).trim() !== "한국") ? (f.visa.trim() || null) : null,
+        visa: (() => { const nat = (f.nationality === "__custom__" ? nationalityCustom : f.nationality).trim().toUpperCase(); return nat && nat !== "KR" && nat !== "한국"; })() ? (f.visa.trim() || null) : null,
         is_admin: lockedIsAdmin,
         is_general_admin: f.is_general_admin,
         is_company_admin: f.is_company_admin,
@@ -665,14 +665,14 @@ export default function UserMasterPage() {
           </thead>
 
           <tbody>
-            {rows.length === 0 && !loading ? (
+            {displayedRows.length === 0 && !loading ? (
               <tr>
                 <td colSpan={12} style={{ padding: 18, color: "#64748B" }}>
                   데이터가 없습니다.
                 </td>
               </tr>
             ) : (
-              rows.map((r, idx) => {
+              displayedRows.map((r, idx) => {
                 const ap = normalizeApproval(r.approval_status);
                 const approved = ap === "approved";
                 const working = approved ? isWorkingNow(todayShiftMap[r.id]) : false;
@@ -773,7 +773,7 @@ export default function UserMasterPage() {
                       value={f.nationality}
                       onChange={(e) => {
                         const v = e.target.value;
-                        setF((p) => ({ ...p, nationality: v, visa: v === "한국" ? "" : p.visa }));
+                        setF((p) => ({ ...p, nationality: v, visa: (v.toUpperCase() === "KR" || v === "한국") ? "" : p.visa }));
                         if (v !== "__custom__") setNationalityCustom("");
                       }}
                       style={inputStyle()}
@@ -793,8 +793,7 @@ export default function UserMasterPage() {
                       />
                     )}
                   </div>
-                  {(f.nationality === "__custom__" ? nationalityCustom.trim() : f.nationality.trim()) !== "" &&
-                    (f.nationality === "__custom__" ? nationalityCustom.trim() : f.nationality.trim()) !== "한국" && (
+                  {(() => { const nat = (f.nationality === "__custom__" ? nationalityCustom : f.nationality).trim().toUpperCase(); return nat !== "" && nat !== "KR" && nat !== "한국"; })() && (
                     <div>
                       <div style={fieldLabelStyle()}>비자 종류</div>
                       <input value={f.visa} onChange={(e) => setF((p) => ({ ...p, visa: e.target.value }))} style={inputStyle()} placeholder="예: E-9, F-4, F-6" />
