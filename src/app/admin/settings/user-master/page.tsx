@@ -15,6 +15,8 @@ type ProfileRow = {
   work_table: string | null;
   join_date: string | null;
   leave_date: string | null;
+  nationality: string | null;
+  visa: string | null;
   is_admin?: boolean | null;
   is_general_admin?: boolean | null;
   is_company_admin?: boolean | null;
@@ -217,6 +219,8 @@ export default function UserMasterPage() {
     work_table: "",
     join_date: "",
     leave_date: "",
+    nationality: "",
+    visa: "",
     is_admin: false,
     is_general_admin: false,
     is_company_admin: false,
@@ -326,6 +330,8 @@ export default function UserMasterPage() {
       work_table: r.work_table ?? "",
       join_date: r.join_date ?? "",
       leave_date: r.leave_date ?? "",
+      nationality: r.nationality ?? "",
+      visa: r.visa ?? "",
       is_admin: !!r.is_admin,
       is_general_admin: !!r.is_general_admin,
       is_company_admin: !!r.is_company_admin,
@@ -361,6 +367,14 @@ export default function UserMasterPage() {
       if (isCompanyAdminRole && f.company_name.trim() === BLOCKED_COMPANY) {
         throw new Error("업체관리자는 한익스프레스 데이터를 볼 수 없습니다.");
       }
+      if (f.approval_status === "approved") {
+        const missing: string[] = [];
+        if (!f.name.trim()) missing.push("이름");
+        if (!toKRLocalDigits(f.phone)) missing.push("전화번호");
+        if (!f.birthdate) missing.push("생년월일");
+        if (!f.work_part.trim()) missing.push("작업파트");
+        if (missing.length > 0) throw new Error(`승인하려면 필수 정보를 입력해 주세요: ${missing.join(", ")}`);
+      }
       const lockedIsAdmin = isCompanyAdminRole ? !!selected.is_admin : !!f.is_admin;
       const phoneToSave = toKRLocalDigits(f.phone) || null;
       const payload = {
@@ -372,6 +386,8 @@ export default function UserMasterPage() {
         work_table: f.work_table.trim() || null,
         join_date: f.join_date || null,
         leave_date: f.leave_date || null,
+        nationality: f.nationality.trim() || null,
+        visa: f.nationality.trim() && f.nationality.trim() !== "한국" ? (f.visa.trim() || null) : null,
         is_admin: lockedIsAdmin,
         is_general_admin: f.is_general_admin,
         is_company_admin: f.is_company_admin,
@@ -395,6 +411,8 @@ export default function UserMasterPage() {
           work_table: payload.work_table,
           join_date: payload.join_date,
           leave_date: payload.leave_date,
+          nationality: payload.nationality,
+          visa: payload.visa,
           is_admin: payload.is_admin,
           approval_status: payload.approval_status,
         };
@@ -699,22 +717,37 @@ export default function UserMasterPage() {
                 <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10, color: "#0F172A" }}>기본 정보</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   <div>
-                    <div style={fieldLabelStyle()}>이름</div>
+                    <div style={fieldLabelStyle()}>이름 *</div>
                     <input value={f.name} onChange={(e) => setF((p) => ({ ...p, name: e.target.value }))} style={inputStyle()} />
                   </div>
                   <div>
-                    <div style={fieldLabelStyle()}>전화번호(숫자만)</div>
+                    <div style={fieldLabelStyle()}>전화번호(숫자만) *</div>
                     <input value={f.phone} onChange={(e) => setF((p) => ({ ...p, phone: e.target.value }))} style={inputStyle()} />
                     <div style={{ marginTop: 6, fontSize: 12, color: "#64748B" }}>표시: {formatKRPhone(f.phone)}</div>
                   </div>
                   <div>
-                    <div style={fieldLabelStyle()}>생년월일</div>
+                    <div style={fieldLabelStyle()}>생년월일 *</div>
                     <input type="date" value={f.birthdate} onChange={(e) => setF((p) => ({ ...p, birthdate: e.target.value }))} style={inputStyle()} />
                   </div>
                   <div>
-                    <div style={fieldLabelStyle()}>작업파트</div>
-                    <input value={f.work_part} onChange={(e) => setF((p) => ({ ...p, work_part: e.target.value }))} style={inputStyle()} />
+                    <div style={fieldLabelStyle()}>작업파트 *</div>
+                    <select value={f.work_part} onChange={(e) => setF((p) => ({ ...p, work_part: e.target.value }))} style={inputStyle()}>
+                      <option value="">-</option>
+                      {WORK_PART_ORDER_LIST.map((v) => (
+                        <option key={v} value={v}>{v}</option>
+                      ))}
+                    </select>
                   </div>
+                  <div>
+                    <div style={fieldLabelStyle()}>국적</div>
+                    <input value={f.nationality} onChange={(e) => setF((p) => ({ ...p, nationality: e.target.value, visa: e.target.value.trim() === "한국" ? "" : p.visa }))} style={inputStyle()} placeholder="예: 한국, 중국, 베트남" />
+                  </div>
+                  {f.nationality.trim() && f.nationality.trim() !== "한국" && (
+                    <div>
+                      <div style={fieldLabelStyle()}>비자 종류</div>
+                      <input value={f.visa} onChange={(e) => setF((p) => ({ ...p, visa: e.target.value }))} style={inputStyle()} placeholder="예: E-9, F-4, F-6" />
+                    </div>
+                  )}
                 </div>
               </section>
 
@@ -774,6 +807,11 @@ export default function UserMasterPage() {
                       <option value="approved">승인</option>
                       <option value="rejected">반려</option>
                     </select>
+                    {f.approval_status === "approved" && (!f.name.trim() || !toKRLocalDigits(f.phone) || !f.birthdate || !f.work_part.trim()) && (
+                      <div style={{ marginTop: 6, fontSize: 12, color: "#DC2626", fontWeight: 700 }}>
+                        ⚠ 이름·전화번호·생년월일·작업파트를 모두 입력해야 승인됩니다.
+                      </div>
+                    )}
                   </div>
                   <div style={{ display: "grid", alignContent: "start", gap: 10, paddingTop: 22 }}>
                     <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, fontWeight: 600, color: "#334155" }}>
