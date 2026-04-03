@@ -523,238 +523,214 @@ export default function UserMasterPage() {
     });
   };
 
-  return (
-    <div style={{ padding: 18, maxWidth: 1540, margin: "0 auto", fontFamily: "Pretendard, system-ui, -apple-system, Segoe UI, sans-serif" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 900, letterSpacing: "-0.02em" }}>운영/현장 사용자 마스터</h1>
-          <div style={{ marginTop: 6, color: "#667085", fontSize: 13 }}>조회, 상태처리, 일괄수정, 상세수정을 한 화면에서 관리합니다.</div>
-        </div>
-        <button onClick={load} disabled={loading} style={buttonStyle(loading)}>
-          {loading ? "불러오는 중..." : "새로고침"}
-        </button>
-      </div>
-
-      <div
-        style={{
-          ...panelStyle,
-          marginTop: 14,
-          display: "grid",
-          gridTemplateColumns: "1.3fr 1fr 1fr 1.2fr auto auto",
-          gap: 10,
-          alignItems: "center",
-        }}
-      >
-        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 12, color: "#475467", fontWeight: 700 }}>이름</span>
-          <input value={qName} onChange={(e) => setQName(e.target.value)} placeholder="이름 검색" style={inputStyle()} />
-        </label>
-        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 12, color: "#475467", fontWeight: 700 }}>작업파트</span>
-          <select value={qPart} onChange={(e) => setQPart(e.target.value)} style={inputStyle()}>
-            <option value="">전체</option>
-            {partOptions.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 12, color: "#475467", fontWeight: 700 }}>회사명</span>
-          <select value={qCompany} onChange={(e) => setQCompany(e.target.value)} style={inputStyle()}>
-            <option value="">전체</option>
-            {allowedCompanies.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 12, color: "#475467", fontWeight: 700 }}>근무테이블</span>
-          <select value={qWorkTable} onChange={(e) => setQWorkTable(e.target.value)} style={inputStyle()}>
-            <option value="">전체</option>
-            {WORK_TABLE_OPTIONS.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button onClick={load} style={buttonStyle(false, true)}>
-          조회
-        </button>
-        <button
-          onClick={() => setQForeigner((v) => !v)}
-          style={{
-            ...buttonStyle(false, false),
-            background: qForeigner ? "#0F172A" : "#F1F5F9",
-            color: qForeigner ? "#FFFFFF" : "#334155",
-            border: "1px solid #CBD5E1",
-            alignSelf: "flex-end",
-            whiteSpace: "nowrap",
-          }}
+  const statusBadge = (ap: "pending" | "approved" | "rejected", working: boolean, missingInfo: boolean, r: ProfileRow) => {
+    if (ap !== "approved") {
+      return (
+        <select
+          value={ap}
+          onChange={(e) => updateApprovalInline(r.id, e.target.value as "pending" | "approved" | "rejected")}
+          style={{ height: 30, padding: "0 8px", borderRadius: 6, border: "1px solid #D1D9E0", fontSize: 12, fontWeight: 700, background: "#FFF9F0", color: "#92400E", cursor: "pointer" }}
         >
-          외국인만
-        </button>
-      </div>
+          <option value="pending">확인대기</option>
+          <option value="approved">승인</option>
+          <option value="rejected">반려</option>
+        </select>
+      );
+    }
+    if (missingInfo) return <span style={{ display: "inline-block", padding: "3px 9px", borderRadius: 20, background: "#FEF2F2", color: "#B91C1C", fontSize: 11, fontWeight: 800 }}>정보부족</span>;
+    if (working) return <span style={{ display: "inline-block", padding: "3px 9px", borderRadius: 20, background: "#ECFDF5", color: "#065F46", fontSize: 11, fontWeight: 800 }}>근무중</span>;
+    return <span style={{ display: "inline-block", padding: "3px 9px", borderRadius: 20, background: "#F1F5F9", color: "#475569", fontSize: 11, fontWeight: 700 }}>승인</span>;
+  };
 
-      <div
-        style={{
-          ...panelStyle,
-          marginTop: 10,
-          display: "grid",
-          gridTemplateColumns: "auto auto 1fr 1fr auto auto",
-          gap: 10,
-          alignItems: "center",
-          background: selectedCount > 0 ? "#FFF8EF" : "white",
-        }}
-      >
-        <div style={{ fontWeight: 950, fontSize: 13, display: "flex", alignItems: "center", alignSelf: "center", height: 40 }}>
-          선택: <span style={{ fontSize: 14, marginLeft: 4 }}>{selectedCount.toLocaleString()}</span>명
+  const TD: React.CSSProperties = { padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151", whiteSpace: "nowrap" };
+
+  return (
+    <div style={{ padding: "20px 24px", maxWidth: 1540, margin: "0 auto", fontFamily: "Pretendard, system-ui, -apple-system, sans-serif", color: "#1E293B" }}>
+
+      {/* ── 헤더 ── */}
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 20 }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: "#0F172A" }}>운영/현장 사용자 마스터</h1>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: "#94A3B8" }}>조회 · 상태처리 · 일괄수정 · 상세수정을 한 화면에서 관리합니다.</p>
         </div>
-        <div style={{ width: 1, height: 30, alignSelf: "center", background: "rgba(0,0,0,0.08)" }} />
-        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 12, color: "#475467", fontWeight: 700 }}>회사명 일괄 변경</span>
-          <select value={bulkCompany} onChange={(e) => setBulkCompany(e.target.value)} style={inputStyle(selectedCount === 0)}>
-            <option value="">(변경 안함)</option>
-            {allowedCompanies.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 12, color: "#475467", fontWeight: 700 }}>근무테이블 일괄 변경</span>
-          <select value={bulkWorkTable} onChange={(e) => setBulkWorkTable(e.target.value)} style={inputStyle(selectedCount === 0)}>
-            <option value="">(변경 안함)</option>
-            {WORK_TABLE_OPTIONS.map((t) => (
-              <option key={t} value={t}>
-                {workTableTimeOnly(t)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button onClick={applyBulk} disabled={bulkSaving || selectedCount === 0} style={buttonStyle(bulkSaving || selectedCount === 0, true)}>
-          {bulkSaving ? "적용 중..." : "일괄 적용"}
-        </button>
-        <button onClick={() => setSelectedIds(new Set())} disabled={selectedCount === 0} style={buttonStyle(selectedCount === 0)}>
-          선택 해제
+        <button onClick={load} disabled={loading} style={{ ...buttonStyle(loading), display: "flex", alignItems: "center", gap: 6 }}>
+          {loading ? "불러오는 중…" : "새로고침"}
         </button>
       </div>
 
+      {/* ── 검색 필터 ── */}
+      <div style={{ ...card, padding: "16px 18px", marginBottom: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1.3fr auto auto", gap: 10, alignItems: "flex-end" }}>
+          <div>
+            <div style={fieldLabelStyle()}>이름</div>
+            <input value={qName} onChange={(e) => setQName(e.target.value)} placeholder="이름 검색" style={inputStyle()} onKeyDown={(e) => e.key === "Enter" && load()} />
+          </div>
+          <div>
+            <div style={fieldLabelStyle()}>작업파트</div>
+            <select value={qPart} onChange={(e) => setQPart(e.target.value)} style={inputStyle()}>
+              <option value="">전체</option>
+              {partOptions.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={fieldLabelStyle()}>회사명</div>
+            <select value={qCompany} onChange={(e) => setQCompany(e.target.value)} style={inputStyle()}>
+              <option value="">전체</option>
+              {allowedCompanies.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={fieldLabelStyle()}>근무테이블</div>
+            <select value={qWorkTable} onChange={(e) => setQWorkTable(e.target.value)} style={inputStyle()}>
+              <option value="">전체</option>
+              {WORK_TABLE_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <button onClick={load} style={buttonStyle(false, true)}>조회</button>
+          <button
+            onClick={() => setQForeigner((v) => !v)}
+            style={{ ...buttonStyle(false, false), background: qForeigner ? "#1E293B" : "#F1F5F9", color: qForeigner ? "#fff" : "#475569", border: "1px solid " + (qForeigner ? "#1E293B" : "#D1D9E0") }}
+          >
+            외국인만
+          </button>
+        </div>
+      </div>
+
+      {/* ── 일괄 작업 바 ── */}
+      <div style={{ ...card, padding: "12px 18px", marginBottom: 12, background: selectedCount > 0 ? "#FFFBF5" : "#fff", border: selectedCount > 0 ? "1px solid #FDE68A" : "1px solid #E8EDF2", transition: "all 0.15s" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "auto 1px 1fr 1fr auto auto", gap: 12, alignItems: "center" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: selectedCount > 0 ? "#92400E" : "#94A3B8" }}>
+            선택 <span style={{ fontSize: 15, fontWeight: 900, color: selectedCount > 0 ? "#B45309" : "#CBD5E1" }}>{selectedCount}</span>명
+          </div>
+          <div style={{ background: "#E8EDF2", height: 28, width: 1 }} />
+          <div>
+            <div style={fieldLabelStyle()}>회사명 일괄 변경</div>
+            <select value={bulkCompany} onChange={(e) => setBulkCompany(e.target.value)} style={inputStyle(selectedCount === 0)}>
+              <option value="">(변경 안함)</option>
+              {allowedCompanies.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={fieldLabelStyle()}>근무테이블 일괄 변경</div>
+            <select value={bulkWorkTable} onChange={(e) => setBulkWorkTable(e.target.value)} style={inputStyle(selectedCount === 0)}>
+              <option value="">(변경 안함)</option>
+              {WORK_TABLE_OPTIONS.map((t) => <option key={t} value={t}>{workTableTimeOnly(t)}</option>)}
+            </select>
+          </div>
+          <button onClick={applyBulk} disabled={bulkSaving || selectedCount === 0} style={buttonStyle(bulkSaving || selectedCount === 0, true)}>
+            {bulkSaving ? "적용 중…" : "일괄 적용"}
+          </button>
+          <button onClick={() => setSelectedIds(new Set())} disabled={selectedCount === 0} style={buttonStyle(selectedCount === 0)}>
+            선택 해제
+          </button>
+        </div>
+      </div>
+
+      {/* ── 에러 ── */}
       {err && (
-        <div style={{ marginTop: 12, padding: 12, borderRadius: 0, background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: 13, fontWeight: 700 }}>
+        <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 8, background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: 13, fontWeight: 700 }}>
           {err}
         </div>
       )}
 
-      <div style={{ ...panelStyle, marginTop: 12, padding: 0, overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
-          <thead>
-            <tr>
-              <th style={{ background: "#F8FAFC", padding: "12px 10px", borderBottom: "1px solid #E2E8F0", width: 44 }}>
-                <input type="checkbox" checked={allChecked} onChange={toggleAll} />
-              </th>
-              {["회사명", "작업파트", "이름", "전화번호", "나이", "근무테이블", "입사일", "퇴사일", "근속", "상태", "관리"].map((h) => (
-                <th key={h} style={{ background: "#F8FAFC", textAlign: "left", padding: "12px 10px", borderBottom: "1px solid #E2E8F0", fontSize: 12, color: "#475467", fontWeight: 800, whiteSpace: "nowrap" }}>
-                  {h}
+      {/* ── 테이블 ── */}
+      <div style={{ ...card, overflow: "hidden" }}>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "#F8FAFC" }}>
+                <th style={{ ...TD, padding: "10px 12px", fontWeight: 700, color: "#64748B", borderBottom: "2px solid #E8EDF2", width: 44 }}>
+                  <input type="checkbox" checked={allChecked} onChange={toggleAll} />
                 </th>
-              ))}
-            </tr>
-          </thead>
-
-          <tbody>
-            {displayedRows.length === 0 && !loading ? (
-              <tr>
-                <td colSpan={12} style={{ padding: 18, color: "#64748B" }}>
-                  데이터가 없습니다.
-                </td>
+                {["회사명", "파트", "이름", "전화번호", "나이", "근무테이블", "입사일", "퇴사일", "근속", "상태", ""].map((h, i) => (
+                  <th key={i} style={{ ...TD, padding: "10px 12px", fontWeight: 700, color: "#64748B", fontSize: 12, textAlign: "left", borderBottom: "2px solid #E8EDF2" }}>{h}</th>
+                ))}
               </tr>
-            ) : (
-              displayedRows.map((r, idx) => {
-                const ap = normalizeApproval(r.approval_status);
-                const approved = ap === "approved";
-                const working = approved ? isWorkingNow(todayShiftMap[r.id]) : false;
-                const missingInfo = needsExtraInfo(r);
-                const rowBg = idx % 2 === 0 ? "white" : "#FCFDFE";
-                const ageValue = calcAge(r.birthdate);
-                const tenureValue = calcTenureDays(r.join_date, r.leave_date);
+            </thead>
+            <tbody>
+              {displayedRows.length === 0 && !loading ? (
+                <tr>
+                  <td colSpan={12} style={{ padding: 32, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>
+                    {loading ? "불러오는 중…" : "데이터가 없습니다."}
+                  </td>
+                </tr>
+              ) : (
+                displayedRows.map((r) => {
+                  const ap = normalizeApproval(r.approval_status);
+                  const approved = ap === "approved";
+                  const working = approved ? isWorkingNow(todayShiftMap[r.id]) : false;
+                  const missingInfo = needsExtraInfo(r);
+                  const ageValue = calcAge(r.birthdate);
+                  const tenureValue = calcTenureDays(r.join_date, r.leave_date);
+                  const isSelected = selectedIds.has(r.id);
 
-                return (
-                  <tr key={r.id}>
-                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>
-                      <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleOne(r.id)} />
-                    </td>
-                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>{r.company_name ?? "-"}</td>
-                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>{r.work_part ?? "-"}</td>
-                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg, fontWeight: 800 }}>{r.name ?? "-"}</td>
-                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>{formatKRPhone(r.phone)}</td>
-                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>{ageValue == null ? "-" : `${ageValue}세`}</td>
-                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>{workTableShort(r.work_table)}</td>
-                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>{r.join_date ?? "-"}</td>
-                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>{r.leave_date ?? "-"}</td>
-                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>{tenurePretty(tenureValue)}</td>
-                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>
-                      {!approved ? (
-                        <select value={ap} onChange={(e) => updateApprovalInline(r.id, e.target.value as "pending" | "approved" | "rejected")} style={{ height: 32, padding: "0 10px", borderRadius: 4, border: "1px solid #D7DCE2", fontWeight: 700 }}>
-                          <option value="pending">확인대기</option>
-                          <option value="approved">승인</option>
-                          <option value="rejected">반려</option>
-                        </select>
-                      ) : missingInfo ? (
-                        <span style={{ padding: "5px 10px", borderRadius: 4, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontWeight: 800, fontSize: 12 }}>추가정보필요</span>
-                      ) : working ? (
-                        <span style={{ padding: "5px 10px", borderRadius: 4, border: "1px solid #FDBA74", background: "#FFF7ED", color: "#9A3412", fontWeight: 800, fontSize: 12 }}>근무중</span>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                    <td style={{ padding: "10px", borderBottom: "1px solid #EEF2F6", background: rowBg }}>
-                      <button onClick={() => openEdit(r)} style={{ height: 32, padding: "0 12px", borderRadius: 4, border: "1px solid #CBD5E1", background: "white", fontWeight: 800, cursor: "pointer" }}>
-                        수정
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                  return (
+                    <tr key={r.id} style={{ background: isSelected ? "#FFFBF5" : "#fff" }}>
+                      <td style={TD}><input type="checkbox" checked={isSelected} onChange={() => toggleOne(r.id)} /></td>
+                      <td style={{ ...TD, color: "#64748B" }}>{r.company_name ?? "-"}</td>
+                      <td style={{ ...TD, color: "#64748B" }}>{r.work_part ?? "-"}</td>
+                      <td style={{ ...TD, fontWeight: 700, color: "#0F172A" }}>{r.name ?? "-"}</td>
+                      <td style={{ ...TD, color: "#475569" }}>{formatKRPhone(r.phone)}</td>
+                      <td style={{ ...TD, color: "#64748B" }}>{ageValue == null ? "-" : `${ageValue}세`}</td>
+                      <td style={{ ...TD, color: "#64748B" }}>{workTableShort(r.work_table)}</td>
+                      <td style={{ ...TD, color: "#94A3B8", fontSize: 12 }}>{r.join_date ?? "-"}</td>
+                      <td style={{ ...TD, color: "#94A3B8", fontSize: 12 }}>{r.leave_date ?? "-"}</td>
+                      <td style={{ ...TD, color: "#64748B" }}>{tenurePretty(tenureValue)}</td>
+                      <td style={TD}>{statusBadge(ap, working, missingInfo, r)}</td>
+                      <td style={TD}>
+                        <button
+                          onClick={() => openEdit(r)}
+                          style={{ height: 30, padding: "0 14px", borderRadius: 6, border: "1px solid #D1D9E0", background: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", color: "#374151" }}
+                        >
+                          수정
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+        {displayedRows.length > 0 && (
+          <div style={{ padding: "10px 16px", borderTop: "1px solid #F1F5F9", fontSize: 12, color: "#94A3B8", textAlign: "right" }}>
+            총 {displayedRows.length.toLocaleString()}명{qForeigner ? " (외국인 필터 적용)" : ""}
+          </div>
+        )}
       </div>
 
+      {/* ── 수정 모달 ── */}
       {selected && (
         <div
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closeEdit();
-          }}
-          style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.42)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 9999 }}
+          onMouseDown={(e) => { if (e.target === e.currentTarget) closeEdit(); }}
+          style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 9999 }}
         >
-          <div style={{ width: "100%", maxWidth: 860, maxHeight: "88vh", display: "flex", flexDirection: "column", background: "white", borderRadius: 0, overflow: "hidden", boxShadow: "0 30px 60px rgba(2,6,23,0.25)" }}>
-            <div style={{ padding: "16px 18px", borderBottom: "1px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%)" }}>
+          <div style={{ width: "100%", maxWidth: 780, maxHeight: "90vh", display: "flex", flexDirection: "column", background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 24px 60px rgba(2,6,23,0.28)" }}>
+
+            {/* 모달 헤더 */}
+            <div style={{ padding: "18px 22px", borderBottom: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <div style={{ fontWeight: 900, fontSize: 17 }}>사용자 수정</div>
-                <div style={{ marginTop: 3, fontSize: 12, color: "#64748B" }}>{selected.name ?? "-"} / {selected.company_name ?? "-"}</div>
+                <div style={{ fontWeight: 800, fontSize: 16, color: "#0F172A" }}>사용자 수정</div>
+                <div style={{ marginTop: 2, fontSize: 12, color: "#94A3B8" }}>{selected.name ?? "-"} · {selected.company_name ?? "-"}</div>
               </div>
-              <button onClick={closeEdit} style={{ width: 32, height: 32, borderRadius: 4, border: "1px solid #CBD5E1", background: "white", fontSize: 18, lineHeight: 1, cursor: "pointer", color: "#64748B" }}>
-                ×
-              </button>
+              <button onClick={closeEdit} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid #E8EDF2", background: "#F8FAFC", fontSize: 16, cursor: "pointer", color: "#64748B", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
             </div>
 
-            <div style={{ padding: 16, overflowY: "auto", display: "grid", gap: 12 }}>
+            {/* 모달 바디 */}
+            <div style={{ padding: "18px 22px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
+
+              {/* 기본 정보 */}
               <section style={sectionStyle()}>
-                <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10, color: "#0F172A" }}>기본 정보</div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#64748B", marginBottom: 12, letterSpacing: "0.06em", textTransform: "uppercase" }}>기본 정보</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   <div>
                     <div style={fieldLabelStyle()}>이름 *</div>
                     <input value={f.name} onChange={(e) => setF((p) => ({ ...p, name: e.target.value }))} style={inputStyle()} />
                   </div>
                   <div>
-                    <div style={fieldLabelStyle()}>전화번호(숫자만) *</div>
+                    <div style={fieldLabelStyle()}>전화번호 (숫자만) *</div>
                     <input value={f.phone} onChange={(e) => setF((p) => ({ ...p, phone: e.target.value }))} style={inputStyle()} />
-                    <div style={{ marginTop: 6, fontSize: 12, color: "#64748B" }}>표시: {formatKRPhone(f.phone)}</div>
+                    <div style={{ marginTop: 4, fontSize: 11, color: "#94A3B8" }}>{formatKRPhone(f.phone)}</div>
                   </div>
                   <div>
                     <div style={fieldLabelStyle()}>생년월일 *</div>
@@ -764,9 +740,7 @@ export default function UserMasterPage() {
                     <div style={fieldLabelStyle()}>작업파트 *</div>
                     <select value={f.work_part} onChange={(e) => setF((p) => ({ ...p, work_part: e.target.value }))} style={inputStyle()}>
                       <option value="">-</option>
-                      {WORK_PART_ORDER_LIST.map((v) => (
-                        <option key={v} value={v}>{v}</option>
-                      ))}
+                      {WORK_PART_ORDER_LIST.map((v) => <option key={v} value={v}>{v}</option>)}
                     </select>
                   </div>
                   <div>
@@ -781,18 +755,11 @@ export default function UserMasterPage() {
                       style={inputStyle()}
                     >
                       <option value="">-</option>
-                      {nationalityOptions.map((n) => (
-                        <option key={n} value={n}>{n}</option>
-                      ))}
+                      {nationalityOptions.map((n) => <option key={n} value={n}>{n}</option>)}
                       <option value="__custom__">직접입력</option>
                     </select>
                     {f.nationality === "__custom__" && (
-                      <input
-                        value={nationalityCustom}
-                        onChange={(e) => setNationalityCustom(e.target.value)}
-                        style={{ ...inputStyle(), marginTop: 6 }}
-                        placeholder="국적 직접 입력"
-                      />
+                      <input value={nationalityCustom} onChange={(e) => setNationalityCustom(e.target.value)} style={{ ...inputStyle(), marginTop: 6 }} placeholder="국적 직접 입력" />
                     )}
                   </div>
                   {(() => { const nat = (f.nationality === "__custom__" ? nationalityCustom : f.nationality).trim().toUpperCase(); return nat !== "" && nat !== "KR" && nat !== "한국"; })() && (
@@ -804,31 +771,24 @@ export default function UserMasterPage() {
                 </div>
               </section>
 
+              {/* 근무 정보 */}
               <section style={sectionStyle()}>
-                <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10, color: "#0F172A" }}>근무 정보</div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#64748B", marginBottom: 12, letterSpacing: "0.06em", textTransform: "uppercase" }}>근무 정보</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   <div>
                     <div style={fieldLabelStyle()}>회사명</div>
                     <select value={f.company_name} onChange={(e) => setF((p) => ({ ...p, company_name: e.target.value }))} style={inputStyle()}>
                       <option value="">-</option>
-                      {allowedCompanies.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
+                      {allowedCompanies.map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                   <div>
                     <div style={fieldLabelStyle()}>근무테이블</div>
                     <select value={f.work_table} onChange={(e) => setF((p) => ({ ...p, work_table: e.target.value }))} style={inputStyle()}>
                       <option value="">-</option>
-                      {WORK_TABLE_OPTIONS.map((t) => (
-                        <option key={t} value={t}>
-                          {workTableTimeOnly(t)}
-                        </option>
-                      ))}
+                      {WORK_TABLE_OPTIONS.map((t) => <option key={t} value={t}>{workTableTimeOnly(t)}</option>)}
                     </select>
-                    <div style={{ marginTop: 6, fontSize: 12, color: "#64748B" }}>표시명: {workTableShort(f.work_table)}</div>
+                    <div style={{ marginTop: 4, fontSize: 11, color: "#94A3B8" }}>표시: {workTableShort(f.work_table)}</div>
                   </div>
                   <div>
                     <div style={fieldLabelStyle()}>입사일</div>
@@ -839,19 +799,15 @@ export default function UserMasterPage() {
                     <input type="date" value={f.leave_date} onChange={(e) => setF((p) => ({ ...p, leave_date: e.target.value }))} style={inputStyle()} />
                   </div>
                 </div>
-
-                <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <div style={{ border: "1px solid #DDE3EA", borderRadius: 4, padding: "6px 12px", fontSize: 12, fontWeight: 700, color: "#334155", background: "#FFFFFF" }}>
-                    나이: {age == null ? "-" : `${age}세`}
-                  </div>
-                  <div style={{ border: "1px solid #DDE3EA", borderRadius: 4, padding: "6px 12px", fontSize: 12, fontWeight: 700, color: "#334155", background: "#FFFFFF" }}>
-                    근속: {tenureText}
-                  </div>
+                <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+                  <span style={{ padding: "5px 12px", borderRadius: 20, background: "#F1F5F9", fontSize: 12, fontWeight: 700, color: "#475569" }}>나이 {age == null ? "-" : `${age}세`}</span>
+                  <span style={{ padding: "5px 12px", borderRadius: 20, background: "#F1F5F9", fontSize: 12, fontWeight: 700, color: "#475569" }}>근속 {tenureText}</span>
                 </div>
               </section>
 
+              {/* 승인 및 권한 */}
               <section style={sectionStyle()}>
-                <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10, color: "#0F172A" }}>승인 및 권한</div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#64748B", marginBottom: 12, letterSpacing: "0.06em", textTransform: "uppercase" }}>승인 및 권한</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   <div>
                     <div style={fieldLabelStyle()}>승인 상태</div>
@@ -861,72 +817,44 @@ export default function UserMasterPage() {
                       <option value="rejected">반려</option>
                     </select>
                     {f.approval_status === "approved" && (!f.name.trim() || !toKRLocalDigits(f.phone) || !f.birthdate || !f.work_part.trim()) && (
-                      <div style={{ marginTop: 6, fontSize: 12, color: "#DC2626", fontWeight: 700 }}>
-                        ⚠ 이름·전화번호·생년월일·작업파트를 모두 입력해야 승인됩니다.
-                      </div>
+                      <div style={{ marginTop: 6, fontSize: 12, color: "#DC2626", fontWeight: 700 }}>이름·전화번호·생년월일·작업파트를 모두 입력해야 승인됩니다.</div>
                     )}
                   </div>
-                  <div style={{ display: "grid", alignContent: "start", gap: 10, paddingTop: 22 }}>
-                    <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, fontWeight: 600, color: "#334155" }}>
-                      <input
-                        type="checkbox"
-                        checked={f.is_admin}
-                        disabled={isCompanyAdminRole}
-                        onChange={(e) =>
-                          setF((p) => ({
-                            ...p,
-                            is_admin: e.target.checked,
-                            is_general_admin: e.target.checked ? false : p.is_general_admin,
-                            is_company_admin: e.target.checked ? false : p.is_company_admin,
-                          }))
-                        }
-                      />
-                      메인관리자(is_admin)
-                    </label>
-                    <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, fontWeight: 600, color: "#334155" }}>
-                      <input
-                        type="checkbox"
-                        checked={f.is_general_admin}
-                        onChange={(e) =>
-                          setF((p) => ({
-                            ...p,
-                            is_general_admin: e.target.checked,
-                            is_company_admin: e.target.checked ? false : p.is_company_admin,
-                            is_admin: e.target.checked ? false : p.is_admin,
-                          }))
-                        }
-                      />
-                      일반관리자(웹사이트 권한)
-                    </label>
-                    <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, fontWeight: 600, color: "#334155" }}>
-                      <input
-                        type="checkbox"
-                        checked={f.is_company_admin}
-                        onChange={(e) =>
-                          setF((p) => ({
-                            ...p,
-                            is_company_admin: e.target.checked,
-                            is_general_admin: e.target.checked ? false : p.is_general_admin,
-                            is_admin: e.target.checked ? false : p.is_admin,
-                          }))
-                        }
-                      />
-                      업체관리자(조회 권한 구분)
-                    </label>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 22 }}>
+                    {[
+                      { label: "메인관리자", key: "is_admin" as const, disabled: isCompanyAdminRole },
+                      { label: "일반관리자 (웹사이트 권한)", key: "is_general_admin" as const },
+                      { label: "업체관리자 (조회 권한 구분)", key: "is_company_admin" as const },
+                    ].map(({ label, key, disabled }) => (
+                      <label key={key} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, fontWeight: 600, color: "#374151", cursor: disabled ? "not-allowed" : "pointer" }}>
+                        <input
+                          type="checkbox"
+                          checked={!!f[key]}
+                          disabled={disabled}
+                          onChange={(e) => {
+                            const v = e.target.checked;
+                            setF((p) => ({
+                              ...p,
+                              [key]: v,
+                              ...(v ? { is_admin: false, is_general_admin: false, is_company_admin: false } : {}),
+                              [key]: v,
+                            }));
+                          }}
+                        />
+                        {label}
+                      </label>
+                    ))}
                   </div>
                 </div>
               </section>
             </div>
 
-            <div style={{ padding: "12px 16px", borderTop: "1px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, background: "#FFFFFF" }}>
-              <div style={{ fontSize: 12, color: "#64748B" }}>* 승인된 사용자만 근무중 상태가 표시됩니다.</div>
+            {/* 모달 푸터 */}
+            <div style={{ padding: "14px 22px", borderTop: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 12, color: "#94A3B8" }}>승인된 사용자만 근무중 상태가 표시됩니다.</div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={closeEdit} style={buttonStyle(false)}>
-                  취소
-                </button>
-                <button onClick={save} disabled={saving} style={buttonStyle(saving, true)}>
-                  {saving ? "저장 중..." : "저장"}
-                </button>
+                <button onClick={closeEdit} style={buttonStyle(false)}>취소</button>
+                <button onClick={save} disabled={saving} style={buttonStyle(saving, true)}>{saving ? "저장 중…" : "저장"}</button>
               </div>
             </div>
           </div>
