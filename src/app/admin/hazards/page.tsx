@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import type { AccessLevel } from "@/lib/admin-access";
 import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 import { copyCompressedImageUrlToClipboard } from "@/lib/clipboard-image";
+import { uploadFileToR2 } from "@/lib/r2-upload-client";
 
 type ReportRow = {
   id: string;
@@ -684,15 +685,9 @@ export default function AdminHazardsPage() {
       const ext = extFromName(file.name);
       const path = `resolved/${day}/${sessionUid}/${Date.now()}_${randomId()}.${ext}`;
 
-      const { error: upErr } = await supabase.storage.from("hazard-reports").upload(path, file, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: file.type || undefined,
-      });
-      if (upErr) throw upErr;
-
-      const { data: pub } = supabase.storage.from("hazard-reports").getPublicUrl(path);
-      const afterUrl = pub.publicUrl;
+      const { data: { session: sess } } = await supabase.auth.getSession();
+      if (!sess?.access_token) throw new Error("세션이 없습니다. 다시 로그인해 주세요.");
+      const { publicUrl: afterUrl } = await uploadFileToR2({ file, bucket: "hazard-reports", path, accessToken: sess.access_token });
 
       const memo = (afterMemoById[report.id] ?? "").trim();
 
@@ -740,19 +735,11 @@ export default function AdminHazardsPage() {
         const day = toKstDate(report.created_at);
         const ext = extFromName(newFile.name);
         const path = `resolved/${day}/${sessionUid}/${Date.now()}_${randomId()}.${ext}`;
-        const { error: upErr } = await supabase.storage.from("hazard-reports").upload(path, newFile, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: newFile.type || undefined,
-        });
-        if (upErr) throw upErr;
-
-        const { data: pub } = supabase.storage.from("hazard-reports").getPublicUrl(path);
-        if (existing.after_path) {
-          await supabase.storage.from("hazard-reports").remove([existing.after_path]);
-        }
+        const { data: { session: sess2 } } = await supabase.auth.getSession();
+        if (!sess2?.access_token) throw new Error("세션이 없습니다. 다시 로그인해 주세요.");
+        const { publicUrl: newUrl } = await uploadFileToR2({ file: newFile, bucket: "hazard-reports", path, accessToken: sess2.access_token });
         afterPath = path;
-        afterUrl = pub.publicUrl;
+        afterUrl = newUrl;
         improvedAt = new Date().toISOString();
       }
 

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { uploadFileToR2 } from "@/lib/r2-upload-client";
 import { isNoticeBoardKey, NOTICE_BOARD_DEFS, noticeBodyToHtml, type NoticeBoardKey, type NoticePost } from "@/lib/notice-board";
 import {
   boardCardStyle,
@@ -383,15 +384,8 @@ export function BoardForm({ mode, initialBoard, initialItem }: BoardFormProps) {
 
     const ext = extFromMimeType(file.type);
     const path = `notices/${boardKey}/${session.user.id}/${Date.now()}_${randomId()}.${ext}`;
-    const { error: uploadError } = await supabase.storage.from("hazard-reports").upload(path, file, {
-      cacheControl: "3600",
-      upsert: false,
-      contentType: file.type || undefined,
-    });
-    if (uploadError) throw uploadError;
-
-    const { data: publicData } = supabase.storage.from("hazard-reports").getPublicUrl(path);
-    return publicData.publicUrl;
+    const { publicUrl } = await uploadFileToR2({ file, bucket: "hazard-reports", path, accessToken: session.access_token });
+    return publicUrl;
   };
 
   const createImageWrapper = (imageUrl: string) => {

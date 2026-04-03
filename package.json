@@ -10,6 +10,8 @@
     "sync:store-master": "node scripts/sync-store-master-from-elogis.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1023.0",
+    "@aws-sdk/s3-request-presigner": "^3.1023.0",
     "@supabase/supabase-js": "^2.91.1",
     "date-fns": "^4.1.0",
     "html-to-image": "^1.11.13",
