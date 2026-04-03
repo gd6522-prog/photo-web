@@ -169,6 +169,10 @@ export default function AdminPhotosPage() {
     return ["ALL", ...arr];
   }, [stores]);
 
+  const ZONE_ORDER: Record<string, number> = {
+    "박스존": 0, "이너존": 1, "슬라존": 2, "경량존": 3, "이형존": 4, "담배존": 5,
+  };
+
   const photosByStore = useMemo(() => {
     const groups: Record<string, PhotoRow[]> = {};
     for (const p of photos) {
@@ -176,7 +180,12 @@ export default function AdminPhotosPage() {
       groups[p.store_code].push(p);
     }
     for (const k of Object.keys(groups)) {
-      groups[k].sort((a, b) => (a.created_at > b.created_at ? -1 : 1));
+      groups[k].sort((a, b) => {
+        const za = ZONE_ORDER[a.work_part ?? ""] ?? 99;
+        const zb = ZONE_ORDER[b.work_part ?? ""] ?? 99;
+        if (za !== zb) return za - zb;
+        return a.created_at > b.created_at ? -1 : 1;
+      });
     }
     return groups;
   }, [photos]);
