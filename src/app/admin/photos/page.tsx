@@ -101,7 +101,6 @@ const WORK_PART_OPTIONS = [
   { label: "경량존", value: "경량존" },
   { label: "이형존", value: "이형존" },
   { label: "담배존", value: "담배존" },
-  { label: "배송", value: "배송" },
 ];
 
 export default function AdminPhotosPage() {
