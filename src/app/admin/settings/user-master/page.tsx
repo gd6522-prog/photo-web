@@ -201,6 +201,7 @@ export default function UserMasterPage() {
   const [qPart, setQPart] = useState("");
   const [qCompany, setQCompany] = useState("");
   const [qWorkTable, setQWorkTable] = useState("");
+  const [qForeigner, setQForeigner] = useState(false);
 
   const [rows, setRows] = useState<ProfileRow[]>([]);
   const [selected, setSelected] = useState<ProfileRow | null>(null);
@@ -481,6 +482,14 @@ export default function UserMasterPage() {
     }
   };
 
+  const displayedRows = useMemo(() => {
+    if (!qForeigner) return rows;
+    return rows.filter((r) => {
+      const nat = (r.nationality ?? "").trim().toUpperCase();
+      return nat !== "" && nat !== "KR" && nat !== "한국";
+    });
+  }, [rows, qForeigner]);
+
   const partOptions = useMemo(() => {
     const arr = uniq(rows.map((r) => String(r.work_part ?? "")));
     return arr.sort((a, b) => {
@@ -529,7 +538,7 @@ export default function UserMasterPage() {
           ...panelStyle,
           marginTop: 14,
           display: "grid",
-          gridTemplateColumns: "1.3fr 1fr 1fr 1.2fr auto",
+          gridTemplateColumns: "1.3fr 1fr 1fr 1.2fr auto auto",
           gap: 10,
           alignItems: "center",
         }}
@@ -573,6 +582,19 @@ export default function UserMasterPage() {
         </label>
         <button onClick={load} style={buttonStyle(false, true)}>
           조회
+        </button>
+        <button
+          onClick={() => setQForeigner((v) => !v)}
+          style={{
+            ...buttonStyle(false, false),
+            background: qForeigner ? "#0F172A" : "#F1F5F9",
+            color: qForeigner ? "#FFFFFF" : "#334155",
+            border: "1px solid #CBD5E1",
+            alignSelf: "flex-end",
+            whiteSpace: "nowrap",
+          }}
+        >
+          외국인만
         </button>
       </div>
 

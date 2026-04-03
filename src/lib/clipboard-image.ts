@@ -10,21 +10,6 @@ const DEFAULT_MAX_BYTES = 1024 * 1024;
 const DEFAULT_MAX_DIMENSION = 1600;
 const DEFAULT_MIN_DIMENSION = 480;
 
-function ensureClipboardSupport() {
-  const hasClipboardWrite = !!(navigator.clipboard as { write?: unknown })?.write;
-  const hasClipboardItem = typeof (window as unknown as { ClipboardItem?: unknown }).ClipboardItem !== "undefined";
-  if (!hasClipboardWrite || !hasClipboardItem) {
-    throw new Error("현재 브라우저는 이미지 클립보드를 지원하지 않습니다.");
-  }
-}
-
-async function ensureFocusedDocument() {
-  if (!document.hasFocus()) {
-    window.focus();
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-}
-
 async function fetchImageBlob(url: string) {
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`이미지 조회 실패: ${res.status}`);
@@ -113,29 +98,7 @@ async function makeCompressedClipboardBlob(
   throw new Error("이미지 압축에 실패했습니다.");
 }
 
-async function writeBlobToClipboard(blob: Blob) {
-  const clipboard = navigator.clipboard as unknown as { write: (items: unknown[]) => Promise<void> };
-  const clipboardCtor = window as unknown as {
-    ClipboardItem: (new (arg: Record<string, Blob>) => unknown) & { supports?: (type: string) => boolean };
-  };
-
-  const mime = blob.type || "image/jpeg";
-  const supports =
-    typeof clipboardCtor.ClipboardItem?.supports === "function"
-      ? clipboardCtor.ClipboardItem.supports.bind(clipboardCtor.ClipboardItem)
-      : null;
-
-  if (supports && !supports(mime)) {
-    throw new Error(`UNSUPPORTED:${mime}`);
-  }
-
-  const item = new clipboardCtor.ClipboardItem({ [mime]: blob });
-  await clipboard.write([item]);
-}
-
 export async function copyCompressedImageUrlToClipboard(url: string, options?: ClipboardImageOptions) {
-  ensureClipboardSupport();
-
   const clipboard = navigator.clipboard as unknown as { write: (items: unknown[]) => Promise<void> };
   const clipboardCtor = window as unknown as {
     ClipboardItem: new (arg: Record<string, Promise<Blob>>) => unknown;
