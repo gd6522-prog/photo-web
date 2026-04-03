@@ -38,12 +38,11 @@ type ProfileRow = {
 const DELIVERY_OPTIONS = ["당일", "전일", "익일"] as const;
 const VEHICLE_OPTIONS = ["1.5T", "2.5T", "3.5T"] as const;
 
-const panelStyle: React.CSSProperties = {
-  padding: 14,
-  borderRadius: 0,
-  border: "1px solid #E2E8F0",
-  background: "white",
-  boxShadow: "0 12px 30px rgba(15, 23, 42, 0.06)",
+const card: React.CSSProperties = {
+  background: "#fff",
+  borderRadius: 10,
+  border: "1px solid #E8EDF2",
+  boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
 };
 
 function kstTodayYMD(): string {
@@ -128,26 +127,40 @@ function formatKRPhone(raw: string | null): string {
 function inputStyle(disabled?: boolean): React.CSSProperties {
   return {
     width: "100%",
-    padding: "10px 12px",
-    borderRadius: 0,
-    border: "1px solid rgba(0,0,0,0.15)",
-    background: disabled ? "rgba(0,0,0,0.03)" : "white",
+    height: 38,
+    padding: "0 11px",
+    borderRadius: 7,
+    border: "1px solid #D1D9E0",
+    background: disabled ? "#F5F7F9" : "#fff",
+    fontSize: 13,
+    color: "#1E293B",
     outline: "none",
+    boxSizing: "border-box",
   };
 }
 
 function buttonStyle(disabled?: boolean, dark?: boolean): React.CSSProperties {
   return {
-    height: 40,
-    padding: "0 14px",
-    borderRadius: 0,
-    border: "1px solid rgba(0,0,0,0.15)",
-    background: dark ? "black" : "white",
-    color: dark ? "white" : "black",
-    fontWeight: 950,
+    height: 38,
+    padding: "0 16px",
+    borderRadius: 7,
+    border: dark ? "none" : "1px solid #D1D9E0",
+    background: dark ? "#1E293B" : "#fff",
+    color: dark ? "#fff" : "#374151",
+    fontWeight: 700,
+    fontSize: 13,
     cursor: disabled ? "not-allowed" : "pointer",
-    opacity: disabled ? 0.7 : 1,
+    opacity: disabled ? 0.5 : 1,
+    whiteSpace: "nowrap" as const,
   };
+}
+
+function fieldLabelStyle(): React.CSSProperties {
+  return { fontSize: 11, color: "#64748B", marginBottom: 5, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" as const };
+}
+
+function sectionStyle(): React.CSSProperties {
+  return { border: "1px solid #EEF2F7", borderRadius: 8, padding: 16, background: "#FAFBFC" };
 }
 
 function normalizeApproval(v: string | null): "pending" | "approved" | "rejected" {
@@ -169,56 +182,6 @@ function isWorkingNow(today: { inAt: string | null; outAt: string | null } | und
   return !!today?.inAt && !today?.outAt;
 }
 
-function approvalBadgeStyle(status: "pending" | "approved" | "rejected"): React.CSSProperties {
-  if (status === "approved") {
-    return {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      minWidth: 72,
-      height: 34,
-      padding: "0 12px",
-      borderRadius: 4,
-      border: "1px solid rgba(34,197,94,0.28)",
-      background: "rgba(34,197,94,0.12)",
-      color: "#166534",
-      fontSize: 12,
-      fontWeight: 950,
-    };
-  }
-
-  if (status === "rejected") {
-    return {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      minWidth: 72,
-      height: 34,
-      padding: "0 12px",
-      borderRadius: 4,
-      border: "1px solid rgba(239,68,68,0.24)",
-      background: "rgba(239,68,68,0.10)",
-      color: "#b91c1c",
-      fontSize: 12,
-      fontWeight: 950,
-    };
-  }
-
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minWidth: 72,
-    height: 34,
-    padding: "0 12px",
-    borderRadius: 4,
-    border: "1px solid rgba(245,158,11,0.26)",
-    background: "rgba(245,158,11,0.10)",
-    color: "#b45309",
-    fontSize: 12,
-    fontWeight: 950,
-  };
-}
 
 function isDriverPart(part: string | null | undefined): boolean {
   const s = String(part ?? "").trim();
@@ -625,398 +588,289 @@ export default function DriverMasterPage() {
   };
 
 
+  const TD: React.CSSProperties = { padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151", whiteSpace: "nowrap" };
+
   return (
-    <div style={{ padding: 16, maxWidth: 1600, margin: "0 auto", fontFamily: "system-ui" }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 950, margin: 0 }}>기사 사용자 마스터</h1>
-        <button onClick={load} disabled={loading} style={buttonStyle(loading)}>
-          {loading ? "불러오는 중..." : "새로고침"}
-        </button>
-      </div>
+    <div style={{ padding: "20px 24px", maxWidth: 1600, margin: "0 auto", fontFamily: "Pretendard, system-ui, -apple-system, sans-serif", color: "#1E293B" }}>
 
-      {/* Filters */}
-      <div
-        style={{
-          ...panelStyle,
-          marginTop: 12,
-          display: "grid",
-          gridTemplateColumns: "minmax(220px, 1.3fr) minmax(160px, 0.9fr) minmax(220px, 1.2fr) minmax(180px, 0.9fr) minmax(160px, 0.8fr) auto",
-          gap: 12,
-          alignItems: "end",
-        }}
-      >
-        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 12, color: "#475467", fontWeight: 700 }}>이름</span>
-          <input value={qName} onChange={(e) => setQName(e.target.value)} placeholder="기사 이름 검색" style={inputStyle()} />
-        </label>
-
-        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 12, color: "#475467", fontWeight: 700 }}>차량번호</span>
-          <input value={qCarNo} onChange={(e) => setQCarNo(e.target.value)} placeholder="예: 1" style={inputStyle()} inputMode="numeric" />
-        </label>
-
-        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 12, color: "#475467", fontWeight: 700 }}>운수사</span>
-          <input value={qCarrier} onChange={(e) => setQCarrier(e.target.value)} placeholder="운수사 검색" style={inputStyle()} />
-        </label>
-
-        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 12, color: "#475467", fontWeight: 700 }}>배송구분</span>
-          <select value={qDelivery} onChange={(e) => setQDelivery(e.target.value)} style={inputStyle()}>
-            <option value="">전체</option>
-            {DELIVERY_OPTIONS.map((x) => (
-              <option key={x} value={x}>
-                {x}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 12, color: "#475467", fontWeight: 700 }}>차종</span>
-          <select value={qVehicle} onChange={(e) => setQVehicle(e.target.value)} style={inputStyle()}>
-            <option value="">전체</option>
-            {VEHICLE_OPTIONS.map((x) => (
-              <option key={x} value={x}>
-                {x}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <button onClick={load} style={buttonStyle(false, true)}>
-          조회
-        </button>
-      </div>
-
-      {/* Bulk bar */}
-      <div
-        style={{
-          marginTop: 10,
-          padding: 12,
-          borderRadius: 0,
-          border: "1px solid rgba(0,0,0,0.08)",
-          background: selectedCount > 0 ? "#FFF7ED" : "white",
-          display: "flex",
-          gap: 10,
-          flexWrap: "wrap",
-          alignItems: "center",
-        }}
-      >
-        <div style={{ fontWeight: 950, fontSize: 13 }}>
-          선택: <span style={{ fontSize: 14 }}>{selectedCount.toLocaleString()}</span>명
+      {/* ── 헤더 ── */}
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 20 }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: "#0F172A" }}>기사 사용자 마스터</h1>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: "#94A3B8" }}>기사 조회 · 차량정보 · 상태처리 · 일괄수정을 한 화면에서 관리합니다.</p>
         </div>
-
-        <div style={{ width: 1, height: 22, background: "rgba(0,0,0,0.08)" }} />
-
-        <label style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 260 }}>
-          <span style={{ width: 60, fontSize: 13, opacity: 0.8 }}>운수사</span>
-          <input value={bulkCarrier} onChange={(e) => setBulkCarrier(e.target.value)} placeholder="(변경안함)" style={inputStyle(selectedCount === 0)} />
-        </label>
-
-        <label style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 240 }}>
-          <span style={{ width: 60, fontSize: 13, opacity: 0.8 }}>차종</span>
-          <select value={bulkVehicle} onChange={(e) => setBulkVehicle(e.target.value)} style={inputStyle(selectedCount === 0)}>
-            <option value="">(변경안함)</option>
-            {VEHICLE_OPTIONS.map((x) => (
-              <option key={x} value={x}>
-                {x}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 240 }}>
-          <span style={{ width: 80, fontSize: 13, opacity: 0.8 }}>배송구분</span>
-          <select value={bulkDelivery} onChange={(e) => setBulkDelivery(e.target.value)} style={inputStyle(selectedCount === 0)}>
-            <option value="">(변경안함)</option>
-            {DELIVERY_OPTIONS.map((x) => (
-              <option key={x} value={x}>
-                {x}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <button onClick={applyBulk} disabled={bulkSaving || selectedCount === 0} style={buttonStyle(bulkSaving || selectedCount === 0, true)}>
-          {bulkSaving ? "일괄 적용 중..." : "일괄 적용"}
-        </button>
-
-        <button onClick={clearSelection} disabled={selectedCount === 0} style={buttonStyle(selectedCount === 0)}>
-          선택해제
+        <button onClick={load} disabled={loading} style={buttonStyle(loading)}>
+          {loading ? "불러오는 중…" : "새로고침"}
         </button>
       </div>
 
+      {/* ── 검색 필터 ── */}
+      <div style={{ ...card, padding: "16px 18px", marginBottom: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1.3fr 0.8fr 1.1fr 0.9fr 0.8fr auto", gap: 10, alignItems: "flex-end" }}>
+          <div>
+            <div style={fieldLabelStyle()}>이름</div>
+            <input value={qName} onChange={(e) => setQName(e.target.value)} placeholder="기사 이름 검색" style={inputStyle()} onKeyDown={(e) => e.key === "Enter" && load()} />
+          </div>
+          <div>
+            <div style={fieldLabelStyle()}>차량번호</div>
+            <input value={qCarNo} onChange={(e) => setQCarNo(e.target.value)} placeholder="예: 1" style={inputStyle()} inputMode="numeric" />
+          </div>
+          <div>
+            <div style={fieldLabelStyle()}>운수사</div>
+            <input value={qCarrier} onChange={(e) => setQCarrier(e.target.value)} placeholder="운수사 검색" style={inputStyle()} />
+          </div>
+          <div>
+            <div style={fieldLabelStyle()}>배송구분</div>
+            <select value={qDelivery} onChange={(e) => setQDelivery(e.target.value)} style={inputStyle()}>
+              <option value="">전체</option>
+              {DELIVERY_OPTIONS.map((x) => <option key={x} value={x}>{x}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={fieldLabelStyle()}>차종</div>
+            <select value={qVehicle} onChange={(e) => setQVehicle(e.target.value)} style={inputStyle()}>
+              <option value="">전체</option>
+              {VEHICLE_OPTIONS.map((x) => <option key={x} value={x}>{x}</option>)}
+            </select>
+          </div>
+          <button onClick={load} style={buttonStyle(false, true)}>조회</button>
+        </div>
+      </div>
+
+      {/* ── 일괄 작업 바 ── */}
+      <div style={{ ...card, padding: "12px 18px", marginBottom: 12, background: selectedCount > 0 ? "#FFFBF5" : "#fff", border: selectedCount > 0 ? "1px solid #FDE68A" : "1px solid #E8EDF2" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "auto 1px 1fr 1fr 1fr auto auto", gap: 12, alignItems: "center" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: selectedCount > 0 ? "#92400E" : "#94A3B8" }}>
+            선택 <span style={{ fontSize: 15, fontWeight: 900, color: selectedCount > 0 ? "#B45309" : "#CBD5E1" }}>{selectedCount}</span>명
+          </div>
+          <div style={{ background: "#E8EDF2", height: 28, width: 1 }} />
+          <div>
+            <div style={fieldLabelStyle()}>운수사 일괄 변경</div>
+            <input value={bulkCarrier} onChange={(e) => setBulkCarrier(e.target.value)} placeholder="(변경 안함)" style={inputStyle(selectedCount === 0)} />
+          </div>
+          <div>
+            <div style={fieldLabelStyle()}>차종 일괄 변경</div>
+            <select value={bulkVehicle} onChange={(e) => setBulkVehicle(e.target.value)} style={inputStyle(selectedCount === 0)}>
+              <option value="">(변경 안함)</option>
+              {VEHICLE_OPTIONS.map((x) => <option key={x} value={x}>{x}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={fieldLabelStyle()}>배송구분 일괄 변경</div>
+            <select value={bulkDelivery} onChange={(e) => setBulkDelivery(e.target.value)} style={inputStyle(selectedCount === 0)}>
+              <option value="">(변경 안함)</option>
+              {DELIVERY_OPTIONS.map((x) => <option key={x} value={x}>{x}</option>)}
+            </select>
+          </div>
+          <button onClick={applyBulk} disabled={bulkSaving || selectedCount === 0} style={buttonStyle(bulkSaving || selectedCount === 0, true)}>
+            {bulkSaving ? "적용 중…" : "일괄 적용"}
+          </button>
+          <button onClick={clearSelection} disabled={selectedCount === 0} style={buttonStyle(selectedCount === 0)}>선택 해제</button>
+        </div>
+      </div>
+
+      {/* ── 에러 ── */}
       {err && (
-        <div style={{ marginTop: 12, padding: 12, borderRadius: 0, background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.18)", color: "rgba(120,0,0,0.9)", fontSize: 13 }}>
+        <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 8, background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: 13, fontWeight: 700 }}>
           {err}
         </div>
       )}
 
-      {/* Table */}
-      <div style={{ marginTop: 12, overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, background: "white" }}>
-          <thead>
-            <tr>
-              <th style={{ position: "sticky", top: 0, background: "white", padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.08)", width: 44 }}>
-                <input type="checkbox" checked={allChecked} onChange={toggleAll} />
-              </th>
-
-              {[
-                "이름",
-                "호차",
-                "차량번호",
-                "차종",
-                "운수사",
-                "전화번호",
-                "차고지",
-                "상태",
-                "상세",
-              ].map((h) => (
-                <th
-                  key={h}
-                  style={{
-                    position: "sticky",
-                    top: 0,
-                    background: "white",
-                    textAlign: "left",
-                    fontSize: 12,
-                    opacity: 0.85,
-                    padding: "10px 10px",
-                    borderBottom: "1px solid rgba(0,0,0,0.08)",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {h}
+      {/* ── 테이블 ── */}
+      <div style={{ ...card, overflow: "hidden" }}>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "#F8FAFC" }}>
+                <th style={{ ...TD, padding: "10px 12px", fontWeight: 700, color: "#64748B", borderBottom: "2px solid #E8EDF2", width: 44 }}>
+                  <input type="checkbox" checked={allChecked} onChange={toggleAll} />
                 </th>
-              ))}
-            </tr>
-          </thead>
-
-          <tbody>
-            {rows.length === 0 && !loading ? (
-              <tr>
-                <td colSpan={9} style={{ padding: 16, opacity: 0.7 }}>
-                  데이터 없음
-                </td>
+                {["이름", "호차 / 배송구분", "차량번호판", "차종", "운수사", "전화번호", "차고지", "상태", ""].map((h, i) => (
+                  <th key={i} style={{ ...TD, padding: "10px 12px", fontWeight: 700, color: "#64748B", fontSize: 12, textAlign: "left", borderBottom: "2px solid #E8EDF2" }}>{h}</th>
+                ))}
               </tr>
-            ) : (
-              rows.map((r) => {
-                const ap = normalizeApproval(r.approval_status);
-                const approved = ap === "approved";
-                const working = approved ? isWorkingNow(todayShiftMap[r.id]) : false;
-                return (
-                  <tr key={r.id}>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-                      <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleOne(r.id)} />
-                    </td>
-
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)", fontWeight: 950 }}>{r.name ?? "-"}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)", fontWeight: 800 }}>{displayCarWithDelivery(r)}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.vehicle_number ?? "-"}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.vehicle_type ?? "-"}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.carrier ?? "-"}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{formatKRPhone(r.phone)}</td>
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>{r.garage ?? "-"}</td>
-
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-                      {!approved ? (
-                        <select value={ap} onChange={(e) => updateApprovalInline(r.id, e.target.value as "pending" | "approved" | "rejected")} style={{ height: 32, padding: "0 10px", borderRadius: 8, border: "1px solid #D7DCE2", fontWeight: 700 }}>
-                          <option value="pending">확인대기</option>
-                          <option value="approved">승인</option>
-                          <option value="rejected">반려</option>
-                        </select>
-                      ) : working ? (
-                        <span style={{ padding: "5px 10px", borderRadius: 999, border: "1px solid #FDBA74", background: "#FFF7ED", color: "#9A3412", fontWeight: 800, fontSize: 12 }}>근무중</span>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-
-                    <td style={{ padding: "10px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-                      <button
-                        onClick={() => openEdit(r)}
-                        style={{ height: 32, padding: "0 12px", borderRadius: 4, border: "1px solid #CBD5E1", background: "white", fontWeight: 800, cursor: "pointer" }}
-                      >
-                        수정
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.length === 0 && !loading ? (
+                <tr>
+                  <td colSpan={10} style={{ padding: 32, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>
+                    데이터가 없습니다.
+                  </td>
+                </tr>
+              ) : (
+                rows.map((r) => {
+                  const ap = normalizeApproval(r.approval_status);
+                  const approved = ap === "approved";
+                  const working = approved ? isWorkingNow(todayShiftMap[r.id]) : false;
+                  const isSelected = selectedIds.has(r.id);
+                  return (
+                    <tr key={r.id} style={{ background: isSelected ? "#FFFBF5" : "#fff" }}>
+                      <td style={TD}><input type="checkbox" checked={isSelected} onChange={() => toggleOne(r.id)} /></td>
+                      <td style={{ ...TD, fontWeight: 700, color: "#0F172A" }}>{r.name ?? "-"}</td>
+                      <td style={{ ...TD, color: "#475569" }}>{displayCarWithDelivery(r)}</td>
+                      <td style={{ ...TD, color: "#64748B" }}>{r.vehicle_number ?? "-"}</td>
+                      <td style={{ ...TD, color: "#64748B" }}>{r.vehicle_type ?? "-"}</td>
+                      <td style={{ ...TD, color: "#64748B" }}>{r.carrier ?? "-"}</td>
+                      <td style={{ ...TD, color: "#475569" }}>{formatKRPhone(r.phone)}</td>
+                      <td style={{ ...TD, color: "#64748B" }}>{r.garage ?? "-"}</td>
+                      <td style={TD}>
+                        {!approved ? (
+                          <select value={ap} onChange={(e) => updateApprovalInline(r.id, e.target.value as "pending" | "approved" | "rejected")} style={{ height: 30, padding: "0 8px", borderRadius: 6, border: "1px solid #D1D9E0", fontSize: 12, fontWeight: 700, background: "#FFF9F0", color: "#92400E", cursor: "pointer" }}>
+                            <option value="pending">확인대기</option>
+                            <option value="approved">승인</option>
+                            <option value="rejected">반려</option>
+                          </select>
+                        ) : working ? (
+                          <span style={{ display: "inline-block", padding: "3px 9px", borderRadius: 20, background: "#ECFDF5", color: "#065F46", fontSize: 11, fontWeight: 800 }}>근무중</span>
+                        ) : (
+                          <span style={{ display: "inline-block", padding: "3px 9px", borderRadius: 20, background: "#F1F5F9", color: "#475569", fontSize: 11, fontWeight: 700 }}>승인</span>
+                        )}
+                      </td>
+                      <td style={TD}>
+                        <button onClick={() => openEdit(r)} style={{ height: 30, padding: "0 14px", borderRadius: 6, border: "1px solid #D1D9E0", background: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", color: "#374151" }}>
+                          수정
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+        {rows.length > 0 && (
+          <div style={{ padding: "10px 16px", borderTop: "1px solid #F1F5F9", fontSize: 12, color: "#94A3B8", textAlign: "right" }}>
+            총 {rows.length.toLocaleString()}명
+          </div>
+        )}
       </div>
 
-      {/* Edit Modal */}
+      {/* ── 수정 모달 ── */}
       {selected && (
         <div
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closeEdit();
-          }}
-          style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.42)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 9999 }}
+          onMouseDown={(e) => { if (e.target === e.currentTarget) closeEdit(); }}
+          style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 9999 }}
         >
-          <div style={{ width: "100%", maxWidth: 860, maxHeight: "88vh", display: "flex", flexDirection: "column", background: "white", borderRadius: 0, overflow: "hidden", boxShadow: "0 30px 60px rgba(2,6,23,0.25)" }}>
-            <div style={{ padding: "16px 18px", borderBottom: "1px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%)" }}>
-              <div style={{ fontWeight: 950, fontSize: 16 }}>기사 사용자 수정</div>
-              <button onClick={closeEdit} style={{ width: 32, height: 32, borderRadius: 4, border: "1px solid #CBD5E1", background: "white", fontSize: 18, lineHeight: 1, cursor: "pointer", color: "#64748B" }}>
-                ×
-              </button>
+          <div style={{ width: "100%", maxWidth: 820, maxHeight: "90vh", display: "flex", flexDirection: "column", background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 24px 60px rgba(2,6,23,0.28)" }}>
+
+            {/* 모달 헤더 */}
+            <div style={{ padding: "18px 22px", borderBottom: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 16, color: "#0F172A" }}>기사 수정</div>
+                <div style={{ marginTop: 2, fontSize: 12, color: "#94A3B8" }}>{selected.name ?? "-"} · {displayCarWithDelivery(selected)}</div>
+              </div>
+              <button onClick={closeEdit} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid #E8EDF2", background: "#F8FAFC", fontSize: 16, cursor: "pointer", color: "#64748B", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
             </div>
 
-            <div style={{ padding: 16, overflowY: "auto" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>이름</div>
-                  <input value={f.name} onChange={(e) => setF((p) => ({ ...p, name: e.target.value }))} style={inputStyle()} />
-                </div>
+            {/* 모달 바디 */}
+            <div style={{ padding: "18px 22px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
 
-                <div>
-                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>전화번호(010만 입력)</div>
-                  <input value={f.phone} onChange={(e) => setF((p) => ({ ...p, phone: e.target.value }))} style={inputStyle()} placeholder="01099237924" />
-                  <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>표시: {formatKRPhone(f.phone)}</div>
-                </div>
-
-                <div>
-                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>생년월일</div>
-                  <input value={f.birthdate} onChange={(e) => setF((p) => ({ ...p, birthdate: e.target.value }))} style={inputStyle()} type="date" />
-                </div>
-
-                <div>
-                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>차량번호</div>
-                  <input value={f.vehicle_number} onChange={(e) => setF((p) => ({ ...p, vehicle_number: e.target.value }))} style={inputStyle()} placeholder="예: 경기12가3456" />
-                </div>
-
-                <div>
-                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>작업파트(기사)</div>
-                  <input value={f.work_part} onChange={(e) => setF((p) => ({ ...p, work_part: e.target.value }))} style={inputStyle()} placeholder="기사" />
-                  <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>* 저장 시 기사로 자동 보정됩니다.</div>
-                </div>
-
-                {/* 차량 */}
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>호차 (최대 4대)</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                    <input value={f.car_no_1} onChange={(e) => setF((p) => ({ ...p, car_no_1: e.target.value }))} style={inputStyle()} placeholder="차량1 (예: 1)" inputMode="numeric" />
-                    <input value={f.car_no_2} onChange={(e) => setF((p) => ({ ...p, car_no_2: e.target.value }))} style={inputStyle()} placeholder="차량2" inputMode="numeric" />
-                    <input value={f.car_no_3} onChange={(e) => setF((p) => ({ ...p, car_no_3: e.target.value }))} style={inputStyle()} placeholder="차량3" inputMode="numeric" />
-                    <input value={f.car_no_4} onChange={(e) => setF((p) => ({ ...p, car_no_4: e.target.value }))} style={inputStyle()} placeholder="차량4" inputMode="numeric" />
+              {/* 기본 정보 */}
+              <section style={sectionStyle()}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#64748B", marginBottom: 12, letterSpacing: "0.06em", textTransform: "uppercase" }}>기본 정보</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <div style={fieldLabelStyle()}>이름</div>
+                    <input value={f.name} onChange={(e) => setF((p) => ({ ...p, name: e.target.value }))} style={inputStyle()} />
                   </div>
-                  <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>
-                    표시값: <b>{displayCarNo(normalizeCarNoInput(f.car_no_1, f.car_no_2, f.car_no_3, f.car_no_4))}</b>
+                  <div>
+                    <div style={fieldLabelStyle()}>전화번호 (숫자만)</div>
+                    <input value={f.phone} onChange={(e) => setF((p) => ({ ...p, phone: e.target.value }))} style={inputStyle()} placeholder="01012345678" />
+                    <div style={{ marginTop: 4, fontSize: 11, color: "#94A3B8" }}>{formatKRPhone(f.phone)}</div>
+                  </div>
+                  <div>
+                    <div style={fieldLabelStyle()}>생년월일</div>
+                    <input type="date" value={f.birthdate} onChange={(e) => setF((p) => ({ ...p, birthdate: e.target.value }))} style={inputStyle()} />
+                  </div>
+                  <div>
+                    <div style={fieldLabelStyle()}>차량번호판</div>
+                    <input value={f.vehicle_number} onChange={(e) => setF((p) => ({ ...p, vehicle_number: e.target.value }))} style={inputStyle()} placeholder="예: 경기12가3456" />
                   </div>
                 </div>
-
-                {/* 배송구분 / 차종 / 운수사 */}
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>배송구분</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                    <select value={f.delivery_type} onChange={(e) => setF((p) => ({ ...p, delivery_type: e.target.value }))} style={inputStyle()}>
-                      <option value="">차량1 -</option>
-                      {DELIVERY_OPTIONS.map((x) => (
-                        <option key={"delivery1-" + x} value={x}>
-                          {x}
-                        </option>
-                      ))}
-                    </select>
-                    <select value={f.delivery_type_2} onChange={(e) => setF((p) => ({ ...p, delivery_type_2: e.target.value }))} style={inputStyle()}>
-                      <option value="">차량2 -</option>
-                      {DELIVERY_OPTIONS.map((x) => (
-                        <option key={"delivery2-" + x} value={x}>
-                          {x}
-                        </option>
-                      ))}
-                    </select>
-                    <select value={f.delivery_type_3} onChange={(e) => setF((p) => ({ ...p, delivery_type_3: e.target.value }))} style={inputStyle()}>
-                      <option value="">차량3 -</option>
-                      {DELIVERY_OPTIONS.map((x) => (
-                        <option key={"delivery3-" + x} value={x}>
-                          {x}
-                        </option>
-                      ))}
-                    </select>
-                    <select value={f.delivery_type_4} onChange={(e) => setF((p) => ({ ...p, delivery_type_4: e.target.value }))} style={inputStyle()}>
-                      <option value="">차량4 -</option>
-                      {DELIVERY_OPTIONS.map((x) => (
-                        <option key={"delivery4-" + x} value={x}>
-                          {x}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+                  <span style={{ padding: "5px 12px", borderRadius: 20, background: "#F1F5F9", fontSize: 12, fontWeight: 700, color: "#475569" }}>나이 {age == null ? "-" : `${age}세`}</span>
+                  <span style={{ padding: "5px 12px", borderRadius: 20, background: "#F1F5F9", fontSize: 12, fontWeight: 700, color: "#475569" }}>근속 {tenureText}</span>
                 </div>
+              </section>
 
-                <div>
-                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>차종</div>
-                  <select value={f.vehicle_type} onChange={(e) => setF((p) => ({ ...p, vehicle_type: e.target.value }))} style={inputStyle()}>
-                    <option value="">-</option>
-                    {VEHICLE_OPTIONS.map((x) => (
-                      <option key={x} value={x}>
-                        {x}
-                      </option>
+              {/* 차량 / 배송 정보 */}
+              <section style={sectionStyle()}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#64748B", marginBottom: 12, letterSpacing: "0.06em", textTransform: "uppercase" }}>차량 / 배송 정보</div>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={fieldLabelStyle()}>호차 (최대 4대)</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+                    <input value={f.car_no_1} onChange={(e) => setF((p) => ({ ...p, car_no_1: e.target.value }))} style={inputStyle()} placeholder="차량 1" inputMode="numeric" />
+                    <input value={f.car_no_2} onChange={(e) => setF((p) => ({ ...p, car_no_2: e.target.value }))} style={inputStyle()} placeholder="차량 2" inputMode="numeric" />
+                    <input value={f.car_no_3} onChange={(e) => setF((p) => ({ ...p, car_no_3: e.target.value }))} style={inputStyle()} placeholder="차량 3" inputMode="numeric" />
+                    <input value={f.car_no_4} onChange={(e) => setF((p) => ({ ...p, car_no_4: e.target.value }))} style={inputStyle()} placeholder="차량 4" inputMode="numeric" />
+                  </div>
+                  <div style={{ marginTop: 4, fontSize: 11, color: "#94A3B8" }}>정렬 후 표시: {displayCarNo(normalizeCarNoInput(f.car_no_1, f.car_no_2, f.car_no_3, f.car_no_4))}</div>
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={fieldLabelStyle()}>배송구분</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+                    {(["delivery_type", "delivery_type_2", "delivery_type_3", "delivery_type_4"] as const).map((key, i) => (
+                      <select key={key} value={f[key]} onChange={(e) => setF((p) => ({ ...p, [key]: e.target.value }))} style={inputStyle()}>
+                        <option value="">차량{i + 1} -</option>
+                        {DELIVERY_OPTIONS.map((x) => <option key={x} value={x}>{x}</option>)}
+                      </select>
                     ))}
-                  </select>
-                </div>
-
-                <div>
-                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>운수사</div>
-                  <input value={f.carrier} onChange={(e) => setF((p) => ({ ...p, carrier: e.target.value }))} style={inputStyle()} placeholder="예: 동진 / 경산" />
-                </div>
-
-                <div>
-                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>차고지</div>
-                  <input value={f.garage} onChange={(e) => setF((p) => ({ ...p, garage: e.target.value }))} style={inputStyle()} placeholder="예: 화성센터" />
-                </div>
-
-                <div>
-                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>하이패스</div>
-                  <input value={f.hipass} onChange={(e) => setF((p) => ({ ...p, hipass: e.target.value }))} style={inputStyle()} placeholder="예: 카드번호 / 비고" />
-                </div>
-
-                {/* 입퇴사 */}
-                <div>
-                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>입사일</div>
-                  <input value={f.join_date} onChange={(e) => setF((p) => ({ ...p, join_date: e.target.value }))} style={inputStyle()} type="date" />
-                </div>
-
-                <div>
-                  <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>퇴사일</div>
-                  <input value={f.leave_date} onChange={(e) => setF((p) => ({ ...p, leave_date: e.target.value }))} style={inputStyle()} type="date" />
-                </div>
-
-                <div style={{ gridColumn: "1 / -1", paddingTop: 6 }}>
-                  <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 13 }}>
-                    <div>
-                      나이: <b>{age == null ? "-" : String(age) + "세"}</b>
-                    </div>
-                    <div>
-                      근속: <b>{tenureText}</b>
-                    </div>
                   </div>
                 </div>
-
-                {/* 승인 */}
-                <div style={{ gridColumn: "1 / -1", marginTop: 6, paddingTop: 10, borderTop: "1px solid rgba(0,0,0,0.08)" }}>
-                  <div style={{ fontWeight: 950, fontSize: 13, marginBottom: 8 }}>승인 상태</div>
-                  <select value={f.approval_status} onChange={(e) => setF((p) => ({ ...p, approval_status: e.target.value as any }))} style={inputStyle()}>
-                    <option value="pending">확인대기</option>
-                    <option value="approved">승인</option>
-                    <option value="rejected">반려</option>
-                  </select>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <div style={fieldLabelStyle()}>차종</div>
+                    <select value={f.vehicle_type} onChange={(e) => setF((p) => ({ ...p, vehicle_type: e.target.value }))} style={inputStyle()}>
+                      <option value="">-</option>
+                      {VEHICLE_OPTIONS.map((x) => <option key={x} value={x}>{x}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <div style={fieldLabelStyle()}>운수사</div>
+                    <input value={f.carrier} onChange={(e) => setF((p) => ({ ...p, carrier: e.target.value }))} style={inputStyle()} placeholder="예: 동진 / 경산" />
+                  </div>
+                  <div>
+                    <div style={fieldLabelStyle()}>차고지</div>
+                    <input value={f.garage} onChange={(e) => setF((p) => ({ ...p, garage: e.target.value }))} style={inputStyle()} placeholder="예: 화성센터" />
+                  </div>
+                  <div>
+                    <div style={fieldLabelStyle()}>하이패스</div>
+                    <input value={f.hipass} onChange={(e) => setF((p) => ({ ...p, hipass: e.target.value }))} style={inputStyle()} placeholder="예: 카드번호 / 비고" />
+                  </div>
                 </div>
-              </div>
+              </section>
 
-              <div style={{ marginTop: 14, display: "flex", justifyContent: "flex-end", gap: 8 }}>
-                <button onClick={closeEdit} style={buttonStyle(false)}>
-                  취소
-                </button>
-                <button onClick={save} disabled={saving} style={buttonStyle(saving, true)}>
-                  {saving ? "저장 중..." : "저장"}
-                </button>
-              </div>
+              {/* 근무 / 승인 */}
+              <section style={sectionStyle()}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#64748B", marginBottom: 12, letterSpacing: "0.06em", textTransform: "uppercase" }}>근무 / 승인</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                  <div>
+                    <div style={fieldLabelStyle()}>입사일</div>
+                    <input type="date" value={f.join_date} onChange={(e) => setF((p) => ({ ...p, join_date: e.target.value }))} style={inputStyle()} />
+                  </div>
+                  <div>
+                    <div style={fieldLabelStyle()}>퇴사일</div>
+                    <input type="date" value={f.leave_date} onChange={(e) => setF((p) => ({ ...p, leave_date: e.target.value }))} style={inputStyle()} />
+                  </div>
+                  <div>
+                    <div style={fieldLabelStyle()}>승인 상태</div>
+                    <select value={f.approval_status} onChange={(e) => setF((p) => ({ ...p, approval_status: e.target.value as "pending" | "approved" | "rejected" }))} style={inputStyle()}>
+                      <option value="pending">확인대기</option>
+                      <option value="approved">승인</option>
+                      <option value="rejected">반려</option>
+                    </select>
+                  </div>
+                </div>
+              </section>
+            </div>
 
-              <div style={{ marginTop: 10, fontSize: 12, opacity: 0.65 }}>* 승인된 기사만 근무중 상태가 표시됩니다.</div>
+            {/* 모달 푸터 */}
+            <div style={{ padding: "14px 22px", borderTop: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 12, color: "#94A3B8" }}>승인된 기사만 근무중 상태가 표시됩니다.</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={closeEdit} style={buttonStyle(false)}>취소</button>
+                <button onClick={save} disabled={saving} style={buttonStyle(saving, true)}>{saving ? "저장 중…" : "저장"}</button>
+              </div>
             </div>
           </div>
         </div>
