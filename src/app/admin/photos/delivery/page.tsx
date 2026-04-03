@@ -674,136 +674,21 @@ export default function AdminDeliveryPhotosPage() {
   }
 
   const rightHeaderActions = (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
       {!selectMode ? (
         <>
-          <button
-            onClick={() => setSelectMode(true)}
-            disabled={photos.length === 0}
-            style={{
-              height: 34,
-              padding: "0 12px",
-              borderRadius: 0,
-              border: "1px solid #E5E7EB",
-              background: photos.length === 0 ? "#F3F4F6" : "white",
-              fontWeight: 900,
-              cursor: photos.length === 0 ? "not-allowed" : "pointer",
-            }}
-          >
-            선택모드
-          </button>
-          <button
-            onClick={onSelectAll}
-            disabled={photos.length === 0}
-            style={{
-              height: 34,
-              padding: "0 12px",
-              borderRadius: 0,
-              border: "1px solid #E5E7EB",
-              background: photos.length === 0 ? "#F3F4F6" : "white",
-              fontWeight: 900,
-              cursor: photos.length === 0 ? "not-allowed" : "pointer",
-            }}
-          >
-            전체선택
-          </button>
+          <button className="btn-secondary" onClick={() => setSelectMode(true)} disabled={photos.length === 0} style={{ height: 32, padding: "0 12px", borderRadius: 7, border: "1.5px solid #E2E8F0", background: photos.length === 0 ? "#F8FAFC" : "white", fontWeight: 800, fontSize: 13, cursor: photos.length === 0 ? "not-allowed" : "pointer", color: photos.length === 0 ? "#CBD5E1" : "#374151" }}>선택모드</button>
+          <button className="btn-secondary" onClick={onSelectAll} disabled={photos.length === 0} style={{ height: 32, padding: "0 12px", borderRadius: 7, border: "1.5px solid #E2E8F0", background: photos.length === 0 ? "#F8FAFC" : "white", fontWeight: 800, fontSize: 13, cursor: photos.length === 0 ? "not-allowed" : "pointer", color: photos.length === 0 ? "#CBD5E1" : "#374151" }}>전체선택</button>
         </>
       ) : (
         <>
-          <button
-            onClick={onSelectAll}
-            style={{
-              height: 34,
-              padding: "0 12px",
-              borderRadius: 0,
-              border: "1px solid #E5E7EB",
-              background: "white",
-              fontWeight: 900,
-              cursor: "pointer",
-            }}
-          >
-            전체선택
-          </button>
-
-          <button
-            onClick={onClearSelect}
-            style={{
-              height: 34,
-              padding: "0 12px",
-              borderRadius: 0,
-              border: "1px solid #E5E7EB",
-              background: "white",
-              fontWeight: 900,
-              cursor: "pointer",
-            }}
-          >
-            선택해제
-          </button>
-
-          <button
-            onClick={onBulkDownload}
-            disabled={selectedPhotoIds.size === 0}
-            style={{
-              height: 34,
-              padding: "0 12px",
-              borderRadius: 0,
-              border: "1px solid #111827",
-              background: selectedPhotoIds.size === 0 ? "#CBD5E1" : "#111827",
-              color: "white",
-              fontWeight: 900,
-              cursor: selectedPhotoIds.size === 0 ? "not-allowed" : "pointer",
-            }}
-          >
-            선택다운로드 ({selectedPhotoIds.size})
-          </button>
-
-          <button
-            onClick={onBulkCopy}
-            disabled={selectedPhotoIds.size === 0}
-            style={{
-              height: 34,
-              padding: "0 12px",
-              borderRadius: 0,
-              border: "1px solid #E5E7EB",
-              background: selectedPhotoIds.size === 0 ? "#F3F4F6" : "white",
-              fontWeight: 900,
-              cursor: selectedPhotoIds.size === 0 ? "not-allowed" : "pointer",
-            }}
-          >
-            선택복사 ({selectedPhotoIds.size})
-          </button>
-
-          <button
-            onClick={onBulkDelete}
-            disabled={selectedPhotoIds.size === 0}
-            style={{
-              height: 34,
-              padding: "0 12px",
-              borderRadius: 0,
-              border: "1px solid #EF4444",
-              background: selectedPhotoIds.size === 0 ? "#FEE2E2" : "#EF4444",
-              color: selectedPhotoIds.size === 0 ? "#991B1B" : "white",
-              fontWeight: 900,
-              cursor: selectedPhotoIds.size === 0 ? "not-allowed" : "pointer",
-            }}
-          >
-            선택삭제 ({selectedPhotoIds.size})
-          </button>
-
-          <button
-            onClick={resetSelection}
-            style={{
-              height: 34,
-              padding: "0 12px",
-              borderRadius: 0,
-              border: "1px solid #E5E7EB",
-              background: "white",
-              fontWeight: 900,
-              cursor: "pointer",
-            }}
-          >
-            종료
-          </button>
+          <button className="btn-secondary" onClick={onSelectAll} style={{ height: 32, padding: "0 12px", borderRadius: 7, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 800, fontSize: 13, cursor: "pointer", color: "#374151" }}>전체선택</button>
+          <button className="btn-secondary" onClick={onClearSelect} style={{ height: 32, padding: "0 12px", borderRadius: 7, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 800, fontSize: 13, cursor: "pointer", color: "#374151" }}>선택해제</button>
+          <button className="btn-primary" onClick={onBulkDownload} disabled={selectedPhotoIds.size === 0} style={{ height: 32, padding: "0 12px", borderRadius: 7, border: "none", background: selectedPhotoIds.size === 0 ? "#CBD5E1" : "#1E293B", color: "white", fontWeight: 800, fontSize: 13, cursor: selectedPhotoIds.size === 0 ? "not-allowed" : "pointer", boxShadow: selectedPhotoIds.size === 0 ? "none" : "0 3px 8px rgba(30,41,59,0.28)" }}>다운로드 ({selectedPhotoIds.size})</button>
+          <button className="btn-secondary" onClick={onBulkCopy} disabled={selectedPhotoIds.size === 0} style={{ height: 32, padding: "0 12px", borderRadius: 7, border: "1.5px solid #E2E8F0", background: selectedPhotoIds.size === 0 ? "#F8FAFC" : "white", fontWeight: 800, fontSize: 13, cursor: selectedPhotoIds.size === 0 ? "not-allowed" : "pointer", color: selectedPhotoIds.size === 0 ? "#CBD5E1" : "#374151" }}>복사 ({selectedPhotoIds.size})</button>
+          <button className="btn-danger" onClick={onBulkDelete} disabled={selectedPhotoIds.size === 0} style={{ height: 32, padding: "0 12px", borderRadius: 7, border: "none", background: selectedPhotoIds.size === 0 ? "#FECACA" : "#EF4444", color: "white", fontWeight: 800, fontSize: 13, cursor: selectedPhotoIds.size === 0 ? "not-allowed" : "pointer", boxShadow: selectedPhotoIds.size === 0 ? "none" : "0 3px 8px rgba(239,68,68,0.30)" }}>삭제 ({selectedPhotoIds.size})</button>
+          <div style={{ width: 1, height: 22, background: "#E2E8F0" }} />
+          <button className="btn-secondary" onClick={resetSelection} style={{ height: 32, padding: "0 12px", borderRadius: 7, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 800, fontSize: 13, cursor: "pointer", color: "#64748B" }}>종료</button>
         </>
       )}
     </div>
