@@ -154,10 +154,26 @@ export default function AdminPhotosPage() {
 
   const mounted = useRef(false);
 
+  // ---------- 작업파트 촬영 현황 ----------
+  const [inspectionStoreCodes, setInspectionStoreCodes] = useState<Set<string>>(new Set());
+  const [allPhotosUnfiltered, setAllPhotosUnfiltered] = useState<PhotoRow[]>([]);
+
   useEffect(() => {
     return () => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
     };
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/admin/inspection-stores/list", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => {
+        const codes = new Set<string>(
+          (data.rows ?? []).filter((r: any) => !!r.is_inspection).map((r: any) => String(r.store_code))
+        );
+        setInspectionStoreCodes(codes);
+      })
+      .catch(() => {});
   }, []);
 
   // ---------- derive ----------
@@ -193,6 +209,32 @@ export default function AdminPhotosPage() {
     if (!selectedStoreCode) return [];
     return photosByStore[selectedStoreCode] ?? [];
   }, [photosByStore, selectedStoreCode]);
+
+  const WORK_PARTS = ["박스존", "이너존", "슬라존", "경량존", "이형존", "담배존"];
+
+  const workPartStatus = useMemo(() => {
+    if (inspectionStoreCodes.size === 0 || allPhotosUnfiltered.length === 0) return null;
+    const result: Record<string, { done: number; total: number }> = {};
+    for (const wp of WORK_PARTS) {
+      const byStore: Record<string, number> = {};
+      for (const p of allPhotosUnfiltered) {
+        if ((profilesById[p.user_id]?.work_part ?? "") === wp) {
+          byStore[p.store_code] = (byStore[p.store_code] ?? 0) + 1;
+        }
+      }
+      let done = 0;
+      for (const code of inspectionStoreCodes) {
+        if ((byStore[code] ?? 0) >= 2) done++;
+      }
+      result[wp] = { done, total: inspectionStoreCodes.size };
+    }
+    return result;
+  }, [allPhotosUnfiltered, profilesById, inspectionStoreCodes]);
+
+  // 일요일 여부 (선택 날짜 기준)
+  const isSingleDaySunday =
+    dateFrom === dateTo && new Date(`${dateFrom}T00:00:00+09:00`).getDay() === 0;
+  const showWorkPartStatus = !isSingleDaySunday && inspectionStoreCodes.size > 0 && workPartStatus !== null;
 
   const selectedStoreTitle = "선택 점포 사진";
   const selectedStoreSubTitle = selectedStore
@@ -312,6 +354,7 @@ export default function AdminPhotosPage() {
 
       // ✅ 핵심: 기사(배송 work_part) 업로드는 현장사진에서 무조건 제외
       const nonDriverRows = rows.filter((r) => normWorkPart(profMap[r.user_id]?.work_part) !== "배송");
+      setAllPhotosUnfiltered(nonDriverRows);
 
       let filteredPhotos = nonDriverRows;
 
@@ -665,6 +708,25 @@ export default function AdminPhotosPage() {
                 <button className="btn-danger" onClick={onBulkDelete} disabled={selectedPhotoIds.size === 0} style={{ height: 32, padding: "0 12px", borderRadius: 7, border: "none", background: selectedPhotoIds.size === 0 ? "#FECACA" : "#EF4444", color: "white", fontWeight: 800, fontSize: 13, cursor: selectedPhotoIds.size === 0 ? "not-allowed" : "pointer", boxShadow: selectedPhotoIds.size === 0 ? "none" : "0 3px 8px rgba(239,68,68,0.30)", whiteSpace: "nowrap" }}>삭제 ({selectedPhotoIds.size})</button>
               </div>
             </div>
+
+            {/* 작업파트 촬영 현황 */}
+            {showWorkPartStatus && (
+              <div style={{ padding: "10px 16px", borderBottom: "1px solid #F1F5F9", display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ fontSize: 11, fontWeight: 900, color: "#94A3B8", marginRight: 4, whiteSpace: "nowrap" }}>촬영 현황</span>
+                {WORK_PARTS.map((wp) => {
+                  const s = workPartStatus![wp];
+                  const complete = s.done === s.total;
+                  return (
+                    <div key={wp} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 7, background: complete ? "#DCFCE7" : "#FEF2F2", border: `1px solid ${complete ? "rgba(22,163,74,0.25)" : "rgba(220,38,38,0.2)"}` }}>
+                      <span style={{ fontSize: 12, fontWeight: 900, color: complete ? "#16A34A" : "#DC2626" }}>{wp}</span>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: complete ? "#16A34A" : "#DC2626" }}>
+                        {complete ? "✅" : `${s.done}/${s.total}`}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             <div style={{ padding: 14 }}>
               {!selectedStoreCode ? (
