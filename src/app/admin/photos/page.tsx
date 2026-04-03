@@ -31,6 +31,20 @@ type ProfileRow = {
   is_company_admin?: boolean | null;
 };
 
+type CargoSummary = {
+  large_box: number; large_inner: number; small_high: number;
+  small_low: number; large_other: number; tobacco: number;
+};
+
+const WORK_PARTS: Array<{ label: string; field: keyof CargoSummary }> = [
+  { label: "박스존", field: "large_box" },
+  { label: "이너존", field: "large_inner" },
+  { label: "슬라존", field: "small_high" },
+  { label: "경량존", field: "small_low" },
+  { label: "이형존", field: "large_other" },
+  { label: "담배존", field: "tobacco" },
+];
+
 function normWorkPart(v: any) {
   return String(v ?? "").trim();
 }
@@ -155,8 +169,7 @@ export default function AdminPhotosPage() {
   const mounted = useRef(false);
 
   // ---------- 작업파트 촬영 현황 ----------
-  const [inspectionStoreCodes, setInspectionStoreCodes] = useState<Set<string>>(new Set());
-  const [allPhotosUnfiltered, setAllPhotosUnfiltered] = useState<PhotoRow[]>([]);
+  const [cargoByStoreCode, setCargoByStoreCode] = useState<Record<string, CargoSummary>>({});
 
   useEffect(() => {
     return () => {
@@ -165,13 +178,24 @@ export default function AdminPhotosPage() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/admin/inspection-stores/list", { cache: "no-store" })
+    fetch("/api/admin/vehicles/current?includeSnapshot=1", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
-        const codes = new Set<string>(
-          (data.rows ?? []).filter((r: any) => !!r.is_inspection).map((r: any) => String(r.store_code))
-        );
-        setInspectionStoreCodes(codes);
+        const rows: any[] = data.payload?.snapshot?.cargoRows ?? [];
+        const map: Record<string, CargoSummary> = {};
+        for (const r of rows) {
+          if (r.store_code) {
+            map[String(r.store_code)] = {
+              large_box: r.large_box ?? 0,
+              large_inner: r.large_inner ?? 0,
+              small_high: r.small_high ?? 0,
+              small_low: r.small_low ?? 0,
+              large_other: r.large_other ?? 0,
+              tobacco: r.tobacco ?? 0,
+            };
+          }
+        }
+        setCargoByStoreCode(map);
       })
       .catch(() => {});
   }, []);
@@ -210,7 +234,6 @@ export default function AdminPhotosPage() {
     return photosByStore[selectedStoreCode] ?? [];
   }, [photosByStore, selectedStoreCode]);
 
-  const WORK_PARTS = ["박스존", "이너존", "슬라존", "경량존", "이형존", "담배존"];
 
   // 선택 점포의 작업파트별 사진 수
   const selectedStoreWorkPartCount = useMemo(() => {
@@ -222,10 +245,18 @@ export default function AdminPhotosPage() {
     return result;
   }, [selectedStorePhotos, profilesById]);
 
+  // 선택 점포의 발주 있는 작업파트 목록 (단품별 기준)
+  const orderedWorkParts = useMemo(() => {
+    if (!selectedStoreCode) return [];
+    const cargo = cargoByStoreCode[selectedStoreCode];
+    if (!cargo) return [];
+    return WORK_PARTS.filter((wp) => (cargo[wp.field] ?? 0) > 0);
+  }, [selectedStoreCode, cargoByStoreCode]);
+
   // 일요일 여부 (선택 날짜 기준)
   const isSingleDaySunday =
     dateFrom === dateTo && new Date(`${dateFrom}T00:00:00+09:00`).getDay() === 0;
-  const showWorkPartStatus = !isSingleDaySunday && !!selectedStoreCode && Object.keys(selectedStoreWorkPartCount).length > 0;
+  const showWorkPartStatus = !isSingleDaySunday && !!selectedStoreCode && orderedWorkParts.length > 0;
 
   const selectedStoreTitle = "선택 점포 사진";
   const selectedStoreSubTitle = selectedStore
@@ -704,14 +735,14 @@ export default function AdminPhotosPage() {
             {showWorkPartStatus && (
               <div style={{ padding: "10px 16px", borderBottom: "1px solid #F1F5F9", display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                 <span style={{ fontSize: 11, fontWeight: 900, color: "#94A3B8", marginRight: 2, whiteSpace: "nowrap" }}>촬영</span>
-                {WORK_PARTS.filter((wp) => (selectedStoreWorkPartCount[wp] ?? 0) > 0).map((wp) => {
-                  const count = selectedStoreWorkPartCount[wp] ?? 0;
+                {orderedWorkParts.map(({ label }) => {
+                  const count = selectedStoreWorkPartCount[label] ?? 0;
                   const complete = count >= 2;
                   return (
-                    <div key={wp} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 7, background: complete ? "#DCFCE7" : "#FEF2F2", border: `1px solid ${complete ? "rgba(22,163,74,0.25)" : "rgba(220,38,38,0.2)"}` }}>
-                      <span style={{ fontSize: 12, fontWeight: 900, color: complete ? "#16A34A" : "#DC2626" }}>{wp}</span>
+                    <div key={label} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 7, background: complete ? "#DCFCE7" : "#FEF2F2", border: `1px solid ${complete ? "rgba(22,163,74,0.25)" : "rgba(220,38,38,0.2)"}` }}>
+                      <span style={{ fontSize: 12, fontWeight: 900, color: complete ? "#16A34A" : "#DC2626" }}>{label}</span>
                       <span style={{ fontSize: 11, fontWeight: 800, color: complete ? "#16A34A" : "#DC2626" }}>
-                        {complete ? "✅" : `${count}장`}
+                        {complete ? "✅" : count > 0 ? `${count}장` : "미완료"}
                       </span>
                     </div>
                   );
