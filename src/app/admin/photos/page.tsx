@@ -181,14 +181,14 @@ export default function AdminPhotosPage() {
     }
     for (const k of Object.keys(groups)) {
       groups[k].sort((a, b) => {
-        const za = ZONE_ORDER[a.work_part ?? ""] ?? 99;
-        const zb = ZONE_ORDER[b.work_part ?? ""] ?? 99;
+        const za = ZONE_ORDER[profilesById[a.user_id]?.work_part ?? ""] ?? 99;
+        const zb = ZONE_ORDER[profilesById[b.user_id]?.work_part ?? ""] ?? 99;
         if (za !== zb) return za - zb;
         return a.created_at > b.created_at ? -1 : 1;
       });
     }
     return groups;
-  }, [photos]);
+  }, [photos, profilesById]);
 
   const selectedStorePhotos = useMemo(() => {
     if (!selectedStoreCode) return [];
