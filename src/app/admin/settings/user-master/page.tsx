@@ -209,6 +209,8 @@ export default function UserMasterPage() {
   const [bulkCompany, setBulkCompany] = useState("");
   const [bulkWorkTable, setBulkWorkTable] = useState("");
   const [isCompanyAdminRole, setIsCompanyAdminRole] = useState(false);
+  const [nationalityOptions, setNationalityOptions] = useState<string[]>([]);
+  const [nationalityCustom, setNationalityCustom] = useState("");
 
   const [f, setF] = useState({
     name: "",
@@ -291,12 +293,14 @@ export default function UserMasterPage() {
         rows?: ProfileRow[];
         todayShiftMap?: TodayShiftMap;
         isCompanyAdminRole?: boolean;
+        nationalityOptions?: string[];
       };
       if (!res.ok || !payload?.ok) throw new Error(payload?.message || "데이터를 불러오지 못했습니다.");
 
       setIsCompanyAdminRole(!!payload.isCompanyAdminRole);
       setRows(sortRows(payload.rows ?? []));
       setTodayShiftMap(payload.todayShiftMap ?? {});
+      setNationalityOptions(payload.nationalityOptions ?? []);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "데이터를 불러오지 못했습니다.");
       setRows([]);
@@ -320,7 +324,10 @@ export default function UserMasterPage() {
 
   const openEdit = (r: ProfileRow) => {
     const ap = normalizeApproval(r.approval_status);
+    const nat = r.nationality ?? "";
+    const isCustomNat = nat.trim() !== "" && !nationalityOptions.includes(nat.trim());
     setSelected(r);
+    setNationalityCustom(isCustomNat ? nat.trim() : "");
     setF({
       name: r.name ?? "",
       phone: toKRLocalDigits(r.phone ?? ""),
@@ -330,7 +337,7 @@ export default function UserMasterPage() {
       work_table: r.work_table ?? "",
       join_date: r.join_date ?? "",
       leave_date: r.leave_date ?? "",
-      nationality: r.nationality ?? "",
+      nationality: isCustomNat ? "__custom__" : nat,
       visa: r.visa ?? "",
       is_admin: !!r.is_admin,
       is_general_admin: !!r.is_general_admin,
@@ -386,8 +393,8 @@ export default function UserMasterPage() {
         work_table: f.work_table.trim() || null,
         join_date: f.join_date || null,
         leave_date: f.leave_date || null,
-        nationality: f.nationality.trim() || null,
-        visa: f.nationality.trim() && f.nationality.trim() !== "한국" ? (f.visa.trim() || null) : null,
+        nationality: (f.nationality === "__custom__" ? nationalityCustom : f.nationality).trim() || null,
+        visa: ((f.nationality === "__custom__" ? nationalityCustom : f.nationality).trim() && (f.nationality === "__custom__" ? nationalityCustom : f.nationality).trim() !== "한국") ? (f.visa.trim() || null) : null,
         is_admin: lockedIsAdmin,
         is_general_admin: f.is_general_admin,
         is_company_admin: f.is_company_admin,
@@ -740,9 +747,32 @@ export default function UserMasterPage() {
                   </div>
                   <div>
                     <div style={fieldLabelStyle()}>국적</div>
-                    <input value={f.nationality} onChange={(e) => setF((p) => ({ ...p, nationality: e.target.value, visa: e.target.value.trim() === "한국" ? "" : p.visa }))} style={inputStyle()} placeholder="예: 한국, 중국, 베트남" />
+                    <select
+                      value={f.nationality}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setF((p) => ({ ...p, nationality: v, visa: v === "한국" ? "" : p.visa }));
+                        if (v !== "__custom__") setNationalityCustom("");
+                      }}
+                      style={inputStyle()}
+                    >
+                      <option value="">-</option>
+                      {nationalityOptions.map((n) => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
+                      <option value="__custom__">직접입력</option>
+                    </select>
+                    {f.nationality === "__custom__" && (
+                      <input
+                        value={nationalityCustom}
+                        onChange={(e) => setNationalityCustom(e.target.value)}
+                        style={{ ...inputStyle(), marginTop: 6 }}
+                        placeholder="국적 직접 입력"
+                      />
+                    )}
                   </div>
-                  {f.nationality.trim() && f.nationality.trim() !== "한국" && (
+                  {(f.nationality === "__custom__" ? nationalityCustom.trim() : f.nationality.trim()) !== "" &&
+                    (f.nationality === "__custom__" ? nationalityCustom.trim() : f.nationality.trim()) !== "한국" && (
                     <div>
                       <div style={fieldLabelStyle()}>비자 종류</div>
                       <input value={f.visa} onChange={(e) => setF((p) => ({ ...p, visa: e.target.value }))} style={inputStyle()} placeholder="예: E-9, F-4, F-6" />

@@ -16,6 +16,8 @@ type ProfileRow = {
   work_table: string | null;
   join_date: string | null;
   leave_date: string | null;
+  nationality: string | null;
+  visa: string | null;
   is_admin?: boolean | null;
   is_general_admin?: boolean | null;
   is_company_admin?: boolean | null;
@@ -69,6 +71,8 @@ export async function GET(req: NextRequest) {
       "work_table",
       "join_date",
       "leave_date",
+      "nationality",
+      "visa",
       "is_admin",
     ];
     if (includeRoleFlags) {
@@ -89,8 +93,14 @@ export async function GET(req: NextRequest) {
     return await q;
   };
 
+  const nationalityOptionsPromise = guard.sbAdmin
+    .from("profiles")
+    .select("nationality")
+    .not("nationality", "is", null)
+    .neq("nationality", "");
+
   // profiles 목록과 오늘 출퇴근을 병렬로 실행
-  let [{ data, error }, shiftsResult] = await Promise.all([loadProfiles(true), shiftsPromise]);
+  let [{ data, error }, shiftsResult, nationalityResult] = await Promise.all([loadProfiles(true), shiftsPromise, nationalityOptionsPromise]);
   if (isMissingColumnError(error, "is_general_admin") || isMissingColumnError(error, "is_company_admin")) {
     ({ data, error } = await loadProfiles(false));
   }
@@ -107,5 +117,13 @@ export async function GET(req: NextRequest) {
     todayShiftMap[r.user_id] = { inAt: r.clock_in_at, outAt: r.clock_out_at };
   }
 
-  return json(true, undefined, { rows, todayShiftMap, isCompanyAdminRole });
+  const nationalityOptions = Array.from(
+    new Set(
+      ((nationalityResult.data ?? []) as { nationality: string | null }[])
+        .map((r) => (r.nationality ?? "").trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b, "ko"));
+
+  return json(true, undefined, { rows, todayShiftMap, isCompanyAdminRole, nationalityOptions });
 }
