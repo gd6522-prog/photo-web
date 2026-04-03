@@ -231,8 +231,14 @@ export default function UserMasterPage() {
     [isCompanyAdminRole]
   );
 
+  const needsExtraInfo = (r: ProfileRow) => !r.company_name?.trim() || !r.work_table?.trim();
+
   const sortRows = (list: ProfileRow[]) => {
     return [...list].sort((a, b) => {
+      const aTop = normalizeApproval(a.approval_status) === "pending" || needsExtraInfo(a) ? 0 : 1;
+      const bTop = normalizeApproval(b.approval_status) === "pending" || needsExtraInfo(b) ? 0 : 1;
+      if (aTop !== bTop) return aTop - bTop;
+
       const ac = COMPANY_ORDER[String(a.company_name ?? "").trim()] ?? 9999;
       const bc = COMPANY_ORDER[String(b.company_name ?? "").trim()] ?? 9999;
       if (ac !== bc) return ac - bc;
@@ -623,6 +629,7 @@ export default function UserMasterPage() {
                 const ap = normalizeApproval(r.approval_status);
                 const approved = ap === "approved";
                 const working = approved ? isWorkingNow(todayShiftMap[r.id]) : false;
+                const missingInfo = needsExtraInfo(r);
                 const rowBg = idx % 2 === 0 ? "white" : "#FCFDFE";
                 const ageValue = calcAge(r.birthdate);
                 const tenureValue = calcTenureDays(r.join_date, r.leave_date);
@@ -648,6 +655,8 @@ export default function UserMasterPage() {
                           <option value="approved">승인</option>
                           <option value="rejected">반려</option>
                         </select>
+                      ) : missingInfo ? (
+                        <span style={{ padding: "5px 10px", borderRadius: 4, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#991B1B", fontWeight: 800, fontSize: 12 }}>추가정보필요</span>
                       ) : working ? (
                         <span style={{ padding: "5px 10px", borderRadius: 4, border: "1px solid #FDBA74", background: "#FFF7ED", color: "#9A3412", fontWeight: 800, fontSize: 12 }}>근무중</span>
                       ) : (
