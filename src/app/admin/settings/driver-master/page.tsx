@@ -170,11 +170,6 @@ function normalizeApproval(v: string | null): "pending" | "approved" | "rejected
   return "pending";
 }
 
-function approvalLabel(status: "pending" | "approved" | "rejected"): string {
-  if (status === "approved") return "승인";
-  if (status === "rejected") return "반려";
-  return "확인대기";
-}
 
 type TodayShiftMap = Record<string, { inAt: string | null; outAt: string | null }>;
 
