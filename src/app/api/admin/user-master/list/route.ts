@@ -17,7 +17,6 @@ type ProfileRow = {
   join_date: string | null;
   leave_date: string | null;
   nationality: string | null;
-  visa: string | null;
   is_admin?: boolean | null;
   is_general_admin?: boolean | null;
   is_company_admin?: boolean | null;
@@ -72,7 +71,6 @@ export async function GET(req: NextRequest) {
       "join_date",
       "leave_date",
       "nationality",
-      "visa",
       "is_admin",
     ];
     if (includeRoleFlags) {
@@ -104,6 +102,9 @@ export async function GET(req: NextRequest) {
   if (isMissingColumnError(error, "is_general_admin") || isMissingColumnError(error, "is_company_admin")) {
     ({ data, error } = await loadProfiles(false));
   }
+  if (isMissingColumnError(error, "nationality")) {
+    error = null;
+  }
   if (error) return json(false, error.message, null, 500);
   if (shiftsResult.error) return json(false, shiftsResult.error.message, null, 500);
 
@@ -117,13 +118,15 @@ export async function GET(req: NextRequest) {
     todayShiftMap[r.user_id] = { inAt: r.clock_in_at, outAt: r.clock_out_at };
   }
 
-  const nationalityOptions = Array.from(
-    new Set(
-      ((nationalityResult.data ?? []) as { nationality: string | null }[])
-        .map((r) => (r.nationality ?? "").trim())
-        .filter(Boolean)
-    )
-  ).sort((a, b) => a.localeCompare(b, "ko"));
+  const nationalityOptions = nationalityResult.error
+    ? []
+    : Array.from(
+        new Set(
+          ((nationalityResult.data ?? []) as { nationality: string | null }[])
+            .map((r) => (r.nationality ?? "").trim())
+            .filter(Boolean)
+        )
+      ).sort((a, b) => a.localeCompare(b, "ko"));
 
   return json(true, undefined, { rows, todayShiftMap, isCompanyAdminRole, nationalityOptions });
 }
