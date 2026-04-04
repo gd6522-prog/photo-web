@@ -256,13 +256,18 @@ export default function AdminPhotosPage() {
     return result;
   }, [selectedStorePhotos, profilesById]);
 
-  // 선택 점포의 발주 있는 작업파트 목록 (단품별 기준)
+  // 선택 점포의 발주 있는 작업파트 목록
+  // cargo 데이터 있으면 발주 있는 파트만, 없으면 사진 올라온 파트만 표시
   const orderedWorkParts = useMemo(() => {
     if (!selectedStoreCode) return [];
     const cargo = cargoByStoreCode[selectedStoreCode];
-    if (!cargo) return [];
-    return WORK_PARTS.filter((wp) => (cargo[wp.field] ?? 0) > 0);
-  }, [selectedStoreCode, cargoByStoreCode]);
+    if (cargo) {
+      // 발주 있는 파트 (단품별 기준)
+      return WORK_PARTS.filter((wp) => (cargo[wp.field] ?? 0) > 0);
+    }
+    // cargo 없으면 사진 올라온 파트라도 표시
+    return WORK_PARTS.filter((wp) => (selectedStoreWorkPartCount[wp.label] ?? 0) > 0);
+  }, [selectedStoreCode, cargoByStoreCode, selectedStoreWorkPartCount]);
 
   // 일요일 여부 (선택 날짜 기준)
   const isSingleDaySunday =
