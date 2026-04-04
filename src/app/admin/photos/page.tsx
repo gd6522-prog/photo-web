@@ -177,31 +177,36 @@ export default function AdminPhotosPage() {
     };
   }, []);
 
-  const fetchCargoForDate = (date: string) => {
-    fetch(`/api/admin/vehicles/current?includeSnapshot=1&date=${date}`, { cache: "no-store" })
-      .then((r) => r.json())
-      .then((data) => {
-        const rows: any[] = data.payload?.snapshot?.cargoRows ?? [];
-        const map: Record<string, CargoSummary> = {};
-        for (const r of rows) {
-          if (r.store_code) {
-            map[String(r.store_code)] = {
-              large_box: r.large_box ?? 0,
-              large_inner: r.large_inner ?? 0,
-              small_high: r.small_high ?? 0,
-              small_low: r.small_low ?? 0,
-              large_other: r.large_other ?? 0,
-              tobacco: r.tobacco ?? 0,
-            };
-          }
+  const fetchCargoForDate = async (date: string) => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token ?? "";
+      if (!token) return;
+      const res = await fetch(`/api/admin/vehicles/current?includeSnapshot=1&date=${date}`, {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      const rows: any[] = data.payload?.snapshot?.cargoRows ?? [];
+      const map: Record<string, CargoSummary> = {};
+      for (const r of rows) {
+        if (r.store_code) {
+          map[String(r.store_code)] = {
+            large_box: r.large_box ?? 0,
+            large_inner: r.large_inner ?? 0,
+            small_high: r.small_high ?? 0,
+            small_low: r.small_low ?? 0,
+            large_other: r.large_other ?? 0,
+            tobacco: r.tobacco ?? 0,
+          };
         }
-        setCargoByStoreCode(map);
-      })
-      .catch(() => {});
+      }
+      setCargoByStoreCode(map);
+    } catch {}
   };
 
   useEffect(() => {
-    fetchCargoForDate(dateFrom);
+    void fetchCargoForDate(dateFrom);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateFrom]);
 
