@@ -187,7 +187,7 @@ export default function AdminPhotosPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      const rows: any[] = data.payload?.snapshot?.cargoRows ?? [];
+      const rows: any[] = data.snapshot?.cargoRows ?? [];
       const map: Record<string, CargoSummary> = {};
       for (const r of rows) {
         if (r.store_code) {
