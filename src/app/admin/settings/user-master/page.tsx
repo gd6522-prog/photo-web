@@ -411,22 +411,16 @@ export default function UserMasterPage() {
       }
 
       let { error } = await supabase.from("profiles").update(payload).eq("id", selected.id);
-      if (isMissingColumnError(error, "is_general_admin") || isMissingColumnError(error, "is_company_admin")) {
-        const fallbackPayload = {
-          name: payload.name,
-          phone: payload.phone,
-          birthdate: payload.birthdate,
-          work_part: payload.work_part,
-          company_name: payload.company_name,
-          work_table: payload.work_table,
-          join_date: payload.join_date,
-          leave_date: payload.leave_date,
-          nationality: payload.nationality,
-          visa: payload.visa,
-          is_admin: payload.is_admin,
-          approval_status: payload.approval_status,
-        };
-        ({ error } = await supabase.from("profiles").update(fallbackPayload).eq("id", selected.id));
+      if (isMissingColumnError(error, "is_general_admin")) {
+        const { is_general_admin: _g, ...p2 } = payload;
+        ({ error } = await supabase.from("profiles").update(p2).eq("id", selected.id));
+        if (isMissingColumnError(error, "is_company_admin")) {
+          const { is_company_admin: _c, ...p3 } = p2;
+          ({ error } = await supabase.from("profiles").update(p3).eq("id", selected.id));
+        }
+      } else if (isMissingColumnError(error, "is_company_admin")) {
+        const { is_company_admin: _c, ...p2 } = payload;
+        ({ error } = await supabase.from("profiles").update(p2).eq("id", selected.id));
       }
       if (error) throw error;
       await load();
