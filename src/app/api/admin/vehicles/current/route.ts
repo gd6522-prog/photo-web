@@ -594,11 +594,15 @@ export async function GET(req: NextRequest) {
     let reportBaseRows: CargoRow[] = [];
 
     if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-      // 날짜별 스냅샷 읽기
+      // 날짜별 스냅샷 읽기 — 없으면 latest로 fallback
       if (includeSnapshot) {
         const { data, error } = await guard.sbAdmin.storage.from(BUCKET).download(`daily/${dateParam}.json`);
         if (!error && data) {
           try { snapshot = JSON.parse(await data.text()) as VehicleSnapshot; } catch {}
+        }
+        // daily 파일 없으면 latest로 fallback
+        if (!snapshot && names.has("latest.json")) {
+          snapshot = await readCurrentSnapshot(guard.sbAdmin);
         }
       }
     } else if (names.has("latest.json")) {
