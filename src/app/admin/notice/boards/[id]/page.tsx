@@ -87,7 +87,14 @@ export default function BoardDetailPage() {
     }
   };
 
-  const bodyHtml = useMemo(() => noticeBodyToHtml(item?.body ?? ""), [item?.body]);
+  const bodyHtml = useMemo(() => {
+    const html = noticeBodyToHtml(item?.body ?? "");
+    // R2 공개 URL → 프록시 URL 교체 (서명된 URL로 서빙)
+    return html.replace(
+      /https?:\/\/pub-[a-f0-9]+\.r2\.dev\/([^"'<\s]+)/g,
+      (_, key) => `/api/r2/image?key=${encodeURIComponent(key)}`
+    );
+  }, [item?.body]);
 
 
   if (loading) return <div style={{ color: "#557186" }}>불러오는 중...</div>;
