@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { AdminAccessProvider, AccessLevel, MenuAccessMap } from "@/lib/admin-access";
 import { getSettingsItems, getSubItems, findMenuKeyByPath } from "@/lib/menu-registry";
-import { isGeneralAdminWorkPart, isMainAdminIdentity, isCompanyAdminWorkPart } from "@/lib/admin-role";
+import { isGeneralAdminWorkPart, isMainAdminIdentity, isCompanyAdminFlag } from "@/lib/admin-role";
 
 const MAX_W = 1700;
 const AUTO_LOGOUT_MS = 60 * 60 * 1000;
@@ -17,6 +17,7 @@ type Profile = {
   approval_status: string | null;
   is_admin: boolean | null;
   work_part: string | null;
+  is_company_admin: boolean | null;
 };
 
 type PermRow = {
@@ -40,7 +41,7 @@ async function readProfileWithRetry(uid: string, retry = 6, delayMs = 500) {
   for (let i = 0; i < retry; i++) {
     const { data, error } = await supabase
       .from("profiles")
-      .select("name,approval_status,is_admin,work_part")
+      .select("name,approval_status,is_admin,work_part,is_company_admin")
       .eq("id", uid)
       .single();
 
@@ -266,7 +267,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         const hardMain = isMainAdminIdentity(uid, session.user.email ?? "");
         const main = hardMain || !!p?.is_admin;
         const general = isGeneralAdminWorkPart(p?.work_part);
-        const company = isCompanyAdminWorkPart(p?.work_part);
+        const company = isCompanyAdminFlag(p?.is_company_admin);
 
         if (!main && !general && !company) {
           try {
@@ -290,14 +291,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           const { data: perms, error: permErr } = await supabase
             .from("admin_menu_permissions")
             .select("menu_key,general_access,company_access");
-          console.log("[admin-layout] perms", perms?.length, "permErr", permErr);
           if (permErr) throw permErr;
 
           const map: MenuAccessMap = {};
           for (const r of (perms as PermRow[]) ?? []) {
             map[r.menu_key] = company ? r.company_access : r.general_access;
           }
-          console.log("[admin-layout] map admin_work_log =", map["admin_work_log"], "company =", company);
 
           if (!mounted || runId !== my) return;
           setMenuAccess(map);
