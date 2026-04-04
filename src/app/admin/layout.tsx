@@ -290,12 +290,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           const { data: perms, error: permErr } = await supabase
             .from("admin_menu_permissions")
             .select("menu_key,general_access,company_access");
+          console.log("[admin-layout] perms", perms?.length, "permErr", permErr);
           if (permErr) throw permErr;
 
           const map: MenuAccessMap = {};
           for (const r of (perms as PermRow[]) ?? []) {
             map[r.menu_key] = company ? r.company_access : r.general_access;
           }
+          console.log("[admin-layout] map admin_work_log =", map["admin_work_log"], "company =", company);
 
           if (!mounted || runId !== my) return;
           setMenuAccess(map);
