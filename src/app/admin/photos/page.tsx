@@ -381,7 +381,6 @@ export default function AdminPhotosPage() {
 
       // ✅ 핵심: 기사(배송 work_part) 업로드는 현장사진에서 무조건 제외
       const nonDriverRows = rows.filter((r) => normWorkPart(profMap[r.user_id]?.work_part) !== "배송");
-      setAllPhotosUnfiltered(nonDriverRows);
 
       let filteredPhotos = nonDriverRows;
 
