@@ -206,9 +206,10 @@ export default function AdminPhotosPage() {
   };
 
   useEffect(() => {
+    if (checking || !isAdmin) return;
     void fetchCargoForDate(dateFrom);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFrom]);
+  }, [dateFrom, checking, isAdmin]);
 
   // ---------- derive ----------
   const carOptions = useMemo(() => {
@@ -564,6 +565,7 @@ export default function AdminPhotosPage() {
     if (checking) return;
     if (!isAdmin) return;
     fetchData();
+    void fetchCargoForDate(dateFrom);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checking, isAdmin]);
 
