@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { isMissingColumnError } from "@/lib/supabase-compat";
 
 type ProfileRow = {
   id: string;
@@ -387,7 +386,9 @@ export default function UserMasterPage() {
       }
       const lockedIsAdmin = isCompanyAdminRole ? !!selected.is_admin : !!f.is_admin;
       const phoneToSave = toKRLocalDigits(f.phone) || null;
+      const nat = (f.nationality === "__custom__" ? nationalityCustom : f.nationality).trim();
       const payload = {
+        userId: selected.id,
         name: f.name.trim() || null,
         phone: phoneToSave,
         birthdate: f.birthdate || null,
@@ -396,8 +397,8 @@ export default function UserMasterPage() {
         work_table: f.work_table.trim() || null,
         join_date: f.join_date || null,
         leave_date: f.leave_date || null,
-        nationality: (f.nationality === "__custom__" ? nationalityCustom : f.nationality).trim() || null,
-        visa: (() => { const nat = (f.nationality === "__custom__" ? nationalityCustom : f.nationality).trim().toUpperCase(); return nat && nat !== "KR" && nat !== "한국"; })() ? (f.visa.trim() || null) : null,
+        nationality: nat || null,
+        visa: (nat && nat.toUpperCase() !== "KR" && nat !== "한국") ? (f.visa.trim() || null) : null,
         is_admin: lockedIsAdmin,
         is_general_admin: f.is_general_admin,
         is_company_admin: f.is_company_admin,
@@ -410,19 +411,16 @@ export default function UserMasterPage() {
         return;
       }
 
-      let { error } = await supabase.from("profiles").update(payload).eq("id", selected.id);
-      if (isMissingColumnError(error, "is_general_admin")) {
-        const { is_general_admin: _g, ...p2 } = payload;
-        ({ error } = await supabase.from("profiles").update(p2).eq("id", selected.id));
-        if (isMissingColumnError(error, "is_company_admin")) {
-          const { is_company_admin: _c, ...p3 } = p2;
-          ({ error } = await supabase.from("profiles").update(p3).eq("id", selected.id));
-        }
-      } else if (isMissingColumnError(error, "is_company_admin")) {
-        const { is_company_admin: _c, ...p2 } = payload;
-        ({ error } = await supabase.from("profiles").update(p2).eq("id", selected.id));
-      }
-      if (error) throw error;
+      const { data: authData } = await supabase.auth.getSession();
+      const token = authData.session?.access_token;
+      if (!token) throw new Error("로그인 세션이 없습니다.");
+      const res = await fetch("/api/admin/user-master/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || !result?.ok) throw new Error(result?.message || "저장에 실패했습니다.");
       await load();
       closeEdit();
     } catch (e: unknown) {
