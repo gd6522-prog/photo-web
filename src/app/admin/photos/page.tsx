@@ -748,6 +748,11 @@ export default function AdminPhotosPage() {
             </div>
 
             {/* 작업파트 촬영 현황 */}
+            {!!selectedStoreCode && (
+              <div style={{ padding: "4px 16px", background: "#FFF9C4", fontSize: 11, color: "#555" }}>
+                디버그: photos={selectedStorePhotos.length} | workParts={JSON.stringify(Object.keys(selectedStoreWorkPartCount))} | sunday={String(isSingleDaySunday)} | ordered={orderedWorkParts.length}
+              </div>
+            )}
             {showWorkPartStatus && (
               <div style={{ padding: "10px 16px", borderBottom: "1px solid #F1F5F9", display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                 <span style={{ fontSize: 11, fontWeight: 900, color: "#94A3B8", marginRight: 2, whiteSpace: "nowrap" }}>촬영</span>
