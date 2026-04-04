@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
+import { isGeneralAdminWorkPart, isCompanyAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 
 export const runtime = "nodejs";
 
@@ -68,7 +68,8 @@ export async function requireAdmin(req: NextRequest): Promise<
   const main = hardMain || dbMain;
 
   const general = isGeneralAdminWorkPart((prof as any)?.work_part);
-  const isAdmin = main || general;
+  const company = isCompanyAdminWorkPart((prof as any)?.work_part);
+  const isAdmin = main || general || company;
 
   if (!isAdmin) return { ok: false, res: json(false, "Forbidden", null, 403) };
 
