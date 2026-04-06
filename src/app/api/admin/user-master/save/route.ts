@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { json, requireAdmin } from "../../../notices/_shared";
+import { json, requireAdmin } from "../../notices/_shared";
 import { isMissingColumnError } from "@/lib/supabase-compat";
 
 export const runtime = "nodejs";
