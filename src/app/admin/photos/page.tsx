@@ -166,6 +166,10 @@ export default function AdminPhotosPage() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
 
+  // photo pagination (우측 패널)
+  const [photoPage, setPhotoPage] = useState(0);
+  const PHOTO_PAGE_SIZE = 21;
+
   const mounted = useRef(false);
 
   // ---------- 작업파트 촬영 현황 ----------
@@ -244,6 +248,16 @@ export default function AdminPhotosPage() {
     if (!selectedStoreCode) return [];
     return photosByStore[selectedStoreCode] ?? [];
   }, [photosByStore, selectedStoreCode]);
+
+  // 점포 바뀌면 페이지 리셋
+  useEffect(() => {
+    setPhotoPage(0);
+  }, [selectedStoreCode]);
+
+  const pagedPhotos = useMemo(() => {
+    const start = photoPage * PHOTO_PAGE_SIZE;
+    return selectedStorePhotos.slice(start, start + PHOTO_PAGE_SIZE);
+  }, [selectedStorePhotos, photoPage]);
 
 
   // 선택 점포의 작업파트별 사진 수
@@ -781,39 +795,53 @@ export default function AdminPhotosPage() {
                   선택 점포의 사진이 없습니다.
                 </div>
               ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(178px, 1fr))", gap: 10 }}>
-                  {selectedStorePhotos.map((p, idx) => {
-                    const selected = selectedPhotoIds.has(p.id);
-                    const prof = profilesById[p.user_id];
-                    const uploaderName = prof?.name?.trim() ? prof.name.trim() : "-";
+                <>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(178px, 1fr))", gap: 10 }}>
+                    {pagedPhotos.map((p, localIdx) => {
+                      const globalIdx = photoPage * PHOTO_PAGE_SIZE + localIdx;
+                      const selected = selectedPhotoIds.has(p.id);
+                      const prof = profilesById[p.user_id];
+                      const uploaderName = prof?.name?.trim() ? prof.name.trim() : "-";
 
-                    return (
-                      <div key={p.id} className="photo-card-site" style={{ borderRadius: 10, border: selected ? "2px solid #103b53" : "1px solid #E8EFF5", overflow: "hidden", background: selected ? "#EFF6FF" : "white", boxShadow: "0 2px 10px rgba(2,32,46,0.07)" }}>
+                      return (
+                        <div key={p.id} className="photo-card-site" style={{ borderRadius: 10, border: selected ? "2px solid #103b53" : "1px solid #E8EFF5", overflow: "hidden", background: selected ? "#EFF6FF" : "white", boxShadow: "0 2px 10px rgba(2,32,46,0.07)" }}>
 
-                        {/* 썸네일 */}
-                        <button onClick={() => { if (selectMode) onToggleSelect(p.id); else openPreview(idx); }} style={{ width: "100%", border: "none", padding: 0, cursor: "pointer", background: "#0B1220", display: "block" }}>
-                          <img src={p.original_url} alt="photo" loading="lazy" decoding="async" style={{ width: "100%", height: 140, objectFit: "cover", display: "block" }} />
-                        </button>
+                          {/* 썸네일 */}
+                          <button onClick={() => { if (selectMode) onToggleSelect(p.id); else openPreview(globalIdx); }} style={{ width: "100%", border: "none", padding: 0, cursor: "pointer", background: "#0B1220", display: "block" }}>
+                            <img src={p.original_url} alt="photo" loading="lazy" decoding="async" style={{ width: "100%", height: 140, objectFit: "cover", display: "block" }} />
+                          </button>
 
-                        {/* 메타 */}
-                        <div style={{ padding: "9px 10px 10px" }}>
-                          <div style={{ fontSize: 11, fontWeight: 900, color: "#0F172A" }}>{formatKST(p.created_at)}</div>
-                          <div style={{ marginTop: 1, fontSize: 10, color: "#94A3B8", fontWeight: 700 }}>
-                            <span style={{ color: "#64748B" }}>[{p.store_code}]</span> · {uploaderName}
+                          {/* 메타 */}
+                          <div style={{ padding: "9px 10px 10px" }}>
+                            <div style={{ fontSize: 11, fontWeight: 900, color: "#0F172A" }}>{formatKST(p.created_at)}</div>
+                            <div style={{ marginTop: 1, fontSize: 10, color: "#94A3B8", fontWeight: 700 }}>
+                              <span style={{ color: "#64748B" }}>[{p.store_code}]</span> · {uploaderName}
+                            </div>
+
+                            {/* 버튼 */}
+                            <div style={{ marginTop: 9, display: "flex", gap: 5 }}>
+                              <button className="btn-primary" onClick={async (e) => { e.stopPropagation(); await onDownloadPhoto(p); }} style={{ flex: 1, height: 30, borderRadius: 7, border: "none", background: "#1E293B", color: "white", fontWeight: 900, fontSize: 11, cursor: "pointer", boxShadow: "0 2px 7px rgba(30,41,59,0.28)" }}>다운</button>
+                              <button className="btn-secondary" onClick={async (e) => { e.stopPropagation(); await onCopyPhoto(p); }} style={{ flex: 1, height: 30, borderRadius: 7, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 900, fontSize: 11, cursor: "pointer", color: "#374151" }}>복사</button>
+                              <button className="btn-secondary" onClick={(e) => { e.stopPropagation(); setSelectMode(true); onToggleSelect(p.id); }} style={{ height: 30, padding: "0 9px", borderRadius: 7, border: `1.5px solid ${selected ? "#103b53" : "#E2E8F0"}`, background: selected ? "#103b53" : "white", color: selected ? "white" : "#374151", fontWeight: 900, fontSize: 11, cursor: "pointer" }}>{selected ? "✓" : "선택"}</button>
+                            </div>
+                            <button className="btn-danger" onClick={(e) => { e.stopPropagation(); onDeletePhoto(p); }} style={{ width: "100%", marginTop: 5, height: 28, borderRadius: 7, border: "none", background: "#FEE2E2", color: "#DC2626", fontWeight: 900, fontSize: 11, cursor: "pointer" }}>삭제</button>
                           </div>
-
-                          {/* 버튼 */}
-                          <div style={{ marginTop: 9, display: "flex", gap: 5 }}>
-                            <button className="btn-primary" onClick={async (e) => { e.stopPropagation(); await onDownloadPhoto(p); }} style={{ flex: 1, height: 30, borderRadius: 7, border: "none", background: "#1E293B", color: "white", fontWeight: 900, fontSize: 11, cursor: "pointer", boxShadow: "0 2px 7px rgba(30,41,59,0.28)" }}>다운</button>
-                            <button className="btn-secondary" onClick={async (e) => { e.stopPropagation(); await onCopyPhoto(p); }} style={{ flex: 1, height: 30, borderRadius: 7, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 900, fontSize: 11, cursor: "pointer", color: "#374151" }}>복사</button>
-                            <button className="btn-secondary" onClick={(e) => { e.stopPropagation(); setSelectMode(true); onToggleSelect(p.id); }} style={{ height: 30, padding: "0 9px", borderRadius: 7, border: `1.5px solid ${selected ? "#103b53" : "#E2E8F0"}`, background: selected ? "#103b53" : "white", color: selected ? "white" : "#374151", fontWeight: 900, fontSize: 11, cursor: "pointer" }}>{selected ? "✓" : "선택"}</button>
-                          </div>
-                          <button className="btn-danger" onClick={(e) => { e.stopPropagation(); onDeletePhoto(p); }} style={{ width: "100%", marginTop: 5, height: 28, borderRadius: 7, border: "none", background: "#FEE2E2", color: "#DC2626", fontWeight: 900, fontSize: 11, cursor: "pointer" }}>삭제</button>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* 페이지네이션 */}
+                  {selectedStorePhotos.length > PHOTO_PAGE_SIZE && (
+                    <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                      <button onClick={() => setPhotoPage((v) => Math.max(0, v - 1))} disabled={photoPage === 0} style={{ height: 32, padding: "0 14px", borderRadius: 7, border: "1.5px solid #E2E8F0", background: photoPage === 0 ? "#F8FAFC" : "white", fontWeight: 800, fontSize: 13, cursor: photoPage === 0 ? "not-allowed" : "pointer", color: photoPage === 0 ? "#CBD5E1" : "#374151" }}>← 이전</button>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#64748B" }}>
+                        {photoPage + 1} / {Math.ceil(selectedStorePhotos.length / PHOTO_PAGE_SIZE)}
+                      </span>
+                      <button onClick={() => setPhotoPage((v) => Math.min(Math.ceil(selectedStorePhotos.length / PHOTO_PAGE_SIZE) - 1, v + 1))} disabled={photoPage >= Math.ceil(selectedStorePhotos.length / PHOTO_PAGE_SIZE) - 1} style={{ height: 32, padding: "0 14px", borderRadius: 7, border: "1.5px solid #E2E8F0", background: photoPage >= Math.ceil(selectedStorePhotos.length / PHOTO_PAGE_SIZE) - 1 ? "#F8FAFC" : "white", fontWeight: 800, fontSize: 13, cursor: photoPage >= Math.ceil(selectedStorePhotos.length / PHOTO_PAGE_SIZE) - 1 ? "not-allowed" : "pointer", color: photoPage >= Math.ceil(selectedStorePhotos.length / PHOTO_PAGE_SIZE) - 1 ? "#CBD5E1" : "#374151" }}>다음 →</button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
