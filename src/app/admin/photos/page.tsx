@@ -211,11 +211,7 @@ export default function AdminPhotosPage() {
     } catch {}
   };
 
-  useEffect(() => {
-    if (checking || !isAdmin) return;
-    void fetchCargoForDate(dateFrom);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFrom, checking, isAdmin]);
+  // fetchCargoForDate는 조회 버튼 클릭 시(fetchData 내부)에서 호출
 
   // ---------- derive ----------
   const carOptions = useMemo(() => {
@@ -570,7 +566,6 @@ export default function AdminPhotosPage() {
     if (checking) return;
     if (!isAdmin) return;
     fetchData();
-    void fetchCargoForDate(dateFrom);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checking, isAdmin]);
 
@@ -696,7 +691,7 @@ export default function AdminPhotosPage() {
 
               {/* 조회/초기화 */}
               <div style={{ display: "flex", gap: 8 }}>
-                <button className="btn-primary" onClick={fetchData} disabled={loading} style={{ flex: 1, height: 42, borderRadius: 9, border: "none", background: loading ? "#94A3B8" : "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", color: "white", fontWeight: 900, fontSize: 14, cursor: loading ? "not-allowed" : "pointer", boxShadow: loading ? "none" : "0 5px 16px rgba(16,59,83,0.30)" }}>
+                <button className="btn-primary" onClick={() => { fetchData(); void fetchCargoForDate(dateFrom); }} disabled={loading} style={{ flex: 1, height: 42, borderRadius: 9, border: "none", background: loading ? "#94A3B8" : "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", color: "white", fontWeight: 900, fontSize: 14, cursor: loading ? "not-allowed" : "pointer", boxShadow: loading ? "none" : "0 5px 16px rgba(16,59,83,0.30)" }}>
                   {loading ? "조회중..." : "조회"}
                 </button>
                 <button className="btn-secondary" onClick={() => { setSearchText(""); setCarNo("ALL"); setWorkPart("ALL"); setDateFrom(kstTodayYYYYMMDD()); setDateTo(kstTodayYYYYMMDD()); setSelectedStore(null); resetSelection(); }} disabled={loading} style={{ height: 42, padding: "0 14px", borderRadius: 9, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 800, fontSize: 13, cursor: loading ? "not-allowed" : "pointer", color: "#64748B" }}>
@@ -748,11 +743,6 @@ export default function AdminPhotosPage() {
             </div>
 
             {/* 작업파트 촬영 현황 */}
-            {!!selectedStoreCode && (
-              <div style={{ padding: "4px 16px", background: "#FFF9C4", fontSize: 11, color: "#555" }}>
-                디버그: photos={selectedStorePhotos.length} | workParts={JSON.stringify(Object.keys(selectedStoreWorkPartCount))} | sunday={String(isSingleDaySunday)} | ordered={orderedWorkParts.length}
-              </div>
-            )}
             {showWorkPartStatus && (
               <div style={{ padding: "10px 16px", borderBottom: "1px solid #F1F5F9", display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                 <span style={{ fontSize: 11, fontWeight: 900, color: "#94A3B8", marginRight: 2, whiteSpace: "nowrap" }}>촬영</span>
