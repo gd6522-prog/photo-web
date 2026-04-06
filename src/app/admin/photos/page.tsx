@@ -509,11 +509,21 @@ export default function AdminPhotosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checking, isAdmin]);
 
-  if (checking) {
+  if (checking || (isAdmin && loading)) {
     return (
-      <div style={{ padding: 24, fontFamily: "system-ui" }}>
-        <div style={{ fontWeight: 800 }}>Han Admin</div>
-        <div style={{ marginTop: 10, color: "#6B7280" }}>로그인 확인 중...</div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 320, fontFamily: "Pretendard, system-ui, sans-serif" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: "50%",
+            border: "4px solid #E2E8F0",
+            borderTopColor: "#103b53",
+            animation: "spin 0.8s linear infinite",
+          }} />
+          <div style={{ fontWeight: 800, fontSize: 14, color: "#64748B" }}>
+            {checking ? "권한 확인 중..." : "데이터 불러오는 중..."}
+          </div>
+        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
