@@ -9,8 +9,9 @@ import { copyCompressedImageUrlToClipboard } from "@/lib/clipboard-image";
 type StoreMapRow = {
   store_code: string;
   store_name: string;
-  car_no: number | null;
+  car_no: string | null;
   seq_no: number | null;
+  photo_count?: number;
 };
 
 type PhotoRow = {
@@ -348,7 +349,7 @@ export default function AdminPhotosPage() {
     window.location.href = "/login";
   };
 
-  // ---------- query: 점포 목록 로드 (경량 쿼리) ----------
+  // ---------- query: 점포 목록 로드 (DB RPC - 서버에서 집계) ----------
   const fetchData = async () => {
     setLoading(true);
     setPhotos([]);
@@ -360,65 +361,28 @@ export default function AdminPhotosPage() {
 
       const { startUTC, endUTC } = kstDateRangeToUtcRange(dateFrom, dateTo);
 
-      // 점포 목록 구성용 경량 쿼리 (store_code, user_id만)
-      const { data: lightRows, error: lightErr } = await supabase
-        .from("photos")
-        .select("user_id, store_code")
-        .gte("created_at", startUTC)
-        .lt("created_at", endUTC)
-        .limit(5000);
+      const { data, error } = await supabase.rpc("get_photo_stores", {
+        p_start_utc: startUTC,
+        p_end_utc: endUTC,
+        p_work_part: workPart,
+      });
 
-      if (lightErr) throw lightErr;
+      if (error) throw error;
 
-      const rows = (lightRows ?? []) as { user_id: string; store_code: string }[];
+      let storeList = (data ?? []) as StoreMapRow[];
 
-      // work_part 필터용 프로필 조회 (name 불필요)
-      const userIds = Array.from(new Set(rows.map((r) => r.user_id))).filter(Boolean);
-      const wpMap: Record<string, string> = {};
-      if (userIds.length > 0) {
-        const { data: profs } = await supabase
-          .from("profiles")
-          .select("id, work_part")
-          .in("id", userIds);
-        for (const p of (profs ?? []) as any[]) {
-          wpMap[p.id] = normWorkPart(p.work_part);
-        }
+      // 검색어 필터 (클라이언트)
+      const st = searchText.trim().toLowerCase();
+      if (st) {
+        storeList = storeList.filter((s) =>
+          s.store_code?.toLowerCase().includes(st) || s.store_name?.toLowerCase().includes(st)
+        );
       }
 
-      // 기사(배송) 제외 + workPart 필터
-      let filtered = rows.filter((r) => wpMap[r.user_id] !== "배송");
-      if (workPart !== "ALL") {
-        filtered = filtered.filter((r) => wpMap[r.user_id] === workPart);
-      }
-
-      const storeCodes = Array.from(new Set(filtered.map((p) => p.store_code))).filter(Boolean);
-
-      let storeList: StoreMapRow[] = [];
-      if (storeCodes.length > 0) {
-        const st = searchText.trim();
-        let sq = supabase.from("store_map").select("store_code, store_name, car_no, seq_no").in("store_code", storeCodes);
-        if (st) {
-          const like = `%${st}%`;
-          sq = sq.or(`store_code.ilike.${like},store_name.ilike.${like}`);
-        }
-        const { data: sm, error: smErr } = await sq.limit(2000);
-        if (smErr) throw smErr;
-        storeList = (sm ?? []) as StoreMapRow[];
-      }
-
+      // 호차 필터
       if (carNo !== "ALL") {
         storeList = storeList.filter((s) => String(s.car_no ?? "") === String(carNo));
       }
-
-      storeList.sort((a, b) => {
-        const ac = a.car_no ?? 999999;
-        const bc = b.car_no ?? 999999;
-        if (ac !== bc) return ac - bc;
-        const as = a.seq_no ?? 999999;
-        const bs = b.seq_no ?? 999999;
-        if (as !== bs) return as - bs;
-        return a.store_code.localeCompare(b.store_code);
-      });
 
       setStores(storeList);
       setStoreCount(storeList.length);
