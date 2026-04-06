@@ -170,7 +170,7 @@ export default function AdminPhotosPage() {
 
   // photo pagination (우측 패널)
   const [photoPage, setPhotoPage] = useState(0);
-  const PHOTO_PAGE_SIZE = 14;
+  const PHOTO_PAGE_SIZE = 21;
 
   const mounted = useRef(false);
 
