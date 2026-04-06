@@ -147,11 +147,12 @@ export default function AdminPhotosPage() {
   }, [dateFrom, dateTo]);
 
   // ---------- data ----------
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);       // 점포 목록 로딩
+  const [photosLoading, setPhotosLoading] = useState(false); // 선택 점포 사진 로딩
   const [stores, setStores] = useState<StoreMapRow[]>([]);
   const [storeCount, setStoreCount] = useState<number>(0);
 
-  const [photos, setPhotos] = useState<PhotoRow[]>([]);
+  const [photos, setPhotos] = useState<PhotoRow[]>([]);        // 현재 선택 점포 사진만
   const [profilesById, setProfilesById] = useState<Record<string, ProfileRow>>({});
 
   // left list selection
@@ -227,27 +228,15 @@ export default function AdminPhotosPage() {
     "박스존": 0, "이너존": 1, "슬라존": 2, "경량존": 3, "이형존": 4, "담배존": 5,
   };
 
-  const photosByStore = useMemo(() => {
-    const groups: Record<string, PhotoRow[]> = {};
-    for (const p of photos) {
-      if (!groups[p.store_code]) groups[p.store_code] = [];
-      groups[p.store_code].push(p);
-    }
-    for (const k of Object.keys(groups)) {
-      groups[k].sort((a, b) => {
-        const za = ZONE_ORDER[profilesById[a.user_id]?.work_part ?? ""] ?? 99;
-        const zb = ZONE_ORDER[profilesById[b.user_id]?.work_part ?? ""] ?? 99;
-        if (za !== zb) return za - zb;
-        return a.created_at > b.created_at ? -1 : 1;
-      });
-    }
-    return groups;
-  }, [photos, profilesById]);
-
+  // photos는 이미 선택 점포 것만 담겨 있음 → 정렬만 적용
   const selectedStorePhotos = useMemo(() => {
-    if (!selectedStoreCode) return [];
-    return photosByStore[selectedStoreCode] ?? [];
-  }, [photosByStore, selectedStoreCode]);
+    return [...photos].sort((a, b) => {
+      const za = ZONE_ORDER[profilesById[a.user_id]?.work_part ?? ""] ?? 99;
+      const zb = ZONE_ORDER[profilesById[b.user_id]?.work_part ?? ""] ?? 99;
+      if (za !== zb) return za - zb;
+      return a.created_at > b.created_at ? -1 : 1;
+    });
+  }, [photos, profilesById]);
 
   // 점포 바뀌면 페이지 리셋
   useEffect(() => {
@@ -359,9 +348,11 @@ export default function AdminPhotosPage() {
     window.location.href = "/login";
   };
 
-  // ---------- query: fetch ----------
+  // ---------- query: 점포 목록 로드 (경량 쿼리) ----------
   const fetchData = async () => {
     setLoading(true);
+    setPhotos([]);
+    setProfilesById({});
     try {
       if (dateFrom > dateTo) {
         throw new Error("날짜 범위가 올바르지 않습니다. 시작일이 종료일보다 늦을 수 없습니다.");
@@ -369,74 +360,57 @@ export default function AdminPhotosPage() {
 
       const { startUTC, endUTC } = kstDateRangeToUtcRange(dateFrom, dateTo);
 
-      let q = supabase
+      // 점포 목록 구성용 경량 쿼리 (store_code, user_id만)
+      const { data: lightRows, error: lightErr } = await supabase
         .from("photos")
-        .select("id, user_id, created_at, status, original_path, original_url, store_code")
+        .select("user_id, store_code")
         .gte("created_at", startUTC)
-        .lt("created_at", endUTC);
+        .lt("created_at", endUTC)
+        .limit(5000);
 
-      q = q.order("created_at", { ascending: false }).limit(5000);
+      if (lightErr) throw lightErr;
 
-      const { data: photoRows, error: photoErr } = await q;
-      if (photoErr) throw photoErr;
+      const rows = (lightRows ?? []) as { user_id: string; store_code: string }[];
 
-      const rows = (photoRows ?? []) as PhotoRow[];
-
-      // ✅ uploader profiles
+      // work_part 필터용 프로필 조회 (name 불필요)
       const userIds = Array.from(new Set(rows.map((r) => r.user_id))).filter(Boolean);
-      let profMap: Record<string, ProfileRow> = {};
+      const wpMap: Record<string, string> = {};
       if (userIds.length > 0) {
-        const { data: profs, error: profErr } = await supabase
+        const { data: profs } = await supabase
           .from("profiles")
-          .select("id, name, work_part, is_admin")
+          .select("id, work_part")
           .in("id", userIds);
-
-        if (!profErr && profs) {
-          for (const p of profs as any[]) {
-            profMap[p.id] = {
-              id: p.id,
-              name: p.name ?? null,
-              work_part: p.work_part ?? null,
-              is_admin: p.is_admin ?? null,
-            };
-          }
+        for (const p of (profs ?? []) as any[]) {
+          wpMap[p.id] = normWorkPart(p.work_part);
         }
       }
-      setProfilesById(profMap);
 
-      // ✅ 핵심: 기사(배송 work_part) 업로드는 현장사진에서 무조건 제외
-      const nonDriverRows = rows.filter((r) => normWorkPart(profMap[r.user_id]?.work_part) !== "배송");
-
-      let filteredPhotos = nonDriverRows;
-
-      // 기존 workPart 필터 적용(단, 배송 선택해도 기사 사진은 원천적으로 안 섞임)
+      // 기사(배송) 제외 + workPart 필터
+      let filtered = rows.filter((r) => wpMap[r.user_id] !== "배송");
       if (workPart !== "ALL") {
-        filteredPhotos = filteredPhotos.filter((r) => (profMap[r.user_id]?.work_part ?? "") === workPart);
+        filtered = filtered.filter((r) => wpMap[r.user_id] === workPart);
       }
 
-      const storeCodes = Array.from(new Set(filteredPhotos.map((p) => p.store_code))).filter(Boolean);
+      const storeCodes = Array.from(new Set(filtered.map((p) => p.store_code))).filter(Boolean);
 
       let storeList: StoreMapRow[] = [];
       if (storeCodes.length > 0) {
         const st = searchText.trim();
         let sq = supabase.from("store_map").select("store_code, store_name, car_no, seq_no").in("store_code", storeCodes);
-
         if (st) {
           const like = `%${st}%`;
           sq = sq.or(`store_code.ilike.${like},store_name.ilike.${like}`);
         }
-
         const { data: sm, error: smErr } = await sq.limit(2000);
         if (smErr) throw smErr;
         storeList = (sm ?? []) as StoreMapRow[];
       }
 
-      let filteredStores = storeList;
       if (carNo !== "ALL") {
-        filteredStores = filteredStores.filter((s) => String(s.car_no ?? "") === String(carNo));
+        storeList = storeList.filter((s) => String(s.car_no ?? "") === String(carNo));
       }
 
-      filteredStores.sort((a, b) => {
+      storeList.sort((a, b) => {
         const ac = a.car_no ?? 999999;
         const bc = b.car_no ?? 999999;
         if (ac !== bc) return ac - bc;
@@ -446,24 +420,60 @@ export default function AdminPhotosPage() {
         return a.store_code.localeCompare(b.store_code);
       });
 
-      setStores(filteredStores);
-      setStoreCount(filteredStores.length);
+      setStores(storeList);
+      setStoreCount(storeList.length);
 
-      const allowedCodes = new Set(filteredStores.map((s) => s.store_code));
-      const finalPhotos = filteredPhotos.filter((p) => allowedCodes.has(p.store_code));
-      setPhotos(finalPhotos);
+      const allowedCodes = new Set(storeList.map((s) => s.store_code));
 
       if (selectedStoreCode && !allowedCodes.has(selectedStoreCode)) {
         setSelectedStore(null);
         resetSelection();
-      }
-
-      if (!selectedStore && filteredStores.length > 0) {
-        setSelectedStore(filteredStores[0]);
+      } else if (!selectedStore && storeList.length > 0) {
+        setSelectedStore(storeList[0]);
         resetSelection();
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ---------- query: 선택 점포 사진 로드 ----------
+  const fetchStorePhotos = async (storeCode: string) => {
+    setPhotosLoading(true);
+    setPhotos([]);
+    setProfilesById({});
+    try {
+      const { startUTC, endUTC } = kstDateRangeToUtcRange(dateFrom, dateTo);
+
+      const { data: photoRows, error: photoErr } = await supabase
+        .from("photos")
+        .select("id, user_id, created_at, status, original_path, original_url, store_code")
+        .eq("store_code", storeCode)
+        .gte("created_at", startUTC)
+        .lt("created_at", endUTC)
+        .order("created_at", { ascending: false })
+        .limit(500);
+
+      if (photoErr) throw photoErr;
+
+      const rows = (photoRows ?? []) as PhotoRow[];
+
+      const uploaderIds = Array.from(new Set(rows.map((r) => r.user_id))).filter(Boolean);
+      const profMap: Record<string, ProfileRow> = {};
+      if (uploaderIds.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, name, work_part, is_admin")
+          .in("id", uploaderIds);
+        for (const p of (profs ?? []) as any[]) {
+          profMap[p.id] = { id: p.id, name: p.name ?? null, work_part: p.work_part ?? null, is_admin: p.is_admin ?? null };
+        }
+      }
+
+      setPhotos(rows);
+      setProfilesById(profMap);
+    } finally {
+      setPhotosLoading(false);
     }
   };
 
@@ -578,6 +588,18 @@ export default function AdminPhotosPage() {
     if (!previewPhoto) return;
     await onCopyPhoto(previewPhoto);
   };
+
+  // 점포 선택 시 사진 로드
+  useEffect(() => {
+    if (checking || !isAdmin) return;
+    if (selectedStoreCode) {
+      void fetchStorePhotos(selectedStoreCode);
+    } else {
+      setPhotos([]);
+      setProfilesById({});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStoreCode, checking, isAdmin]);
 
   // ---------- initial fetch ----------
   useEffect(() => {
@@ -789,6 +811,10 @@ export default function AdminPhotosPage() {
               {!selectedStoreCode ? (
                 <div style={{ borderRadius: 10, padding: 20, color: "#94A3B8", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0" }}>
                   왼쪽 점포 목록에서 점포를 선택하세요.
+                </div>
+              ) : photosLoading ? (
+                <div style={{ borderRadius: 10, padding: 20, color: "#94A3B8", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0" }}>
+                  사진 불러오는 중...
                 </div>
               ) : selectedStorePhotos.length === 0 ? (
                 <div style={{ borderRadius: 10, padding: 20, color: "#94A3B8", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0" }}>
