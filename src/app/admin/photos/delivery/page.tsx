@@ -897,7 +897,7 @@ export default function AdminDeliveryPhotosPage() {
                         {/* 썸네일 */}
                         <div style={{ position: "relative", background: "#0B1220" }}>
                           <button onClick={() => openPreview(gIdx, 0)} style={{ width: "100%", border: "none", padding: 0, margin: 0, background: "transparent", cursor: "pointer", display: "block" }}>
-                            <img src={rep.public_url} alt={rep.id} loading="eager" fetchPriority="high" decoding="async" style={{ width: "100%", height: 118, objectFit: "cover", display: "block" }} />
+                            <img src={rep.public_url} alt={rep.id} loading="lazy" decoding="async" style={{ width: "100%", height: 118, objectFit: "cover", display: "block" }} />
                           </button>
 
                           {photoCount > 1 && (

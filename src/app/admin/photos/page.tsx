@@ -792,7 +792,7 @@ export default function AdminPhotosPage() {
 
                         {/* 썸네일 */}
                         <button onClick={() => { if (selectMode) onToggleSelect(p.id); else openPreview(idx); }} style={{ width: "100%", border: "none", padding: 0, cursor: "pointer", background: "#0B1220", display: "block" }}>
-                          <img src={p.original_url} alt="photo" loading="eager" fetchPriority="high" decoding="async" style={{ width: "100%", height: 140, objectFit: "cover", display: "block" }} />
+                          <img src={p.original_url} alt="photo" loading="lazy" decoding="async" style={{ width: "100%", height: 140, objectFit: "cover", display: "block" }} />
                         </button>
 
                         {/* 메타 */}
