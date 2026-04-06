@@ -2,8 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import type { AccessLevel } from "@/lib/admin-access";
-import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
+import { useAdminAccess } from "@/lib/admin-access";
 import { copyCompressedImageUrlToClipboard } from "@/lib/clipboard-image";
 
 type StoreMapRow = {
@@ -119,11 +118,8 @@ const WORK_PART_OPTIONS = [
 ];
 
 export default function AdminPhotosPage() {
-  // ---------- auth ----------
-  const [checking, setChecking] = useState(true);
-  const [sessionEmail, setSessionEmail] = useState<string>("");
-  const [sessionUid, setSessionUid] = useState<string>("");
-  const [isAdmin, setIsAdmin] = useState(false);
+  // ---------- auth (layout AdminAccessProvider에서 주입) ----------
+  const { loading: checking, isAdmin, uid: sessionUid, email: sessionEmail } = useAdminAccess();
 
   // ✅ toast
   const [toastMsg, setToastMsg] = useState<string>("");
@@ -171,8 +167,6 @@ export default function AdminPhotosPage() {
   // photo pagination (우측 패널)
   const [photoPage, setPhotoPage] = useState(0);
   const PHOTO_PAGE_SIZE = 21;
-
-  const mounted = useRef(false);
 
   // ---------- 작업파트 촬영 현황 ----------
   const [cargoByStoreCode, setCargoByStoreCode] = useState<Record<string, CargoSummary>>({});
@@ -279,60 +273,6 @@ export default function AdminPhotosPage() {
     ? `[${selectedStore.store_code}] ${selectedStore.store_name} (호차 ${selectedStore.car_no ?? "-"} / 순번 ${selectedStore.seq_no ?? "-"})`
     : "점포를 선택하세요";
 
-  // ---------- auth check ----------
-  const loadAdmin = async () => {
-    const { data, error } = await supabase.auth.getSession();
-    if (error) throw error;
-    const sess = data.session;
-    if (!sess) return { ok: false as const, reason: "no-session" as const };
-
-    const uid = sess.user.id;
-    const email = sess.user.email ?? "";
-    setSessionUid(uid);
-    setSessionEmail(email);
-
-    const { data: prof } = await supabase
-      .from("profiles")
-      .select("id, name, work_part, is_admin")
-      .eq("id", uid)
-      .maybeSingle();
-
-    const hardAdmin = isMainAdminIdentity(uid, email);
-    const main = hardAdmin || (!!prof && !!(prof as any).is_admin);
-    const general = isGeneralAdminWorkPart((prof as any)?.work_part);
-
-    let admin = main;
-    if (!admin && general) {
-      const { data: perm } = await supabase
-        .from("admin_menu_permissions")
-        .select("general_access")
-        .eq("menu_key", "admin_photos")
-        .maybeSingle();
-
-      const access = ((perm as { general_access?: AccessLevel | null } | null)?.general_access ?? "hidden") as AccessLevel;
-      admin = access !== "hidden";
-    }
-    setIsAdmin(admin);
-
-    return { ok: true as const, admin };
-  };
-
-  useEffect(() => {
-    if (mounted.current) return;
-    mounted.current = true;
-
-    (async () => {
-      setChecking(true);
-      try {
-        const r = await loadAdmin();
-        if (!r.ok) setIsAdmin(false);
-      } catch {
-        setIsAdmin(false);
-      } finally {
-        setChecking(false);
-      }
-    })();
-  }, []);
 
   // ---------- helpers ----------
   const resetSelection = () => {
