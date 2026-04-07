@@ -1847,10 +1847,11 @@ function exportWorkbook(
 }
 function cardStyle() {
   return {
-    border: "1px solid #d6e4ee",
-    borderRadius: 0,
+    border: "1px solid #E8EDF2",
+    borderRadius: 10,
     background: "#fff",
     padding: 16,
+    boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
   } as const;
 }
 
@@ -3028,33 +3029,35 @@ export function VehiclePageScreen({
       <div
         className="report-screen-only"
         style={{
-          border: "1px solid #c7d6e3",
-          borderRadius: 0,
+          border: "1px solid #E8EDF2",
+          borderRadius: 10,
           padding: 20,
-          background: "linear-gradient(180deg, #fbfeff 0%, #f2f8fb 100%)",
+          background: "#fff",
+          boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
           <div>
-            <div style={{ fontSize: 30, fontWeight: 950, color: "#0f2940", letterSpacing: -0.5 }}>{title}</div>
-            <div style={{ marginTop: 8, color: "#486274", lineHeight: 1.6, fontSize: 14 }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#0F172A", letterSpacing: "-0.02em" }}>{title}</div>
+            <div style={{ marginTop: 4, color: "#94A3B8", lineHeight: 1.6, fontSize: 13 }}>
               단품별 파일을 올리면 점포명 기준으로 점포마스터의 호차와 순번을 먼저 반영한 뒤 물동량과 운행일보를 만듭니다.
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {allowedTabs.includes("input") ? (
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={busy}
               style={{
-                height: 42,
-                padding: "0 18px",
-                borderRadius: 0,
-                border: "1px solid #0f766e",
-                background: "#0f766e",
+                height: 38,
+                padding: "0 16px",
+                borderRadius: 7,
+                border: "none",
+                background: busy ? "#94A3B8" : "#0f766e",
                 color: "#fff",
-                fontWeight: 900,
+                fontWeight: 700,
+                fontSize: 13,
                 cursor: busy ? "not-allowed" : "pointer",
               }}
             >
@@ -3065,13 +3068,14 @@ export function VehiclePageScreen({
               onClick={() => exportWorkbook(productRows, cargoRows, reportGroups, reportDate, reportFileDate, selectedReportGroup?.carNo, storeContactIndex)}
               disabled={cargoRows.length === 0}
               style={{
-                height: 42,
-                padding: "0 18px",
-                borderRadius: 0,
-                border: "1px solid #113247",
-                background: cargoRows.length === 0 ? "#cbd5e1" : "#113247",
+                height: 38,
+                padding: "0 16px",
+                borderRadius: 7,
+                border: "none",
+                background: cargoRows.length === 0 ? "#CBD5E1" : "#1E293B",
                 color: "#fff",
-                fontWeight: 900,
+                fontWeight: 700,
+                fontSize: 13,
                 cursor: cargoRows.length === 0 ? "not-allowed" : "pointer",
               }}
             >
@@ -3081,14 +3085,16 @@ export function VehiclePageScreen({
               onClick={resetStoredData}
               disabled={productRows.length === 0 && cargoRows.length === 0}
               style={{
-                height: 42,
-                padding: "0 18px",
-                borderRadius: 0,
-                border: "1px solid #c7d6e3",
-                background: productRows.length === 0 && cargoRows.length === 0 ? "#eef3f7" : "#fff",
-                color: "#28485d",
-                fontWeight: 900,
+                height: 38,
+                padding: "0 16px",
+                borderRadius: 7,
+                border: "1px solid #D1D9E0",
+                background: "#fff",
+                color: "#374151",
+                fontWeight: 700,
+                fontSize: 13,
                 cursor: productRows.length === 0 && cargoRows.length === 0 ? "not-allowed" : "pointer",
+                opacity: productRows.length === 0 && cargoRows.length === 0 ? 0.5 : 1,
               }}
             >
               초기화
@@ -3109,7 +3115,7 @@ export function VehiclePageScreen({
           </div>
         </div>
 
-        <div style={{ marginTop: 12, color: "#29485e", fontSize: 13, fontWeight: 700 }}>
+        <div style={{ marginTop: 12, color: "#475569", fontSize: 13, fontWeight: 700 }}>
           {fileName ? `현재 데이터: ${fileName}` : "단품별 파일만 올리면 됩니다."}
         </div>
         {loadingState ? (
@@ -3120,12 +3126,12 @@ export function VehiclePageScreen({
               alignItems: "center",
               gap: 10,
               padding: "10px 14px",
-              borderRadius: 0,
-              border: "1px solid #bfdbfe",
-              background: "#eff6ff",
-              color: "#1d4ed8",
+              borderRadius: 8,
+              border: "1px solid #BFDBFE",
+              background: "#EFF6FF",
+              color: "#1D4ED8",
               fontSize: 13,
-              fontWeight: 800,
+              fontWeight: 700,
             }}
           >
             <span
@@ -3142,7 +3148,7 @@ export function VehiclePageScreen({
             {loadingState === "restore" ? "서버 저장 데이터를 불러오는 중입니다..." : "파일을 서버에 업로드하고 정리하는 중입니다..."}
           </div>
         ) : null}
-        {message ? <div style={{ marginTop: 8, color: "#103b53", fontSize: 13, fontWeight: 700 }}>{message}</div> : null}
+        {message ? <div style={{ marginTop: 8, color: "#374151", fontSize: 13, fontWeight: 700 }}>{message}</div> : null}
       </div>
 
       <div className="report-screen-only" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
@@ -3154,8 +3160,8 @@ export function VehiclePageScreen({
           { label: "대생수", value: formatNumber(totals.water) },
         ].map((card) => (
           <div key={card.label} style={topCardStyle}>
-            <div style={{ fontSize: 12, color: "#678092", fontWeight: 800 }}>{card.label}</div>
-            <div style={{ marginTop: 8, fontSize: 24, color: "#102f46", fontWeight: 950 }}>{card.value}</div>
+            <div style={{ fontSize: 12, color: "#64748B", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" as const }}>{card.label}</div>
+            <div style={{ marginTop: 8, fontSize: 22, color: "#0F172A", fontWeight: 800 }}>{card.value}</div>
           </div>
         ))}
       </div>
@@ -3175,13 +3181,14 @@ export function VehiclePageScreen({
               key={key}
               onClick={() => setTab(key as VehicleTab)}
               style={{
-                height: 40,
+                height: 38,
                 padding: "0 16px",
-                borderRadius: 4,
-                border: active ? "1px solid #0f766e" : "1px solid #d6e4ee",
-                background: active ? "#e7f6f2" : "#fff",
-                color: active ? "#0f5e57" : "#28485d",
-                fontWeight: 900,
+                borderRadius: 7,
+                border: active ? "1px solid #1E293B" : "1px solid #D1D9E0",
+                background: active ? "#1E293B" : "#fff",
+                color: active ? "#fff" : "#374151",
+                fontWeight: 700,
+                fontSize: 13,
                 cursor: "pointer",
               }}
             >
@@ -3194,7 +3201,7 @@ export function VehiclePageScreen({
 
       {tab === "input" ? (
         <div style={{ display: "grid", gap: 16 }}>
-          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <input
               value={storeQueryInput}
               onChange={(event) => setStoreQueryInput(event.target.value)}
@@ -3207,12 +3214,15 @@ export function VehiclePageScreen({
               placeholder="호차, 점포코드, 점포명, 셀, 상품코드 검색"
               style={{
                 width: 280,
-                height: 42,
-                borderRadius: 0,
-                border: "1px solid #c7d6e3",
-                padding: "0 14px",
+                height: 38,
+                borderRadius: 7,
+                border: "1px solid #D1D9E0",
+                padding: "0 11px",
                 outline: "none",
                 background: "#fff",
+                fontSize: 13,
+                color: "#1E293B",
+                boxSizing: "border-box" as const,
               }}
             />
             <button
@@ -3221,13 +3231,14 @@ export function VehiclePageScreen({
                 setInputPage(1);
               }}
               style={{
-                height: 42,
-                padding: "0 18px",
-                borderRadius: 0,
-                border: "1px solid #113247",
-                background: "#113247",
+                height: 38,
+                padding: "0 16px",
+                borderRadius: 7,
+                border: "none",
+                background: "#1E293B",
                 color: "#fff",
-                fontWeight: 900,
+                fontWeight: 700,
+                fontSize: 13,
                 cursor: "pointer",
               }}
             >
@@ -3240,29 +3251,30 @@ export function VehiclePageScreen({
                 setInputPage(1);
               }}
               style={{
-                height: 42,
-                padding: "0 18px",
-                borderRadius: 0,
-                border: "1px solid #c7d6e3",
+                height: 38,
+                padding: "0 16px",
+                borderRadius: 7,
+                border: "1px solid #D1D9E0",
                 background: "#fff",
-                color: "#28485d",
-                fontWeight: 900,
+                color: "#374151",
+                fontWeight: 700,
+                fontSize: 13,
                 cursor: "pointer",
               }}
             >
               전체
             </button>
-            <div style={{ color: "#486274", fontSize: 13, fontWeight: 700 }}>
+            <div style={{ color: "#64748B", fontSize: 13, fontWeight: 700 }}>
               {storeQuery ? `검색 결과 ${filteredProductRows.length}건` : `전체 ${filteredProductRows.length}건`}
             </div>
           </div>
 
-          <div style={{ border: "1px solid #d6e4ee", borderRadius: 0, background: "#fff", overflow: "auto" }}>
+          <div style={{ border: "1px solid #E8EDF2", borderRadius: 10, background: "#fff", overflow: "auto", boxShadow: "0 1px 4px rgba(15,23,42,0.06)" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 980 }}>
               <thead>
-                <tr style={{ background: "#f8fbfd" }}>
+                <tr style={{ background: "#F8FAFC" }}>
                   {["호차", "순번", "점포코드", "점포명", "작업구분", "셀", "상품코드", "상품명", "출고수량", "출고배수"].map((header) => (
-                    <th key={header} style={{ textAlign: "left", padding: 12, borderBottom: "1px solid #e6eef4", fontSize: 13 }}>
+                    <th key={header} style={{ textAlign: "left", padding: "10px 12px", borderBottom: "2px solid #E8EDF2", fontSize: 12, fontWeight: 700, color: "#64748B" }}>
                       {header}
                     </th>
                   ))}
@@ -3270,22 +3282,22 @@ export function VehiclePageScreen({
               </thead>
               <tbody>
                 {pagedProductRows.map((row, index) => (
-                  <tr key={`${row.store_name}-${row.product_code}-${index}`} style={{ background: index % 2 === 0 ? "#fff" : "#fbfdff" }}>
-                    <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{row.car_no}</td>
-                    <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{row.seq_no}</td>
-                    <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{row.store_code}</td>
-                    <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{row.store_name}</td>
-                    <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{row.work_type}</td>
-                    <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{row.cell_name}</td>
-                    <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{row.product_code}</td>
-                    <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{row.product_name}</td>
-                    <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{formatNumber(row.assigned_qty)}</td>
-                    <td style={{ padding: 12, borderBottom: "1px solid #f0f4f7" }}>{formatNumber(effectiveQty(row))}</td>
+                  <tr key={`${row.store_name}-${row.product_code}-${index}`} style={{ background: "#fff" }}>
+                    <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{row.car_no}</td>
+                    <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{row.seq_no}</td>
+                    <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#64748B" }}>{row.store_code}</td>
+                    <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, fontWeight: 700, color: "#0F172A" }}>{row.store_name}</td>
+                    <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#64748B" }}>{row.work_type}</td>
+                    <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#64748B" }}>{row.cell_name}</td>
+                    <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#64748B" }}>{row.product_code}</td>
+                    <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{row.product_name}</td>
+                    <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{formatNumber(row.assigned_qty)}</td>
+                    <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{formatNumber(effectiveQty(row))}</td>
                   </tr>
                 ))}
                 {pagedProductRows.length === 0 ? (
                   <tr>
-                    <td colSpan={10} style={{ padding: 18, color: "#6b7280" }}>
+                    <td colSpan={10} style={{ padding: 32, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>
                       {productRows.length === 0 ? "아직 불러온 단품별 데이터가 없습니다." : "검색된 점포 발주현황이 없습니다."}
                     </td>
                   </tr>
@@ -3296,22 +3308,24 @@ export function VehiclePageScreen({
 
           {filteredProductRows.length > 0 ? (
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <div style={{ color: "#486274", fontSize: 13, fontWeight: 700 }}>
+              <div style={{ color: "#64748B", fontSize: 13, fontWeight: 700 }}>
                 {inputPage} / {inputPageCount} 페이지
               </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 <button
                   onClick={() => setInputPage(1)}
                   disabled={inputPage === 1}
                   style={{
-                    height: 38,
+                    height: 36,
                     padding: "0 14px",
-                    borderRadius: 0,
-                    border: "1px solid #c7d6e3",
-                    background: inputPage === 1 ? "#eef3f7" : "#fff",
-                    color: "#28485d",
-                    fontWeight: 800,
+                    borderRadius: 7,
+                    border: "1px solid #D1D9E0",
+                    background: "#fff",
+                    color: "#374151",
+                    fontWeight: 700,
+                    fontSize: 13,
                     cursor: inputPage === 1 ? "not-allowed" : "pointer",
+                    opacity: inputPage === 1 ? 0.5 : 1,
                   }}
                 >
                   처음
@@ -3320,14 +3334,16 @@ export function VehiclePageScreen({
                   onClick={() => setInputPage((prev) => Math.max(1, prev - 1))}
                   disabled={inputPage === 1}
                   style={{
-                    height: 38,
+                    height: 36,
                     padding: "0 14px",
-                    borderRadius: 0,
-                    border: "1px solid #c7d6e3",
-                    background: inputPage === 1 ? "#eef3f7" : "#fff",
-                    color: "#28485d",
-                    fontWeight: 800,
+                    borderRadius: 7,
+                    border: "1px solid #D1D9E0",
+                    background: "#fff",
+                    color: "#374151",
+                    fontWeight: 700,
+                    fontSize: 13,
                     cursor: inputPage === 1 ? "not-allowed" : "pointer",
+                    opacity: inputPage === 1 ? 0.5 : 1,
                   }}
                 >
                   이전
@@ -3336,14 +3352,16 @@ export function VehiclePageScreen({
                   onClick={() => setInputPage((prev) => Math.min(inputPageCount, prev + 1))}
                   disabled={inputPage === inputPageCount}
                   style={{
-                    height: 38,
+                    height: 36,
                     padding: "0 14px",
-                    borderRadius: 0,
-                    border: "1px solid #c7d6e3",
-                    background: inputPage === inputPageCount ? "#eef3f7" : "#fff",
-                    color: "#28485d",
-                    fontWeight: 800,
+                    borderRadius: 7,
+                    border: "1px solid #D1D9E0",
+                    background: "#fff",
+                    color: "#374151",
+                    fontWeight: 700,
+                    fontSize: 13,
                     cursor: inputPage === inputPageCount ? "not-allowed" : "pointer",
+                    opacity: inputPage === inputPageCount ? 0.5 : 1,
                   }}
                 >
                   다음
@@ -3352,14 +3370,16 @@ export function VehiclePageScreen({
                   onClick={() => setInputPage(inputPageCount)}
                   disabled={inputPage === inputPageCount}
                   style={{
-                    height: 38,
+                    height: 36,
                     padding: "0 14px",
-                    borderRadius: 0,
-                    border: "1px solid #c7d6e3",
-                    background: inputPage === inputPageCount ? "#eef3f7" : "#fff",
-                    color: "#28485d",
-                    fontWeight: 800,
+                    borderRadius: 7,
+                    border: "1px solid #D1D9E0",
+                    background: "#fff",
+                    color: "#374151",
+                    fontWeight: 700,
+                    fontSize: 13,
                     cursor: inputPage === inputPageCount ? "not-allowed" : "pointer",
+                    opacity: inputPage === inputPageCount ? 0.5 : 1,
                   }}
                 >
                   마지막
