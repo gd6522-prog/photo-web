@@ -55,8 +55,8 @@ export async function GET(req: NextRequest) {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  // 만료된 처리대기 교정 — fire-and-forget (요청 블로킹 없음)
-  void guard.sbAdmin.rpc("fix_expired_hazard_sort_keys");
+  // 만료된 처리대기 sort_key 교정 (summary 조회 전 완료 필요)
+  await guard.sbAdmin.rpc("fix_expired_hazard_sort_keys");
 
   // Phase 1: 페이지 데이터 + 요약 카운트 병렬 조회
   const [reportsResult, summaryResult] = await Promise.all([
