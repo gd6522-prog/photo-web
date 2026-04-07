@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
 import { json, requireAdmin } from "../../notices/_shared";
+import { getR2ObjectText, putR2Object, deleteR2Object } from "@/lib/r2";
 
 export const runtime = "nodejs";
 
-const BUCKET = "vehicle-data";
-const ADHESION_PATH = "current/adhesion.json";
+const ADHESION_PATH = "vehicle-data/current/adhesion.json";
 
 type AdhesionDriverStat = {
   name: string;
@@ -26,30 +26,8 @@ type AdhesionSnapshot = {
   storeStats: AdhesionStoreStat[];
 };
 
-async function ensureBucket(sbAdmin: any) {
-  const { data, error } = await sbAdmin.storage.listBuckets();
-  if (error) throw new Error(error.message);
-  const exists = (data ?? []).some((bucket: any) => bucket.name === BUCKET);
-  if (exists) return;
-
-  const { error: createError } = await sbAdmin.storage.createBucket(BUCKET, {
-    public: false,
-    fileSizeLimit: "50MB",
-  });
-  if (createError && !/already exists/i.test(createError.message)) {
-    throw new Error(createError.message);
-  }
-}
-
-async function readSnapshot(sbAdmin: any) {
-  await ensureBucket(sbAdmin);
-  const { data, error } = await sbAdmin.storage.from(BUCKET).download(ADHESION_PATH);
-  if (error) {
-    if (/not found|404/i.test(error.message)) return null;
-    throw new Error(error.message);
-  }
-  if (!data || typeof (data as any).text !== "function") return null;
-  const text = await data.text();
+async function readSnapshot() {
+  const text = await getR2ObjectText(ADHESION_PATH);
   if (!text) return null;
   return JSON.parse(text) as AdhesionSnapshot;
 }
@@ -59,7 +37,7 @@ export async function GET(req: NextRequest) {
   if (!guard.ok) return guard.res;
 
   try {
-    const snapshot = await readSnapshot(guard.sbAdmin);
+    const snapshot = await readSnapshot();
     return json(true, undefined, { snapshot });
   } catch (e) {
     return json(false, e instanceof Error ? e.message : String(e), null, 500);
@@ -98,13 +76,7 @@ export async function POST(req: NextRequest) {
       storeStats,
     };
 
-    await ensureBucket(guard.sbAdmin);
-    const blob = new Blob([JSON.stringify(snapshot)], { type: "application/json" });
-    const { error } = await guard.sbAdmin.storage.from(BUCKET).upload(ADHESION_PATH, blob, {
-      upsert: true,
-      contentType: "application/json",
-    });
-    if (error) throw new Error(error.message);
+    await putR2Object(ADHESION_PATH, JSON.stringify(snapshot), "application/json");
 
     return json(true, undefined, { snapshot });
   } catch (e) {
@@ -117,11 +89,7 @@ export async function DELETE(req: NextRequest) {
   if (!guard.ok) return guard.res;
 
   try {
-    await ensureBucket(guard.sbAdmin);
-    const { error } = await guard.sbAdmin.storage.from(BUCKET).remove([ADHESION_PATH]);
-    if (error && !/not found|404/i.test(error.message)) {
-      throw new Error(error.message);
-    }
+    await deleteR2Object(ADHESION_PATH);
     return json(true);
   } catch (e) {
     return json(false, e instanceof Error ? e.message : String(e), null, 500);

@@ -1,12 +1,13 @@
 import { NextRequest } from "next/server";
 import * as XLSX from "xlsx";
 import { json, requireAdmin } from "../../notices/_shared";
+import { getR2ObjectText, getR2ObjectBuffer, putR2Object, deleteR2Object, getViewPresignedUrl, listR2Keys } from "@/lib/r2";
 
 export const runtime = "nodejs";
 
-const BUCKET = "vehicle-data";
-const CURRENT_PATH = "current/latest.json";
-const LIMITS_PATH = "current/limits.json";
+const R2_PREFIX = "vehicle-data";
+const CURRENT_PATH = `${R2_PREFIX}/current/latest.json`;
+const LIMITS_PATH = `${R2_PREFIX}/current/limits.json`;
 
 function kstTodayYYYYMMDD(isoNow?: string) {
   const d = isoNow ? new Date(isoNow) : new Date();
@@ -523,58 +524,25 @@ function buildCargoDraft(rows: ProductRow[]) {
   });
 }
 
-async function ensureBucket(sbAdmin: any) {
-  const { data, error } = await sbAdmin.storage.listBuckets();
-  if (error) throw new Error(error.message);
-  const exists = (data ?? []).some((bucket: any) => bucket.name === BUCKET);
-  if (exists) return;
-
-  const { error: createError } = await sbAdmin.storage.createBucket(BUCKET, {
-    public: false,
-    fileSizeLimit: "50MB",
-  });
-  if (createError && !/already exists/i.test(createError.message)) {
-    throw new Error(createError.message);
-  }
-}
-
 function sanitizeFileName(name: string) {
   return name.replace(/[^\w.-]+/g, "_");
 }
 
-async function readCurrentSnapshot(sbAdmin: any) {
-  await ensureBucket(sbAdmin);
-  const { data, error } = await sbAdmin.storage.from(BUCKET).download(CURRENT_PATH);
-  if (error) {
-    if (/not found|404/i.test(error.message)) return null;
-    throw new Error(error.message);
-  }
-
-  if (!data || typeof (data as any).text !== "function") return null;
-  const text = await data.text();
+async function readCurrentSnapshot() {
+  const text = await getR2ObjectText(CURRENT_PATH);
   if (!text) return null;
   return JSON.parse(text) as VehicleSnapshot;
 }
 
-async function readCurrentLimits(sbAdmin: any) {
-  await ensureBucket(sbAdmin);
-  const { data, error } = await sbAdmin.storage.from(BUCKET).download(LIMITS_PATH);
-  if (error) {
-    if (/not found|404/i.test(error.message)) return null;
-    throw new Error(error.message);
-  }
-
-  if (!data || typeof (data as any).text !== "function") return null;
-  const text = await data.text();
+async function readCurrentLimits() {
+  const text = await getR2ObjectText(LIMITS_PATH);
   if (!text) return null;
   return JSON.parse(text) as VehicleLimitsSnapshot;
 }
 
-async function getCurrentObjectNames(sbAdmin: any) {
-  await ensureBucket(sbAdmin);
-  const { data, error } = await sbAdmin.storage.from(BUCKET).list("current");
-  if (error) throw new Error(error.message);
-  return new Set((data ?? []).map((item: any) => String(item.name ?? "")));
+async function getCurrentObjectNames() {
+  const keys = await listR2Keys(`${R2_PREFIX}/current/`);
+  return new Set(keys.map((k) => k.split("/").pop() ?? "").filter(Boolean));
 }
 
 export async function GET(req: NextRequest) {
@@ -586,7 +554,7 @@ export async function GET(req: NextRequest) {
     const includeLimits = req.nextUrl.searchParams.get("includeLimits") === "1";
     const includeReportBase = req.nextUrl.searchParams.get("includeReportBase") === "1";
     const dateParam = req.nextUrl.searchParams.get("date"); // YYYY-MM-DD
-    const names = await getCurrentObjectNames(guard.sbAdmin);
+    const names = await getCurrentObjectNames();
     let snapshotUrl: string | null = null;
     let limitsUrl: string | null = null;
     let snapshot: VehicleSnapshot | null = null;
@@ -596,32 +564,28 @@ export async function GET(req: NextRequest) {
     if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
       // 날짜별 스냅샷 읽기 — 없으면 latest로 fallback
       if (includeSnapshot) {
-        const { data, error } = await guard.sbAdmin.storage.from(BUCKET).download(`daily/${dateParam}.json`);
-        if (!error && data) {
-          try { snapshot = JSON.parse(await data.text()) as VehicleSnapshot; } catch {}
+        const text = await getR2ObjectText(`${R2_PREFIX}/daily/${dateParam}.json`);
+        if (text) {
+          try { snapshot = JSON.parse(text) as VehicleSnapshot; } catch {}
         }
         // daily 파일 없으면 latest로 fallback
         if (!snapshot && names.has("latest.json")) {
-          snapshot = await readCurrentSnapshot(guard.sbAdmin);
+          snapshot = await readCurrentSnapshot();
         }
       }
     } else if (names.has("latest.json")) {
       if (includeSnapshot) {
-        snapshot = await readCurrentSnapshot(guard.sbAdmin);
+        snapshot = await readCurrentSnapshot();
       } else {
-        const signed = await guard.sbAdmin.storage.from(BUCKET).createSignedUrl(CURRENT_PATH, 60);
-        if (signed.error) throw new Error(signed.error.message);
-        snapshotUrl = signed.data.signedUrl;
+        snapshotUrl = await getViewPresignedUrl(CURRENT_PATH, 60);
       }
     }
 
     if (names.has("limits.json")) {
       if (includeLimits) {
-        limits = await readCurrentLimits(guard.sbAdmin);
+        limits = await readCurrentLimits();
       } else {
-        const signed = await guard.sbAdmin.storage.from(BUCKET).createSignedUrl(LIMITS_PATH, 60);
-        if (signed.error) throw new Error(signed.error.message);
-        limitsUrl = signed.data.signedUrl;
+        limitsUrl = await getViewPresignedUrl(LIMITS_PATH, 60);
       }
     }
 
@@ -671,15 +635,8 @@ export async function PUT(req: NextRequest) {
       limits?: VehicleLimitsSnapshot | null;
     };
 
-    await ensureBucket(guard.sbAdmin);
-
     if (body.snapshot) {
-      const snapshotBlob = new Blob([JSON.stringify(body.snapshot)], { type: "application/json" });
-      const { error } = await guard.sbAdmin.storage.from(BUCKET).upload(CURRENT_PATH, snapshotBlob, {
-        upsert: true,
-        contentType: "application/json",
-      });
-      if (error) throw new Error(error.message);
+      await putR2Object(CURRENT_PATH, JSON.stringify(body.snapshot), "application/json");
 
       // store_map은 백그라운드에서 처리 (응답 지연 없음)
       const storeUpdates = (body.snapshot.cargoRows ?? [])
@@ -698,7 +655,7 @@ export async function PUT(req: NextRequest) {
       }
     } else if (Array.isArray(body.cargoRows)) {
       // cargoRows만 업데이트 (지원체크/기사 저장) — 기존 snapshot의 productRows는 유지
-      const existing = await readCurrentSnapshot(guard.sbAdmin);
+      const existing = await readCurrentSnapshot();
       if (!existing) throw new Error("기존 스냅샷이 없습니다. 먼저 파일을 업로드해 주세요.");
 
       // 실제 행은 incoming 기준으로 업데이트, 가상 부분합 행(subtotal-)은 제거
@@ -706,30 +663,19 @@ export async function PUT(req: NextRequest) {
       const mergedRealRows = existing.cargoRows
         .filter((r) => !r.id.startsWith("subtotal-"))
         .map((row) => incomingMap.get(row.id) ?? row);
-      const mergedCargoRows = mergedRealRows;
 
       const merged: VehicleSnapshot = {
         ...existing,
         fileName: body.fileName ?? existing.fileName,
-        cargoRows: mergedCargoRows,
+        cargoRows: mergedRealRows,
         subtotalSettings: body.subtotalSettings ?? existing.subtotalSettings,
         uploadedAt: new Date().toISOString(),
       };
-      const snapshotBlob = new Blob([JSON.stringify(merged)], { type: "application/json" });
-      const { error } = await guard.sbAdmin.storage.from(BUCKET).upload(CURRENT_PATH, snapshotBlob, {
-        upsert: true,
-        contentType: "application/json",
-      });
-      if (error) throw new Error(error.message);
+      await putR2Object(CURRENT_PATH, JSON.stringify(merged), "application/json");
     }
 
     if (body.limits) {
-      const limitsBlob = new Blob([JSON.stringify(body.limits)], { type: "application/json" });
-      const { error } = await guard.sbAdmin.storage.from(BUCKET).upload(LIMITS_PATH, limitsBlob, {
-        upsert: true,
-        contentType: "application/json",
-      });
-      if (error) throw new Error(error.message);
+      await putR2Object(LIMITS_PATH, JSON.stringify(body.limits), "application/json");
     }
 
     return json(true);
@@ -759,10 +705,9 @@ export async function POST(req: NextRequest) {
       fileName = toText(body?.fileName);
       if (!path) return json(false, "업로드 경로가 없습니다.", null, 400);
 
-      await ensureBucket(guard.sbAdmin);
-      const { data, error } = await guard.sbAdmin.storage.from(BUCKET).download(path);
-      if (error) throw new Error(error.message);
-      buffer = await data.arrayBuffer();
+      const r2Buffer = await getR2ObjectBuffer(path);
+      if (!r2Buffer) throw new Error("R2에서 파일을 찾을 수 없습니다.");
+      buffer = r2Buffer.buffer;
     }
 
     if (!buffer) return json(false, "파일을 읽지 못했습니다.", null, 400);
@@ -839,42 +784,22 @@ export async function POST(req: NextRequest) {
       uploadedBy: toText((profile as any)?.name) || guard.email || guard.uid,
     };
 
-    await ensureBucket(guard.sbAdmin);
-
     const stamp = uploadedAt.replace(/[:.]/g, "-");
     const safeName = sanitizeFileName(fileName || "vehicle.xlsx");
-    const rawPath = `uploads/${stamp}-${safeName}`;
-    const archivePath = `snapshots/${stamp}.json`;
+    const archivePath = `${R2_PREFIX}/snapshots/${stamp}.json`;
+    const snapshotJson = JSON.stringify(snapshot);
 
     if (contentType.includes("multipart/form-data")) {
-      const { error: rawUploadError } = await guard.sbAdmin.storage.from(BUCKET).upload(rawPath, new Uint8Array(buffer), {
-        upsert: false,
-        contentType: "application/octet-stream",
-      });
-      if (rawUploadError) throw new Error(rawUploadError.message);
+      const rawPath = `${R2_PREFIX}/uploads/${stamp}-${safeName}`;
+      await putR2Object(rawPath, new Uint8Array(buffer), "application/octet-stream");
     }
 
-    const snapshotBlob = new Blob([JSON.stringify(snapshot)], { type: "application/json" });
-    const { error: currentUploadError } = await guard.sbAdmin.storage.from(BUCKET).upload(CURRENT_PATH, snapshotBlob, {
-      upsert: true,
-      contentType: "application/json",
-    });
-    if (currentUploadError) throw new Error(currentUploadError.message);
-
-    const { error: archiveUploadError } = await guard.sbAdmin.storage.from(BUCKET).upload(archivePath, snapshotBlob, {
-      upsert: false,
-      contentType: "application/json",
-    });
-    if (archiveUploadError && !/already exists/i.test(archiveUploadError.message)) {
-      throw new Error(archiveUploadError.message);
-    }
+    await putR2Object(CURRENT_PATH, snapshotJson, "application/json");
+    await putR2Object(archivePath, snapshotJson, "application/json");
 
     // 날짜별 스냅샷 저장 (daily/YYYY-MM-DD.json) — 이전 파일 덮어쓰기
-    const dailyPath = `daily/${kstTodayYYYYMMDD(uploadedAt)}.json`;
-    void guard.sbAdmin.storage.from(BUCKET).upload(dailyPath, snapshotBlob, {
-      upsert: true,
-      contentType: "application/json",
-    });
+    const dailyPath = `${R2_PREFIX}/daily/${kstTodayYYYYMMDD(uploadedAt)}.json`;
+    void putR2Object(dailyPath, snapshotJson, "application/json");
 
     return json(true, undefined, { snapshot, matchedCount });
   } catch (e) {
@@ -887,9 +812,7 @@ export async function DELETE(req: NextRequest) {
   if (!guard.ok) return guard.res;
 
   try {
-    await ensureBucket(guard.sbAdmin);
-    const { error } = await guard.sbAdmin.storage.from(BUCKET).remove([CURRENT_PATH]);
-    if (error && !/not found|404/i.test(error.message)) throw new Error(error.message);
+    await deleteR2Object(CURRENT_PATH);
     return json(true);
   } catch (e) {
     return json(false, e instanceof Error ? e.message : String(e), null, 500);

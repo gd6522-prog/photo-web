@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
 import { json, requireAdmin } from "../../notices/_shared";
+import { getR2ObjectText, putR2Object } from "@/lib/r2";
 
 export const runtime = "nodejs";
 
-const BUCKET = "vehicle-data";
-const CDC_PATH = "current/cdc.json";
+const CDC_PATH = "vehicle-data/current/cdc.json";
 
 type CdcRow = {
   carNo: string;
@@ -36,41 +36,12 @@ type StoreMapRow = {
   seqNo: number;
 };
 
-async function ensureBucket(sbAdmin: any) {
-  const { data, error } = await sbAdmin.storage.listBuckets();
-  if (error) throw new Error(error.message);
-  const exists = (data ?? []).some((bucket: any) => bucket.name === BUCKET);
-  if (exists) return;
-
-  const { error: createError } = await sbAdmin.storage.createBucket(BUCKET, {
-    public: false,
-    fileSizeLimit: "50MB",
-  });
-  if (createError && !/already exists/i.test(createError.message)) {
-    throw new Error(createError.message);
-  }
+async function writeSnapshot(snapshot: CdcSnapshot) {
+  await putR2Object(CDC_PATH, JSON.stringify(snapshot), "application/json");
 }
 
-async function writeSnapshot(sbAdmin: any, snapshot: CdcSnapshot) {
-  await ensureBucket(sbAdmin);
-  const blob = new Blob([JSON.stringify(snapshot)], { type: "application/json" });
-  const { error } = await sbAdmin.storage.from(BUCKET).upload(CDC_PATH, blob, {
-    upsert: true,
-    contentType: "application/json",
-  });
-  if (error) throw new Error(error.message);
-}
-
-async function readSnapshot(sbAdmin: any) {
-  await ensureBucket(sbAdmin);
-  const { data, error } = await sbAdmin.storage.from(BUCKET).download(CDC_PATH);
-  if (error) {
-    if (/not found|404/i.test(error.message)) return null;
-    throw new Error(error.message);
-  }
-  if (!data || typeof (data as Blob).text !== "function") return null;
-
-  const text = await data.text();
+async function readSnapshot() {
+  const text = await getR2ObjectText(CDC_PATH);
   if (!text) return null;
 
   const parsed = JSON.parse(text) as Partial<CdcSnapshot> | null;
@@ -174,7 +145,7 @@ export async function GET(req: NextRequest) {
   if (!guard.ok) return guard.res;
 
   try {
-    const snapshot = await readSnapshot(guard.sbAdmin);
+    const snapshot = await readSnapshot();
     const storeMapRows = await fetchStoreMapRowsForSnapshot(guard.sbAdmin, snapshot);
     return json(true, undefined, { snapshot, storeMapRows });
   } catch (e) {
@@ -221,7 +192,7 @@ export async function POST(req: NextRequest) {
       fullBoxRows,
     };
 
-    await writeSnapshot(guard.sbAdmin, snapshot);
+    await writeSnapshot(snapshot);
     return json(true, undefined, { snapshot });
   } catch (e) {
     return json(false, e instanceof Error ? e.message : String(e), null, 500);
@@ -243,7 +214,7 @@ export async function DELETE(req: NextRequest) {
       fullBoxRows: [],
     };
 
-    await writeSnapshot(guard.sbAdmin, snapshot);
+    await writeSnapshot(snapshot);
     return json(true);
   } catch (e) {
     return json(false, e instanceof Error ? e.message : String(e), null, 500);
