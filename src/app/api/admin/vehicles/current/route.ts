@@ -707,7 +707,7 @@ export async function POST(req: NextRequest) {
 
       const r2Buffer = await getR2ObjectBuffer(path);
       if (!r2Buffer) throw new Error("R2에서 파일을 찾을 수 없습니다.");
-      buffer = r2Buffer.buffer;
+      buffer = r2Buffer.buffer as ArrayBuffer;
     }
 
     if (!buffer) return json(false, "파일을 읽지 못했습니다.", null, 400);
