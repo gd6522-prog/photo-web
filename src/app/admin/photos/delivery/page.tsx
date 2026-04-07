@@ -705,6 +705,16 @@ export default function AdminDeliveryPhotosPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [previewOpen, previewGroup?.photos.length]);
 
+  // 모달 열릴 때 body 스크롤 막기
+  useEffect(() => {
+    if (previewOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [previewOpen]);
+
   if (checking) return <div style={{ padding: 24, fontFamily: "system-ui" }}>로그인 확인 중...</div>;
 
   if (!isAdmin) {

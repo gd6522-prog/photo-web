@@ -525,6 +525,16 @@ export default function AdminPhotosPage() {
   // 사진 변경 시 zoom 리셋
   React.useEffect(() => { setZoom(1); setPan({ x: 0, y: 0 }); }, [previewIndex]);
 
+  // 모달 열릴 때 body 스크롤 막기
+  React.useEffect(() => {
+    if (previewOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [previewOpen]);
+
   const previewUploader = useMemo(() => {
     if (!previewPhoto) return "";
     const prof = profilesById[previewPhoto.user_id];
