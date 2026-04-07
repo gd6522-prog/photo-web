@@ -836,7 +836,7 @@ export default function AdminDeliveryPhotosPage() {
                   <div style={{ fontSize: 10, fontWeight: 800, color: "#94A3B8", marginBottom: 4 }}>시작일</div>
                   <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="filter-input" style={{ width: "100%", height: 38, borderRadius: 8, border: "1.5px solid #E2E8F0", padding: "0 9px", fontWeight: 800, fontSize: 12, color: "#0F172A", boxSizing: "border-box" }} />
                 </div>
-                <div style={{ color: "#CBD5E1", fontSize: 16, paddingBottom: 8, flexShrink: 0 }}>→</div>
+                <div style={{ color: "#CBD5E1", fontSize: 16, paddingBottom: 8, flexShrink: 0 }}>~</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 10, fontWeight: 800, color: "#94A3B8", marginBottom: 4 }}>종료일</div>
                   <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="filter-input" style={{ width: "100%", height: 38, borderRadius: 8, border: "1.5px solid #E2E8F0", padding: "0 9px", fontWeight: 800, fontSize: 12, color: "#0F172A", boxSizing: "border-box" }} />
