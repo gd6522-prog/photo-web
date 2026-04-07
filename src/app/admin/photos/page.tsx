@@ -163,6 +163,10 @@ export default function AdminPhotosPage() {
   // modal preview
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const dragStart = React.useRef<{ mx: number; my: number; px: number; py: number } | null>(null);
 
   // photo pagination (우측 패널)
   const [photoPage, setPhotoPage] = useState(0);
@@ -486,11 +490,40 @@ export default function AdminPhotosPage() {
   const openPreview = (index: number) => {
     setPreviewIndex(index);
     setPreviewOpen(true);
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
   };
 
-  const closePreview = () => setPreviewOpen(false);
+  const closePreview = () => { setPreviewOpen(false); setZoom(1); setPan({ x: 0, y: 0 }); };
+
+  const handlePreviewWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    setZoom((prev) => {
+      const next = prev * (e.deltaY < 0 ? 1.15 : 1 / 1.15);
+      const clamped = Math.min(8, Math.max(1, next));
+      if (clamped === 1) setPan({ x: 0, y: 0 });
+      return clamped;
+    });
+  };
+
+  const handlePreviewMouseDown = (e: React.MouseEvent) => {
+    if (zoom <= 1) return;
+    e.preventDefault();
+    dragStart.current = { mx: e.clientX, my: e.clientY, px: pan.x, py: pan.y };
+    setDragging(true);
+  };
+
+  const handlePreviewMouseMove = (e: React.MouseEvent) => {
+    if (!dragging || !dragStart.current) return;
+    setPan({ x: dragStart.current.px + (e.clientX - dragStart.current.mx), y: dragStart.current.py + (e.clientY - dragStart.current.my) });
+  };
+
+  const handlePreviewMouseUp = () => { setDragging(false); dragStart.current = null; };
 
   const previewPhoto = selectedStorePhotos[previewIndex];
+
+  // 사진 변경 시 zoom 리셋
+  React.useEffect(() => { setZoom(1); setPan({ x: 0, y: 0 }); }, [previewIndex]);
 
   const previewUploader = useMemo(() => {
     if (!previewPhoto) return "";
@@ -795,7 +828,7 @@ export default function AdminPhotosPage() {
       {/* PREVIEW MODAL */}
       {previewOpen && previewPhoto && (
         <div onClick={closePreview} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.82)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, backdropFilter: "blur(6px)" }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: "min(1100px, 96vw)", height: "min(820px, 92vh)", background: "white", borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px rgba(0,0,0,0.45)" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: "min(1100px, 96vw)", height: "min(820px, 92vh)", background: "white", borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px rgba(0,0,0,0.45)", position: "relative" }}>
 
             {/* 모달 헤더 */}
             <div style={{ padding: "12px 16px", borderBottom: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, background: "#FAFBFC" }}>
@@ -809,9 +842,23 @@ export default function AdminPhotosPage() {
             </div>
 
             {/* 사진 */}
-            <div style={{ flex: 1, background: "#0B1220", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 0 }}>
-              <img src={previewPhoto.original_url} alt="preview" decoding="async" style={{ maxWidth: "100%", maxHeight: "100%", width: "auto", height: "auto", objectFit: "contain", display: "block" }} />
+            <div
+              onWheel={handlePreviewWheel}
+              onMouseDown={handlePreviewMouseDown}
+              onMouseMove={handlePreviewMouseMove}
+              onMouseUp={handlePreviewMouseUp}
+              onMouseLeave={handlePreviewMouseUp}
+              style={{ flex: 1, background: "#0B1220", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 0, overflow: "hidden", cursor: zoom > 1 ? (dragging ? "grabbing" : "grab") : "default", userSelect: "none" }}
+            >
+              <img
+                src={previewPhoto.original_url}
+                alt="preview"
+                decoding="async"
+                draggable={false}
+                style={{ maxWidth: "100%", maxHeight: "100%", width: "auto", height: "auto", objectFit: "contain", display: "block", transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`, transformOrigin: "center center", transition: dragging ? "none" : "transform 0.1s ease" }}
+              />
             </div>
+            {zoom > 1 && <div style={{ position: "absolute", bottom: 60, right: 20, background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: 12, fontWeight: 700, borderRadius: 6, padding: "3px 10px", pointerEvents: "none" }}>{Math.round(zoom * 100)}%</div>}
 
             {/* 모달 푸터 버튼 */}
             <div style={{ padding: "11px 16px", borderTop: "1px solid #F1F5F9", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", background: "#FAFBFC" }}>

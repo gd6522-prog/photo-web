@@ -232,6 +232,10 @@ export default function AdminDeliveryPhotosPage() {
   const [previewGroupIndex, setPreviewGroupIndex] = useState(0);
   // 그룹 내 슬라이드 인덱스 (몇 번째 사진인지)
   const [previewSlideIndex, setPreviewSlideIndex] = useState(0);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const dragStart = React.useRef<{ mx: number; my: number; px: number; py: number } | null>(null);
 
   const loadAdmin = async () => {
     const { data, error } = await supabase.auth.getSession();
@@ -655,13 +659,39 @@ export default function AdminDeliveryPhotosPage() {
     setPreviewGroupIndex(groupIndex);
     setPreviewSlideIndex(slideIndex);
     setPreviewOpen(true);
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
   };
 
-  const closePreview = () => setPreviewOpen(false);
+  const closePreview = () => { setPreviewOpen(false); setZoom(1); setPan({ x: 0, y: 0 }); };
 
   // 그룹 내 이전/다음 슬라이드
-  const goPrevSlide = () => setPreviewSlideIndex((v) => Math.max(0, v - 1));
-  const goNextSlide = () => setPreviewSlideIndex((v) => Math.min((previewGroup?.photos.length ?? 1) - 1, v + 1));
+  const goPrevSlide = () => { setPreviewSlideIndex((v) => Math.max(0, v - 1)); setZoom(1); setPan({ x: 0, y: 0 }); };
+  const goNextSlide = () => { setPreviewSlideIndex((v) => Math.min((previewGroup?.photos.length ?? 1) - 1, v + 1)); setZoom(1); setPan({ x: 0, y: 0 }); };
+
+  const handlePreviewWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    setZoom((prev) => {
+      const next = prev * (e.deltaY < 0 ? 1.15 : 1 / 1.15);
+      const clamped = Math.min(8, Math.max(1, next));
+      if (clamped === 1) setPan({ x: 0, y: 0 });
+      return clamped;
+    });
+  };
+
+  const handlePreviewMouseDown = (e: React.MouseEvent) => {
+    if (zoom <= 1) return;
+    e.preventDefault();
+    dragStart.current = { mx: e.clientX, my: e.clientY, px: pan.x, py: pan.y };
+    setDragging(true);
+  };
+
+  const handlePreviewMouseMove = (e: React.MouseEvent) => {
+    if (!dragging || !dragStart.current) return;
+    setPan({ x: dragStart.current.px + (e.clientX - dragStart.current.mx), y: dragStart.current.py + (e.clientY - dragStart.current.my) });
+  };
+
+  const handlePreviewMouseUp = () => { setDragging(false); dragStart.current = null; };
 
   // 키보드 단축키: 좌우 = 슬라이드 이동
   useEffect(() => {
@@ -1039,8 +1069,16 @@ export default function AdminDeliveryPhotosPage() {
             </div>
 
             {/* 사진 영역 */}
-            <div style={{ background: "#0B1220", overflow: "hidden", position: "relative" }}>
-              <img key={previewPhoto.id} src={previewPhoto.public_url} alt="preview" decoding="async" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+            <div
+              onWheel={handlePreviewWheel}
+              onMouseDown={handlePreviewMouseDown}
+              onMouseMove={handlePreviewMouseMove}
+              onMouseUp={handlePreviewMouseUp}
+              onMouseLeave={handlePreviewMouseUp}
+              style={{ background: "#0B1220", overflow: "hidden", position: "relative", cursor: zoom > 1 ? (dragging ? "grabbing" : "grab") : "default", userSelect: "none" }}
+            >
+              <img key={previewPhoto.id} src={previewPhoto.public_url} alt="preview" decoding="async" draggable={false} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`, transformOrigin: "center center", transition: dragging ? "none" : "transform 0.1s ease" }} />
+              {zoom > 1 && <div style={{ position: "absolute", top: 12, right: 12, background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: 12, fontWeight: 700, borderRadius: 6, padding: "3px 10px", pointerEvents: "none" }}>{Math.round(zoom * 100)}%</div>}
 
               {previewGroup.photos.length > 1 && (
                 <>
@@ -1057,7 +1095,7 @@ export default function AdminDeliveryPhotosPage() {
 
             {/* 푸터 */}
             <div style={{ padding: "9px 16px", borderTop: "1px solid #F1F5F9", fontSize: 11, color: "#94A3B8", fontWeight: 700, background: "#FAFBFC" }}>
-              단축키: ← / → 이동 · Esc 닫기
+              단축키: ← / → 이동 · 휠 확대/축소 · 드래그 이동 · Esc 닫기
             </div>
           </div>
         </div>
