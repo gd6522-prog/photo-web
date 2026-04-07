@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, DeleteObjectsCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const ACCOUNT_ID = process.env.R2_ACCOUNT_ID!;
@@ -27,8 +27,18 @@ export async function getViewPresignedUrl(key: string, expiresIn = 3600) {
   return getSignedUrl(r2, cmd, { expiresIn });
 }
 
-/** 삭제 */
+/** 단일 삭제 */
 export async function deleteR2Object(key: string) {
   const cmd = new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: key });
+  return r2.send(cmd);
+}
+
+/** 배치 삭제 (최대 1000개) */
+export async function deleteR2Objects(keys: string[]) {
+  if (keys.length === 0) return;
+  const cmd = new DeleteObjectsCommand({
+    Bucket: R2_BUCKET,
+    Delete: { Objects: keys.map((k) => ({ Key: k })) },
+  });
   return r2.send(cmd);
 }

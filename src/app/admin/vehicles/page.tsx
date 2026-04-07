@@ -401,19 +401,21 @@ async function uploadVehicleFileToServer(file: File) {
     message?: string;
     bucket?: string;
     path?: string;
-    token?: string;
+    uploadUrl?: string;
   };
 
-  if (!uploadUrlResponse.ok || !uploadUrlPayload?.ok || !uploadUrlPayload.bucket || !uploadUrlPayload.path || !uploadUrlPayload.token) {
+  if (!uploadUrlResponse.ok || !uploadUrlPayload?.ok || !uploadUrlPayload.path || !uploadUrlPayload.uploadUrl) {
     throw new Error(uploadUrlPayload?.message || "업로드 준비에 실패했습니다.");
   }
 
-  const storageUpload = await supabase.storage
-    .from(uploadUrlPayload.bucket)
-    .uploadToSignedUrl(uploadUrlPayload.path, uploadUrlPayload.token, file);
+  const r2Upload = await fetch(uploadUrlPayload.uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type || "application/octet-stream" },
+    body: file,
+  });
 
-  if (storageUpload.error) {
-    throw new Error(storageUpload.error.message || "스토리지 업로드에 실패했습니다.");
+  if (!r2Upload.ok) {
+    throw new Error(`R2 업로드에 실패했습니다. (${r2Upload.status})`);
   }
 
   const response = await fetch("/api/admin/vehicles/current", {

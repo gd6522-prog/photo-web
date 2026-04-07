@@ -536,8 +536,15 @@ export default function AdminDeliveryPhotosPage() {
   const onDeletePhoto = async (p: DeliveryPhotoRow) => {
     if (!confirm("이 사진을 삭제할까요? (DB + Storage 삭제)")) return;
 
-    const { error: rmErr } = await supabase.storage.from("delivery_photos").remove([p.path]);
-    if (rmErr) return alert(`Storage 삭제 오류: ${rmErr.message}`);
+    const { data: sessData } = await supabase.auth.getSession();
+    const token = sessData.session?.access_token ?? "";
+    const r2Res = await fetch("/api/r2/delete", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ key: `delivery_photos/${p.path}` }),
+    });
+    const r2Data = await r2Res.json();
+    if (!r2Res.ok || !r2Data.ok) return alert(`R2 삭제 오류: ${r2Data.message ?? r2Res.status}`);
 
     const { error: delErr } = await supabase.from("delivery_photos").delete().eq("id", p.id);
     if (delErr) return alert(`DB 삭제 오류: ${delErr.message}`);
@@ -600,8 +607,17 @@ export default function AdminDeliveryPhotosPage() {
     const rows = (data ?? []) as Array<{ id: string; path: string }>;
     const paths = rows.map((r) => r.path).filter(Boolean);
 
-    const { error: rmErr } = await supabase.storage.from("delivery_photos").remove(paths);
-    if (rmErr) return alert(`Storage 삭제 오류: ${rmErr.message}`);
+    if (paths.length > 0) {
+      const { data: sessData } = await supabase.auth.getSession();
+      const token = sessData.session?.access_token ?? "";
+      const r2Res = await fetch("/api/r2/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ keys: paths.map((p) => `delivery_photos/${p}`) }),
+      });
+      const r2Data = await r2Res.json();
+      if (!r2Res.ok || !r2Data.ok) return alert(`R2 삭제 오류: ${r2Data.message ?? r2Res.status}`);
+    }
 
     const { error: delErr } = await supabase.from("delivery_photos").delete().in("id", ids);
     if (delErr) return alert(`DB 삭제 오류: ${delErr.message}`);

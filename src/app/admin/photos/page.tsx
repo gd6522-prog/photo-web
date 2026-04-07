@@ -395,9 +395,16 @@ export default function AdminPhotosPage() {
   const onDeletePhoto = async (p: PhotoRow) => {
     if (!confirm("이 사진을 삭제할까요? (DB + Storage 삭제)")) return;
 
-    const { error: rmErr } = await supabase.storage.from("photos").remove([p.original_path]);
-    if (rmErr) {
-      alert(`Storage 삭제 오류: ${rmErr.message}`);
+    const { data: sessData } = await supabase.auth.getSession();
+    const token = sessData.session?.access_token ?? "";
+    const r2Res = await fetch("/api/r2/delete", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ key: `photos/${p.original_path}` }),
+    });
+    const r2Data = await r2Res.json();
+    if (!r2Res.ok || !r2Data.ok) {
+      alert(`R2 삭제 오류: ${r2Data.message ?? r2Res.status}`);
       return;
     }
 
@@ -445,8 +452,15 @@ export default function AdminPhotosPage() {
 
     const paths = (data ?? []).map((r: any) => r.original_path).filter(Boolean);
     if (paths.length > 0) {
-      const { error: rmErr } = await supabase.storage.from("photos").remove(paths);
-      if (rmErr) return alert(`Storage 삭제 오류: ${rmErr.message}`);
+      const { data: sessData } = await supabase.auth.getSession();
+      const token = sessData.session?.access_token ?? "";
+      const r2Res = await fetch("/api/r2/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ keys: paths.map((p: string) => `photos/${p}`) }),
+      });
+      const r2Data = await r2Res.json();
+      if (!r2Res.ok || !r2Data.ok) return alert(`R2 삭제 오류: ${r2Data.message ?? r2Res.status}`);
     }
 
     const { error: delErr } = await supabase.from("photos").delete().in("id", ids);
