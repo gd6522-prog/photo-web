@@ -3392,7 +3392,7 @@ export function VehiclePageScreen({
 
       {tab === "cargo" ? (
         <div style={{ display: "grid", gap: 16 }}>
-          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <input
               value={cargoQueryInput}
               onChange={(event) => setCargoQueryInput(event.target.value)}
@@ -3403,13 +3403,16 @@ export function VehiclePageScreen({
               }}
               placeholder="호차 검색"
               style={{
-                width: 220,
-                height: 42,
-                borderRadius: 0,
-                border: "1px solid #c7d6e3",
-                padding: "0 14px",
+                width: 160,
+                height: 38,
+                borderRadius: 7,
+                border: "1px solid #D1D9E0",
+                padding: "0 11px",
                 outline: "none",
                 background: "#fff",
+                fontSize: 13,
+                color: "#1E293B",
+                boxSizing: "border-box" as const,
               }}
             />
             <input
@@ -3422,25 +3425,29 @@ export function VehiclePageScreen({
               }}
               placeholder="점포코드/점포명 검색"
               style={{
-                width: 220,
-                height: 42,
-                borderRadius: 0,
-                border: "1px solid #c7d6e3",
-                padding: "0 14px",
+                width: 200,
+                height: 38,
+                borderRadius: 7,
+                border: "1px solid #D1D9E0",
+                padding: "0 11px",
                 outline: "none",
                 background: "#fff",
+                fontSize: 13,
+                color: "#1E293B",
+                boxSizing: "border-box" as const,
               }}
             />
             <button
               onClick={() => setStoreSearchQuery(cargoStoreQueryInput)}
               style={{
-                height: 42,
-                padding: "0 18px",
-                borderRadius: 0,
-                border: "1px solid #113247",
-                background: "#113247",
+                height: 38,
+                padding: "0 16px",
+                borderRadius: 7,
+                border: "none",
+                background: "#1E293B",
                 color: "#fff",
-                fontWeight: 900,
+                fontWeight: 700,
+                fontSize: 13,
                 cursor: "pointer",
               }}
             >
@@ -3454,13 +3461,14 @@ export function VehiclePageScreen({
                 setStoreSearchQuery("");
               }}
               style={{
-                height: 42,
-                padding: "0 18px",
-                borderRadius: 0,
-                border: "1px solid #c7d6e3",
+                height: 38,
+                padding: "0 16px",
+                borderRadius: 7,
+                border: "1px solid #D1D9E0",
                 background: "#fff",
-                color: "#28485d",
-                fontWeight: 900,
+                color: "#374151",
+                fontWeight: 700,
+                fontSize: 13,
                 cursor: "pointer",
               }}
             >
@@ -3469,13 +3477,14 @@ export function VehiclePageScreen({
             <button
               onClick={() => setShowSupportOnly((v) => !v)}
               style={{
-                height: 42,
-                padding: "0 18px",
-                borderRadius: 0,
-                border: `1px solid ${showSupportOnly ? "#7c3aed" : "#c7d6e3"}`,
-                background: showSupportOnly ? "#7c3aed" : "#fff",
-                color: showSupportOnly ? "#fff" : "#28485d",
-                fontWeight: 900,
+                height: 38,
+                padding: "0 16px",
+                borderRadius: 7,
+                border: `1px solid ${showSupportOnly ? "#7C3AED" : "#D1D9E0"}`,
+                background: showSupportOnly ? "#7C3AED" : "#fff",
+                color: showSupportOnly ? "#fff" : "#374151",
+                fontWeight: 700,
+                fontSize: 13,
                 cursor: "pointer",
               }}
             >
@@ -3486,13 +3495,15 @@ export function VehiclePageScreen({
               onChange={(event) => setLargeLimit(event.target.value.replace(/[^\d.]/g, ""))}
               placeholder="대 기준"
               style={{
-                width: 110,
-                height: 42,
-                borderRadius: 0,
-                border: "1px solid #c7d6e3",
-                padding: "0 14px",
+                width: 90,
+                height: 38,
+                borderRadius: 7,
+                border: "1px solid #D1D9E0",
+                padding: "0 11px",
                 outline: "none",
                 background: "#fff",
+                fontSize: 13,
+                boxSizing: "border-box" as const,
               }}
             />
             <input
@@ -3500,25 +3511,28 @@ export function VehiclePageScreen({
               onChange={(event) => setSmallLimit(event.target.value.replace(/[^\d.]/g, ""))}
               placeholder="소 기준"
               style={{
-                width: 110,
-                height: 42,
-                borderRadius: 0,
-                border: "1px solid #c7d6e3",
-                padding: "0 14px",
+                width: 90,
+                height: 38,
+                borderRadius: 7,
+                border: "1px solid #D1D9E0",
+                padding: "0 11px",
                 outline: "none",
                 background: "#fff",
+                fontSize: 13,
+                boxSizing: "border-box" as const,
               }}
             />
             <button
               onClick={saveLimitSettings}
               style={{
-                height: 42,
-                padding: "0 18px",
-                borderRadius: 0,
-                border: "1px solid #0f766e",
+                height: 38,
+                padding: "0 16px",
+                borderRadius: 7,
+                border: "none",
                 background: "#0f766e",
                 color: "#fff",
-                fontWeight: 900,
+                fontWeight: 700,
+                fontSize: 13,
                 cursor: "pointer",
               }}
             >
@@ -3528,13 +3542,14 @@ export function VehiclePageScreen({
               onClick={() => void saveCargoSettings()}
               disabled={cargoSaveBusy || cargoRows.length === 0}
               style={{
-                height: 42,
-                padding: "0 18px",
-                borderRadius: 0,
-                border: "1px solid #113247",
-                background: cargoSaveBusy || cargoRows.length === 0 ? "#cbd5e1" : "#113247",
+                height: 38,
+                padding: "0 16px",
+                borderRadius: 7,
+                border: "none",
+                background: cargoSaveBusy || cargoRows.length === 0 ? "#CBD5E1" : "#1E293B",
                 color: "#fff",
-                fontWeight: 900,
+                fontWeight: 700,
+                fontSize: 13,
                 cursor: cargoSaveBusy || cargoRows.length === 0 ? "not-allowed" : "pointer",
                 marginLeft: "auto",
               }}
@@ -3542,25 +3557,27 @@ export function VehiclePageScreen({
               {cargoSaveBusy ? "저장 중..." : "저장"}
             </button>
             {limitsMessage ? (
-              <div style={{ color: "#486274", fontSize: 13, fontWeight: 700 }}>{limitsMessage}</div>
+              <div style={{ color: "#64748B", fontSize: 13, fontWeight: 700 }}>{limitsMessage}</div>
             ) : null}
-            <div style={{ color: "#486274", fontSize: 13, fontWeight: 700 }}>
+            <div style={{ color: "#64748B", fontSize: 13, fontWeight: 700 }}>
               {showSupportOnly ? `지원 ${filteredCargoRows.length}건` : (cargoQuery || storeSearchQuery) ? `검색 결과 ${filteredCargoRows.length}건` : `전체 ${filteredCargoRows.length}건`}
             </div>
           </div>
 
-          <div style={{ border: "1px solid #d6e4ee", borderRadius: 0, background: "#fff", overflow: "auto", maxHeight: "70vh" }}>
+          <div style={{ border: "1px solid #E8EDF2", borderRadius: 10, background: "#fff", overflow: "auto", maxHeight: "70vh", boxShadow: "0 1px 4px rgba(15,23,42,0.06)" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1600 }}>
             <thead>
-              <tr style={{ background: "#f8fbfd" }}>
+              <tr style={{ background: "#F8FAFC" }}>
                 {cargoColumns.map((column) => (
                   <th
                     key={String(column.key)}
                     style={{
                       textAlign: "left",
-                      padding: 12,
-                      borderBottom: "1px solid #e6eef4",
-                      fontSize: 13,
+                      padding: "10px 12px",
+                      borderBottom: "2px solid #E8EDF2",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: "#64748B",
                       minWidth: column.width ?? 80,
                       ...getCargoGroupStyle(String(column.key)),
                       ...getCargoHeaderStyle(String(column.key)),
@@ -3648,7 +3665,7 @@ export function VehiclePageScreen({
                 const row = entry.row;
                 const sum = cargoTotals(row);
                 return (
-                  <tr key={row.id} style={{ background: row.support_excluded ? "#e5e7eb" : index % 2 === 0 ? "#fff" : "#fbfdff", opacity: 1 }}>
+                  <tr key={row.id} style={{ background: row.support_excluded ? "#F1F5F9" : "#fff", opacity: 1 }}>
                     {cargoColumns.map((column) => {
                       const value =
                         column.key === "support"
@@ -3664,13 +3681,15 @@ export function VehiclePageScreen({
                         <td
                           key={`${row.id}-${String(column.key)}`}
                           style={{
-                            padding: 8,
-                            borderBottom: "1px solid #f0f4f7",
+                            padding: "8px 10px",
+                            borderBottom: "1px solid #F1F5F9",
+                            fontSize: 13,
+                            color: "#374151",
                             ...getCargoGroupStyle(String(column.key)),
-                            ...(row.support_excluded ? { background: "#e5e7eb" } : {}),
+                            ...(row.support_excluded ? { background: "#F1F5F9" } : {}),
                             ...getStickyCargoStyle(
                               String(column.key),
-                              row.support_excluded ? "#e5e7eb" : index % 2 === 0 ? "#fff" : "#fbfdff"
+                              row.support_excluded ? "#F1F5F9" : "#fff"
                             ),
                           }}
                         >
@@ -3692,7 +3711,7 @@ export function VehiclePageScreen({
                             <input
                               value={typeof value === "number" ? formatNumber(value) : String(value ?? "")}
                               onChange={(event) => updateCargoRow(entry.sourceIndex, column.key as keyof CargoRow, event.target.value)}
-                              style={{ width: "100%", minWidth: 60, height: 34, borderRadius: 0, border: "1px solid #d6e4ee", padding: "0 8px", outline: "none" }}
+                              style={{ width: "100%", minWidth: 60, height: 32, borderRadius: 6, border: "1px solid #D1D9E0", padding: "0 8px", outline: "none", fontSize: 13 }}
                             />
                           ) : (
                             <div style={{ padding: "0 4px", fontWeight: column.key === "largeTotal" || column.key === "smallTotal" ? 900 : 500 }}>
@@ -3707,7 +3726,7 @@ export function VehiclePageScreen({
               })}
               {filteredCargoRows.length === 0 ? (
                 <tr>
-                  <td colSpan={cargoColumns.length} style={{ padding: 18, color: "#6b7280" }}>
+                  <td colSpan={cargoColumns.length} style={{ padding: 32, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>
                     단품별 데이터를 먼저 불러와 주세요.
                   </td>
                 </tr>
