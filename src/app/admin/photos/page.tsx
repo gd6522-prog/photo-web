@@ -181,35 +181,80 @@ export default function AdminPhotosPage() {
     };
   }, []);
 
-  const fetchCargoForDate = async (date: string) => {
+  // 날짜 범위 내 각 날짜별 단품 파일을 가져와 점포별로 합산
+  const fetchCargoForDateRange = async (from: string, to: string) => {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token ?? "";
       if (!token) return;
-      const res = await fetch(`/api/admin/vehicles/current?includeSnapshot=1&date=${date}`, {
-        cache: "no-store",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      const rows: any[] = data.snapshot?.cargoRows ?? [];
-      const map: Record<string, CargoSummary> = {};
-      for (const r of rows) {
-        if (r.store_code) {
-          map[String(r.store_code)] = {
-            large_box: r.large_box ?? 0,
-            large_inner: r.large_inner ?? 0,
-            small_high: r.small_high ?? 0,
-            small_low: r.small_low ?? 0,
-            large_other: r.large_other ?? 0,
-            tobacco: r.tobacco ?? 0,
-          };
+
+      // 날짜 목록 생성 (최대 14일)
+      const dates: string[] = [];
+      let cur = new Date(`${from}T00:00:00+09:00`);
+      const end = new Date(`${to}T00:00:00+09:00`);
+      while (cur <= end && dates.length < 14) {
+        const kst = new Date(cur.getTime());
+        const y = kst.getUTCFullYear();
+        const m = String(kst.getUTCMonth() + 1).padStart(2, "0");
+        const d = String(kst.getUTCDate()).padStart(2, "0");
+        dates.push(`${y}-${m}-${d}`);
+        cur = new Date(cur.getTime() + 24 * 60 * 60 * 1000);
+      }
+
+      // 날짜별로 병렬 요청 후 점포별 최대값으로 합산
+      const perDateMaps = await Promise.all(
+        dates.map(async (date) => {
+          try {
+            const res = await fetch(`/api/admin/vehicles/current?includeSnapshot=1&date=${date}`, {
+              cache: "no-store",
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await res.json();
+            const rows: any[] = data.snapshot?.cargoRows ?? [];
+            const map: Record<string, CargoSummary> = {};
+            for (const r of rows) {
+              if (r.store_code) {
+                map[String(r.store_code)] = {
+                  large_box: r.large_box ?? 0,
+                  large_inner: r.large_inner ?? 0,
+                  small_high: r.small_high ?? 0,
+                  small_low: r.small_low ?? 0,
+                  large_other: r.large_other ?? 0,
+                  tobacco: r.tobacco ?? 0,
+                };
+              }
+            }
+            return map;
+          } catch {
+            return {} as Record<string, CargoSummary>;
+          }
+        })
+      );
+
+      // 날짜별 결과를 점포별로 병합 (각 필드 최대값)
+      const merged: Record<string, CargoSummary> = {};
+      for (const map of perDateMaps) {
+        for (const [storeCode, cargo] of Object.entries(map)) {
+          const prev = merged[storeCode];
+          if (!prev) {
+            merged[storeCode] = { ...cargo };
+          } else {
+            merged[storeCode] = {
+              large_box: Math.max(prev.large_box, cargo.large_box),
+              large_inner: Math.max(prev.large_inner, cargo.large_inner),
+              small_high: Math.max(prev.small_high, cargo.small_high),
+              small_low: Math.max(prev.small_low, cargo.small_low),
+              large_other: Math.max(prev.large_other, cargo.large_other),
+              tobacco: Math.max(prev.tobacco, cargo.tobacco),
+            };
+          }
         }
       }
-      setCargoByStoreCode(map);
+      setCargoByStoreCode(merged);
     } catch {}
   };
 
-  // fetchCargoForDate는 조회 버튼 클릭 시(fetchData 내부)에서 호출
+  // fetchCargoForDateRange는 조회 버튼 클릭 시(fetchData 내부)에서 호출
 
   // ---------- derive ----------
   const carOptions = useMemo(() => {
@@ -698,7 +743,7 @@ export default function AdminPhotosPage() {
 
               {/* 조회/초기화 */}
               <div style={{ display: "flex", gap: 8 }}>
-                <button className="btn-primary" onClick={() => { fetchData(); void fetchCargoForDate(dateFrom); }} disabled={loading} style={{ flex: 1, height: 42, borderRadius: 9, border: "none", background: loading ? "#94A3B8" : "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", color: "white", fontWeight: 900, fontSize: 14, cursor: loading ? "not-allowed" : "pointer", boxShadow: loading ? "none" : "0 5px 16px rgba(16,59,83,0.30)" }}>
+                <button className="btn-primary" onClick={() => { fetchData(); void fetchCargoForDateRange(dateFrom, dateTo); }} disabled={loading} style={{ flex: 1, height: 42, borderRadius: 9, border: "none", background: loading ? "#94A3B8" : "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", color: "white", fontWeight: 900, fontSize: 14, cursor: loading ? "not-allowed" : "pointer", boxShadow: loading ? "none" : "0 5px 16px rgba(16,59,83,0.30)" }}>
                   {loading ? "조회중..." : "조회"}
                 </button>
                 <button className="btn-secondary" onClick={() => { setSearchText(""); setCarNo("ALL"); setWorkPart("ALL"); setDateFrom(kstTodayYYYYMMDD()); setDateTo(kstTodayYYYYMMDD()); setSelectedStore(null); resetSelection(); }} disabled={loading} style={{ height: 42, padding: "0 14px", borderRadius: 9, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 800, fontSize: 13, cursor: loading ? "not-allowed" : "pointer", color: "#64748B" }}>
