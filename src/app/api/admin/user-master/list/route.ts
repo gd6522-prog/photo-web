@@ -95,7 +95,8 @@ export async function GET(req: NextRequest) {
     .from("profiles")
     .select("nationality")
     .not("nationality", "is", null)
-    .neq("nationality", "");
+    .neq("nationality", "")
+    .limit(500);
 
   // profiles 목록과 오늘 출퇴근을 병렬로 실행
   let [{ data, error }, shiftsResult, nationalityResult] = await Promise.all([loadProfiles(true), shiftsPromise, nationalityOptionsPromise]);

@@ -546,6 +546,7 @@ export default function UserMasterPage() {
           <p style={{ margin: "4px 0 0", fontSize: 13, color: "#94A3B8" }}>조회 · 상태처리 · 일괄수정 · 상세수정을 한 화면에서 관리합니다.</p>
         </div>
         <button onClick={load} disabled={loading} style={{ ...buttonStyle(loading), display: "flex", alignItems: "center", gap: 6 }}>
+          {loading && <span style={{ display: "inline-block", width: 13, height: 13, border: "2px solid #D1D9E0", borderTopColor: "#374151", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />}
           {loading ? "불러오는 중…" : "새로고침"}
         </button>
       </div>
@@ -626,7 +627,14 @@ export default function UserMasterPage() {
       )}
 
       {/* ── 테이블 ── */}
-      <div style={{ ...card, overflow: "hidden" }}>
+      <div style={{ ...card, overflow: "hidden", position: "relative" }}>
+        {loading && (
+          <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.75)", zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
+            <div style={{ width: 36, height: 36, border: "3px solid #E2E8F0", borderTopColor: "#1E293B", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+            <span style={{ fontSize: 13, color: "#64748B", fontWeight: 600 }}>데이터를 불러오는 중…</span>
+          </div>
+        )}
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
@@ -643,7 +651,7 @@ export default function UserMasterPage() {
               {displayedRows.length === 0 && !loading ? (
                 <tr>
                   <td colSpan={12} style={{ padding: 32, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>
-                    {loading ? "불러오는 중…" : "데이터가 없습니다."}
+                    데이터가 없습니다.
                   </td>
                 </tr>
               ) : (
