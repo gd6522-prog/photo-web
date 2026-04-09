@@ -288,28 +288,6 @@ export default function AdminPhotosPage() {
     return selectedStorePhotos.slice(start, start + PHOTO_PAGE_SIZE);
   }, [selectedStorePhotos, photoPage]);
 
-  const [imagesReady, setImagesReady] = useState(false);
-
-  useEffect(() => {
-    if (pagedPhotos.length === 0) { setImagesReady(true); return; }
-    setImagesReady(false);
-    let cancelled = false;
-    let raf: number;
-    // rAF으로 스피너가 먼저 paint된 후 프리로드 시작
-    raf = requestAnimationFrame(() => {
-      Promise.all(
-        pagedPhotos.map(
-          (p) =>
-            new Promise<void>((resolve) => {
-              const img = new window.Image();
-              img.src = p.original_url;
-              img.decode().then(resolve).catch(resolve);
-            })
-        )
-      ).then(() => { if (!cancelled) setImagesReady(true); });
-    });
-    return () => { cancelled = true; cancelAnimationFrame(raf); };
-  }, [pagedPhotos]);
 
 
   // 선택 점포의 작업파트별 사진 수
@@ -719,8 +697,10 @@ export default function AdminPhotosPage() {
         .store-row:hover { background: #F8FAFC !important; }
         .filter-input:focus { border-color: #103b53 !important; box-shadow: 0 0 0 3px rgba(16,59,83,0.10); outline: none; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes imgFadeIn { from { opacity: 0; } to { opacity: 1; } }
         .photo-spinner { width:40px; height:40px; border:3px solid #E2E8F0; border-top-color:#103b53; border-radius:50%; animation:spin 0.7s linear infinite; }
-        .photo-grid-wrap { transition: opacity 0.25s ease; will-change: opacity; }
+        .photo-img { opacity: 0; }
+        .photo-img.loaded { animation: imgFadeIn 0.2s ease forwards; }
       `}</style>
 
       {/* Toast */}
@@ -860,7 +840,7 @@ export default function AdminPhotosPage() {
                 <div style={{ borderRadius: 10, padding: 20, color: "#94A3B8", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0" }}>
                   왼쪽 점포 목록에서 점포를 선택하세요.
                 </div>
-              ) : (photosLoading || (!imagesReady && selectedStorePhotos.length > 0)) ? (
+              ) : photosLoading ? (
                 <div style={{ borderRadius: 10, padding: 40, color: "#64748B", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, minHeight: 400 }}>
                   <div style={{ width: 40, height: 40, border: "3px solid #E2E8F0", borderTopColor: "#103b53", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
                   사진 불러오는 중...
@@ -871,8 +851,8 @@ export default function AdminPhotosPage() {
                 </div>
               ) : (
                 <>
-                  <div style={{ position: "relative" }}>
-                    <div className="photo-grid-wrap" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(178px, 1fr))", gap: 10 }}>
+                  <div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(178px, 1fr))", gap: 10 }}>
                     {pagedPhotos.map((p, localIdx) => {
                       const globalIdx = photoPage * PHOTO_PAGE_SIZE + localIdx;
                       const selected = selectedPhotoIds.has(p.id);
@@ -887,6 +867,8 @@ export default function AdminPhotosPage() {
                             <img
                               src={p.original_url}
                               alt="photo"
+                              className="photo-img"
+                              onLoad={(e) => (e.currentTarget.classList.add("loaded"))}
                               style={{ width: "100%", height: 140, objectFit: "cover", display: "block" }}
                             />
                           </button>
@@ -910,7 +892,7 @@ export default function AdminPhotosPage() {
                       );
                     })}
                   </div>{/* grid end */}
-                  </div>{/* relative wrapper end */}
+                  </div>{/* wrapper end */}
 
                   {/* 페이지네이션 */}
                   {selectedStorePhotos.length > PHOTO_PAGE_SIZE && (
