@@ -55,20 +55,15 @@ export async function GET(req: NextRequest) {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  // 만료된 처리대기 sort_key 교정 (summary 조회 전 완료 필요)
-  await guard.sbAdmin.rpc("fix_expired_hazard_sort_keys");
-
-  // Phase 1: 페이지 데이터 + 요약 카운트 병렬 조회
-  const [reportsResult, summaryResult] = await Promise.all([
+  // Phase 1: fix RPC + reports 병렬 실행 (fix는 summary 전에만 완료되면 됨)
+  const [, reportsResult] = await Promise.all([
+    guard.sbAdmin.rpc("fix_expired_hazard_sort_keys"),
     guard.sbAdmin
       .from("hazard_reports")
       .select("id,user_id,comment,photo_path,photo_url,created_at,sort_key", { count: "exact" })
       .order("sort_key", { ascending: true })
       .order("created_at", { ascending: false })
       .range(from, to),
-    includeSummary
-      ? guard.sbAdmin.rpc("get_hazard_summary")
-      : Promise.resolve({ data: null, error: null }),
   ]);
 
   if (reportsResult.error) return json(false, reportsResult.error.message, null, 500);
@@ -77,40 +72,39 @@ export async function GET(req: NextRequest) {
   const totalCount = reportsResult.count ?? 0;
   const reportIds = reports.map((r) => r.id);
 
+  // Phase 2: summary + resolutions + extraPhotos + profiles 모두 병렬
+  const reportUserIds = reports.map((r) => r.user_id);
+
+  const [summaryResult, resResult, extraResult, profileResult] = await Promise.all([
+    includeSummary
+      ? guard.sbAdmin.rpc("get_hazard_summary")
+      : Promise.resolve({ data: null, error: null }),
+    reportIds.length > 0
+      ? guard.sbAdmin
+          .from("hazard_report_resolutions")
+          .select("report_id,after_path,after_public_url,after_memo,improved_by,improved_at,planned_due_date")
+          .in("report_id", reportIds)
+      : Promise.resolve({ data: [], error: null }),
+    reportIds.length > 0
+      ? guard.sbAdmin
+          .from("hazard_report_photos")
+          .select("id,report_id,photo_path,photo_url,created_at")
+          .in("report_id", reportIds)
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+    reportUserIds.length > 0
+      ? guard.sbAdmin.from("profiles").select("id,name").in("id", reportUserIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (resResult.error) return json(false, resResult.error.message, null, 500);
+  if (extraResult.error) return json(false, extraResult.error.message, null, 500);
+
   type SummaryRow = { sort_key: number; cnt: number };
   const summaryRows = (summaryResult.data ?? []) as SummaryRow[];
   const unresolvedTotalCount = includeSummary ? (summaryRows.find((r) => r.sort_key === 0)?.cnt ?? 0) : null;
   const pendingTotalCount    = includeSummary ? (summaryRows.find((r) => r.sort_key === 1)?.cnt ?? 0) : null;
   const resolvedTotalCount   = includeSummary ? (summaryRows.find((r) => r.sort_key === 2)?.cnt ?? 0) : null;
-
-  if (reportIds.length === 0) {
-    return json(true, undefined, {
-      items: [],
-      totalCount,
-      unresolvedTotalCount,
-      pendingTotalCount,
-      resolvedTotalCount,
-      page,
-      pageSize,
-      includeSummary,
-    });
-  }
-
-  // Phase 2: 현재 페이지 상세 데이터 병렬 조회
-  const [resResult, extraResult] = await Promise.all([
-    guard.sbAdmin
-      .from("hazard_report_resolutions")
-      .select("report_id,after_path,after_public_url,after_memo,improved_by,improved_at,planned_due_date")
-      .in("report_id", reportIds),
-    guard.sbAdmin
-      .from("hazard_report_photos")
-      .select("id,report_id,photo_path,photo_url,created_at")
-      .in("report_id", reportIds)
-      .order("created_at", { ascending: false }),
-  ]);
-
-  if (resResult.error) return json(false, resResult.error.message, null, 500);
-  if (extraResult.error) return json(false, extraResult.error.message, null, 500);
 
   const resolutions = (resResult.data ?? []) as ResolutionRow[];
   const extraPhotos = (extraResult.data ?? []) as ExtraPhotoRow[];
@@ -124,21 +118,30 @@ export async function GET(req: NextRequest) {
     extraPhotoMap[photo.report_id].push(photo);
   }
 
-  // Phase 3: 창작자 + 처리자 프로필 단일 조회 (2번→1번)
-  const allProfileIds = Array.from(new Set([
-    ...reports.map((r) => r.user_id),
-    ...resolutions.map((r) => r.improved_by).filter((v): v is string => !!v),
-  ]));
-
+  // improved_by 프로필은 첫 조회에서 없을 수 있으므로 추가 병합
   const nameMap: Record<string, string | null> = {};
-  if (allProfileIds.length > 0) {
-    const { data: profileData } = await guard.sbAdmin
-      .from("profiles")
-      .select("id,name")
-      .in("id", allProfileIds);
-    for (const p of (profileData ?? []) as { id: string; name: string | null }[]) {
-      nameMap[p.id] = p.name;
-    }
+  for (const p of (profileResult.data ?? []) as { id: string; name: string | null }[]) {
+    nameMap[p.id] = p.name;
+  }
+  const missingIds = resolutions
+    .map((r) => r.improved_by)
+    .filter((v): v is string => !!v && !(v in nameMap));
+  if (missingIds.length > 0) {
+    const { data: extra } = await guard.sbAdmin.from("profiles").select("id,name").in("id", missingIds);
+    for (const p of (extra ?? []) as { id: string; name: string | null }[]) nameMap[p.id] = p.name;
+  }
+
+  if (reportIds.length === 0) {
+    return json(true, undefined, {
+      items: [],
+      totalCount,
+      unresolvedTotalCount,
+      pendingTotalCount,
+      resolvedTotalCount,
+      page,
+      pageSize,
+      includeSummary,
+    });
   }
 
   const items: HazardListItem[] = reports.map((r) => {
