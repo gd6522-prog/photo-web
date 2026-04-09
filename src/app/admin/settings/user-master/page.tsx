@@ -627,11 +627,11 @@ export default function UserMasterPage() {
       )}
 
       {/* ── 테이블 ── */}
-      <div style={{ ...card, overflow: "hidden", position: "relative" }}>
+      <div style={{ ...card, overflow: "hidden", position: "relative", minHeight: loading ? 260 : undefined }}>
         {loading && (
-          <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.75)", zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
-            <div style={{ width: 36, height: 36, border: "3px solid #E2E8F0", borderTopColor: "#1E293B", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
-            <span style={{ fontSize: 13, color: "#64748B", fontWeight: 600 }}>데이터를 불러오는 중…</span>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.85)", zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
+            <div style={{ width: 52, height: 52, border: "4px solid #E2E8F0", borderTopColor: "#1E293B", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+            <span style={{ fontSize: 15, color: "#475569", fontWeight: 700, letterSpacing: "-0.01em" }}>데이터를 불러오는 중…</span>
           </div>
         )}
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
