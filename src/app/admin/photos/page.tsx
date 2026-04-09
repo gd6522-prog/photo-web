@@ -414,26 +414,43 @@ export default function AdminPhotosPage() {
     try {
       const { startUTC, endUTC } = kstDateRangeToUtcRange(dateFrom, dateTo);
 
-      const { data: photoRows, error: photoErr } = await supabase
+      // profiles 조인으로 1번 쿼리에 해결
+      let { data: photoRows, error: photoErr } = await supabase
         .from("photos")
-        .select("id, user_id, created_at, status, original_path, original_url, store_code")
+        .select("id, user_id, created_at, status, original_path, original_url, store_code, profiles!photos_user_id_fkey(id, name, work_part, is_admin)")
         .eq("store_code", storeCode)
         .gte("created_at", startUTC)
         .lt("created_at", endUTC)
         .order("created_at", { ascending: false })
         .limit(500);
 
-      if (photoErr) throw photoErr;
+      // FK 힌트가 맞지 않으면 조인 없이 재시도 후 profiles 별도 조회
+      if (photoErr) {
+        const fallback = await supabase
+          .from("photos")
+          .select("id, user_id, created_at, status, original_path, original_url, store_code")
+          .eq("store_code", storeCode)
+          .gte("created_at", startUTC)
+          .lt("created_at", endUTC)
+          .order("created_at", { ascending: false })
+          .limit(500);
+        if (fallback.error) throw fallback.error;
+        photoRows = fallback.data as any;
+        photoErr = null;
+      }
 
-      const rows = (photoRows ?? []) as PhotoRow[];
-
-      const uploaderIds = Array.from(new Set(rows.map((r) => r.user_id))).filter(Boolean);
       const profMap: Record<string, ProfileRow> = {};
-      if (uploaderIds.length > 0) {
-        const { data: profs } = await supabase
-          .from("profiles")
-          .select("id, name, work_part, is_admin")
-          .in("id", uploaderIds);
+      const rows: PhotoRow[] = (photoRows ?? []).map((r: any) => {
+        const prof = r.profiles;
+        if (prof) profMap[r.user_id] = { id: prof.id, name: prof.name ?? null, work_part: prof.work_part ?? null, is_admin: prof.is_admin ?? null };
+        const { profiles: _p, ...photoData } = r;
+        return photoData as PhotoRow;
+      });
+
+      // 조인에서 프로필 못 가져온 경우 별도 쿼리로 보완
+      const missingIds = Array.from(new Set(rows.map((r) => r.user_id))).filter((id) => !profMap[id]);
+      if (missingIds.length > 0) {
+        const { data: profs } = await supabase.from("profiles").select("id, name, work_part, is_admin").in("id", missingIds);
         for (const p of (profs ?? []) as any[]) {
           profMap[p.id] = { id: p.id, name: p.name ?? null, work_part: p.work_part ?? null, is_admin: p.is_admin ?? null };
         }
