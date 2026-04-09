@@ -411,9 +411,6 @@ export default function AdminPhotosPage() {
       if (selectedStoreCode && !allowedCodes.has(selectedStoreCode)) {
         setSelectedStore(null);
         resetSelection();
-      } else if (!selectedStore && storeList.length > 0) {
-        setSelectedStore(storeList[0]);
-        resetSelection();
       }
     } finally {
       setLoading(false);
@@ -658,8 +655,8 @@ export default function AdminPhotosPage() {
   useEffect(() => {
     if (checking) return;
     if (!isAdmin) return;
-    fetchData();
     void fetchCargoForDateRange(dateFrom, dateTo);
+    fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checking, isAdmin]);
 
@@ -798,7 +795,7 @@ export default function AdminPhotosPage() {
 
               {/* 조회/초기화 */}
               <div style={{ display: "flex", gap: 8 }}>
-                <button className="btn-primary" onClick={() => { fetchData(); void fetchCargoForDateRange(dateFrom, dateTo); }} disabled={loading} style={{ flex: 1, height: 42, borderRadius: 9, border: "none", background: loading ? "#94A3B8" : "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", color: "white", fontWeight: 900, fontSize: 14, cursor: loading ? "not-allowed" : "pointer", boxShadow: loading ? "none" : "0 5px 16px rgba(16,59,83,0.30)" }}>
+                <button className="btn-primary" onClick={async () => { await fetchCargoForDateRange(dateFrom, dateTo); fetchData(); }} disabled={loading} style={{ flex: 1, height: 42, borderRadius: 9, border: "none", background: loading ? "#94A3B8" : "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", color: "white", fontWeight: 900, fontSize: 14, cursor: loading ? "not-allowed" : "pointer", boxShadow: loading ? "none" : "0 5px 16px rgba(16,59,83,0.30)" }}>
                   {loading ? "조회중..." : "조회"}
                 </button>
                 <button className="btn-secondary" onClick={() => { setSearchText(""); setCarNo("ALL"); setWorkPart("ALL"); setDateFrom(kstTodayYYYYMMDD()); setDateTo(kstTodayYYYYMMDD()); setSelectedStore(null); resetSelection(); }} disabled={loading} style={{ height: 42, padding: "0 14px", borderRadius: 9, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 800, fontSize: 13, cursor: loading ? "not-allowed" : "pointer", color: "#64748B" }}>
