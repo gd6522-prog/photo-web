@@ -214,7 +214,10 @@ export default function AdminPhotosPage() {
             const map: Record<string, CargoSummary> = {};
             for (const r of rows) {
               if (r.store_code) {
-                map[String(r.store_code)] = {
+                // store_code 정규화: 숫자만 추출 후 5자리 패딩
+                const raw = String(r.store_code).replace(/\D/g, "");
+                const normalized = raw.padStart(5, "0").slice(0, 5);
+                map[normalized] = {
                   large_box: r.large_box ?? 0,
                   large_inner: r.large_inner ?? 0,
                   small_high: r.small_high ?? 0,
@@ -324,7 +327,9 @@ export default function AdminPhotosPage() {
   // 선택 점포의 발주 있는 작업파트 목록 (운영페이지 단품별 파일 기준)
   const orderedWorkParts = useMemo(() => {
     if (!selectedStoreCode) return [];
-    const cargo = cargoByStoreCode[selectedStoreCode];
+    const raw = selectedStoreCode.replace(/\D/g, "");
+    const normalizedCode = raw.padStart(5, "0").slice(0, 5);
+    const cargo = cargoByStoreCode[normalizedCode] ?? cargoByStoreCode[selectedStoreCode];
     if (!cargo) return [];
     return WORK_PARTS.filter((wp) => (cargo[wp.field] ?? 0) > 0);
   }, [selectedStoreCode, cargoByStoreCode]);
