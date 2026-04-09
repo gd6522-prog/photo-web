@@ -303,28 +303,6 @@ export default function AdminPhotosPage() {
     return selectedStorePhotos.slice(start, start + PHOTO_PAGE_SIZE);
   }, [selectedStorePhotos, photoPage]);
 
-  const [imagesReady, setImagesReady] = useState(false);
-
-  useEffect(() => {
-    if (pagedPhotos.length === 0) { setImagesReady(true); return; }
-    setImagesReady(false);
-    let cancelled = false;
-    // 최대 1.5초 후 강제 표시
-    const timeout = setTimeout(() => { if (!cancelled) setImagesReady(true); }, 800);
-    const raf = requestAnimationFrame(() => {
-      Promise.all(
-        pagedPhotos.map(
-          (p) => new Promise<void>((resolve) => {
-            const img = new window.Image();
-            img.onload = () => resolve();
-            img.onerror = () => resolve();
-            img.src = p.original_url;
-          })
-        )
-      ).then(() => { if (!cancelled) { clearTimeout(timeout); setImagesReady(true); } });
-    });
-    return () => { cancelled = true; clearTimeout(timeout); cancelAnimationFrame(raf); };
-  }, [pagedPhotos]);
 
   // 선택 점포의 작업파트별 사진 수
   const selectedStoreWorkPartCount = useMemo(() => {
@@ -730,7 +708,9 @@ export default function AdminPhotosPage() {
         @keyframes spin { to { transform: rotate(360deg); } }
         .photo-spinner { width:40px; height:40px; border:3px solid #E2E8F0; border-top-color:#103b53; border-radius:50%; animation:spin 0.7s linear infinite; }
         @keyframes photosReveal { from { opacity:0; transform:translateY(10px) scale(0.98); } to { opacity:1; transform:translateY(0) scale(1); } }
-        .photos-grid-reveal { animation: photosReveal 0.25s ease forwards; }
+        .photos-grid-reveal { animation: photosReveal 0.2s ease forwards; }
+        @keyframes imgFadeIn { from { opacity:0; } to { opacity:1; } }
+        .photo-img-loaded { animation: imgFadeIn 0.2s ease forwards; }
       `}</style>
 
       {/* Toast */}
@@ -868,7 +848,7 @@ export default function AdminPhotosPage() {
                 <div style={{ borderRadius: 10, padding: 20, color: "#94A3B8", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0" }}>
                   왼쪽 점포 목록에서 점포를 선택하세요.
                 </div>
-              ) : photosLoading ? (
+              ) : (photosLoading) ? (
                 <div style={{ borderRadius: 10, padding: 40, color: "#64748B", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, minHeight: 400 }}>
                   <div style={{ width: 40, height: 40, border: "3px solid #E2E8F0", borderTopColor: "#103b53", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
                   사진 불러오는 중...
@@ -880,7 +860,7 @@ export default function AdminPhotosPage() {
               ) : (
                 <>
                   <div>
-                    <div className={imagesReady ? "photos-grid-reveal" : ""} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(178px, 1fr))", gap: 10, opacity: imagesReady ? 1 : 0, transition: "opacity 0.2s ease" }}>
+                    <div className="photos-grid-reveal" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(178px, 1fr))", gap: 10 }}>
                     {pagedPhotos.map((p, localIdx) => {
                       const globalIdx = photoPage * PHOTO_PAGE_SIZE + localIdx;
                       const selected = selectedPhotoIds.has(p.id);
@@ -895,7 +875,8 @@ export default function AdminPhotosPage() {
                             <img
                               src={p.original_url}
                               alt="photo"
-                              style={{ width: "100%", height: 140, objectFit: "cover", display: "block" }}
+                              style={{ width: "100%", height: 140, objectFit: "cover", display: "block", opacity: 0 }}
+                              onLoad={(e) => { (e.target as HTMLImageElement).style.opacity = "1"; (e.target as HTMLImageElement).style.animation = "imgFadeIn 0.2s ease"; }}
                             />
                           </button>
 
