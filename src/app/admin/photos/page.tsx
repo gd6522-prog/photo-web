@@ -208,17 +208,18 @@ export default function AdminPhotosPage() {
       const token = sessionData.session?.access_token ?? "";
       if (!token) return;
 
-      // 날짜 목록 생성 (최대 14일)
+      // 날짜 목록 생성 (최대 14일) — Date 파싱 없이 직접 문자열 증가
       const dates: string[] = [];
-      let cur = new Date(`${from}T00:00:00+09:00`);
-      const end = new Date(`${to}T00:00:00+09:00`);
-      while (cur <= end && dates.length < 14) {
-        const kst = new Date(cur.getTime());
-        const y = kst.getUTCFullYear();
-        const m = String(kst.getUTCMonth() + 1).padStart(2, "0");
-        const d = String(kst.getUTCDate()).padStart(2, "0");
-        dates.push(`${y}-${m}-${d}`);
-        cur = new Date(cur.getTime() + 24 * 60 * 60 * 1000);
+      let [cy, cm, cd] = from.split("-").map(Number);
+      const [ey, em, ed] = to.split("-").map(Number);
+      while (dates.length < 14) {
+        const dateStr = `${cy}-${String(cm).padStart(2,"0")}-${String(cd).padStart(2,"0")}`;
+        dates.push(dateStr);
+        if (cy === ey && cm === em && cd === ed) break;
+        cd++;
+        const daysInMonth = new Date(cy, cm, 0).getDate();
+        if (cd > daysInMonth) { cd = 1; cm++; }
+        if (cm > 12) { cm = 1; cy++; }
       }
 
       // 날짜별로 병렬 요청 후 점포별 최대값으로 합산
@@ -231,8 +232,6 @@ export default function AdminPhotosPage() {
             });
             const data = await res.json();
             const rows: any[] = data.snapshot?.cargoRows ?? [];
-            const d22473 = rows.find((r: any) => String(r.store_code).replace(/\D/g,"").padStart(5,"0") === "22473");
-            if (d22473) console.log("[22473 raw]", date, JSON.stringify({lb:d22473.large_box,li:d22473.large_inner,sh:d22473.small_high,sl:d22473.small_low,lo:d22473.large_other,tb:d22473.tobacco}));
             const map: Record<string, CargoSummary> = {};
             for (const r of rows) {
               if (r.store_code) {
