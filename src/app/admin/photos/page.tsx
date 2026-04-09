@@ -183,11 +183,9 @@ export default function AdminPhotosPage() {
 
   // 날짜 범위 내 각 날짜별 단품 파일을 가져와 점포별로 합산
   const fetchCargoForDateRange = async (from: string, to: string) => {
-    console.log("[cargo] fetchCargoForDateRange called", from, to);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token ?? "";
-      console.log("[cargo] token exists:", !!token);
       if (!token) return;
 
       // 날짜 목록 생성 (최대 14일)
@@ -212,7 +210,6 @@ export default function AdminPhotosPage() {
               headers: { Authorization: `Bearer ${token}` },
             });
             const data = await res.json();
-            console.log("[cargo] date:", date, "res.ok:", res.ok, "cargoRows count:", data.snapshot?.cargoRows?.length ?? "no snapshot");
             const rows: any[] = data.snapshot?.cargoRows ?? [];
             const map: Record<string, CargoSummary> = {};
             for (const r of rows) {
@@ -256,9 +253,8 @@ export default function AdminPhotosPage() {
           }
         }
       }
-      console.log("[cargo] merged keys:", Object.keys(merged).slice(0, 10));
       setCargoByStoreCode(merged);
-    } catch (e) { console.error("[cargo] fetch error", e); }
+    } catch {}
   };
 
   // fetchCargoForDateRange는 조회 버튼 클릭 시(fetchData 내부)에서 호출
@@ -334,7 +330,6 @@ export default function AdminPhotosPage() {
     const raw = selectedStoreCode.replace(/\D/g, "");
     const normalizedCode = raw.padStart(5, "0").slice(0, 5);
     const cargo = cargoByStoreCode[normalizedCode] ?? cargoByStoreCode[selectedStoreCode];
-    console.log("[cargo] selectedStoreCode:", selectedStoreCode, "normalized:", normalizedCode, "cargo:", cargo, "all keys:", Object.keys(cargoByStoreCode).slice(0, 5));
     if (!cargo) return [];
     return WORK_PARTS.filter((wp) => (cargo[wp.field] ?? 0) > 0);
   }, [selectedStoreCode, cargoByStoreCode]);
