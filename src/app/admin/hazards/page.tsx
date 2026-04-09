@@ -850,16 +850,16 @@ export default function AdminHazardsPage() {
         )}
 
         {/* 카드 그리드 */}
-        <div className={imagesReady && !loading ? "cards-reveal" : ""} style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14, opacity: (imagesReady && !loading) ? 1 : 0 }}>
-          {(loading || (!imagesReady && reports.length > 0)) ? (
-            <div style={{ gridColumn: "1 / -1", borderRadius: 10, padding: 40, color: "#64748B", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, minHeight: 400 }}>
-              <div style={{ width: 40, height: 40, border: "3px solid #E2E8F0", borderTopColor: "#103b53", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
-              불러오는 중...
-            </div>
-          ) : reports.length === 0 ? (
-            <div style={{ gridColumn: "1 / -1", borderRadius: 10, padding: 36, color: "#94A3B8", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0" }}>데이터가 없습니다.</div>
-          ) : (
-            reports.map((r) => {
+        {(loading || (!imagesReady && reports.length > 0)) ? (
+          <div style={{ borderRadius: 10, padding: 40, color: "#64748B", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, minHeight: 400 }}>
+            <div style={{ width: 40, height: 40, border: "3px solid #E2E8F0", borderTopColor: "#103b53", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+            불러오는 중...
+          </div>
+        ) : reports.length === 0 ? (
+          <div style={{ borderRadius: 10, padding: 36, color: "#94A3B8", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0" }}>데이터가 없습니다.</div>
+        ) : (
+          <div className="cards-reveal" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14 }}>
+            {reports.map((r) => {
               const res = resMap[r.id];
               const status = getHazardStatus(res ?? null);
               const done = status.key === "done";
