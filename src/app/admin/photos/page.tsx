@@ -183,6 +183,18 @@ export default function AdminPhotosPage() {
 
   // 날짜 범위 내 각 날짜별 단품 파일을 가져와 점포별로 합산
   const fetchCargoForDateRange = async (from: string, to: string) => {
+    const cacheKey = `cargo_${from}_${to}`;
+    // 캐시 즉시 적용
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const { data, ts } = JSON.parse(cached);
+        setCargoByStoreCode(data);
+        // 10분 이내면 네트워크 요청 생략
+        if (Date.now() - ts < 10 * 60 * 1000) return;
+      }
+    } catch {}
+
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token ?? "";
@@ -214,7 +226,6 @@ export default function AdminPhotosPage() {
             const map: Record<string, CargoSummary> = {};
             for (const r of rows) {
               if (r.store_code) {
-                // store_code 정규화: 숫자만 추출 후 5자리 패딩
                 const raw = String(r.store_code).replace(/\D/g, "");
                 const normalized = raw.padStart(5, "0").slice(0, 5);
                 map[normalized] = {
@@ -254,6 +265,7 @@ export default function AdminPhotosPage() {
         }
       }
       setCargoByStoreCode(merged);
+      try { localStorage.setItem(cacheKey, JSON.stringify({ data: merged, ts: Date.now() })); } catch {}
     } catch {}
   };
 
