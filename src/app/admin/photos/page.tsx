@@ -222,6 +222,9 @@ export default function AdminPhotosPage() {
               headers: { Authorization: `Bearer ${token}` },
             });
             const data = await res.json();
+            // uploadedAt이 요청 날짜와 다르면 fallback된 데이터 — 무시
+            const uploadedAt: string = data.snapshot?.uploadedAt ?? "";
+            if (uploadedAt && !uploadedAt.startsWith(date)) return {} as Record<string, CargoSummary>;
             const rows: any[] = data.snapshot?.cargoRows ?? [];
             const map: Record<string, CargoSummary> = {};
             for (const r of rows) {
