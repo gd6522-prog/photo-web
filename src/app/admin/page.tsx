@@ -1501,7 +1501,7 @@ function ThreeDayPreview({
                   {ymd} ({dowKo(ymd)}) · <span style={{ color: "#5a7588" }}>{list.length}건</span>
                 </span>
                 {holidayName ? (
-                  <span style={{ fontSize: 12, fontWeight: 900, color: "#EF4444", flexShrink: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={holidayName}>{holidayName}</span>
+                  <span style={{ fontSize: 12, fontWeight: 900, color: "#EF4444", flexShrink: 0, whiteSpace: "nowrap" }} title={holidayName}>{holidayName.replace(/\(.*\)/, "").trim()}</span>
                 ) : null}
               </div>
 
