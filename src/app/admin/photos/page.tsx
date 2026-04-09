@@ -288,6 +288,15 @@ export default function AdminPhotosPage() {
     return selectedStorePhotos.slice(start, start + PHOTO_PAGE_SIZE);
   }, [selectedStorePhotos, photoPage]);
 
+  const [imagesLoading, setImagesLoading] = useState(false);
+  const loadedCountRef = React.useRef(0);
+
+  useEffect(() => {
+    if (pagedPhotos.length === 0) { setImagesLoading(false); return; }
+    setImagesLoading(true);
+    loadedCountRef.current = 0;
+  }, [pagedPhotos]);
+
 
   // 선택 점포의 작업파트별 사진 수
   const selectedStoreWorkPartCount = useMemo(() => {
@@ -679,8 +688,6 @@ export default function AdminPhotosPage() {
         .store-row { transition: background 0.12s ease; }
         .store-row:hover { background: #F8FAFC !important; }
         .filter-input:focus { border-color: #103b53 !important; box-shadow: 0 0 0 3px rgba(16,59,83,0.10); outline: none; }
-        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-        .photo-thumb-shimmer { background: linear-gradient(90deg,#E2E8F0 25%,#F1F5F9 50%,#E2E8F0 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
       `}</style>
 
       {/* Toast */}
@@ -820,8 +827,9 @@ export default function AdminPhotosPage() {
                 <div style={{ borderRadius: 10, padding: 20, color: "#94A3B8", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0" }}>
                   왼쪽 점포 목록에서 점포를 선택하세요.
                 </div>
-              ) : photosLoading ? (
-                <div style={{ borderRadius: 10, padding: 20, color: "#94A3B8", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0" }}>
+              ) : photosLoading || imagesLoading ? (
+                <div style={{ borderRadius: 10, padding: 40, color: "#64748B", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+                  <div style={{ width: 40, height: 40, border: "3px solid #E2E8F0", borderTopColor: "#103b53", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
                   사진 불러오는 중...
                 </div>
               ) : selectedStorePhotos.length === 0 ? (
@@ -841,24 +849,19 @@ export default function AdminPhotosPage() {
                         <div key={p.id} className="photo-card-site" style={{ borderRadius: 10, border: selected ? "2px solid #103b53" : "1px solid #E8EFF5", overflow: "hidden", background: selected ? "#EFF6FF" : "white", boxShadow: "0 2px 10px rgba(2,32,46,0.07)" }}>
 
                           {/* 썸네일 */}
-                          <button onClick={() => { if (selectMode) onToggleSelect(p.id); else openPreview(globalIdx); }} style={{ width: "100%", border: "none", padding: 0, cursor: "pointer", background: "transparent", display: "block", position: "relative" }}>
-                            <div className="photo-thumb-shimmer" style={{ width: "100%", height: 140, position: "absolute", inset: 0 }} />
+                          <button onClick={() => { if (selectMode) onToggleSelect(p.id); else openPreview(globalIdx); }} style={{ width: "100%", border: "none", padding: 0, cursor: "pointer", background: "#E2E8F0", display: "block" }}>
                             <img
                               src={p.original_url}
                               alt="photo"
                               decoding="async"
-                              style={{ width: "100%", height: 140, objectFit: "cover", display: "block", position: "relative", opacity: 0, transition: "opacity 0.25s" }}
-                              onLoad={(e) => {
-                                const img = e.currentTarget;
-                                img.style.opacity = "1";
-                                const shimmer = img.previousElementSibling as HTMLElement | null;
-                                if (shimmer) shimmer.style.display = "none";
+                              style={{ width: "100%", height: 140, objectFit: "cover", display: "block" }}
+                              onLoad={() => {
+                                loadedCountRef.current += 1;
+                                if (loadedCountRef.current >= pagedPhotos.length) setImagesLoading(false);
                               }}
-                              onError={(e) => {
-                                const img = e.currentTarget;
-                                img.style.opacity = "0";
-                                const shimmer = img.previousElementSibling as HTMLElement | null;
-                                if (shimmer) { shimmer.style.animation = "none"; shimmer.style.background = "#FEE2E2"; }
+                              onError={() => {
+                                loadedCountRef.current += 1;
+                                if (loadedCountRef.current >= pagedPhotos.length) setImagesLoading(false);
                               }}
                             />
                           </button>
