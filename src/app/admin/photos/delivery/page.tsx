@@ -958,9 +958,9 @@ export default function AdminDeliveryPhotosPage() {
                       <div key={group.key} className="photo-card" style={{ borderRadius: 10, border: "1px solid #E8EFF5", overflow: "hidden", background: "white", boxShadow: "0 2px 10px rgba(2,32,46,0.07)" }}>
 
                         {/* 썸네일 */}
-                        <div style={{ position: "relative", background: "#0B1220" }}>
+                        <div style={{ position: "relative", background: "#E2E8F0" }}>
                           <button onClick={() => openPreview(gIdx, 0)} style={{ width: "100%", border: "none", padding: 0, margin: 0, background: "transparent", cursor: "pointer", display: "block" }}>
-                            <img src={rep.public_url} alt={rep.id} loading="lazy" decoding="async" style={{ width: "100%", height: 118, objectFit: "cover", display: "block", opacity: 0 }} onLoad={(e) => { const t = e.target as HTMLImageElement; t.style.animation = "imgFadeIn 0.2s ease forwards"; t.style.opacity = "1"; }} />
+                            <img src={rep.public_url} alt={rep.id} loading="lazy" decoding="async" style={{ width: "100%", height: 118, objectFit: "cover", display: "block", opacity: 0 }} onLoad={(e) => { const t = e.target as HTMLImageElement; t.style.opacity = "1"; }} />
                           </button>
 
                           {photoCount > 1 && (
