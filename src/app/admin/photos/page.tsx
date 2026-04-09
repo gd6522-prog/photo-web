@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAdminAccess } from "@/lib/admin-access";
 import { copyCompressedImageUrlToClipboard } from "@/lib/clipboard-image";
@@ -288,14 +288,21 @@ export default function AdminPhotosPage() {
     return selectedStorePhotos.slice(start, start + PHOTO_PAGE_SIZE);
   }, [selectedStorePhotos, photoPage]);
 
-  const [imagesLoading, setImagesLoading] = useState(false);
-  const loadedCountRef = React.useRef(0);
+  const [imagesReady, setImagesReady] = useState(false);
+  const loadedCountRef = useRef(0);
+  const expectedCountRef = useRef(0);
 
-  useEffect(() => {
-    if (pagedPhotos.length === 0) { setImagesLoading(false); return; }
-    setImagesLoading(true);
+  useLayoutEffect(() => {
+    if (pagedPhotos.length === 0) { setImagesReady(true); return; }
+    setImagesReady(false);
     loadedCountRef.current = 0;
+    expectedCountRef.current = pagedPhotos.length;
   }, [pagedPhotos]);
+
+  const onImageSettled = useCallback(() => {
+    loadedCountRef.current += 1;
+    if (loadedCountRef.current >= expectedCountRef.current) setImagesReady(true);
+  }, []);
 
 
   // 선택 점포의 작업파트별 사진 수
@@ -827,7 +834,7 @@ export default function AdminPhotosPage() {
                 <div style={{ borderRadius: 10, padding: 20, color: "#94A3B8", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0" }}>
                   왼쪽 점포 목록에서 점포를 선택하세요.
                 </div>
-              ) : photosLoading || imagesLoading ? (
+              ) : photosLoading ? (
                 <div style={{ borderRadius: 10, padding: 40, color: "#64748B", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
                   <div style={{ width: 40, height: 40, border: "3px solid #E2E8F0", borderTopColor: "#103b53", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
                   사진 불러오는 중...
@@ -838,7 +845,15 @@ export default function AdminPhotosPage() {
                 </div>
               ) : (
                 <>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(178px, 1fr))", gap: 10 }}>
+                  <div style={{ position: "relative" }}>
+                    {/* 이미지 로딩 오버레이 — 그리드는 DOM에 유지되어 백그라운드에서 미리 로딩 */}
+                    {!imagesReady && (
+                      <div style={{ position: "absolute", inset: 0, zIndex: 5, background: "rgba(248,250,252,0.97)", borderRadius: 10, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, minHeight: 200 }}>
+                        <div style={{ width: 40, height: 40, border: "3px solid #E2E8F0", borderTopColor: "#103b53", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+                        <span style={{ fontSize: 14, fontWeight: 700, color: "#64748B" }}>사진 불러오는 중...</span>
+                      </div>
+                    )}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(178px, 1fr))", gap: 10, visibility: imagesReady ? "visible" : "hidden" }}>
                     {pagedPhotos.map((p, localIdx) => {
                       const globalIdx = photoPage * PHOTO_PAGE_SIZE + localIdx;
                       const selected = selectedPhotoIds.has(p.id);
@@ -855,14 +870,8 @@ export default function AdminPhotosPage() {
                               alt="photo"
                               decoding="async"
                               style={{ width: "100%", height: 140, objectFit: "cover", display: "block" }}
-                              onLoad={() => {
-                                loadedCountRef.current += 1;
-                                if (loadedCountRef.current >= pagedPhotos.length) setImagesLoading(false);
-                              }}
-                              onError={() => {
-                                loadedCountRef.current += 1;
-                                if (loadedCountRef.current >= pagedPhotos.length) setImagesLoading(false);
-                              }}
+                              onLoad={onImageSettled}
+                              onError={onImageSettled}
                             />
                           </button>
 
@@ -884,7 +893,8 @@ export default function AdminPhotosPage() {
                         </div>
                       );
                     })}
-                  </div>
+                  </div>{/* grid end */}
+                  </div>{/* relative wrapper end */}
 
                   {/* 페이지네이션 */}
                   {selectedStorePhotos.length > PHOTO_PAGE_SIZE && (
