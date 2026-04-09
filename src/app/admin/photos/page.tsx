@@ -860,7 +860,7 @@ export default function AdminPhotosPage() {
                 <div style={{ borderRadius: 10, padding: 20, color: "#94A3B8", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0" }}>
                   왼쪽 점포 목록에서 점포를 선택하세요.
                 </div>
-              ) : photosLoading ? (
+              ) : (photosLoading || (!imagesReady && selectedStorePhotos.length > 0)) ? (
                 <div style={{ borderRadius: 10, padding: 40, color: "#64748B", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, minHeight: 400 }}>
                   <div style={{ width: 40, height: 40, border: "3px solid #E2E8F0", borderTopColor: "#103b53", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
                   사진 불러오는 중...
@@ -871,16 +871,8 @@ export default function AdminPhotosPage() {
                 </div>
               ) : (
                 <>
-                  <div style={{ position: "relative", minHeight: imagesReady ? undefined : 260 }}>
-                    {/* 이미지 로딩 오버레이 */}
-                    {!imagesReady && (
-                      <div style={{ position: "absolute", inset: 0, zIndex: 5, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14 }}>
-                        <div className="photo-spinner" />
-                        <span style={{ fontSize: 14, fontWeight: 700, color: "#64748B" }}>사진 불러오는 중...</span>
-                      </div>
-                    )}
-                    {/* opacity 전환: GPU 합성이라 렉 없음 */}
-                    <div className="photo-grid-wrap" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(178px, 1fr))", gap: 10, opacity: imagesReady ? 1 : 0, pointerEvents: imagesReady ? "auto" : "none" }}>
+                  <div style={{ position: "relative" }}>
+                    <div className="photo-grid-wrap" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(178px, 1fr))", gap: 10 }}>
                     {pagedPhotos.map((p, localIdx) => {
                       const globalIdx = photoPage * PHOTO_PAGE_SIZE + localIdx;
                       const selected = selectedPhotoIds.has(p.id);
