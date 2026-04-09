@@ -647,6 +647,7 @@ export default function AdminPhotosPage() {
     if (checking) return;
     if (!isAdmin) return;
     fetchData();
+    void fetchCargoForDateRange(dateFrom, dateTo);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checking, isAdmin]);
 
