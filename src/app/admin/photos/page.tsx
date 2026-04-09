@@ -321,18 +321,13 @@ export default function AdminPhotosPage() {
     return result;
   }, [selectedStorePhotos, profilesById]);
 
-  // 선택 점포의 발주 있는 작업파트 목록
-  // cargo 데이터 있으면 발주 있는 파트만, 없으면 사진 올라온 파트만 표시
+  // 선택 점포의 발주 있는 작업파트 목록 (운영페이지 단품별 파일 기준)
   const orderedWorkParts = useMemo(() => {
     if (!selectedStoreCode) return [];
     const cargo = cargoByStoreCode[selectedStoreCode];
-    if (cargo) {
-      // 발주 있는 파트 (단품별 기준)
-      return WORK_PARTS.filter((wp) => (cargo[wp.field] ?? 0) > 0);
-    }
-    // cargo 없으면 사진 올라온 파트라도 표시
-    return WORK_PARTS.filter((wp) => (selectedStoreWorkPartCount[wp.label] ?? 0) > 0);
-  }, [selectedStoreCode, cargoByStoreCode, selectedStoreWorkPartCount]);
+    if (!cargo) return [];
+    return WORK_PARTS.filter((wp) => (cargo[wp.field] ?? 0) > 0);
+  }, [selectedStoreCode, cargoByStoreCode]);
 
   // 일요일 여부 (선택 날짜 기준)
   const isSingleDaySunday =
@@ -840,7 +835,7 @@ export default function AdminPhotosPage() {
             <div style={{ padding: "10px 16px", borderBottom: "1px solid #F1F5F9", display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", minHeight: 45 }}>
               {showWorkPartStatus && (
                 <>
-                  <span style={{ fontSize: 11, fontWeight: 900, color: "#94A3B8", marginRight: 2, whiteSpace: "nowrap" }}>촬영</span>
+                  <span style={{ fontSize: 11, fontWeight: 900, color: "#94A3B8", marginRight: 2, whiteSpace: "nowrap" }}>촬영여부</span>
                   {orderedWorkParts.map(({ label }) => {
                     const count = selectedStoreWorkPartCount[label] ?? 0;
                     const complete = label === "이형존" ? count >= 1 : count >= 2;
