@@ -329,6 +329,7 @@ export default function AdminHazardsPage() {
   const [sessionUid, setSessionUid] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [imagesReady, setImagesReady] = useState(false);
   const [savingAfterId, setSavingAfterId] = useState<string | null>(null);
   const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
 
@@ -341,6 +342,27 @@ export default function AdminHazardsPage() {
 
   const [reports, setReports] = useState<HazardListItem[]>([]);
   const [resMap, setResMap] = useState<Record<string, ResolutionRow>>({});
+
+  // reports 바뀌면 이미지 preload 후 한 번에 표시
+  useEffect(() => {
+    if (reports.length === 0) { setImagesReady(true); return; }
+    setImagesReady(false);
+    let cancelled = false;
+    const timeout = setTimeout(() => { if (!cancelled) setImagesReady(true); }, 1000);
+    const urls: string[] = [];
+    for (const r of reports) {
+      if (r.photo_url) urls.push(r.photo_url);
+      const res = (r as any).resolution;
+      if (res?.after_public_url) urls.push(res.after_public_url);
+    }
+    Promise.all(urls.map((src) => new Promise<void>((resolve) => {
+      const img = new window.Image();
+      img.onload = () => resolve();
+      img.onerror = () => resolve();
+      img.src = src;
+    }))).then(() => { if (!cancelled) { clearTimeout(timeout); setImagesReady(true); } });
+    return () => { cancelled = true; clearTimeout(timeout); };
+  }, [reports]);
   const [profilesById, setProfilesById] = useState<Record<string, ProfileRow>>({});
 
   const [afterMemoById, setAfterMemoById] = useState<Record<string, string>>({});
@@ -791,6 +813,8 @@ export default function AdminHazardsPage() {
         .hazard-card:hover { box-shadow: 0 12px 30px rgba(2,32,46,0.14) !important; transform: translateY(-2px); }
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes imgFadeIn { from { opacity:0; } to { opacity:1; } }
+        @keyframes cardsReveal { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+        .cards-reveal { animation: cardsReveal 0.2s ease forwards; }
       `}</style>
 
       {/* Toast */}
@@ -826,8 +850,8 @@ export default function AdminHazardsPage() {
         )}
 
         {/* 카드 그리드 */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14 }}>
-          {loading ? (
+        <div className={imagesReady && !loading ? "cards-reveal" : ""} style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14, opacity: (imagesReady && !loading) ? 1 : 0 }}>
+          {(loading || (!imagesReady && reports.length > 0)) ? (
             <div style={{ gridColumn: "1 / -1", borderRadius: 10, padding: 40, color: "#64748B", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, minHeight: 400 }}>
               <div style={{ width: 40, height: 40, border: "3px solid #E2E8F0", borderTopColor: "#103b53", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
               불러오는 중...
