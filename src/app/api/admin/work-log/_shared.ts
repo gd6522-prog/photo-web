@@ -50,7 +50,7 @@ export async function getWorkLogProfiles(
     let q = sbAdmin
       .from("profiles")
       .select(columns.join(","))
-      .not("work_part", "ilike", `%${EXCLUDED_WORK_PART_KEYWORD}%`)
+      .or(`work_part.is.null,work_part.not.ilike.%${EXCLUDED_WORK_PART_KEYWORD}%`)
       .order("name", { ascending: true });
 
     if (qName) q = q.ilike("name", `%${qName}%`);
