@@ -621,6 +621,18 @@ export default function AdminHazardsPage() {
             pageCacheRef.current = { ...pageCacheRef.current, [targetPage]: payload };
             setPageCache(pageCacheRef.current);
           }
+          // 이미지도 미리 decode까지 완료
+          const urls: string[] = [];
+          for (const r of (payload.items ?? []) as HazardListItem[]) {
+            if (r.photo_url) urls.push(r.photo_url);
+            if (r.resolution?.after_public_url) urls.push(r.resolution.after_public_url);
+          }
+          void Promise.all(urls.map((src) => new Promise<void>((resolve) => {
+            const img = new window.Image();
+            img.onload = () => { img.decode ? img.decode().then(resolve).catch(resolve) : resolve(); };
+            img.onerror = () => resolve();
+            img.src = src;
+          })));
         } catch {}
       })
     );
