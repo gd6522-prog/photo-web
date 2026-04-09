@@ -350,6 +350,7 @@ export default function AdminHazardsPage() {
     if (reports.length === 0) { setImagesReady(true); return; }
     setImagesReady(false);
     let cancelled = false;
+    const timeout = setTimeout(() => { if (!cancelled) setImagesReady(true); }, 2000);
     const urls: string[] = [];
     for (const r of reports) {
       if (r.photo_url) urls.push(r.photo_url);
@@ -358,11 +359,11 @@ export default function AdminHazardsPage() {
     }
     Promise.all(urls.map((src) => new Promise<void>((resolve) => {
       const img = new window.Image();
-      img.onload = () => { img.decode ? img.decode().then(resolve).catch(resolve) : resolve(); };
+      img.onload = () => resolve();
       img.onerror = () => resolve();
       img.src = src;
-    }))).then(() => { if (!cancelled) setImagesReady(true); });
-    return () => { cancelled = true; };
+    }))).then(() => { if (!cancelled) { clearTimeout(timeout); setImagesReady(true); } });
+    return () => { cancelled = true; clearTimeout(timeout); };
   }, [reports]);
   const [profilesById, setProfilesById] = useState<Record<string, ProfileRow>>({});
 
@@ -628,7 +629,7 @@ export default function AdminHazardsPage() {
           }
           void Promise.all(urls.map((src) => new Promise<void>((resolve) => {
             const img = new window.Image();
-            img.onload = () => { img.decode ? img.decode().then(resolve).catch(resolve) : resolve(); };
+            img.onload = () => resolve();
             img.onerror = () => resolve();
             img.src = src;
           })));
