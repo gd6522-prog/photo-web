@@ -359,7 +359,7 @@ export default function AdminHazardsPage() {
     }
     Promise.all(urls.map((src) => new Promise<void>((resolve) => {
       const img = new window.Image();
-      img.onload = () => resolve();
+      img.onload = () => { img.decode ? img.decode().then(resolve).catch(resolve) : resolve(); };
       img.onerror = () => resolve();
       img.src = src;
     }))).then(() => { if (!cancelled) { clearTimeout(timeout); setImagesReady(true); } });
@@ -930,7 +930,7 @@ export default function AdminHazardsPage() {
                           style={{ width: "100%", height: "100%", border: "none", padding: 0, background: "transparent", cursor: "pointer", display: "block" }}
                           title="제보사진 크게 보기"
                         >
-                          <img src={beforeThumbUrl} alt="before" loading="eager" decoding="async" fetchPriority="high" style={{ width: "100%", height: "100%", objectFit: "contain", background: "#E2E8F0" }} />
+                          <img src={beforeThumbUrl} alt="before" loading="eager" decoding="sync" fetchPriority="high" style={{ width: "100%", height: "100%", objectFit: "contain", background: "#E2E8F0" }} />
                         </button>
                       </section>
                       <section style={{ borderRadius: 8, border: "1.5px solid #BFDBFE", background: "#F0F9FF", height: 138, overflow: "hidden" }}>
@@ -940,7 +940,7 @@ export default function AdminHazardsPage() {
                             style={{ width: "100%", height: "100%", border: "none", padding: 0, background: "transparent", cursor: "pointer", display: "block" }}
                             title="개선사진 크게 보기"
                           >
-                            <img src={afterThumbUrl} alt="after" loading="eager" decoding="async" fetchPriority="high" style={{ width: "100%", height: "100%", objectFit: "contain", background: "#E2E8F0" }} />
+                            <img src={afterThumbUrl} alt="after" loading="eager" decoding="sync" fetchPriority="high" style={{ width: "100%", height: "100%", objectFit: "contain", background: "#E2E8F0" }} />
                           </button>
                         ) : (
                           <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#94A3B8", fontWeight: 700 }}>
