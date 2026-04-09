@@ -231,6 +231,8 @@ export default function AdminPhotosPage() {
             });
             const data = await res.json();
             const rows: any[] = data.snapshot?.cargoRows ?? [];
+            const d22473 = rows.find((r: any) => String(r.store_code).replace(/\D/g,"").padStart(5,"0") === "22473");
+            if (d22473) console.log("[22473 raw]", date, JSON.stringify({lb:d22473.large_box,li:d22473.large_inner,sh:d22473.small_high,sl:d22473.small_low,lo:d22473.large_other,tb:d22473.tobacco}));
             const map: Record<string, CargoSummary> = {};
             for (const r of rows) {
               if (r.store_code) {
