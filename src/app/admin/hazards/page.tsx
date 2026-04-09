@@ -1012,9 +1012,9 @@ export default function AdminHazardsPage() {
                   </div>
                 </div>
               );
-            })
-          )}
-        </div>
+            })}
+          </div>
+        )}
       </div>
 
       {/* PREVIEW MODAL */}
