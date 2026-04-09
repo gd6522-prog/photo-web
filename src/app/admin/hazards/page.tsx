@@ -560,6 +560,7 @@ export default function AdminHazardsPage() {
 
   const loadRows = useCallback(async (forceRefresh = false) => {
     setLoading(true);
+    setImagesReady(false);
     setMsg("");
     try {
       if (!forceRefresh && pageCache[page]) {
