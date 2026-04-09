@@ -1496,12 +1496,14 @@ function ThreeDayPreview({
                 flexDirection: "column",
               }}
             >
-              <div style={{ fontWeight: 950, fontSize: 13, color: "#113247" }}>
-                {ymd} ({dowKo(ymd)}) · <span style={{ color: "#5a7588" }}>{list.length}건</span>
+              <div style={{ fontWeight: 950, fontSize: 13, color: "#113247", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+                <span>
+                  {ymd} ({dowKo(ymd)}) · <span style={{ color: "#5a7588" }}>{list.length}건</span>
+                </span>
+                {holidayName ? (
+                  <span style={{ fontSize: 12, fontWeight: 900, color: "#EF4444", flexShrink: 0 }}>{holidayName}</span>
+                ) : null}
               </div>
-              {holidayName ? (
-                <div style={{ marginTop: 4, fontSize: 12, fontWeight: 900, color: "#EF4444" }}>{holidayName}</div>
-              ) : null}
 
               {list.length === 0 ? (
                 <div style={{ marginTop: 6, color: "#5a7588", fontSize: 12 }}>등록된 일정 없음</div>
