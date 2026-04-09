@@ -775,6 +775,7 @@ export default function AdminDeliveryPhotosPage() {
         .category-btn { transition: all 0.15s ease; }
         .category-btn:hover { opacity: 0.88; transform: translateY(-1px); }
         .category-btn:active { transform: translateY(0); opacity: 0.75; }
+        @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
 
       {/* Toast */}
@@ -932,8 +933,13 @@ export default function AdminDeliveryPhotosPage() {
               {rightHeaderActions}
             </div>
 
-            {photos.length === 0 ? (
-              <div style={{ padding: 36, color: "#94A3B8", textAlign: "center", fontWeight: 700, fontSize: 14 }}>{loading ? "불러오는 중..." : "해당 조건의 사진이 없습니다."}</div>
+            {loading ? (
+              <div style={{ borderRadius: 10, padding: 40, color: "#64748B", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, minHeight: 400 }}>
+                <div style={{ width: 40, height: 40, border: "3px solid #E2E8F0", borderTopColor: "#103b53", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+                사진 불러오는 중...
+              </div>
+            ) : photos.length === 0 ? (
+              <div style={{ borderRadius: 10, padding: 36, color: "#94A3B8", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0" }}>해당 조건의 사진이 없습니다.</div>
             ) : (
               <div style={{ padding: 14 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(178px, 1fr))", gap: 10 }}>

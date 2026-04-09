@@ -837,8 +837,14 @@ export default function AdminHazardsPage() {
 
       {msg ? <div style={{ marginTop: 10, padding: 10, borderRadius: 0, background: "#F8FAFC", border: "1px solid #E2E8F0" }}>{msg}</div> : null}
 
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
-        {reports.length === 0 ? (
+        {loading ? (
+          <div style={{ gridColumn: "1 / -1", borderRadius: 10, padding: 40, color: "#64748B", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, minHeight: 400 }}>
+            <div style={{ width: 40, height: 40, border: "3px solid #E2E8F0", borderTopColor: "#103b53", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+            사진 불러오는 중...
+          </div>
+        ) : reports.length === 0 ? (
           <div style={{ gridColumn: "1 / -1", border: "1px solid #DDE3EA", borderRadius: 0, background: "white", padding: 14, color: "#6B7280" }}>데이터가 없습니다.</div>
         ) : (
           reports.map((r, idx) => {
