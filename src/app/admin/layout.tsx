@@ -166,47 +166,51 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const pillStyle = (active: boolean) => ({
     textDecoration: "none",
-    padding: "8px 14px",
-    borderRadius: 4,
-    border: active ? "1px solid #0e7490" : "1px solid #c7d6e3",
-    background: active ? "linear-gradient(135deg,#103b53 0%,#0f766e 100%)" : "rgba(255,255,255,0.86)",
-    color: active ? "white" : "#113247",
-    fontWeight: 950 as const,
-    fontSize: 13,
+    padding: "7px 16px",
+    borderRadius: 8,
+    border: "none",
+    background: active ? "linear-gradient(135deg,#103b53 0%,#0f766e 100%)" : "transparent",
+    color: active ? "white" : "#374151",
+    fontWeight: 800 as const,
+    fontSize: 13.5,
     lineHeight: 1,
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
     whiteSpace: "nowrap" as const,
-    boxShadow: active ? "0 8px 18px rgba(16,59,83,0.24)" : "0 1px 0 rgba(255,255,255,0.9) inset",
+    boxShadow: active ? "0 4px 14px rgba(16,59,83,0.28)" : "none",
+    transition: "all 0.15s ease",
   });
 
   const dropdownBoxStyle: React.CSSProperties = {
     position: "absolute",
-    top: 44,
+    top: 46,
     left: "50%",
     transform: "translateX(-50%)",
     width: "max-content",
+    minWidth: 160,
     maxWidth: 360,
-    background: "rgba(255,255,255,0.98)",
-    border: "1px solid #bcd0de",
-    borderRadius: 0,
-    boxShadow: "0 16px 36px rgba(2,32,46,0.16)",
-    padding: 8,
-    overflow: "hidden",
+    background: "white",
+    border: "1px solid #E2E8F0",
+    borderRadius: 12,
+    boxShadow: "0 20px 48px rgba(2,32,46,0.18), 0 4px 12px rgba(2,32,46,0.08)",
+    padding: 6,
     zIndex: 60,
+    animation: "dropdownFadeIn 0.15s ease",
   };
 
   const dropdownItemStyle = (active: boolean): React.CSSProperties => ({
     display: "block",
     textDecoration: "none",
-    padding: "10px 12px",
-    borderRadius: 0,
-    color: "#113247",
-    fontWeight: 950,
+    padding: "9px 14px",
+    borderRadius: 8,
+    color: active ? "#103b53" : "#374151",
+    fontWeight: active ? 900 : 700,
     fontSize: 13,
-    background: active ? "#e6f3f2" : "transparent",
+    background: active ? "linear-gradient(135deg,#EFF6FF 0%,#F0FDF4 100%)" : "transparent",
     whiteSpace: "nowrap",
+    borderLeft: active ? "3px solid #103b53" : "3px solid transparent",
+    transition: "background 0.12s ease",
   });
 
   const isActive = (href: string) => {
@@ -442,6 +446,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <AdminAccessProvider isMainAdmin={isMainAdmin} isGeneralAdmin={isGeneralAdmin} isCompanyAdmin={isCompanyAdmin} menuAccess={menuAccess}>
+      <style>{`
+        @keyframes dropdownFadeIn {
+          from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        .nav-pill:hover { background: #F1F5F9 !important; color: #103b53 !important; }
+        .nav-pill-active:hover { filter: brightness(0.9); }
+        .nav-dropdown-item:hover { background: #F8FAFC !important; color: #103b53 !important; }
+        .logout-btn:hover:not(:disabled) { filter: brightness(0.88); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(16,59,83,0.32) !important; }
+        .logout-btn:active:not(:disabled) { transform: translateY(0); }
+      `}</style>
       <div className="ha-surface ha-admin" style={{ minHeight: "100vh", fontFamily: "Pretendard, system-ui, -apple-system, Segoe UI, sans-serif", position: "relative", overflow: "hidden" }}>
         <div
           className="ha-admin-header"
@@ -449,16 +464,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             position: "sticky",
             top: 0,
             zIndex: 50,
-            background: "#fff",
-            borderBottom: "1px solid #c7d6e3",
-            boxShadow: "0 10px 24px rgba(2,32,46,0.08)",
+            background: "rgba(255,255,255,0.97)",
+            backdropFilter: "blur(12px)",
+            borderBottom: "1px solid #E2E8F0",
+            boxShadow: "0 4px 20px rgba(2,32,46,0.07)",
           }}
         >
           <div
             style={{
               maxWidth: MAX_W,
               margin: "0 auto",
-              padding: "10px 12px",
+              padding: "10px 16px",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
@@ -472,8 +488,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
 
             <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
-              <nav style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                  <Link href="/admin" style={pillStyle(isActive("/admin"))}>
+              <nav style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+                <Link href="/admin" className={isActive("/admin") ? "nav-pill-active" : "nav-pill"} style={pillStyle(isActive("/admin"))}>
                   메인
                 </Link>
 
@@ -484,7 +500,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     onMouseLeave={() => closeDropdownDelayed("photos")}
                     style={{ position: "relative" }}
                   >
-                    <Link href="/admin/photos" style={pillStyle(isPhotosActive)} onMouseEnter={() => openDropdown("photos")}>
+                    <Link href="/admin/photos" className={isPhotosActive ? "nav-pill-active" : "nav-pill"} style={pillStyle(isPhotosActive)} onMouseEnter={() => openDropdown("photos")}>
                       사진
                     </Link>
 
@@ -508,7 +524,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                           }
 
                           return (
-                            <Link key={it.key} href={it.href} style={dropdownItemStyle(active)}>
+                            <Link key={it.key} href={it.href} className="nav-dropdown-item" style={dropdownItemStyle(active)}>
                               {it.label}
                             </Link>
                           );
@@ -524,7 +540,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     onMouseLeave={() => closeDropdownDelayed("operation")}
                     style={{ position: "relative" }}
                   >
-                    <Link href="/admin/operation" style={pillStyle(isOperationActive)} onMouseEnter={() => openDropdown("operation")}>
+                    <Link href="/admin/operation" className={isOperationActive ? "nav-pill-active" : "nav-pill"} style={pillStyle(isOperationActive)} onMouseEnter={() => openDropdown("operation")}>
                       운영
                     </Link>
 
@@ -539,7 +555,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                           const base = it.href.split("?")[0];
                           const active = pathname === base || pathname.startsWith(base + "/");
                           return (
-                            <Link key={it.key} href={it.href} style={dropdownItemStyle(active)}>
+                            <Link key={it.key} href={it.href} className="nav-dropdown-item" style={dropdownItemStyle(active)}>
                               {it.label}
                             </Link>
                           );
@@ -555,7 +571,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     onMouseLeave={() => closeDropdownDelayed("vehicle")}
                     style={{ position: "relative" }}
                   >
-                    <Link href="/admin/vehicles" style={pillStyle(isVehicleActive)} onMouseEnter={() => openDropdown("vehicle")}>
+                    <Link href="/admin/vehicles" className={isVehicleActive ? "nav-pill-active" : "nav-pill"} style={pillStyle(isVehicleActive)} onMouseEnter={() => openDropdown("vehicle")}>
                       차량
                     </Link>
 
@@ -572,7 +588,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             ? pathname === "/admin/vehicles"
                             : pathname === base || pathname.startsWith(base + "/");
                           return (
-                            <Link key={it.key} href={it.href} style={dropdownItemStyle(active)}>
+                            <Link key={it.key} href={it.href} className="nav-dropdown-item" style={dropdownItemStyle(active)}>
                               {it.label}
                             </Link>
                           );
@@ -588,7 +604,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   onMouseLeave={() => closeDropdownDelayed("notice")}
                   style={{ position: "relative" }}
                 >
-                  <Link href="/admin/notice/boards?board=notice" style={pillStyle(isNoticeActive)} onMouseEnter={() => openDropdown("notice")}>
+                  <Link href="/admin/notice/boards?board=notice" className={isNoticeActive ? "nav-pill-active" : "nav-pill"} style={pillStyle(isNoticeActive)} onMouseEnter={() => openDropdown("notice")}>
                     게시판
                   </Link>
 
@@ -618,7 +634,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     onMouseLeave={() => closeDropdownDelayed("worklog")}
                     style={{ position: "relative" }}
                   >
-                    <Link href="/admin/work-log?tab=basic" style={pillStyle(isWorkLogActive)} onMouseEnter={() => openDropdown("worklog")}>
+                    <Link href="/admin/work-log?tab=basic" className={isWorkLogActive ? "nav-pill-active" : "nav-pill"} style={pillStyle(isWorkLogActive)} onMouseEnter={() => openDropdown("worklog")}>
                       근태
                     </Link>
 
@@ -635,7 +651,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             : pathname === "/admin/work-log" && workLogTab === "basic";
 
                           return (
-                            <Link key={it.key} href={it.href} style={dropdownItemStyle(active)}>
+                            <Link key={it.key} href={it.href} className="nav-dropdown-item" style={dropdownItemStyle(active)}>
                               {it.label}
                             </Link>
                           );
@@ -651,7 +667,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   onMouseLeave={() => closeDropdownDelayed("insu")}
                   style={{ position: "relative" }}
                 >
-                  <Link href="/admin/insu" style={pillStyle(isInsuActive)} onMouseEnter={() => openDropdown("insu")}>
+                  <Link href="/admin/insu" className={isInsuActive ? "nav-pill-active" : "nav-pill"} style={pillStyle(isInsuActive)} onMouseEnter={() => openDropdown("insu")}>
                     인수증
                   </Link>
 
@@ -684,7 +700,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     onMouseLeave={() => closeDropdownDelayed("settings")}
                     style={{ position: "relative" }}
                   >
-                    <Link href={SETTINGS_ROOT} style={pillStyle(isSettingsActive)} onMouseEnter={() => openDropdown("settings")}>
+                    <Link href={SETTINGS_ROOT} className={isSettingsActive ? "nav-pill-active" : "nav-pill"} style={pillStyle(isSettingsActive)} onMouseEnter={() => openDropdown("settings")}>
                       설정
                     </Link>
 
@@ -698,7 +714,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         {visibleSettingsItems.map((it) => {
                           const active = pathname === it.href || pathname.startsWith(it.href + "/");
                           return (
-                            <Link key={it.key} href={it.href} style={dropdownItemStyle(active)}>
+                            <Link key={it.key} href={it.href} className="nav-dropdown-item" style={dropdownItemStyle(active)}>
                               {it.label}
                             </Link>
                           );
@@ -710,48 +726,52 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </nav>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div
                 style={{
-                  height: 36,
+                  height: 34,
                   padding: "0 12px",
-                  borderRadius: 4,
-                  border: "1px solid #c7d6e3",
-                  background: "#f8fbff",
-                  color: "#113247",
+                  borderRadius: 8,
+                  border: "1px solid #E2E8F0",
+                  background: "#F8FAFC",
+                  color: "#374151",
                   fontSize: 13,
-                  fontWeight: 900,
+                  fontWeight: 800,
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: 8,
+                  gap: 7,
                   whiteSpace: "nowrap",
                 }}
               >
                 <span
                   style={{
-                    width: 8,
-                    height: 8,
+                    width: 7,
+                    height: 7,
                     borderRadius: "999px",
                     background: "linear-gradient(135deg,#0f766e 0%,#14b8a6 100%)",
-                    boxShadow: "0 0 0 2px rgba(20,184,166,0.16)",
+                    boxShadow: "0 0 0 2.5px rgba(20,184,166,0.22)",
+                    flexShrink: 0,
                   }}
                 />
                 {loginUserName || "User"}
               </div>
               <button
+                className="logout-btn"
                 onClick={onLogout}
                 disabled={checking}
                 style={{
-                  height: 36,
-                  padding: "0 15px",
-                  borderRadius: 4,
-                  border: "1px solid #0e7490",
+                  height: 34,
+                  padding: "0 16px",
+                  borderRadius: 8,
+                  border: "none",
                   background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
                   color: "#ffffff",
                   fontWeight: 900,
-                  boxShadow: "0 8px 18px rgba(16,59,83,0.24)",
+                  fontSize: 13,
+                  boxShadow: "0 4px 14px rgba(16,59,83,0.28)",
                   cursor: checking ? "not-allowed" : "pointer",
                   opacity: checking ? 0.6 : 1,
+                  transition: "all 0.15s ease",
                 }}
               >
                 로그아웃
