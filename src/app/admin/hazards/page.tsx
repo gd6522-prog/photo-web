@@ -405,11 +405,11 @@ export default function AdminHazardsPage() {
     const email = sess.user.email ?? "";
     setSessionUid(uid);
 
-    const { data: prof } = await supabase
-      .from("profiles")
-      .select("id,work_part,is_admin")
-      .eq("id", uid)
-      .maybeSingle();
+    // profiles + permissions 병렬 조회
+    const [{ data: prof }, { data: perm }] = await Promise.all([
+      supabase.from("profiles").select("id,work_part,is_admin").eq("id", uid).maybeSingle(),
+      supabase.from("admin_menu_permissions").select("general_access").eq("menu_key", "admin_photos").maybeSingle(),
+    ]);
 
     const hardAdmin = isMainAdminIdentity(uid, email);
     const main = hardAdmin || (!!prof && !!(prof as { is_admin?: boolean | null }).is_admin);
@@ -417,12 +417,6 @@ export default function AdminHazardsPage() {
 
     let admin = main;
     if (!admin && general) {
-      const { data: perm } = await supabase
-        .from("admin_menu_permissions")
-        .select("general_access")
-        .eq("menu_key", "admin_photos")
-        .maybeSingle();
-
       const access = ((perm as { general_access?: AccessLevel | null } | null)?.general_access ?? "hidden") as AccessLevel;
       admin = access !== "hidden";
     }
