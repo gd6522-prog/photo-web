@@ -796,6 +796,7 @@ export default function AdminHazardsPage() {
         .hazard-card { transition: box-shadow 0.18s ease, transform 0.18s ease; }
         .hazard-card:hover { box-shadow: 0 12px 30px rgba(2,32,46,0.14) !important; transform: translateY(-2px); }
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes imgFadeIn { from { opacity:0; } to { opacity:1; } }
       `}</style>
 
       {/* Toast */}
@@ -904,7 +905,7 @@ export default function AdminHazardsPage() {
                           style={{ width: "100%", height: "100%", border: "none", padding: 0, background: "transparent", cursor: "pointer", display: "block" }}
                           title="제보사진 크게 보기"
                         >
-                          <img src={beforeThumbUrl} alt="before" loading="eager" decoding="async" fetchPriority="high" style={{ width: "100%", height: "100%", objectFit: "contain", background: "#FFFFFF" }} />
+                          <img src={beforeThumbUrl} alt="before" loading="eager" decoding="async" fetchPriority="high" style={{ width: "100%", height: "100%", objectFit: "contain", background: "#FFFFFF", opacity: 0 }} onLoad={(e) => { const t = e.target as HTMLImageElement; t.style.animation = "imgFadeIn 0.2s ease forwards"; t.style.opacity = "1"; }} />
                         </button>
                       </section>
                       <section style={{ borderRadius: 8, border: "1.5px solid #BFDBFE", background: "#F0F9FF", height: 138, overflow: "hidden" }}>
@@ -914,7 +915,7 @@ export default function AdminHazardsPage() {
                             style={{ width: "100%", height: "100%", border: "none", padding: 0, background: "transparent", cursor: "pointer", display: "block" }}
                             title="개선사진 크게 보기"
                           >
-                            <img src={afterThumbUrl} alt="after" loading="eager" decoding="async" fetchPriority="high" style={{ width: "100%", height: "100%", objectFit: "contain", background: "#FFFFFF" }} />
+                            <img src={afterThumbUrl} alt="after" loading="eager" decoding="async" fetchPriority="high" style={{ width: "100%", height: "100%", objectFit: "contain", background: "#FFFFFF", opacity: 0 }} onLoad={(e) => { const t = e.target as HTMLImageElement; t.style.animation = "imgFadeIn 0.2s ease forwards"; t.style.opacity = "1"; }} />
                           </button>
                         ) : (
                           <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#94A3B8", fontWeight: 700 }}>

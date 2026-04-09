@@ -776,6 +776,7 @@ export default function AdminDeliveryPhotosPage() {
         .category-btn:hover { opacity: 0.88; transform: translateY(-1px); }
         .category-btn:active { transform: translateY(0); opacity: 0.75; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes imgFadeIn { from { opacity:0; } to { opacity:1; } }
       `}</style>
 
       {/* Toast */}
@@ -959,7 +960,7 @@ export default function AdminDeliveryPhotosPage() {
                         {/* 썸네일 */}
                         <div style={{ position: "relative", background: "#0B1220" }}>
                           <button onClick={() => openPreview(gIdx, 0)} style={{ width: "100%", border: "none", padding: 0, margin: 0, background: "transparent", cursor: "pointer", display: "block" }}>
-                            <img src={rep.public_url} alt={rep.id} loading="lazy" decoding="async" style={{ width: "100%", height: 118, objectFit: "cover", display: "block" }} />
+                            <img src={rep.public_url} alt={rep.id} loading="lazy" decoding="async" style={{ width: "100%", height: 118, objectFit: "cover", display: "block", opacity: 0 }} onLoad={(e) => { const t = e.target as HTMLImageElement; t.style.animation = "imgFadeIn 0.2s ease forwards"; t.style.opacity = "1"; }} />
                           </button>
 
                           {photoCount > 1 && (
