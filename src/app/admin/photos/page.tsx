@@ -230,13 +230,6 @@ export default function AdminPhotosPage() {
               headers: { Authorization: `Bearer ${token}` },
             });
             const data = await res.json();
-            // uploadedAt을 KST 날짜로 변환해서 비교 (UTC 저장이므로 +9시간)
-            const uploadedAt: string = data.snapshot?.uploadedAt ?? "";
-            if (uploadedAt) {
-              const uploadedKST = new Date(new Date(uploadedAt).getTime() + 9 * 60 * 60 * 1000);
-              const uploadedDateKST = `${uploadedKST.getUTCFullYear()}-${String(uploadedKST.getUTCMonth() + 1).padStart(2, "0")}-${String(uploadedKST.getUTCDate()).padStart(2, "0")}`;
-              if (uploadedDateKST !== date) return {} as Record<string, CargoSummary>;
-            }
             const rows: any[] = data.snapshot?.cargoRows ?? [];
             const map: Record<string, CargoSummary> = {};
             for (const r of rows) {
