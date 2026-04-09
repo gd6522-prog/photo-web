@@ -183,9 +183,11 @@ export default function AdminPhotosPage() {
 
   // 날짜 범위 내 각 날짜별 단품 파일을 가져와 점포별로 합산
   const fetchCargoForDateRange = async (from: string, to: string) => {
+    console.log("[cargo] fetchCargoForDateRange called", from, to);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token ?? "";
+      console.log("[cargo] token exists:", !!token);
       if (!token) return;
 
       // 날짜 목록 생성 (최대 14일)
@@ -210,6 +212,7 @@ export default function AdminPhotosPage() {
               headers: { Authorization: `Bearer ${token}` },
             });
             const data = await res.json();
+            console.log("[cargo] date:", date, "res.ok:", res.ok, "cargoRows count:", data.snapshot?.cargoRows?.length ?? "no snapshot");
             const rows: any[] = data.snapshot?.cargoRows ?? [];
             const map: Record<string, CargoSummary> = {};
             for (const r of rows) {
