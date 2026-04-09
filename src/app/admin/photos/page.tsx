@@ -299,9 +299,9 @@ export default function AdminPhotosPage() {
         (p) =>
           new Promise<void>((resolve) => {
             const img = new window.Image();
-            img.onload = () => resolve();
-            img.onerror = () => resolve();
             img.src = p.original_url;
+            // decode()는 다운로드 + 디코딩까지 완료 → 표시 순간 렉 없음
+            img.decode().then(resolve).catch(resolve);
           })
       )
     ).then(() => { if (!cancelled) setImagesReady(true); });
@@ -889,7 +889,6 @@ export default function AdminPhotosPage() {
                             <img
                               src={p.original_url}
                               alt="photo"
-                              decoding="async"
                               style={{ width: "100%", height: 140, objectFit: "cover", display: "block" }}
                             />
                           </button>
