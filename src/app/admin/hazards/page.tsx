@@ -350,7 +350,6 @@ export default function AdminHazardsPage() {
     if (reports.length === 0) { setImagesReady(true); return; }
     setImagesReady(false);
     let cancelled = false;
-    const timeout = setTimeout(() => { if (!cancelled) setImagesReady(true); }, 1000);
     const urls: string[] = [];
     for (const r of reports) {
       if (r.photo_url) urls.push(r.photo_url);
@@ -362,8 +361,8 @@ export default function AdminHazardsPage() {
       img.onload = () => { img.decode ? img.decode().then(resolve).catch(resolve) : resolve(); };
       img.onerror = () => resolve();
       img.src = src;
-    }))).then(() => { if (!cancelled) { clearTimeout(timeout); setImagesReady(true); } });
-    return () => { cancelled = true; clearTimeout(timeout); };
+    }))).then(() => { if (!cancelled) setImagesReady(true); });
+    return () => { cancelled = true; };
   }, [reports]);
   const [profilesById, setProfilesById] = useState<Record<string, ProfileRow>>({});
 
