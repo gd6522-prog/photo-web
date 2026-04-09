@@ -833,23 +833,19 @@ export default function AdminPhotosPage() {
 
             {/* 작업파트 촬영 현황 - 항상 같은 높이 유지 */}
             <div style={{ padding: "10px 16px", borderBottom: "1px solid #F1F5F9", display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", minHeight: 45 }}>
-              {showWorkPartStatus && (
-                <>
-                  <span style={{ fontSize: 11, fontWeight: 900, color: "#94A3B8", marginRight: 2, whiteSpace: "nowrap" }}>촬영여부</span>
-                  {orderedWorkParts.map(({ label }) => {
-                    const count = selectedStoreWorkPartCount[label] ?? 0;
-                    const complete = label === "이형존" ? count >= 1 : count >= 2;
-                    return (
-                      <div key={label} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 7, background: complete ? "#DCFCE7" : "#FEF2F2", border: `1px solid ${complete ? "rgba(22,163,74,0.25)" : "rgba(220,38,38,0.2)"}` }}>
-                        <span style={{ fontSize: 12, fontWeight: 900, color: complete ? "#16A34A" : "#DC2626" }}>{label}</span>
-                        <span style={{ fontSize: 11, fontWeight: 800, color: complete ? "#16A34A" : "#DC2626" }}>
-                          {complete ? "✅" : count > 0 ? `${count}장` : "미완료"}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </>
-              )}
+              <span style={{ fontSize: 11, fontWeight: 900, color: "#94A3B8", marginRight: 2, whiteSpace: "nowrap" }}>촬영여부</span>
+              {showWorkPartStatus && orderedWorkParts.map(({ label }) => {
+                const count = selectedStoreWorkPartCount[label] ?? 0;
+                const complete = label === "이형존" ? count >= 1 : count >= 2;
+                return (
+                  <div key={label} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 7, background: complete ? "#DCFCE7" : "#FEF2F2", border: `1px solid ${complete ? "rgba(22,163,74,0.25)" : "rgba(220,38,38,0.2)"}` }}>
+                    <span style={{ fontSize: 12, fontWeight: 900, color: complete ? "#16A34A" : "#DC2626" }}>{label}</span>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: complete ? "#16A34A" : "#DC2626" }}>
+                      {complete ? "✅" : count > 0 ? `${count}장` : "미완료"}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
 
             <div style={{ padding: 14 }}>
