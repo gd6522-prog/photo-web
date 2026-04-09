@@ -234,6 +234,9 @@ export default function AdminPhotosPage() {
             const uploadedAt: string = data.snapshot?.uploadedAt ?? "";
             if (uploadedAt && !uploadedAt.startsWith(date)) return {} as Record<string, CargoSummary>;
             const rows: any[] = data.snapshot?.cargoRows ?? [];
+            // 와동중앙점(22473) 디버그
+            const debug = rows.find((r: any) => String(r.store_code).includes("22473"));
+            if (debug) console.log("[cargo-debug] 22473 raw:", JSON.stringify({ large_box: debug.large_box, large_inner: debug.large_inner, small_high: debug.small_high, small_low: debug.small_low, large_other: debug.large_other, tobacco: debug.tobacco }));
             const map: Record<string, CargoSummary> = {};
             for (const r of rows) {
               if (r.store_code) {
