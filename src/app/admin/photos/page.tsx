@@ -295,7 +295,7 @@ export default function AdminPhotosPage() {
     setImagesReady(false);
     let cancelled = false;
     // 최대 1.5초 후 강제 표시
-    const timeout = setTimeout(() => { if (!cancelled) setImagesReady(true); }, 1500);
+    const timeout = setTimeout(() => { if (!cancelled) setImagesReady(true); }, 800);
     const raf = requestAnimationFrame(() => {
       Promise.all(
         pagedPhotos.map(
@@ -719,6 +719,8 @@ export default function AdminPhotosPage() {
         .filter-input:focus { border-color: #103b53 !important; box-shadow: 0 0 0 3px rgba(16,59,83,0.10); outline: none; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .photo-spinner { width:40px; height:40px; border:3px solid #E2E8F0; border-top-color:#103b53; border-radius:50%; animation:spin 0.7s linear infinite; }
+        @keyframes photosReveal { from { opacity:0; transform:translateY(10px) scale(0.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+        .photos-grid-reveal { animation: photosReveal 0.25s ease forwards; }
       `}</style>
 
       {/* Toast */}
@@ -870,7 +872,7 @@ export default function AdminPhotosPage() {
               ) : (
                 <>
                   <div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(178px, 1fr))", gap: 10 }}>
+                    <div className="photos-grid-reveal" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(178px, 1fr))", gap: 10 }}>
                     {pagedPhotos.map((p, localIdx) => {
                       const globalIdx = photoPage * PHOTO_PAGE_SIZE + localIdx;
                       const selected = selectedPhotoIds.has(p.id);
