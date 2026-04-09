@@ -562,15 +562,11 @@ export async function GET(req: NextRequest) {
     let reportBaseRows: CargoRow[] = [];
 
     if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-      // 날짜별 스냅샷 읽기 — 없으면 latest로 fallback
+      // 날짜별 스냅샷만 읽기 — 해당 날짜 파일 없으면 null (fallback 없음)
       if (includeSnapshot) {
         const text = await getR2ObjectText(`${R2_PREFIX}/daily/${dateParam}.json`);
         if (text) {
           try { snapshot = JSON.parse(text) as VehicleSnapshot; } catch {}
-        }
-        // daily 파일 없으면 latest로 fallback
-        if (!snapshot && names.has("latest.json")) {
-          snapshot = await readCurrentSnapshot();
         }
       }
     } else if (names.has("latest.json")) {
