@@ -865,7 +865,7 @@ export default function AdminHazardsPage() {
         ) : reports.length === 0 ? (
           <div style={{ borderRadius: 10, padding: 36, color: "#94A3B8", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0" }}>데이터가 없습니다.</div>
         ) : (
-          <div className="cards-reveal" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14 }}>
             {reports.map((r) => {
               const res = resMap[r.id];
               const status = getHazardStatus(res ?? null);
