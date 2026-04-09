@@ -771,631 +771,341 @@ export default function AdminHazardsPage() {
     }
   };
 
-  if (checking) return <div style={{ padding: 16, color: "#6B7280" }}>로딩...</div>;
+  if (checking) return <div style={{ padding: 24, fontFamily: "Pretendard, system-ui, sans-serif", color: "#94A3B8", fontWeight: 700 }}>로딩...</div>;
 
   if (!isAdmin) {
     return (
-      <div style={{ padding: 16 }}>
-        <div style={{ fontWeight: 900, fontSize: 16 }}>권한이 없습니다.</div>
+      <div style={{ padding: 24, fontFamily: "Pretendard, system-ui, sans-serif" }}>
+        <div style={{ fontWeight: 900, color: "#111827" }}>권한이 없습니다.</div>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: "0 16px 16px", maxWidth: 1520, margin: "0 auto", fontFamily: "Pretendard, system-ui, -apple-system, Segoe UI, sans-serif" }}>
-      <h1 style={{ margin: 0, fontSize: 24, fontWeight: 950 }}>위험요인</h1>
+    <div style={{ fontFamily: "Pretendard, system-ui, -apple-system, Segoe UI, sans-serif", width: "100%", background: "transparent", minHeight: 0, padding: "0 6px 8px" }}>
+      <style>{`
+        .btn-primary { transition: all 0.15s ease; }
+        .btn-primary:hover:not(:disabled) { filter: brightness(0.82); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(30,41,59,0.32) !important; }
+        .btn-primary:active:not(:disabled) { transform: translateY(0); filter: brightness(0.75); }
+        .btn-secondary { transition: all 0.15s ease; }
+        .btn-secondary:hover:not(:disabled) { background: #F1F5F9 !important; border-color: #94A3B8 !important; }
+        .btn-secondary:active:not(:disabled) { background: #E2E8F0 !important; }
+        .btn-danger { transition: all 0.15s ease; }
+        .btn-danger:hover:not(:disabled) { filter: brightness(0.88); transform: translateY(-1px); box-shadow: 0 5px 14px rgba(239,68,68,0.35) !important; }
+        .btn-danger:active:not(:disabled) { transform: translateY(0); filter: brightness(0.8); }
+        .hazard-card { transition: box-shadow 0.18s ease, transform 0.18s ease; }
+        .hazard-card:hover { box-shadow: 0 12px 30px rgba(2,32,46,0.14) !important; transform: translateY(-2px); }
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
 
-      <div
-        style={{
-          marginTop: 8,
-          border: "1px solid #DDE3EA",
-          borderRadius: 0,
-          background: "white",
-          boxShadow: "0 8px 24px rgba(15,23,42,0.05)",
-          padding: 12,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 8,
-          flexWrap: "wrap",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <div style={{ fontWeight: 900, color: unresolvedTotalCount > 0 ? "#DC2626" : "#111827" }}>미처리 {unresolvedTotalCount}건</div>
-          <div style={{ fontWeight: 900, color: pendingTotalCount > 0 ? "#B45309" : "#64748B" }}>처리대기 {pendingTotalCount}건</div>
-          <div style={{ fontWeight: 900, color: resolvedTotalCount > 0 ? "#166534" : "#64748B" }}>처리완료 {resolvedTotalCount}건</div>
-          <div style={{ fontSize: 12, color: "#64748B" }}>전체 기준</div>
+      {/* Toast */}
+      {toastMsg && (
+        <div style={{ position: "fixed", right: 20, bottom: 20, zIndex: 200, background: toastTone === "success" ? "linear-gradient(135deg,#103b53 0%,#0f766e 100%)" : "#DC2626", color: "white", padding: "11px 18px", borderRadius: 10, fontWeight: 900, fontSize: 13, boxShadow: "0 8px 24px rgba(16,59,83,0.38)" }}>
+          {toastMsg}
+        </div>
+      )}
+
+      <div style={{ width: "100%", maxWidth: 1520, margin: "0 auto" }}>
+        {/* 헤더 바 */}
+        <div style={{ marginBottom: 16, borderRadius: 14, border: "1px solid #E2E8F0", background: "white", padding: "14px 18px", boxShadow: "0 4px 20px rgba(2,32,46,0.08)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ width: 4, height: 18, borderRadius: 2, background: "linear-gradient(180deg,#103b53,#0f766e)", flexShrink: 0 }} />
+            <span style={{ fontWeight: 900, fontSize: 15, color: "#0F172A" }}>위험요인</span>
+            <div style={{ width: 1, height: 14, background: "#E2E8F0", margin: "0 2px" }} />
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <span style={{ padding: "3px 10px", borderRadius: 7, background: unresolvedTotalCount > 0 ? "#FEE2E2" : "#F1F5F9", color: unresolvedTotalCount > 0 ? "#B91C1C" : "#94A3B8", fontWeight: 800, fontSize: 12, border: `1px solid ${unresolvedTotalCount > 0 ? "rgba(185,28,28,0.2)" : "#E2E8F0"}` }}>미처리 {unresolvedTotalCount}건</span>
+              <span style={{ padding: "3px 10px", borderRadius: 7, background: pendingTotalCount > 0 ? "#FEF3C7" : "#F1F5F9", color: pendingTotalCount > 0 ? "#B45309" : "#94A3B8", fontWeight: 800, fontSize: 12, border: `1px solid ${pendingTotalCount > 0 ? "rgba(180,83,9,0.2)" : "#E2E8F0"}` }}>처리대기 {pendingTotalCount}건</span>
+              <span style={{ padding: "3px 10px", borderRadius: 7, background: resolvedTotalCount > 0 ? "#DCFCE7" : "#F1F5F9", color: resolvedTotalCount > 0 ? "#166534" : "#94A3B8", fontWeight: 800, fontSize: 12, border: `1px solid ${resolvedTotalCount > 0 ? "rgba(22,163,74,0.2)" : "#E2E8F0"}` }}>처리완료 {resolvedTotalCount}건</span>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span style={{ fontSize: 12, color: "#94A3B8", fontWeight: 700 }}>{page} / {maxPage} (총 {totalCount}건)</span>
+            <button className="btn-secondary" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} style={{ height: 32, padding: "0 14px", borderRadius: 7, border: "1.5px solid #E2E8F0", background: page <= 1 ? "#F8FAFC" : "white", fontWeight: 800, fontSize: 13, cursor: page <= 1 ? "not-allowed" : "pointer", color: page <= 1 ? "#CBD5E1" : "#374151" }}>← 이전</button>
+            <button className="btn-secondary" onClick={() => setPage((p) => Math.min(maxPage, p + 1))} disabled={page >= maxPage} style={{ height: 32, padding: "0 14px", borderRadius: 7, border: "1.5px solid #E2E8F0", background: page >= maxPage ? "#F8FAFC" : "white", fontWeight: 800, fontSize: 13, cursor: page >= maxPage ? "not-allowed" : "pointer", color: page >= maxPage ? "#CBD5E1" : "#374151" }}>다음 →</button>
+            <button className="btn-primary" onClick={() => loadRows(true)} disabled={loading} style={{ height: 32, padding: "0 14px", borderRadius: 7, border: "none", background: loading ? "#94A3B8" : "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", color: "white", fontWeight: 800, fontSize: 13, cursor: loading ? "not-allowed" : "pointer" }}>조회</button>
+          </div>
         </div>
 
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1}
-            style={{ height: 32, padding: "0 10px", border: "1px solid #D1D5DB", borderRadius: 0, background: "white", fontWeight: 900 }}
-          >
-            이전
-          </button>
-          <div style={{ fontSize: 13, color: "#374151", fontWeight: 900 }}>
-            {page} / {maxPage} (총 {totalCount}건)
-          </div>
-          <button
-            onClick={() => setPage((p) => Math.min(maxPage, p + 1))}
-            disabled={page >= maxPage}
-            style={{ height: 32, padding: "0 10px", border: "1px solid #D1D5DB", borderRadius: 0, background: "white", fontWeight: 900 }}
-          >
-            다음
-          </button>
-          <button
-            onClick={() => loadRows(true)}
-            disabled={loading}
-            style={{ height: 32, padding: "0 10px", border: "1px solid #D1D5DB", borderRadius: 0, background: "white", fontWeight: 900 }}
-          >
-            {loading ? "불러오는 중..." : "조회"}
-          </button>
-        </div>
-      </div>
+        {msg && (
+          <div style={{ marginBottom: 12, padding: "10px 16px", borderRadius: 10, background: "#F8FAFC", border: "1px solid #E2E8F0", fontSize: 13, color: "#374151", fontWeight: 700 }}>{msg}</div>
+        )}
 
-      {msg ? <div style={{ marginTop: 10, padding: 10, borderRadius: 0, background: "#F8FAFC", border: "1px solid #E2E8F0" }}>{msg}</div> : null}
+        {/* 카드 그리드 */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14 }}>
+          {loading ? (
+            <div style={{ gridColumn: "1 / -1", borderRadius: 10, padding: 40, color: "#64748B", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, minHeight: 400 }}>
+              <div style={{ width: 40, height: 40, border: "3px solid #E2E8F0", borderTopColor: "#103b53", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+              불러오는 중...
+            </div>
+          ) : reports.length === 0 ? (
+            <div style={{ gridColumn: "1 / -1", borderRadius: 10, padding: 36, color: "#94A3B8", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0" }}>데이터가 없습니다.</div>
+          ) : (
+            reports.map((r) => {
+              const res = resMap[r.id];
+              const status = getHazardStatus(res ?? null);
+              const done = status.key === "done";
+              const creator = profilesById[r.user_id]?.name ?? r.user_id.slice(0, 8);
+              const improver = res?.improved_by ? profilesById[res.improved_by]?.name ?? res.improved_by.slice(0, 8) : "-";
+              const afterMemo = afterMemoById[r.id] ?? "";
+              const selectedAfterFile = afterFileById[r.id] ?? null;
+              const isDragOver = dragOverId === r.id;
+              const plannedDueDate = plannedDueDateById[r.id] ?? "";
+              const beforePhotos = getReportBeforePhotos(r);
+              const beforeThumbUrl = beforePhotos[0]?.url ?? getHazardImageUrl(r.photo_path, r.photo_url);
+              const afterThumbUrl = getHazardImageUrl(res?.after_path, res?.after_public_url);
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
-        {loading ? (
-          <div style={{ gridColumn: "1 / -1", borderRadius: 10, padding: 40, color: "#64748B", background: "#F8FAFC", textAlign: "center", fontWeight: 700, fontSize: 14, border: "1px dashed #E2E8F0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, minHeight: 400 }}>
-            <div style={{ width: 40, height: 40, border: "3px solid #E2E8F0", borderTopColor: "#103b53", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
-            사진 불러오는 중...
-          </div>
-        ) : reports.length === 0 ? (
-          <div style={{ gridColumn: "1 / -1", border: "1px solid #DDE3EA", borderRadius: 0, background: "white", padding: 14, color: "#6B7280" }}>데이터가 없습니다.</div>
-        ) : (
-          reports.map((r, idx) => {
-            const res = resMap[r.id];
-            const status = getHazardStatus(res ?? null);
-            const done = status.key === "done";
-            const creator = profilesById[r.user_id]?.name ?? r.user_id.slice(0, 8);
-            const improver = res?.improved_by ? profilesById[res.improved_by]?.name ?? res.improved_by.slice(0, 8) : "-";
-            const afterMemo = afterMemoById[r.id] ?? "";
-            const selectedAfterFile = afterFileById[r.id] ?? null;
-            const isDragOver = dragOverId === r.id;
-            const plannedDueDate = plannedDueDateById[r.id] ?? "";
-            const beforePhotos = getReportBeforePhotos(r);
-            const beforeThumbUrl = beforePhotos[0]?.url ?? getHazardImageUrl(r.photo_path, r.photo_url);
-            const afterThumbUrl = getHazardImageUrl(res?.after_path, res?.after_public_url);
-
-            return (
-              <div key={r.id} style={{ border: "1px solid #DDE3EA", borderRadius: 0, background: "white", padding: 10, boxShadow: "0 4px 14px rgba(15,23,42,0.05)" }}>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 6 }}>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 900,
-                      borderRadius: 4,
-                      padding: "3px 7px",
-                      background: status.background,
-                      color: status.color,
-                    }}
-                  >
-                    {status.label}
-                  </span>
-                  <span style={{ fontSize: 12, color: "#6B7280" }}>제보: {formatKST(r.created_at)} / {creator}</span>
-                  <span style={{ fontSize: 12, color: "#6B7280" }}>사진 {beforePhotos.length}장</span>
-                  <span style={{ fontSize: 12, color: "#6B7280" }}>개선: {formatKST(res?.improved_at ?? null)} / {improver}</span>
-                  {status.key === "pending" ? <span style={{ fontSize: 12, color: "#B45309", fontWeight: 800 }}>예정일: {formatDueDateLabel(res?.planned_due_date ?? null)}</span> : null}
-                  <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-                    {done ? (
-                      <button
-                        onClick={() => {
-                          try {
-                            const beforeOriginalUrl = beforePhotos[0]?.url ?? getHazardImageUrl(r.photo_path, r.photo_url);
-                            const afterOriginalUrl = getHazardImageUrl(res?.after_path, res?.after_public_url);
-                            printHazardResolutionSheet({
-                              reportId: r.id,
-                              createdAt: formatKST(r.created_at),
-                              creator,
-                              improvedAt: formatKST(res?.improved_at ?? null),
-                              improver,
-                              beforeImageUrl: beforeOriginalUrl,
-                              afterImageUrl: afterOriginalUrl,
-                              beforeMemo: r.comment || "-",
-                              afterMemo: res?.after_memo || "개선 설명이 입력되지 않았습니다.",
-                            });
-                          } catch (e) {
-                            setMsg(normalizeActionError(e, "출력에 실패했습니다."));
-                          }
-                        }}
-                        style={{ height: 28, padding: "0 10px", border: "1px solid #1D4ED8", borderRadius: 4, background: "#EFF6FF", color: "#1D4ED8", fontWeight: 900, fontSize: 12, cursor: "pointer" }}
-                      >
-                        출력
-                      </button>
-                    ) : null}
-                    {isMainAdmin ? (
-                      <button
-                        onClick={() => deleteReport(r)}
-                        disabled={deletingReportId === r.id}
-                        style={{ height: 28, padding: "0 10px", border: "1px solid #FCA5A5", borderRadius: 4, background: "#FEF2F2", color: "#B91C1C", fontWeight: 900, fontSize: 12, cursor: "pointer" }}
-                      >
-                        {deletingReportId === r.id ? "삭제 중..." : "삭제"}
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 10, alignItems: "start" }}>
-                  <div style={{ display: "grid", gap: 8 }}>
-                    <section style={{ border: "1px solid #E2E8F0", borderRadius: 0, background: "#FFFFFF", height: 138, boxSizing: "border-box", overflow: "hidden" }}>
-                      <button
-                        onClick={() => {
-                          setPreviewReportId(r.id);
-                          setPreviewBeforePhotoPath(beforePhotos[0]?.path ?? null);
-                        }}
-                        style={{ width: "100%", height: 138, border: "none", padding: 0, background: "#FFFFFF", cursor: "pointer", display: "block" }}
-                        title="제보사진 크게 보기"
-                      >
-                        <img src={beforeThumbUrl} alt="before" loading="eager" decoding="async" fetchPriority="high" style={{ width: "100%", height: "100%", objectFit: "contain", background: "#FFFFFF" }} />
-                      </button>
-                    </section>
-                    <section style={{ border: "1px solid #BFDBFE", borderRadius: 0, background: "#FFFFFF", height: 138, boxSizing: "border-box", overflow: "hidden" }}>
-                      {res?.after_public_url ? (
+              return (
+                <div key={r.id} className="hazard-card" style={{ borderRadius: 14, border: "1px solid #E2E8F0", background: "white", overflow: "hidden", boxShadow: "0 4px 20px rgba(2,32,46,0.08)" }}>
+                  {/* 카드 헤더 */}
+                  <div style={{ padding: "10px 14px", borderBottom: "1px solid #F1F5F9", background: "#FAFBFC", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 11, fontWeight: 900, borderRadius: 6, padding: "3px 9px", background: status.background, color: status.color, border: `1px solid ${status.color}33` }}>
+                      {status.label}
+                    </span>
+                    <span style={{ fontSize: 12, color: "#64748B", fontWeight: 700 }}>제보: {formatKST(r.created_at)} / {creator}</span>
+                    <span style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>사진 {beforePhotos.length}장</span>
+                    {res?.improved_at && <span style={{ fontSize: 12, color: "#64748B", fontWeight: 700 }}>개선: {formatKST(res.improved_at)} / {improver}</span>}
+                    {status.key === "pending" && <span style={{ fontSize: 12, color: "#B45309", fontWeight: 800 }}>예정일: {formatDueDateLabel(res?.planned_due_date ?? null)}</span>}
+                    <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                      {done && (
                         <button
-                          onClick={() => setPreviewReportId(r.id)}
-                          style={{ width: "100%", height: 138, border: "none", padding: 0, background: "#FFFFFF", cursor: "pointer", display: "block" }}
-                          title="개선사진 크게 보기"
+                          className="btn-secondary"
+                          onClick={() => {
+                            try {
+                              const beforeOriginalUrl = beforePhotos[0]?.url ?? getHazardImageUrl(r.photo_path, r.photo_url);
+                              const afterOriginalUrl = getHazardImageUrl(res?.after_path, res?.after_public_url);
+                              printHazardResolutionSheet({ reportId: r.id, createdAt: formatKST(r.created_at), creator, improvedAt: formatKST(res?.improved_at ?? null), improver, beforeImageUrl: beforeOriginalUrl, afterImageUrl: afterOriginalUrl, beforeMemo: r.comment || "-", afterMemo: res?.after_memo || "개선 설명이 입력되지 않았습니다." });
+                            } catch (e) { setMsg(normalizeActionError(e, "출력에 실패했습니다.")); }
+                          }}
+                          style={{ height: 28, padding: "0 10px", border: "1.5px solid #1D4ED8", borderRadius: 6, background: "#EFF6FF", color: "#1D4ED8", fontWeight: 900, fontSize: 12, cursor: "pointer" }}
                         >
-                          <img src={afterThumbUrl} alt="after" loading="eager" decoding="async" fetchPriority="high" style={{ width: "100%", height: "100%", objectFit: "contain", background: "#FFFFFF" }} />
+                          출력
                         </button>
-                      ) : (
-                        <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#6B7280", background: "white" }}>
-                          개선사진 없음
-                        </div>
                       )}
-                    </section>
+                      {isMainAdmin && (
+                        <button
+                          className="btn-danger"
+                          onClick={() => deleteReport(r)}
+                          disabled={deletingReportId === r.id}
+                          style={{ height: 28, padding: "0 10px", border: "none", borderRadius: 6, background: deletingReportId === r.id ? "#FECACA" : "#EF4444", color: "white", fontWeight: 900, fontSize: 12, cursor: deletingReportId === r.id ? "not-allowed" : "pointer" }}
+                        >
+                          {deletingReportId === r.id ? "삭제 중..." : "삭제"}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  <div>
+                  {/* 카드 바디 */}
+                  <div style={{ padding: 12, display: "grid", gridTemplateColumns: "200px 1fr", gap: 10, alignItems: "start" }}>
+                    {/* 사진 컬럼 */}
                     <div style={{ display: "grid", gap: 8 }}>
-                      <section style={{ border: "1px solid #E2E8F0", borderRadius: 0, background: "#F8FAFC", padding: 10, height: 138, boxSizing: "border-box", overflow: "auto" }}>
-                        <div style={{ fontSize: 12, fontWeight: 900, color: "#1E3A8A", marginBottom: 6 }}>개선 전 설명</div>
-                        <div style={{ fontSize: 14, lineHeight: 1.55, color: "#1F2937", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{r.comment ?? "-"}</div>
+                      <section style={{ borderRadius: 8, border: "1px solid #E2E8F0", background: "#F8FAFC", height: 138, overflow: "hidden" }}>
+                        <button
+                          onClick={() => { setPreviewReportId(r.id); setPreviewBeforePhotoPath(beforePhotos[0]?.path ?? null); }}
+                          style={{ width: "100%", height: "100%", border: "none", padding: 0, background: "transparent", cursor: "pointer", display: "block" }}
+                          title="제보사진 크게 보기"
+                        >
+                          <img src={beforeThumbUrl} alt="before" loading="eager" decoding="async" fetchPriority="high" style={{ width: "100%", height: "100%", objectFit: "contain", background: "#FFFFFF" }} />
+                        </button>
+                      </section>
+                      <section style={{ borderRadius: 8, border: "1.5px solid #BFDBFE", background: "#F0F9FF", height: 138, overflow: "hidden" }}>
+                        {res?.after_public_url ? (
+                          <button
+                            onClick={() => setPreviewReportId(r.id)}
+                            style={{ width: "100%", height: "100%", border: "none", padding: 0, background: "transparent", cursor: "pointer", display: "block" }}
+                            title="개선사진 크게 보기"
+                          >
+                            <img src={afterThumbUrl} alt="after" loading="eager" decoding="async" fetchPriority="high" style={{ width: "100%", height: "100%", objectFit: "contain", background: "#FFFFFF" }} />
+                          </button>
+                        ) : (
+                          <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#94A3B8", fontWeight: 700 }}>
+                            개선사진 없음
+                          </div>
+                        )}
+                      </section>
+                    </div>
+
+                    {/* 텍스트/액션 컬럼 */}
+                    <div style={{ display: "grid", gap: 8 }}>
+                      <section style={{ borderRadius: 8, border: "1px solid #E2E8F0", background: "#F8FAFC", padding: 10, height: 138, boxSizing: "border-box", overflow: "auto" }}>
+                        <div style={{ fontSize: 11, fontWeight: 900, color: "#1E3A8A", marginBottom: 6, letterSpacing: 0.3 }}>개선 전 설명</div>
+                        <div style={{ fontSize: 13, lineHeight: 1.6, color: "#1F2937", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{r.comment ?? "-"}</div>
                       </section>
 
                       {res?.after_public_url ? (
                         editingResolutionId === r.id ? (
-                          <section style={{ border: "1px solid #FCD34D", borderRadius: 0, background: "#FFFBEB", padding: 10 }}>
-                            <div style={{ fontSize: 13, fontWeight: 900, color: "#0F172A", marginBottom: 8 }}>개선 내용 수정</div>
+                          <section style={{ borderRadius: 8, border: "1.5px solid #FCD34D", background: "#FFFBEB", padding: 10 }}>
+                            <div style={{ fontSize: 12, fontWeight: 900, color: "#0F172A", marginBottom: 8 }}>개선 내용 수정</div>
                             <input id={`edit-file-${r.id}`} type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0] ?? null; if (f && !f.type.startsWith("image/")) return; setEditAfterFileById((p) => ({ ...p, [r.id]: f })); }} style={{ display: "none" }} />
                             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                              <label htmlFor={`edit-file-${r.id}`} style={{ height: 32, padding: "0 10px", border: "1px solid #CBD5E1", borderRadius: 4, background: "white", fontSize: 12, fontWeight: 900, display: "inline-flex", alignItems: "center", cursor: "pointer", whiteSpace: "nowrap", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis" }}>
+                              <label htmlFor={`edit-file-${r.id}`} style={{ height: 32, padding: "0 10px", border: "1.5px solid #CBD5E1", borderRadius: 6, background: "white", fontSize: 12, fontWeight: 900, display: "inline-flex", alignItems: "center", cursor: "pointer", whiteSpace: "nowrap", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis" }}>
                                 {editAfterFileById[r.id] ? "✓ " + editAfterFileById[r.id]!.name.slice(0, 10) : "새 사진 (선택)"}
                               </label>
-                              <input value={editAfterMemoById[r.id] ?? ""} onChange={(e) => setEditAfterMemoById((p) => ({ ...p, [r.id]: e.target.value }))} placeholder="개선내용" style={{ flex: 1, minWidth: 100, height: 32, padding: "0 8px", borderRadius: 4, border: "1px solid #CBD5E1", background: "white", fontSize: 13 }} />
+                              <input value={editAfterMemoById[r.id] ?? ""} onChange={(e) => setEditAfterMemoById((p) => ({ ...p, [r.id]: e.target.value }))} placeholder="개선내용" style={{ flex: 1, minWidth: 100, height: 32, padding: "0 8px", borderRadius: 6, border: "1.5px solid #CBD5E1", background: "white", fontSize: 13 }} />
                             </div>
                             <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end", gap: 6 }}>
-                              <button onClick={() => { setEditingResolutionId(null); setEditAfterFileById((p) => ({ ...p, [r.id]: null })); }} style={{ height: 30, padding: "0 10px", border: "1px solid #CBD5E1", borderRadius: 4, background: "white", fontWeight: 900, fontSize: 12, cursor: "pointer" }}>취소</button>
-                              <button onClick={() => saveEditResolution(r)} disabled={savingAfterId === r.id} style={{ height: 30, padding: "0 10px", border: "1px solid #B45309", borderRadius: 4, background: "#FFF7ED", color: "#B45309", fontWeight: 900, fontSize: 12, cursor: "pointer" }}>{savingAfterId === r.id ? "저장 중..." : "수정 저장"}</button>
+                              <button className="btn-secondary" onClick={() => { setEditingResolutionId(null); setEditAfterFileById((p) => ({ ...p, [r.id]: null })); }} style={{ height: 30, padding: "0 10px", border: "1.5px solid #CBD5E1", borderRadius: 6, background: "white", fontWeight: 900, fontSize: 12, cursor: "pointer" }}>취소</button>
+                              <button onClick={() => saveEditResolution(r)} disabled={savingAfterId === r.id} style={{ height: 30, padding: "0 10px", border: "none", borderRadius: 6, background: savingAfterId === r.id ? "#94A3B8" : "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", color: "white", fontWeight: 900, fontSize: 12, cursor: savingAfterId === r.id ? "not-allowed" : "pointer" }}>{savingAfterId === r.id ? "저장 중..." : "수정 저장"}</button>
                             </div>
                           </section>
                         ) : (
-                          <section style={{ border: "1px solid #BFDBFE", borderRadius: 0, background: "#EFF6FF", padding: 10, height: 138, boxSizing: "border-box", overflow: "auto" }}>
-                            <div style={{ fontSize: 12, fontWeight: 900, color: "#1D4ED8", marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <section style={{ borderRadius: 8, border: "1.5px solid #BFDBFE", background: "#EFF6FF", padding: 10, height: 138, boxSizing: "border-box", overflow: "auto" }}>
+                            <div style={{ fontSize: 11, fontWeight: 900, color: "#1D4ED8", marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                               <span>개선 후 설명</span>
-                              <button onClick={() => { setEditingResolutionId(r.id); setEditAfterMemoById((p) => ({ ...p, [r.id]: res.after_memo ?? "" })); setEditAfterFileById((p) => ({ ...p, [r.id]: null })); }} style={{ height: 28, padding: "0 10px", border: "1px solid #93C5FD", borderRadius: 4, background: "white", color: "#1D4ED8", fontSize: 12, fontWeight: 900, cursor: "pointer" }}>수정</button>
+                              <button className="btn-secondary" onClick={() => { setEditingResolutionId(r.id); setEditAfterMemoById((p) => ({ ...p, [r.id]: res.after_memo ?? "" })); setEditAfterFileById((p) => ({ ...p, [r.id]: null })); }} style={{ height: 24, padding: "0 8px", border: "1.5px solid #93C5FD", borderRadius: 5, background: "white", color: "#1D4ED8", fontSize: 11, fontWeight: 900, cursor: "pointer" }}>수정</button>
                             </div>
-                            <div style={{ fontSize: 14, lineHeight: 1.55, color: "#1F2937", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                            <div style={{ fontSize: 13, lineHeight: 1.6, color: "#1F2937", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                               {res.after_memo ?? "개선 설명이 입력되지 않았습니다."}
                             </div>
                           </section>
                         )
                       ) : (
-                        <section style={{ border: "1px solid #E2E8F0", borderRadius: 0, background: "#F8FAFC", padding: 10 }}>
-                          <div style={{ fontSize: 13, fontWeight: 900, color: "#0F172A", marginBottom: 8 }}>개선 등록</div>
-
-                          <input
-                            id={`after-file-${r.id}`}
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => setAfterFile(r.id, e.target.files?.[0] ?? null)}
-                            style={{ display: "none" }}
-                          />
-
+                        <section style={{ borderRadius: 8, border: "1px solid #E2E8F0", background: "#F8FAFC", padding: 10 }}>
+                          <div style={{ fontSize: 12, fontWeight: 900, color: "#0F172A", marginBottom: 8 }}>개선 등록</div>
+                          <input id={`after-file-${r.id}`} type="file" accept="image/*" onChange={(e) => setAfterFile(r.id, e.target.files?.[0] ?? null)} style={{ display: "none" }} />
                           <div
                             tabIndex={0}
-                            onDragOver={(e) => {
-                              e.preventDefault();
-                              setDragOverId(r.id);
-                            }}
+                            onDragOver={(e) => { e.preventDefault(); setDragOverId(r.id); }}
                             onDragLeave={() => setDragOverId((prev) => (prev === r.id ? null : prev))}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                              setDragOverId(null);
-                              const f = pickImageFromDataTransfer(e.dataTransfer);
-                              if (f) setAfterFile(r.id, f);
-                            }}
-                            onPaste={(e) => {
-                              const f = pickImageFromDataTransfer(e.clipboardData);
-                              if (f) {
-                                e.preventDefault();
-                                setAfterFile(r.id, f);
-                              }
-                            }}
-                            style={{
-                              border: isDragOver ? "2px solid #2563EB" : "2px dashed #CBD5E1",
-                              borderRadius: 0,
-                              background: isDragOver ? "#EFF6FF" : "white",
-                              padding: 12,
-                              fontSize: 12,
-                              color: "#475569",
-                              outline: "none",
-                              cursor: "pointer",
-                            }}
+                            onDrop={(e) => { e.preventDefault(); setDragOverId(null); const f = pickImageFromDataTransfer(e.dataTransfer); if (f) setAfterFile(r.id, f); }}
+                            onPaste={(e) => { const f = pickImageFromDataTransfer(e.clipboardData); if (f) { e.preventDefault(); setAfterFile(r.id, f); } }}
+                            style={{ border: isDragOver ? "2px solid #2563EB" : "2px dashed #CBD5E1", borderRadius: 8, background: isDragOver ? "#EFF6FF" : "white", padding: 10, fontSize: 12, color: "#475569", outline: "none", cursor: "pointer" }}
                             title="클릭 후 Ctrl+V 붙여넣기 가능"
                           >
                             {selectedAfterFile ? (
-                              <div>
-                                <div style={{ fontWeight: 800, color: "#0F172A" }}>선택된 파일</div>
-                                <div style={{ marginTop: 4 }}>{selectedAfterFile.name}</div>
-                              </div>
+                              <div><div style={{ fontWeight: 800, color: "#0F172A" }}>선택된 파일</div><div style={{ marginTop: 4 }}>{selectedAfterFile.name}</div></div>
                             ) : (
-                              <div>
-                                <div style={{ fontWeight: 800, color: "#0F172A" }}>개선 사진 넣기</div>
-                                <div style={{ marginTop: 4 }}>드래그앤드롭 또는 클릭 후 Ctrl+V(붙여넣기)</div>
-                              </div>
+                              <div><div style={{ fontWeight: 800, color: "#0F172A" }}>개선 사진 넣기</div><div style={{ marginTop: 4 }}>드래그앤드롭 또는 클릭 후 Ctrl+V(붙여넣기)</div></div>
                             )}
                           </div>
-
                           <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                            <label
-                              htmlFor={`after-file-${r.id}`}
-                              style={{
-                                height: 32,
-                                padding: "0 12px",
-                                border: "1px solid #CBD5E1",
-                                borderRadius: 4,
-                                background: "white",
-                                fontSize: 12,
-                                fontWeight: 900,
-                                display: "inline-flex",
-                                alignItems: "center",
-                                cursor: "pointer",
-                                color: "#0F172A",
-                              }}
-                            >
-                              파일 선택
-                            </label>
-                            <input
-                              value={afterMemo}
-                              onChange={(e) => setAfterMemoById((p) => ({ ...p, [r.id]: e.target.value }))}
-                              placeholder="개선내용 입력 (예: 정리 완료, 안전표지 부착)"
-                              style={{ flex: 1, minWidth: 220, height: 32, padding: "0 10px", borderRadius: 4, border: "1px solid #CBD5E1", background: "white" }}
-                            />
+                            <label htmlFor={`after-file-${r.id}`} style={{ height: 32, padding: "0 12px", border: "1.5px solid #CBD5E1", borderRadius: 7, background: "white", fontSize: 12, fontWeight: 900, display: "inline-flex", alignItems: "center", cursor: "pointer", color: "#0F172A" }}>파일 선택</label>
+                            <input value={afterMemo} onChange={(e) => setAfterMemoById((p) => ({ ...p, [r.id]: e.target.value }))} placeholder="개선내용 입력 (예: 정리 완료, 안전표지 부착)" style={{ flex: 1, minWidth: 180, height: 32, padding: "0 10px", borderRadius: 7, border: "1.5px solid #CBD5E1", background: "white", fontSize: 12 }} />
                           </div>
-
                           <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
-                            <input
-                              type="date"
-                              value={plannedDueDate}
-                              min={todayYMD()}
-                              onChange={(e) => setPlannedDueDateById((p) => ({ ...p, [r.id]: e.target.value }))}
-                              style={{ height: 32, padding: "0 10px", borderRadius: 4, border: "1px solid #CBD5E1", background: "white", color: "#0F172A" }}
-                            />
-                            <button
-                              onClick={() => savePlannedDueDate(r)}
-                              disabled={savingAfterId === r.id}
-                              style={{ height: 32, padding: "0 12px", border: "1px solid #F59E0B", borderRadius: 4, background: "#FFF7ED", color: "#B45309", fontWeight: 900 }}
-                            >
-                              {savingAfterId === r.id ? "저장 중..." : "처리대기 저장"}
-                            </button>
-                            <button
-                              onClick={() => uploadAfter(r)}
-                              disabled={savingAfterId === r.id}
-                              style={{ height: 32, padding: "0 12px", border: "1px solid #111827", borderRadius: 4, background: "white", fontWeight: 900 }}
-                            >
-                              {savingAfterId === r.id ? "업로드 중..." : "처리완료 등록"}
-                            </button>
+                            <input type="date" value={plannedDueDate} min={todayYMD()} onChange={(e) => setPlannedDueDateById((p) => ({ ...p, [r.id]: e.target.value }))} style={{ height: 32, padding: "0 10px", borderRadius: 7, border: "1.5px solid #CBD5E1", background: "white", color: "#0F172A" }} />
+                            <button onClick={() => savePlannedDueDate(r)} disabled={savingAfterId === r.id} style={{ height: 32, padding: "0 12px", border: "1.5px solid #F59E0B", borderRadius: 7, background: "#FFF7ED", color: "#B45309", fontWeight: 900, fontSize: 12, cursor: savingAfterId === r.id ? "not-allowed" : "pointer" }}>{savingAfterId === r.id ? "저장 중..." : "처리대기 저장"}</button>
+                            <button className="btn-primary" onClick={() => uploadAfter(r)} disabled={savingAfterId === r.id} style={{ height: 32, padding: "0 12px", border: "none", borderRadius: 7, background: savingAfterId === r.id ? "#94A3B8" : "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", color: "white", fontWeight: 900, fontSize: 12, cursor: savingAfterId === r.id ? "not-allowed" : "pointer" }}>{savingAfterId === r.id ? "업로드 중..." : "처리완료 등록"}</button>
                           </div>
                         </section>
                       )}
                     </div>
-
                   </div>
                 </div>
-              </div>
-            );
-          })
-        )}
+              );
+            })
+          )}
+        </div>
       </div>
 
+      {/* PREVIEW MODAL */}
       {previewReport && (
         <div
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) {
-              setPreviewReportId(null);
-              setPreviewBeforePhotoPath(null);
-              setPreviewEditMode(false);
-            }
-          }}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(2,6,23,0.56)",
-            zIndex: 9999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
-          }}
+          onMouseDown={(e) => { if (e.target === e.currentTarget) { setPreviewReportId(null); setPreviewBeforePhotoPath(null); setPreviewEditMode(false); } }}
+          style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.82)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, backdropFilter: "blur(6px)" }}
         >
-          <div
-            style={{
-              width: "min(1180px, 100%)",
-              maxHeight: "90vh",
-              overflow: "auto",
-              position: "relative",
-              background: "white",
-              borderRadius: 0,
-              border: "1px solid #DDE3EA",
-              boxShadow: "0 30px 60px rgba(2,6,23,0.35)",
-            }}
-          >
-            {toastMsg ? (
-              <div
-                style={{
-                  position: "absolute",
-                  left: "50%",
-                  top: "50%",
-                  transform: "translate(-50%, -50%)",
-                  zIndex: 10050,
-                  padding: "12px 18px",
-                  borderRadius: 4,
-                  background: toastTone === "success" ? "rgba(15,23,42,0.86)" : "rgba(127,29,29,0.92)",
-                  color: "#fff",
-                  fontSize: 14,
-                  fontWeight: 700,
-                  boxShadow: "0 10px 30px rgba(2,6,23,0.22)",
-                  pointerEvents: "none",
-                  maxWidth: "min(72vw, 420px)",
-                  textAlign: "center",
-                  backdropFilter: "blur(6px)",
-                }}
-              >
-                {toastMsg}
-              </div>
-            ) : null}
-            <div style={{ padding: "12px 14px", borderBottom: "1px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontWeight: 900, color: "#0F172A" }}>
-                위험요인 비교 보기
-                <span style={{ marginLeft: 10, color: "#64748B", fontSize: 12, fontWeight: 700 }}>
-                  제보 {formatKST(previewReport.created_at)} / {previewCreator}
-                </span>
+          <div style={{ width: "min(1180px, 96vw)", maxHeight: "90vh", overflow: "auto", position: "relative", background: "white", borderRadius: 16, border: "1px solid #E2E8F0", boxShadow: "0 30px 60px rgba(2,6,23,0.45)" }}>
+            {/* 모달 헤더 */}
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid #F1F5F9", background: "#FAFBFC", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <span style={{ fontWeight: 900, fontSize: 15, color: "#0F172A" }}>위험요인 비교 보기</span>
+                <span style={{ marginLeft: 10, color: "#94A3B8", fontSize: 12, fontWeight: 700 }}>제보 {formatKST(previewReport.created_at)} / {previewCreator}</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {previewStatus.key === "done" && previewBeforeImageUrl && previewAfterImageUrl ? (
+                {previewStatus.key === "done" && previewBeforeImageUrl && previewAfterImageUrl && (
                   <button
+                    className="btn-secondary"
                     onClick={() => {
                       try {
-                        printHazardResolutionSheet({
-                          reportId: previewReport.id,
-                          createdAt: formatKST(previewReport.created_at),
-                          creator: previewCreator,
-                          improvedAt: formatKST(previewResolution?.improved_at ?? null),
-                          improver: previewImprover,
-                          beforeImageUrl: previewBeforeImageUrl,
-                          afterImageUrl: previewAfterImageUrl,
-                          beforeMemo: previewReport.comment || "-",
-                          afterMemo: previewResolution?.after_memo || "개선 설명이 입력되지 않았습니다.",
-                        });
-                      } catch (e) {
-                        toast(normalizeActionError(e, "출력에 실패했습니다."), "error");
-                      }
+                        printHazardResolutionSheet({ reportId: previewReport.id, createdAt: formatKST(previewReport.created_at), creator: previewCreator, improvedAt: formatKST(previewResolution?.improved_at ?? null), improver: previewImprover, beforeImageUrl: previewBeforeImageUrl, afterImageUrl: previewAfterImageUrl, beforeMemo: previewReport.comment || "-", afterMemo: previewResolution?.after_memo || "개선 설명이 입력되지 않았습니다." });
+                      } catch (e) { toast(normalizeActionError(e, "출력에 실패했습니다."), "error"); }
                     }}
-                    style={{ height: 32, padding: "0 12px", borderRadius: 0, border: "1px solid #1D4ED8", background: "#EFF6FF", color: "#1D4ED8", cursor: "pointer", fontSize: 12, fontWeight: 900 }}
+                    style={{ height: 32, padding: "0 14px", borderRadius: 7, border: "1.5px solid #1D4ED8", background: "#EFF6FF", color: "#1D4ED8", cursor: "pointer", fontSize: 13, fontWeight: 900 }}
                   >
                     출력
                   </button>
-                ) : null}
+                )}
                 <button
-                  onClick={() => {
-                    setPreviewReportId(null);
-                    setPreviewBeforePhotoPath(null);
-                    setPreviewEditMode(false);
-                  }}
-                  style={{ width: 30, height: 30, borderRadius: 4, border: "1px solid #CBD5E1", background: "white", cursor: "pointer", fontWeight: 900 }}
+                  className="btn-secondary"
+                  onClick={() => { setPreviewReportId(null); setPreviewBeforePhotoPath(null); setPreviewEditMode(false); }}
+                  style={{ width: 32, height: 32, borderRadius: 7, border: "1.5px solid #E2E8F0", background: "white", cursor: "pointer", fontWeight: 900, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}
                 >
                   ×
                 </button>
               </div>
             </div>
 
-            <div style={{ padding: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <section style={{ border: "1px solid #E2E8F0", borderRadius: 0, overflow: "hidden", background: "#FCFDFE" }}>
-                <div style={{ padding: "10px 12px", borderBottom: "1px solid #E2E8F0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                  <div style={{ fontWeight: 900, color: "#0F172A" }}>개선 전 (위험제보 {previewBeforePhotos.length}장)</div>
+            {/* 모달 바디 */}
+            <div style={{ padding: 16, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <section style={{ borderRadius: 10, border: "1px solid #E2E8F0", overflow: "hidden", background: "white" }}>
+                <div style={{ padding: "10px 14px", borderBottom: "1px solid #F1F5F9", background: "#FAFBFC", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <div style={{ fontWeight: 900, color: "#0F172A", fontSize: 14 }}>개선 전 (위험제보 {previewBeforePhotos.length}장)</div>
                   <div style={{ display: "flex", gap: 6 }}>
-                    <button
-                      onClick={async () => {
-                        try {
-                          if (!previewBeforeImageUrl) return;
-                          await forceDownload(previewBeforeImageUrl, `hazard_before_${previewReport.id}.jpg`);
-                        } catch (e) {
-                          toast(normalizeActionError(e, "다운로드에 실패했습니다."), "error");
-                        }
-                      }}
-                      style={{ height: 28, padding: "0 9px", borderRadius: 4, border: "1px solid #CBD5E1", background: "white", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
-                    >
-                      다운로드
-                    </button>
-                    <button
-                      onClick={async () => {
-                        try {
-                          if (!previewBeforeImageUrl) return;
-                          await copyImageToClipboard(previewBeforeImageUrl);
-                          toast("클립보드에 이미지가 복사되었습니다.");
-                        } catch (e) {
-                          toast(normalizeActionError(e, "복사에 실패했습니다."), "error");
-                        }
-                      }}
-                      style={{ height: 28, padding: "0 9px", borderRadius: 4, border: "1px solid #CBD5E1", background: "white", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
-                    >
-                      복사
-                    </button>
+                    <button className="btn-secondary" onClick={async () => { try { if (!previewBeforeImageUrl) return; await forceDownload(previewBeforeImageUrl, `hazard_before_${previewReport.id}.jpg`); } catch (e) { toast(normalizeActionError(e, "다운로드에 실패했습니다."), "error"); } }} style={{ height: 28, padding: "0 10px", borderRadius: 6, border: "1.5px solid #CBD5E1", background: "white", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>다운로드</button>
+                    <button className="btn-secondary" onClick={async () => { try { if (!previewBeforeImageUrl) return; await copyImageToClipboard(previewBeforeImageUrl); toast("클립보드에 이미지가 복사되었습니다."); } catch (e) { toast(normalizeActionError(e, "복사에 실패했습니다."), "error"); } }} style={{ height: 28, padding: "0 10px", borderRadius: 6, border: "1.5px solid #CBD5E1", background: "white", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>복사</button>
                   </div>
                 </div>
-                <div style={{ padding: 12 }}>
-                  <img src={previewBeforeImageUrl} alt="hazard-before" loading="eager" decoding="async" fetchPriority="high" style={{ width: "100%", maxHeight: 420, objectFit: "contain", borderRadius: 0, border: "1px solid #E5E7EB", background: "white" }} />
-                  {previewBeforePhotos.length > 1 ? (
+                <div style={{ padding: 14 }}>
+                  <img src={previewBeforeImageUrl} alt="hazard-before" loading="eager" decoding="async" fetchPriority="high" style={{ width: "100%", maxHeight: 420, objectFit: "contain", borderRadius: 8, border: "1px solid #E5E7EB", background: "white" }} />
+                  {previewBeforePhotos.length > 1 && (
                     <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
                       {previewBeforePhotos.map((photo, idx) => (
-                        <button
-                          key={photo.path}
-                          onClick={() => setPreviewBeforePhotoPath(photo.path)}
-                          style={{
-                            width: 72,
-                            height: 72,
-                            borderRadius: 0,
-                            overflow: "hidden",
-                            border: photo.path === selectedPreviewBeforePhoto?.path ? "3px solid #1D4ED8" : "1px solid #CBD5E1",
-                            background: "#fff",
-                            display: "block",
-                            padding: 0,
-                            cursor: "pointer",
-                            boxShadow: photo.path === selectedPreviewBeforePhoto?.path ? "0 0 0 2px rgba(29,78,216,0.12)" : "none",
-                          }}
-                          title={`제보사진 ${idx + 1} 보기`}
-                        >
+                        <button key={photo.path} onClick={() => setPreviewBeforePhotoPath(photo.path)} style={{ width: 72, height: 72, borderRadius: 7, overflow: "hidden", border: photo.path === selectedPreviewBeforePhoto?.path ? "3px solid #1D4ED8" : "1.5px solid #CBD5E1", background: "#fff", display: "block", padding: 0, cursor: "pointer", boxShadow: photo.path === selectedPreviewBeforePhoto?.path ? "0 0 0 2px rgba(29,78,216,0.15)" : "none" }} title={`제보사진 ${idx + 1} 보기`}>
                           <img src={photo.url} alt={`preview-before-${idx + 1}`} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", background: "#FFFFFF" }} />
                         </button>
                       ))}
                     </div>
-                  ) : null}
-                  <div style={{ marginTop: 10, border: "1px solid #E2E8F0", borderRadius: 0, background: "white", padding: 12 }}>
+                  )}
+                  <div style={{ marginTop: 10, borderRadius: 8, border: "1px solid #E2E8F0", background: "#F8FAFC", padding: 12 }}>
                     <div style={{ fontSize: 12, fontWeight: 900, color: "#1E3A8A", marginBottom: 6 }}>개선 전 설명</div>
-                    <div style={{ fontSize: 15, lineHeight: 1.6, color: "#1F2937", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{previewReport.comment || "-"}</div>
+                    <div style={{ fontSize: 14, lineHeight: 1.6, color: "#1F2937", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{previewReport.comment || "-"}</div>
                   </div>
                 </div>
               </section>
 
-              <section style={{ border: "1px solid #E2E8F0", borderRadius: 0, overflow: "hidden", background: "#FCFDFE" }}>
-                <div style={{ padding: "10px 12px", borderBottom: "1px solid #E2E8F0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                  <div style={{ fontWeight: 900, color: "#0F172A" }}>
+              <section style={{ borderRadius: 10, border: "1px solid #E2E8F0", overflow: "hidden", background: "white" }}>
+                <div style={{ padding: "10px 14px", borderBottom: "1px solid #F1F5F9", background: "#FAFBFC", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <div style={{ fontWeight: 900, color: "#0F172A", fontSize: 14 }}>
                     개선 후
-                    <span style={{ marginLeft: 10, color: "#64748B", fontSize: 12, fontWeight: 700 }}>
-                      {previewStatus.key === "done"
-                        ? `${formatKST(previewResolution?.improved_at ?? null)} / ${previewImprover}`
-                        : previewStatus.key === "pending"
-                          ? `처리대기 / 예정일 ${formatDueDateLabel(previewResolution?.planned_due_date ?? null)}`
-                          : "미처리"}
+                    <span style={{ marginLeft: 10, color: "#94A3B8", fontSize: 12, fontWeight: 700 }}>
+                      {previewStatus.key === "done" ? `${formatKST(previewResolution?.improved_at ?? null)} / ${previewImprover}` : previewStatus.key === "pending" ? `처리대기 / 예정일 ${formatDueDateLabel(previewResolution?.planned_due_date ?? null)}` : "미처리"}
                     </span>
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
-                    {previewStatus.key === "done" ? (
-                      <button
-                        onClick={() => {
-                          if (previewEditMode) {
-                            setPreviewEditMode(false);
-                            if (previewReport) setEditAfterFileById((p) => ({ ...p, [previewReport.id]: null }));
-                          } else {
-                            setPreviewEditMode(true);
-                            if (previewReport) {
-                              setEditAfterMemoById((p) => ({ ...p, [previewReport.id]: previewResolution?.after_memo ?? "" }));
-                              setEditAfterFileById((p) => ({ ...p, [previewReport.id]: null }));
-                            }
-                          }
-                        }}
-                        style={{ height: 28, padding: "0 9px", borderRadius: 4, border: previewEditMode ? "1px solid #F59E0B" : "1px solid #CBD5E1", background: previewEditMode ? "#FFF7ED" : "white", color: previewEditMode ? "#B45309" : "#111827", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
-                      >
-                        {previewEditMode ? "수정취소" : "수정"}
-                      </button>
-                    ) : null}
-                    <button
-                      onClick={async () => {
-                        if (!previewResolution?.after_public_url) return;
-                        try {
-                          await forceDownload(previewResolution.after_public_url, `hazard_after_${previewReport.id}.jpg`);
-                        } catch (e) {
-                          toast(normalizeActionError(e, "다운로드에 실패했습니다."), "error");
-                        }
-                      }}
-                      disabled={!previewResolution?.after_public_url}
-                      style={{
-                        height: 28,
-                        padding: "0 9px",
-                        borderRadius: 4,
-                        border: "1px solid #CBD5E1",
-                        background: previewResolution?.after_public_url ? "white" : "#F3F4F6",
-                        color: previewResolution?.after_public_url ? "#111827" : "#9CA3AF",
-                        fontSize: 12,
-                        fontWeight: 800,
-                        cursor: previewResolution?.after_public_url ? "pointer" : "not-allowed",
-                      }}
-                    >
-                      다운로드
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (!previewResolution?.after_public_url) return;
-                        try {
-                          await copyImageToClipboard(previewResolution.after_public_url);
-                          toast("클립보드에 이미지가 복사되었습니다.");
-                        } catch (e) {
-                          toast(normalizeActionError(e, "복사에 실패했습니다."), "error");
-                        }
-                      }}
-                      disabled={!previewResolution?.after_public_url}
-                      style={{
-                        height: 28,
-                        padding: "0 9px",
-                        borderRadius: 4,
-                        border: "1px solid #CBD5E1",
-                        background: previewResolution?.after_public_url ? "white" : "#F3F4F6",
-                        color: previewResolution?.after_public_url ? "#111827" : "#9CA3AF",
-                        fontSize: 12,
-                        fontWeight: 800,
-                        cursor: previewResolution?.after_public_url ? "pointer" : "not-allowed",
-                      }}
-                    >
-                      복사
-                    </button>
+                    {previewStatus.key === "done" && (
+                      <button className="btn-secondary" onClick={() => { if (previewEditMode) { setPreviewEditMode(false); if (previewReport) setEditAfterFileById((p) => ({ ...p, [previewReport.id]: null })); } else { setPreviewEditMode(true); if (previewReport) { setEditAfterMemoById((p) => ({ ...p, [previewReport.id]: previewResolution?.after_memo ?? "" })); setEditAfterFileById((p) => ({ ...p, [previewReport.id]: null })); } } }} style={{ height: 28, padding: "0 10px", borderRadius: 6, border: previewEditMode ? "1.5px solid #F59E0B" : "1.5px solid #CBD5E1", background: previewEditMode ? "#FFF7ED" : "white", color: previewEditMode ? "#B45309" : "#111827", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>{previewEditMode ? "수정취소" : "수정"}</button>
+                    )}
+                    <button className="btn-secondary" onClick={async () => { if (!previewResolution?.after_public_url) return; try { await forceDownload(previewResolution.after_public_url, `hazard_after_${previewReport.id}.jpg`); } catch (e) { toast(normalizeActionError(e, "다운로드에 실패했습니다."), "error"); } }} disabled={!previewResolution?.after_public_url} style={{ height: 28, padding: "0 10px", borderRadius: 6, border: "1.5px solid #CBD5E1", background: previewResolution?.after_public_url ? "white" : "#F3F4F6", color: previewResolution?.after_public_url ? "#111827" : "#9CA3AF", fontSize: 12, fontWeight: 800, cursor: previewResolution?.after_public_url ? "pointer" : "not-allowed" }}>다운로드</button>
+                    <button className="btn-secondary" onClick={async () => { if (!previewResolution?.after_public_url) return; try { await copyImageToClipboard(previewResolution.after_public_url); toast("클립보드에 이미지가 복사되었습니다."); } catch (e) { toast(normalizeActionError(e, "복사에 실패했습니다."), "error"); } }} disabled={!previewResolution?.after_public_url} style={{ height: 28, padding: "0 10px", borderRadius: 6, border: "1.5px solid #CBD5E1", background: previewResolution?.after_public_url ? "white" : "#F3F4F6", color: previewResolution?.after_public_url ? "#111827" : "#9CA3AF", fontSize: 12, fontWeight: 800, cursor: previewResolution?.after_public_url ? "pointer" : "not-allowed" }}>복사</button>
                   </div>
                 </div>
-                <div style={{ padding: 12 }}>
+                <div style={{ padding: 14 }}>
                   {previewEditMode && previewReport ? (
-                    <div style={{ border: "1px solid #FCD34D", borderRadius: 0, background: "#FFFBEB", padding: 14 }}>
+                    <div style={{ borderRadius: 8, border: "1.5px solid #FCD34D", background: "#FFFBEB", padding: 14 }}>
                       <div style={{ fontSize: 14, fontWeight: 900, color: "#0F172A", marginBottom: 12 }}>개선 내용 수정</div>
                       <input id="preview-edit-file" type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0] ?? null; if (f && !f.type.startsWith("image/")) return; setEditAfterFileById((p) => ({ ...p, [previewReport.id]: f })); }} style={{ display: "none" }} />
                       <div style={{ marginBottom: 10 }}>
-                        <label htmlFor="preview-edit-file" style={{ display: "inline-flex", alignItems: "center", height: 34, padding: "0 14px", border: "1px solid #CBD5E1", borderRadius: 4, background: "white", fontSize: 13, fontWeight: 900, cursor: "pointer" }}>
+                        <label htmlFor="preview-edit-file" style={{ display: "inline-flex", alignItems: "center", height: 34, padding: "0 14px", border: "1.5px solid #CBD5E1", borderRadius: 7, background: "white", fontSize: 13, fontWeight: 900, cursor: "pointer" }}>
                           {editAfterFileById[previewReport.id] ? "✓ " + editAfterFileById[previewReport.id]!.name : "새 사진 선택 (선택사항)"}
                         </label>
                       </div>
-                      <textarea
-                        value={editAfterMemoById[previewReport.id] ?? ""}
-                        onChange={(e) => setEditAfterMemoById((p) => ({ ...p, [previewReport.id]: e.target.value }))}
-                        placeholder="개선내용 입력"
-                        rows={4}
-                        style={{ width: "100%", padding: "8px 10px", borderRadius: 4, border: "1px solid #CBD5E1", background: "white", fontSize: 14, resize: "vertical", boxSizing: "border-box" }}
-                      />
+                      <textarea value={editAfterMemoById[previewReport.id] ?? ""} onChange={(e) => setEditAfterMemoById((p) => ({ ...p, [previewReport.id]: e.target.value }))} placeholder="개선내용 입력" rows={4} style={{ width: "100%", padding: "8px 10px", borderRadius: 7, border: "1.5px solid #CBD5E1", background: "white", fontSize: 14, resize: "vertical", boxSizing: "border-box" }} />
                       <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end", gap: 8 }}>
-                        <button onClick={() => { setPreviewEditMode(false); setEditAfterFileById((p) => ({ ...p, [previewReport.id]: null })); }} style={{ height: 34, padding: "0 14px", border: "1px solid #CBD5E1", borderRadius: 4, background: "white", fontWeight: 900, cursor: "pointer" }}>취소</button>
-                        <button onClick={() => saveEditResolution(previewReport)} disabled={savingAfterId === previewReport.id} style={{ height: 34, padding: "0 14px", border: "1px solid #B45309", borderRadius: 4, background: "#FFF7ED", color: "#B45309", fontWeight: 900, cursor: "pointer" }}>{savingAfterId === previewReport.id ? "저장 중..." : "수정 저장"}</button>
+                        <button className="btn-secondary" onClick={() => { setPreviewEditMode(false); setEditAfterFileById((p) => ({ ...p, [previewReport.id]: null })); }} style={{ height: 34, padding: "0 14px", border: "1.5px solid #CBD5E1", borderRadius: 7, background: "white", fontWeight: 900, cursor: "pointer" }}>취소</button>
+                        <button className="btn-primary" onClick={() => saveEditResolution(previewReport)} disabled={savingAfterId === previewReport.id} style={{ height: 34, padding: "0 14px", border: "none", borderRadius: 7, background: savingAfterId === previewReport.id ? "#94A3B8" : "linear-gradient(135deg,#103b53 0%,#0f766e 100%)", color: "white", fontWeight: 900, cursor: savingAfterId === previewReport.id ? "not-allowed" : "pointer" }}>{savingAfterId === previewReport.id ? "저장 중..." : "수정 저장"}</button>
                       </div>
                     </div>
                   ) : (
                     <>
                       {previewResolution?.after_public_url ? (
-                        <img
-                          src={previewAfterImageUrl}
-                          alt="hazard-after"
-                          loading="eager"
-                          decoding="async"
-                          fetchPriority="high"
-                          style={{ width: "100%", maxHeight: 420, objectFit: "contain", borderRadius: 0, border: "1px solid #E5E7EB", background: "white" }}
-                        />
+                        <img src={previewAfterImageUrl} alt="hazard-after" loading="eager" decoding="async" fetchPriority="high" style={{ width: "100%", maxHeight: 420, objectFit: "contain", borderRadius: 8, border: "1px solid #E5E7EB", background: "white" }} />
                       ) : (
-                        <div style={{ height: 260, border: "1px dashed #CBD5E1", borderRadius: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#64748B", fontSize: 13 }}>
+                        <div style={{ height: 260, borderRadius: 8, border: "1px dashed #CBD5E1", display: "flex", alignItems: "center", justifyContent: "center", color: "#94A3B8", fontSize: 13, fontWeight: 700 }}>
                           아직 개선사진이 등록되지 않았습니다.
                         </div>
                       )}
-                      <div style={{ marginTop: 10, border: "1px solid #BFDBFE", borderRadius: 0, background: "#EFF6FF", padding: 12 }}>
+                      <div style={{ marginTop: 10, borderRadius: 8, border: "1.5px solid #BFDBFE", background: "#EFF6FF", padding: 12 }}>
                         <div style={{ fontSize: 12, fontWeight: 900, color: "#1D4ED8", marginBottom: 6 }}>개선 후 설명</div>
-                        <div style={{ fontSize: 15, lineHeight: 1.6, color: "#1F2937", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                        <div style={{ fontSize: 14, lineHeight: 1.6, color: "#1F2937", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                           {previewResolution?.after_memo || "개선 설명이 입력되지 않았습니다."}
                         </div>
                       </div>
