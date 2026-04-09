@@ -184,14 +184,22 @@ export default function AdminPhotosPage() {
   // 날짜 범위 내 각 날짜별 단품 파일을 가져와 점포별로 합산
   const fetchCargoForDateRange = async (from: string, to: string) => {
     const cacheKey = `cargo_${from}_${to}`;
-    // 캐시 즉시 적용
+    // KST 당일 자정 타임스탬프
+    const nowKST = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    const midnightKST = new Date(Date.UTC(nowKST.getUTCFullYear(), nowKST.getUTCMonth(), nowKST.getUTCDate()));
+    const todayStart = midnightKST.getTime() - 9 * 60 * 60 * 1000;
+    // 캐시 즉시 적용 (오늘 자정 이후 저장된 것만)
     try {
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
         const { data, ts } = JSON.parse(cached);
-        setCargoByStoreCode(data);
-        // 10분 이내면 네트워크 요청 생략
-        if (Date.now() - ts < 10 * 60 * 1000) return;
+        if (ts >= todayStart) {
+          setCargoByStoreCode(data);
+          // 5분 이내면 네트워크 요청 생략
+          if (Date.now() - ts < 5 * 60 * 1000) return;
+        } else {
+          localStorage.removeItem(cacheKey);
+        }
       }
     } catch {}
 
