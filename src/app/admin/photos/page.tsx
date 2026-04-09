@@ -253,8 +253,9 @@ export default function AdminPhotosPage() {
           }
         }
       }
+      console.log("[cargo] merged keys:", Object.keys(merged).slice(0, 10));
       setCargoByStoreCode(merged);
-    } catch {}
+    } catch (e) { console.error("[cargo] fetch error", e); }
   };
 
   // fetchCargoForDateRange는 조회 버튼 클릭 시(fetchData 내부)에서 호출
@@ -330,6 +331,7 @@ export default function AdminPhotosPage() {
     const raw = selectedStoreCode.replace(/\D/g, "");
     const normalizedCode = raw.padStart(5, "0").slice(0, 5);
     const cargo = cargoByStoreCode[normalizedCode] ?? cargoByStoreCode[selectedStoreCode];
+    console.log("[cargo] selectedStoreCode:", selectedStoreCode, "normalized:", normalizedCode, "cargo:", cargo, "all keys:", Object.keys(cargoByStoreCode).slice(0, 5));
     if (!cargo) return [];
     return WORK_PARTS.filter((wp) => (cargo[wp.field] ?? 0) > 0);
   }, [selectedStoreCode, cargoByStoreCode]);
