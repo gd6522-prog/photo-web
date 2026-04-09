@@ -834,7 +834,7 @@ export default function AdminPhotosPage() {
             {/* 작업파트 촬영 현황 - 항상 같은 높이 유지 */}
             <div style={{ padding: "10px 16px", borderBottom: "1px solid #F1F5F9", display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", minHeight: 45 }}>
               <span style={{ fontSize: 11, fontWeight: 900, color: "#94A3B8", marginRight: 2, whiteSpace: "nowrap" }}>촬영여부</span>
-              {showWorkPartStatus && orderedWorkParts.map(({ label }) => {
+              {orderedWorkParts.map(({ label }) => {
                 const count = selectedStoreWorkPartCount[label] ?? 0;
                 const complete = label === "이형존" ? count >= 1 : count >= 2;
                 return (
