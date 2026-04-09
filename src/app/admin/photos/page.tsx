@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAdminAccess } from "@/lib/admin-access";
 import { copyCompressedImageUrlToClipboard } from "@/lib/clipboard-image";
@@ -289,20 +289,24 @@ export default function AdminPhotosPage() {
   }, [selectedStorePhotos, photoPage]);
 
   const [imagesReady, setImagesReady] = useState(false);
-  const loadedCountRef = useRef(0);
-  const expectedCountRef = useRef(0);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (pagedPhotos.length === 0) { setImagesReady(true); return; }
     setImagesReady(false);
-    loadedCountRef.current = 0;
-    expectedCountRef.current = pagedPhotos.length;
+    let cancelled = false;
+    Promise.all(
+      pagedPhotos.map(
+        (p) =>
+          new Promise<void>((resolve) => {
+            const img = new window.Image();
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+            img.src = p.original_url;
+          })
+      )
+    ).then(() => { if (!cancelled) setImagesReady(true); });
+    return () => { cancelled = true; };
   }, [pagedPhotos]);
-
-  const onImageSettled = useCallback(() => {
-    loadedCountRef.current += 1;
-    if (loadedCountRef.current >= expectedCountRef.current) setImagesReady(true);
-  }, []);
 
 
   // 선택 점포의 작업파트별 사진 수
@@ -870,8 +874,6 @@ export default function AdminPhotosPage() {
                               alt="photo"
                               decoding="async"
                               style={{ width: "100%", height: 140, objectFit: "cover", display: "block" }}
-                              onLoad={onImageSettled}
-                              onError={onImageSettled}
                             />
                           </button>
 
