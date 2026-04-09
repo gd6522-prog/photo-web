@@ -294,18 +294,21 @@ export default function AdminPhotosPage() {
     if (pagedPhotos.length === 0) { setImagesReady(true); return; }
     setImagesReady(false);
     let cancelled = false;
-    Promise.all(
-      pagedPhotos.map(
-        (p) =>
-          new Promise<void>((resolve) => {
-            const img = new window.Image();
-            img.src = p.original_url;
-            // decode()는 다운로드 + 디코딩까지 완료 → 표시 순간 렉 없음
-            img.decode().then(resolve).catch(resolve);
-          })
-      )
-    ).then(() => { if (!cancelled) setImagesReady(true); });
-    return () => { cancelled = true; };
+    let raf: number;
+    // rAF으로 스피너가 먼저 paint된 후 프리로드 시작
+    raf = requestAnimationFrame(() => {
+      Promise.all(
+        pagedPhotos.map(
+          (p) =>
+            new Promise<void>((resolve) => {
+              const img = new window.Image();
+              img.src = p.original_url;
+              img.decode().then(resolve).catch(resolve);
+            })
+        )
+      ).then(() => { if (!cancelled) setImagesReady(true); });
+    });
+    return () => { cancelled = true; cancelAnimationFrame(raf); };
   }, [pagedPhotos]);
 
 
@@ -662,7 +665,6 @@ export default function AdminPhotosPage() {
             {checking ? "권한 확인 중..." : "데이터 불러오는 중..."}
           </div>
         </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
@@ -716,6 +718,9 @@ export default function AdminPhotosPage() {
         .store-row { transition: background 0.12s ease; }
         .store-row:hover { background: #F8FAFC !important; }
         .filter-input:focus { border-color: #103b53 !important; box-shadow: 0 0 0 3px rgba(16,59,83,0.10); outline: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .photo-spinner { width:40px; height:40px; border:3px solid #E2E8F0; border-top-color:#103b53; border-radius:50%; animation:spin 0.7s linear infinite; }
+        .photo-grid-wrap { transition: opacity 0.25s ease; will-change: opacity; }
       `}</style>
 
       {/* Toast */}
@@ -866,15 +871,16 @@ export default function AdminPhotosPage() {
                 </div>
               ) : (
                 <>
-                  <div style={{ position: "relative" }}>
-                    {/* 이미지 로딩 오버레이 — 그리드는 DOM에 유지되어 백그라운드에서 미리 로딩 */}
+                  <div style={{ position: "relative", minHeight: imagesReady ? undefined : 260 }}>
+                    {/* 이미지 로딩 오버레이 */}
                     {!imagesReady && (
-                      <div style={{ position: "absolute", inset: 0, zIndex: 5, background: "rgba(248,250,252,0.97)", borderRadius: 10, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, minHeight: 200 }}>
-                        <div style={{ width: 40, height: 40, border: "3px solid #E2E8F0", borderTopColor: "#103b53", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+                      <div style={{ position: "absolute", inset: 0, zIndex: 5, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14 }}>
+                        <div className="photo-spinner" />
                         <span style={{ fontSize: 14, fontWeight: 700, color: "#64748B" }}>사진 불러오는 중...</span>
                       </div>
                     )}
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(178px, 1fr))", gap: 10, visibility: imagesReady ? "visible" : "hidden" }}>
+                    {/* opacity 전환: GPU 합성이라 렉 없음 */}
+                    <div className="photo-grid-wrap" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(178px, 1fr))", gap: 10, opacity: imagesReady ? 1 : 0, pointerEvents: imagesReady ? "auto" : "none" }}>
                     {pagedPhotos.map((p, localIdx) => {
                       const globalIdx = photoPage * PHOTO_PAGE_SIZE + localIdx;
                       const selected = selectedPhotoIds.has(p.id);
