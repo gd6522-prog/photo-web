@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { AccessLevel } from "@/lib/admin-access";
 import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
@@ -339,6 +339,8 @@ export default function AdminHazardsPage() {
   const [pendingTotalCount, setPendingTotalCount] = useState(0);
   const [resolvedTotalCount, setResolvedTotalCount] = useState(0);
   const [pageCache, setPageCache] = useState<Record<number, HazardPagePayload>>({});
+  const pageCacheRef = useRef<Record<number, HazardPagePayload>>({});
+  const totalCountRef = useRef(0);
 
   const [reports, setReports] = useState<HazardListItem[]>([]);
   const [resMap, setResMap] = useState<Record<string, ResolutionRow>>({});
@@ -452,7 +454,7 @@ export default function AdminHazardsPage() {
   const applyHazardPayload = useCallback((payload: HazardPagePayload) => {
     const repRows = (payload.items ?? []) as HazardListItem[];
     setReports(repRows);
-    if (typeof payload.totalCount === "number") setTotalCount(payload.totalCount);
+    if (typeof payload.totalCount === "number") { setTotalCount(payload.totalCount); totalCountRef.current = payload.totalCount; }
     if (typeof payload.unresolvedTotalCount === "number") setUnresolvedTotalCount(payload.unresolvedTotalCount);
     if (typeof payload.pendingTotalCount === "number") setPendingTotalCount(payload.pendingTotalCount);
     if (typeof payload.resolvedTotalCount === "number") setResolvedTotalCount(payload.resolvedTotalCount);
@@ -479,7 +481,7 @@ export default function AdminHazardsPage() {
   }, []);
 
   const fetchHazardPage = useCallback(async (targetPage: number, options?: { includeSummary?: boolean }) => {
-    const includeSummary = options?.includeSummary ?? (!(targetPage in pageCache) || totalCount === 0);
+    const includeSummary = options?.includeSummary ?? (!(targetPage in pageCacheRef.current) || totalCountRef.current === 0);
     const {
       data: { session },
       error: sessionErr,
@@ -519,7 +521,7 @@ export default function AdminHazardsPage() {
       pendingTotalCount: typeof payload.pendingTotalCount === "number" ? payload.pendingTotalCount : undefined,
       resolvedTotalCount: typeof payload.resolvedTotalCount === "number" ? payload.resolvedTotalCount : undefined,
     } satisfies HazardPagePayload;
-  }, [pageCache, totalCount]);
+  }, []);
 
   const deleteReport = async (report: ReportRow) => {
     if (!isMainAdmin) return;
@@ -563,11 +565,12 @@ export default function AdminHazardsPage() {
     setImagesReady(false);
     setMsg("");
     try {
-      if (!forceRefresh && pageCache[page]) {
-        applyHazardPayload(pageCache[page]);
+      if (!forceRefresh && pageCacheRef.current[page]) {
+        applyHazardPayload(pageCacheRef.current[page]);
       } else {
         const payload = await fetchHazardPage(page, { includeSummary: true });
-        setPageCache((prev) => ({ ...prev, [page]: payload }));
+        pageCacheRef.current = { ...pageCacheRef.current, [page]: payload };
+        setPageCache(pageCacheRef.current);
         applyHazardPayload(payload);
       }
     } catch (e) {
@@ -583,7 +586,7 @@ export default function AdminHazardsPage() {
     } finally {
       setLoading(false);
     }
-  }, [applyHazardPayload, fetchHazardPage, page, pageCache]);
+  }, [applyHazardPayload, fetchHazardPage, page]);
 
   useEffect(() => {
     (async () => {
@@ -605,7 +608,7 @@ export default function AdminHazardsPage() {
   useEffect(() => {
     if (checking || !isAdmin || totalCount <= 0) return;
     const maxKnownPage = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
-    const targets = [page - 1, page + 1].filter((value) => value >= 1 && value <= maxKnownPage && !pageCache[value]);
+    const targets = [page - 1, page + 1].filter((value) => value >= 1 && value <= maxKnownPage && !pageCacheRef.current[value]);
     if (targets.length === 0) return;
 
     let cancelled = false;
@@ -614,7 +617,10 @@ export default function AdminHazardsPage() {
         try {
           const payload = await fetchHazardPage(targetPage, { includeSummary: false });
           if (cancelled) return;
-          setPageCache((prev) => (prev[targetPage] ? prev : { ...prev, [targetPage]: payload }));
+          if (!pageCacheRef.current[targetPage]) {
+            pageCacheRef.current = { ...pageCacheRef.current, [targetPage]: payload };
+            setPageCache(pageCacheRef.current);
+          }
         } catch {}
       })
     );
@@ -622,7 +628,7 @@ export default function AdminHazardsPage() {
     return () => {
       cancelled = true;
     };
-  }, [checking, fetchHazardPage, isAdmin, page, pageCache, totalCount]);
+  }, [checking, fetchHazardPage, isAdmin, page, totalCount]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
