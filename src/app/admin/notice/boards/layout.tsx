@@ -22,7 +22,7 @@ export default function BoardsLayout({ children }: { children: React.ReactNode }
   return (
     <div
       className="board-layout-grid"
-      style={{ display: "grid", gridTemplateColumns: "180px minmax(0,1fr)", gap: 0, alignItems: "start" }}
+      style={{ display: "grid", gridTemplateColumns: "240px minmax(0,1fr)", gap: 0, alignItems: "start" }}
     >
       {/* ── 사이드바 ── */}
       <aside style={{
