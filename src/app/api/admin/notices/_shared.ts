@@ -33,8 +33,10 @@ export async function requireAdmin(req: NextRequest): Promise<
     return { ok: false, res: json(false, "로그인 정보가 없습니다. 새로고침 후 다시 로그인해 주세요.", null, 401) };
   }
 
-  // 1) 토큰 검증은 anon client로
+  // 1) 토큰 검증 + service role client 생성 동시에
   const sbAnon = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+  const sbAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+
   let { data: userData, error: uErr } = await sbAnon.auth.getUser(token);
   if (uErr || !userData?.user) {
     await delay(250);
@@ -49,9 +51,7 @@ export async function requireAdmin(req: NextRequest): Promise<
   const uid = userData.user.id;
   const email = userData.user.email ?? "";
 
-  // 2) DB 조회/수정은 service role client로 (RLS 우회)
-  const sbAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-
+  // 2) 프로필 조회
   const { data: prof, error: pErr } = await sbAdmin
     .from("profiles")
     .select("id, work_part, is_admin, is_company_admin, approval_status")
