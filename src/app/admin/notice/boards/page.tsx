@@ -213,7 +213,7 @@ export default function BoardListPage() {
                     </Link>
                   </td>
                   <td style={{ textAlign: "center", fontSize: 14, color: "#444", padding: "9px 6px" }}>{item.author_name ?? "-"}</td>
-                  <td style={{ textAlign: "center", fontSize: 13, color: "#888", padding: "9px 6px" }}>{formatDate(item.updated_at)}</td>
+                  <td style={{ textAlign: "center", fontSize: 13, color: "#888", padding: "9px 6px" }}>{formatDate(item.created_at)}</td>
                   <td style={{ textAlign: "center", fontSize: 13, color: "#888", padding: "9px 6px" }}>-</td>
                 </tr>
               );
@@ -235,7 +235,7 @@ export default function BoardListPage() {
                     </Link>
                   </td>
                   <td style={{ textAlign: "center", fontSize: 14, color: "#444", padding: "9px 6px" }}>{item.author_name ?? "-"}</td>
-                  <td style={{ textAlign: "center", fontSize: 13, color: "#888", padding: "9px 6px" }}>{formatDate(item.updated_at)}</td>
+                  <td style={{ textAlign: "center", fontSize: 13, color: "#888", padding: "9px 6px" }}>{formatDate(item.created_at)}</td>
                   <td style={{ textAlign: "center", fontSize: 13, color: "#888", padding: "9px 6px" }}>{item.view_count ?? "-"}</td>
                 </tr>
               );

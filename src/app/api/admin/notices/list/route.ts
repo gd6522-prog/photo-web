@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
       .from("notices")
       .select("id, title, board_key, is_pinned, created_at, updated_at, created_by, view_count")
       .order("is_pinned", { ascending: false })
-      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(limit);
 
     if (isNoticeBoardKey(board)) {
