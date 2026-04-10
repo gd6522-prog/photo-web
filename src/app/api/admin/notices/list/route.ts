@@ -10,6 +10,7 @@ type NoticeRow = {
   created_at: string;
   updated_at: string;
   created_by?: string | null;
+  view_count?: number;
 };
 
 type ProfileNameRow = {
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
     {
       let query = guard.sbAdmin
         .from("notices")
-        .select("id, title, body, is_pinned, created_at, updated_at, created_by")
+        .select("id, title, body, is_pinned, created_at, updated_at, created_by, view_count")
         .order("is_pinned", { ascending: false })
         .order("updated_at", { ascending: false });
       if (limit > 0 && !q) query = query.limit(limit);
@@ -84,6 +85,7 @@ export async function GET(req: NextRequest) {
           updated_at: r.updated_at,
           created_by: hasCreatedBy ? r.created_by ?? null : null,
           author_name: hasCreatedBy && r.created_by ? nameMap[r.created_by] ?? "-" : "-",
+          view_count: r.view_count ?? 0,
         };
       })
       .filter((item) => {
