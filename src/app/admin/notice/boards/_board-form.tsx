@@ -7,7 +7,6 @@ import { supabase } from "@/lib/supabase";
 import { uploadFileToR2 } from "@/lib/r2-upload-client";
 import { isNoticeBoardKey, NOTICE_BOARD_DEFS, noticeBodyToHtml, type NoticeBoardKey, type NoticePost } from "@/lib/notice-board";
 import {
-  boardCardStyle,
   boardGhostButtonStyle,
   boardInputStyle,
   boardPageShellStyle,
@@ -546,69 +545,114 @@ export function BoardForm({ mode, initialBoard, initialItem }: BoardFormProps) {
 
   return (
     <div style={boardPageShellStyle}>
-      <form onSubmit={onSubmit} style={boardCardStyle}>
-        <div style={{ padding: 22, borderBottom: "1px solid #d9e6ef", display: "flex", justifyContent: "space-between", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 34, lineHeight: 1.08, color: "#103b53" }}>{mode === "create" ? "글쓰기" : "수정"}</h1>
-          </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <Link href={`/admin/notice/boards?board=${boardKey}`} style={boardGhostButtonStyle}>
-              목록
-            </Link>
-            <button type="button" onClick={() => router.back()} style={boardGhostButtonStyle}>
-              취소
-            </button>
-          </div>
+      {/* ── 헤더 배너 ── */}
+      <div
+        style={{
+          borderRadius: 20,
+          background: "linear-gradient(135deg, #0c2d42 0%, #103b53 50%, #0f4f47 100%)",
+          padding: "28px 32px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 20,
+          flexWrap: "wrap",
+          position: "relative",
+          overflow: "hidden",
+          boxShadow: "0 8px 32px rgba(10,40,60,0.22)",
+        }}
+      >
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+          <div style={{
+            position: "absolute", top: -50, right: -50, width: 200, height: 200,
+            borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(15,118,110,0.28) 0%, transparent 70%)",
+          }} />
         </div>
-
-        <div style={{ padding: 22, display: "grid", gap: 18 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.1fr) 240px", gap: 14 }} className="board-form-top-grid">
-            <section style={{ border: "1px solid #d9e6ef", borderRadius: 0, background: "#fbfdfe", padding: 18 }}>
-              <div style={boardSectionTitleStyle}>게시판 선택</div>
-              <select
-                value={boardKey}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  if (isNoticeBoardKey(next)) setBoardKey(next);
-                }}
-                style={{ ...boardInputStyle, marginTop: 14 }}
-              >
-                {NOTICE_BOARD_DEFS.map((board) => (
-                  <option key={board.key} value={board.key}>
-                    {board.label}
-                  </option>
-                ))}
-              </select>
-            </section>
-
-            <section style={{ border: "1px solid #d9e6ef", borderRadius: 0, background: "#fbfdfe", padding: 18 }}>
-              <div style={boardSectionTitleStyle}>게시 상태</div>
-              <label style={{ marginTop: 18, display: "flex", alignItems: "center", gap: 10, fontWeight: 900, color: "#103b53" }}>
-                <input type="checkbox" checked={isPinned} onChange={(e) => setIsPinned(e.target.checked)} />
-                상단 고정
-              </label>
-            </section>
+        <div style={{ position: "relative" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(148,215,230,0.85)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>
+            NOTICE BOARD
           </div>
+          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 900, color: "#ffffff" }}>
+            {mode === "create" ? "✏️ 글쓰기" : "✏️ 수정"}
+          </h1>
+        </div>
+        <div style={{ display: "flex", gap: 10, position: "relative", flexWrap: "wrap" }}>
+          <Link href={`/admin/notice/boards?board=${boardKey}`} style={boardGhostButtonStyle}>
+            ← 목록
+          </Link>
+          <button type="button" onClick={() => router.back()} style={boardGhostButtonStyle}>
+            취소
+          </button>
+        </div>
+      </div>
 
-          <section style={{ border: "1px solid #d9e6ef", borderRadius: 0, background: "#ffffff", padding: 18 }}>
-            <div style={boardSectionTitleStyle}>제목</div>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} style={{ ...boardInputStyle, marginTop: 14 }} />
+      <form onSubmit={onSubmit} style={{ display: "grid", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.1fr) 240px", gap: 14 }} className="board-form-top-grid">
+          <section style={{
+            border: "1px solid #e2ecf4", borderRadius: 16,
+            background: "#ffffff", padding: 20,
+            boxShadow: "0 2px 10px rgba(2,32,46,0.04)",
+          }}>
+            <div style={boardSectionTitleStyle}>게시판 선택</div>
+            <select
+              value={boardKey}
+              onChange={(e) => {
+                const next = e.target.value;
+                if (isNoticeBoardKey(next)) setBoardKey(next);
+              }}
+              style={{ ...boardInputStyle, marginTop: 12 }}
+            >
+              {NOTICE_BOARD_DEFS.map((board) => (
+                <option key={board.key} value={board.key}>
+                  {board.label}
+                </option>
+              ))}
+            </select>
           </section>
 
-          <section style={{ border: "1px solid #d9e6ef", borderRadius: 0, background: "#ffffff", padding: 18 }}>
+          <section style={{
+            border: "1px solid #e2ecf4", borderRadius: 16,
+            background: "#ffffff", padding: 20,
+            boxShadow: "0 2px 10px rgba(2,32,46,0.04)",
+          }}>
+            <div style={boardSectionTitleStyle}>게시 상태</div>
+            <label style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 10, fontWeight: 700, color: "#103b53", cursor: "pointer" }}>
+              <input type="checkbox" checked={isPinned} onChange={(e) => setIsPinned(e.target.checked)} />
+              📌 상단 고정
+            </label>
+          </section>
+        </div>
+
+        <section style={{
+          border: "1px solid #e2ecf4", borderRadius: 16,
+          background: "#ffffff", padding: 20,
+          boxShadow: "0 2px 10px rgba(2,32,46,0.04)",
+        }}>
+          <div style={boardSectionTitleStyle}>제목</div>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="제목을 입력하세요"
+            style={{ ...boardInputStyle, marginTop: 12, fontSize: 16, height: 48, fontWeight: 700 }}
+          />
+        </section>
+
+        <section style={{
+          border: "1px solid #e2ecf4", borderRadius: 16,
+          background: "#ffffff", padding: 20,
+          boxShadow: "0 2px 10px rgba(2,32,46,0.04)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <div style={boardSectionTitleStyle}>본문</div>
-            <div
-              style={{
-                marginTop: 14,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 4,
-                padding: "4px 6px",
-                border: "1px solid #d7e0e7",
-                background: "#f8fafc",
-                borderRadius: 4,
-              }}
-            >
+            <div style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              padding: "4px 8px",
+              border: "1px solid #d0e0ec",
+              background: "#f5f9fc",
+              borderRadius: 8,
+            }}>
               <button
                 type="button"
                 onClick={() => rotateSelectedImage(-ROTATION_STEP)}
@@ -628,49 +672,58 @@ export function BoardForm({ mode, initialBoard, initialItem }: BoardFormProps) {
                 ↻
               </button>
             </div>
-
-            <div
-              ref={editorRef}
-              contentEditable
-              suppressContentEditableWarning
-              onInput={syncBodyFromEditor}
-              onPaste={(event) => void onPaste(event)}
-              onMouseDown={onEditorMouseDown}
-              onKeyDown={onEditorKeyDown}
-              style={{
-                marginTop: 14,
-                minHeight: 420,
-                borderRadius: 0,
-                border: "1px solid #c4d5e3",
-                padding: 18,
-                background: "#fff",
-                color: "#103b53",
-                lineHeight: 1.8,
-                fontWeight: 600,
-                outline: "none",
-                boxSizing: "border-box",
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
-              }}
-            />
-            {uploadingImage ? <div style={{ marginTop: 10, fontSize: 12, color: "#1d4ed8", fontWeight: 800 }}>이미지 업로드 중...</div> : null}
-          </section>
-
-          {err ? <div style={{ color: "#b42318", fontWeight: 800 }}>{err}</div> : null}
-
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
-            <button
-              type="submit"
-              disabled={loading || uploadingImage || !canManageAll}
-              style={{
-                ...boardPrimaryButtonStyle,
-                opacity: loading || uploadingImage || !canManageAll ? 0.55 : 1,
-                cursor: loading || uploadingImage || !canManageAll ? "not-allowed" : "pointer",
-              }}
-            >
-              {loading ? "저장 중..." : mode === "create" ? "등록" : "수정 저장"}
-            </button>
           </div>
+
+          <div
+            ref={editorRef}
+            contentEditable
+            suppressContentEditableWarning
+            onInput={syncBodyFromEditor}
+            onPaste={(event) => void onPaste(event)}
+            onMouseDown={onEditorMouseDown}
+            onKeyDown={onEditorKeyDown}
+            style={{
+              minHeight: 420,
+              borderRadius: 12,
+              border: "1px solid #d0e0ec",
+              padding: 20,
+              background: "#fafcfe",
+              color: "#1a3344",
+              lineHeight: 1.8,
+              fontWeight: 600,
+              fontSize: 15,
+              outline: "none",
+              boxSizing: "border-box",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+            }}
+          />
+          {uploadingImage && (
+            <div style={{ marginTop: 10, fontSize: 13, color: "#1d4ed8", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+              <span>⏳</span> 이미지 업로드 중...
+            </div>
+          )}
+        </section>
+
+        {err && (
+          <div style={{ padding: "14px 18px", borderRadius: 12, background: "#fff5f5", border: "1px solid #fecaca", color: "#b42318", fontWeight: 700 }}>
+            {err}
+          </div>
+        )}
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
+          <button
+            type="submit"
+            disabled={loading || uploadingImage || !canManageAll}
+            style={{
+              ...boardPrimaryButtonStyle,
+              opacity: loading || uploadingImage || !canManageAll ? 0.55 : 1,
+              cursor: loading || uploadingImage || !canManageAll ? "not-allowed" : "pointer",
+              height: 44, padding: "0 28px", fontSize: 15,
+            }}
+          >
+            {loading ? "저장 중..." : mode === "create" ? "등록하기" : "수정 저장"}
+          </button>
         </div>
       </form>
 

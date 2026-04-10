@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 
 export const boardPageShellStyle: CSSProperties = {
   display: "grid",
-  gap: 18,
+  gap: 24,
 };
 
 export const boardHeroStyle: CSSProperties = {
@@ -25,10 +25,10 @@ export const boardHeroAccentStyle: CSSProperties = {
 };
 
 export const boardCardStyle: CSSProperties = {
-  border: "1px solid #c9d9e4",
-  borderRadius: 22,
+  border: "1px solid #e2ecf4",
+  borderRadius: 20,
   background: "#ffffff",
-  boxShadow: "0 16px 34px rgba(2,32,46,0.08)",
+  boxShadow: "0 4px 24px rgba(2,32,46,0.06)",
   overflow: "hidden",
 };
 
@@ -46,70 +46,75 @@ export const boardSectionSubtleStyle: CSSProperties = {
 };
 
 export const boardPrimaryButtonStyle: CSSProperties = {
-  height: 42,
-  padding: "0 16px",
-  borderRadius: 0,
-  border: "1px solid #0e7490",
+  height: 40,
+  padding: "0 18px",
+  borderRadius: 10,
+  border: "none",
   background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
   color: "#ffffff",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
   textDecoration: "none",
-  fontWeight: 950,
-  boxShadow: "0 10px 22px rgba(16,59,83,0.18)",
+  fontWeight: 700,
+  fontSize: 14,
+  boxShadow: "0 4px 14px rgba(16,59,83,0.22)",
   cursor: "pointer",
+  letterSpacing: 0.2,
 };
 
 export const boardGhostButtonStyle: CSSProperties = {
-  height: 42,
-  padding: "0 16px",
-  borderRadius: 0,
-  border: "1px solid #c4d5e3",
-  background: "#ffffff",
-  color: "#103b53",
+  height: 40,
+  padding: "0 18px",
+  borderRadius: 10,
+  border: "1px solid #d0e0ec",
+  background: "#f5f9fc",
+  color: "#355468",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
   textDecoration: "none",
-  fontWeight: 900,
+  fontWeight: 700,
+  fontSize: 14,
   cursor: "pointer",
 };
 
 export const boardDangerButtonStyle: CSSProperties = {
-  height: 42,
-  padding: "0 16px",
-  borderRadius: 0,
-  border: "1px solid #f5b7b7",
+  height: 40,
+  padding: "0 18px",
+  borderRadius: 10,
+  border: "1px solid #fecaca",
   background: "#fff5f5",
   color: "#b42318",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
   textDecoration: "none",
-  fontWeight: 900,
+  fontWeight: 700,
+  fontSize: 14,
   cursor: "pointer",
 };
 
 export const boardInputStyle: CSSProperties = {
   width: "100%",
-  height: 44,
-  borderRadius: 0,
-  border: "1px solid #c4d5e3",
+  height: 42,
+  borderRadius: 10,
+  border: "1px solid #d0e0ec",
   padding: "0 14px",
-  background: "#ffffff",
+  background: "#f5f9fc",
   color: "#103b53",
-  fontWeight: 700,
+  fontWeight: 600,
+  fontSize: 14,
   outline: "none",
   boxSizing: "border-box",
 };
 
 export const boardTextareaStyle: CSSProperties = {
   width: "100%",
-  borderRadius: 0,
-  border: "1px solid #c4d5e3",
+  borderRadius: 12,
+  border: "1px solid #d0e0ec",
   padding: 16,
-  background: "#ffffff",
+  background: "#f5f9fc",
   color: "#103b53",
   fontWeight: 600,
   lineHeight: 1.7,
