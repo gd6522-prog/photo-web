@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     if (id) {
       const { error } = await r.sbAdmin
         .from("notices")
-        .update({ title, body: storedBody, is_pinned })
+        .update({ title, body: storedBody, is_pinned, board_key })
         .eq("id", id);
 
       if (error) return json(false, error.message, null, 500);
@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
       title,
       body: storedBody,
       is_pinned,
+      board_key,
       created_by: r.uid,
     });
 
