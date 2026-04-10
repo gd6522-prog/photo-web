@@ -30,7 +30,6 @@ export default function BoardDetailPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
-  const [liked, setLiked] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -166,13 +165,6 @@ export default function BoardDetailPage() {
             ✦ AI요약
           </span>
         </div>
-        {/* 좋아요 */}
-        <button
-          onClick={() => setLiked((p) => !p)}
-          style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", color: liked ? "#e03131" : "#bbb", fontSize: 20, flexShrink: 0, padding: 0 }}
-        >
-          {liked ? "❤" : "♡"}
-        </button>
       </div>
 
       {/* ── 작성자 정보 ── */}
@@ -201,9 +193,7 @@ export default function BoardDetailPage() {
 
       {/* ── 하단 정보 ── */}
       <div style={{ padding: "10px 18px", borderTop: "1px solid #eef2f6", display: "flex", alignItems: "center", gap: 16, fontSize: 13, color: "#888" }}>
-        <span>💬 댓글 0개</span>
-        <span>👁 조회 -</span>
-        <span>♡ 좋아요 누른 사람 {liked ? 1 : 0}명</span>
+        <span>👁 조회 {item.view_count ?? 0}</span>
       </div>
 
       <style jsx>{`

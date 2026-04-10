@@ -23,6 +23,7 @@ export type NoticePost = {
   updated_at: string;
   created_by: string | null;
   author_name: string | null;
+  view_count?: number;
 };
 
 export const NOTICE_BOARD_DEFS: NoticeBoardDef[] = [

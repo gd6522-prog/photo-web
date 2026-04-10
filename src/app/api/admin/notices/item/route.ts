@@ -10,6 +10,7 @@ type NoticeRow = {
   created_at: string;
   updated_at: string;
   created_by?: string | null;
+  view_count: number;
 };
 
 export async function GET(req: NextRequest) {
@@ -25,13 +26,19 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await guard.sbAdmin
       .from("notices")
-      .select("id, title, body, is_pinned, created_at, updated_at, created_by")
+      .select("id, title, body, is_pinned, created_at, updated_at, created_by, view_count")
       .eq("id", id)
       .maybeSingle();
     if (error) throw error;
 
     row = (data ?? null) as NoticeRow | null;
     if (!row) return json(false, "Not found", null, 404);
+
+    // 조회수 증가
+    await guard.sbAdmin
+      .from("notices")
+      .update({ view_count: (row as NoticeRow & { view_count: number }).view_count + 1 })
+      .eq("id", id);
 
     if (row.created_by) {
       const { data: profile } = await guard.sbAdmin.from("profiles").select("name").eq("id", row.created_by).maybeSingle();
@@ -50,6 +57,7 @@ export async function GET(req: NextRequest) {
         updated_at: row.updated_at,
         created_by: row.created_by ?? null,
         author_name: authorName,
+        view_count: (row.view_count ?? 0) + 1,
       },
       canManageAll: guard.isMainAdmin,
     });
