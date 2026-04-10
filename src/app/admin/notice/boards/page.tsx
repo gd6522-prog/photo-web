@@ -204,7 +204,7 @@ export default function BoardListPage() {
                     <span style={{ color: "#e03131", fontSize: 18, lineHeight: 1 }}>📢</span>
                   </td>
                   <td style={{ padding: "9px 12px", overflow: "hidden" }}>
-                    <Link href={`/admin/notice/boards/${item.id}`} style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
+                    <Link href={`/admin/notice/boards/${item.id}?board=${item.board_key}`} style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
                       <span style={{
                         display: "inline-block", fontSize: 12, fontWeight: 700,
                         padding: "2px 7px", borderRadius: 2,
@@ -236,7 +236,7 @@ export default function BoardListPage() {
                 <tr key={item.id} className="board-row" style={{ borderBottom: "1px solid #f0f0f0", background: "#fff" }}>
                   <td style={{ textAlign: "center", fontSize: 14, color: "#888", padding: "9px 6px" }}>{num}</td>
                   <td style={{ padding: "9px 12px", overflow: "hidden" }}>
-                    <Link href={`/admin/notice/boards/${item.id}`} style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
+                    <Link href={`/admin/notice/boards/${item.id}?board=${item.board_key}`} style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
                       <span style={{
                         display: "inline-block", fontSize: 12, fontWeight: 700,
                         padding: "2px 7px", borderRadius: 2,

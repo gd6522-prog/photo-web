@@ -7,6 +7,9 @@ import { NOTICE_BOARD_DEFS, type NoticeBoardKey } from "@/lib/notice-board";
 function getActiveBoard(pathname: string, searchParams: URLSearchParams): NoticeBoardKey {
   const fromQuery = searchParams.get("board");
   if (NOTICE_BOARD_DEFS.some((board) => board.key === fromQuery)) return fromQuery as NoticeBoardKey;
+  if (pathname.includes("/operation")) return "operation";
+  if (pathname.includes("/transport")) return "transport";
+  if (pathname.includes("/safety")) return "safety";
   return "notice";
 }
 
