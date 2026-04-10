@@ -37,6 +37,7 @@ export default function BoardListPage() {
   const [pageSize, setPageSize] = useState(20);
 
   const boardDef = getNoticeBoardDef(board);
+  const [infoOpen, setInfoOpen] = useState(true);
 
   useEffect(() => { setSearch(qParam); }, [qParam]);
 
@@ -116,7 +117,27 @@ export default function BoardListPage() {
       </div>
 
 
-{err && (
+      {/* ── 게시판 정보 (접이식) ── */}
+      <div style={{ borderBottom: "1px solid #dde6ee", background: "#fafbfc" }}>
+        <div
+          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 16px", cursor: "pointer", userSelect: "none" }}
+          onClick={() => setInfoOpen((p) => !p)}
+        >
+          <span style={{ fontSize: 12, color: "#666" }}>게시판 정보</span>
+          <span style={{ fontSize: 11, color: "#999" }}>{infoOpen ? "▲" : "▼"}</span>
+        </div>
+        {infoOpen && (
+          <div style={{ padding: "0 16px 10px", fontSize: 13, color: "#444", display: "grid", gap: 4 }}>
+            <div>
+              <span style={{ color: "#888", marginRight: 4 }}>운영자 :</span>
+              <span>{boardDef.label} 관리자</span>
+            </div>
+            <div style={{ color: "#777" }}>{boardDef.description}</div>
+          </div>
+        )}
+      </div>
+
+      {err && (
         <div style={{ padding: "10px 16px", color: "#b42318", fontWeight: 700, background: "#fff5f5", borderBottom: "1px solid #fecaca" }}>
           {err}
         </div>
