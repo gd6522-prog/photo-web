@@ -5,15 +5,16 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { getNoticeBoardDef, noticeBodyToHtml, type NoticePost } from "@/lib/notice-board";
-import {
-  boardDangerButtonStyle,
-  boardGhostButtonStyle,
-  boardPageShellStyle,
-  boardPrimaryButtonStyle,
-} from "../_board-theme";
 
 function formatDateTime(value: string) {
-  return new Date(value).toLocaleString("ko-KR");
+  const d = new Date(value);
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const wd = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${y}-${mo}-${day}(${wd}) ${hh}:${mm}`;
 }
 
 function isUpdated(createdAt: string, updatedAt: string) {
@@ -29,6 +30,7 @@ export default function BoardDetailPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [liked, setLiked] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -55,26 +57,20 @@ export default function BoardDetailPage() {
         setLoading(false);
       }
     };
-
     if (id) void load();
   }, [id]);
 
   const onDelete = async () => {
     if (!item) return;
     if (!confirm("이 게시글을 삭제할까요?")) return;
-
     try {
       const { data, error } = await supabase.auth.getSession();
       if (error) throw error;
       const token = String(data.session?.access_token ?? "").trim();
       if (!token) throw new Error("로그인 정보가 없습니다.");
-
       const res = await fetch("/api/admin/notices/delete", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ id: item.id }),
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string };
@@ -94,269 +90,167 @@ export default function BoardDetailPage() {
     );
   }, [item?.body]);
 
-  if (loading) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 80, color: "#8fa9bc", fontSize: 15, fontWeight: 600 }}>
-        불러오는 중...
-      </div>
-    );
-  }
-  if (err) {
-    return (
-      <div style={{ padding: "16px 20px", borderRadius: 12, background: "#fff5f5", border: "1px solid #fecaca", color: "#b42318", fontWeight: 700 }}>
-        {err}
-      </div>
-    );
-  }
-  if (!item) {
-    return (
-      <div style={{ padding: "16px 20px", borderRadius: 12, background: "#fff5f5", border: "1px solid #fecaca", color: "#b42318", fontWeight: 700 }}>
-        게시글을 찾지 못했습니다.
-      </div>
-    );
-  }
+  if (loading) return <div style={{ padding: 40, color: "#888", fontSize: 14 }}>불러오는 중...</div>;
+  if (err) return <div style={{ padding: "12px 16px", color: "#b42318", fontWeight: 700, background: "#fff5f5", border: "1px solid #fecaca", borderRadius: 4 }}>{err}</div>;
+  if (!item) return <div style={{ padding: "12px 16px", color: "#b42318", fontWeight: 700 }}>게시글을 찾지 못했습니다.</div>;
 
   const board = getNoticeBoardDef(item.board_key);
   const showUpdated = isUpdated(item.created_at, item.updated_at);
-  const dateLabel = showUpdated ? "수정" : "작성";
   const dateValue = showUpdated ? item.updated_at : item.created_at;
 
   return (
-    <div style={boardPageShellStyle}>
+    <div style={{ background: "#fff", border: "1px solid #dde6ee", borderRadius: 4, overflow: "hidden" }}>
 
       {/* 라이트박스 */}
       {lightboxSrc && (
         <div
           onClick={() => setLightboxSrc(null)}
-          style={{
-            position: "fixed", inset: 0, zIndex: 9999,
-            background: "rgba(0,0,0,0.88)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "zoom-out",
-          }}
+          style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out" }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={lightboxSrc}
-            alt=""
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              maxWidth: "92vw", maxHeight: "92vh",
-              objectFit: "contain",
-              borderRadius: 12,
-              boxShadow: "0 24px 80px rgba(0,0,0,0.7)",
-            }}
-          />
-          <button
-            onClick={() => setLightboxSrc(null)}
-            style={{
-              position: "fixed", top: 20, right: 24,
-              background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)",
-              borderRadius: 10, color: "#fff", fontSize: 20,
-              width: 40, height: 40,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer",
-            }}
-          >
-            ✕
-          </button>
+          <img src={lightboxSrc} alt="" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "92vw", maxHeight: "92vh", objectFit: "contain", borderRadius: 8, boxShadow: "0 24px 80px rgba(0,0,0,0.7)" }} />
+          <button onClick={() => setLightboxSrc(null)} style={{ position: "fixed", top: 20, right: 24, background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 6, color: "#fff", fontSize: 18, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>✕</button>
         </div>
       )}
 
-      {/* ── 헤더 배너 ── */}
-      <div
-        style={{
-          borderRadius: 20,
-          background: "linear-gradient(135deg, #0c2d42 0%, #103b53 50%, #0f4f47 100%)",
-          padding: "32px 32px 28px",
-          position: "relative",
-          overflow: "hidden",
-          boxShadow: "0 8px 32px rgba(10,40,60,0.22)",
-        }}
-      >
-        {/* 배경 장식 */}
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-          <div style={{
-            position: "absolute", top: -50, right: -50, width: 220, height: 220,
-            borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(15,118,110,0.3) 0%, transparent 70%)",
-          }} />
-        </div>
-
-        {/* 카테고리 배지 */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 16, position: "relative", flexWrap: "wrap" }}>
-          <span style={{
-            display: "inline-flex", alignItems: "center", padding: "5px 12px",
-            borderRadius: 20, fontSize: 12, fontWeight: 800,
-            background: "rgba(255,255,255,0.12)", color: "rgba(200,230,240,0.9)",
-            border: "1px solid rgba(255,255,255,0.15)",
-          }}>
-            {board.label}
-          </span>
-          {item.is_pinned && (
-            <span style={{
-              display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 12px",
-              borderRadius: 20, fontSize: 12, fontWeight: 800,
-              background: "rgba(15,118,110,0.3)", color: "#6ee7b7",
-              border: "1px solid rgba(15,118,110,0.4)",
-            }}>
-              📌 상단 고정
-            </span>
+      {/* ── 상단 툴바 ── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 12px", borderBottom: "1px solid #dde6ee", background: "#fafbfc", flexWrap: "wrap", gap: 6 }}>
+        {/* 좌측 버튼들 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Link href={`/admin/notice/boards/write?board=${item.board_key}`} style={toolBtn}>
+            ✏ 새글쓰기
+          </Link>
+          {canManageAll && (
+            <>
+              <span style={divider} />
+              <Link href={`/admin/notice/boards/${item.id}/edit`} style={toolBtn}>
+                ✎ 수정
+              </Link>
+              <span style={divider} />
+              <button onClick={onDelete} style={{ ...toolBtn, color: "#b42318" }}>
+                🗑 삭제
+              </button>
+            </>
           )}
         </div>
+        {/* 우측 버튼들 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <button style={toolBtn} onClick={() => history.go(-1)}>↑ 위</button>
+          <span style={divider} />
+          <button style={toolBtn} onClick={() => history.go(1)}>↓ 아래</button>
+          <span style={divider} />
+          <button style={toolBtn} onClick={() => { void navigator.clipboard?.writeText(window.location.href); }}>🔗 URL복사</button>
+          <span style={divider} />
+          <Link href={`/admin/notice/boards?board=${item.board_key}`} style={toolBtn}>≡ 목록</Link>
+          <span style={divider} />
+          <button style={toolBtn} onClick={() => window.print()}>🖨 인쇄</button>
+        </div>
+      </div>
 
-        {/* 제목 */}
-        <h1 style={{
-          margin: "0 0 20px",
-          fontSize: 26, fontWeight: 900, color: "#ffffff",
-          lineHeight: 1.4, wordBreak: "break-word",
-          position: "relative",
-        }}>
-          {item.title}
-        </h1>
+      {/* ── 제목 행 ── */}
+      <div style={{ padding: "14px 18px 10px", borderBottom: "1px solid #eef2f6", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", flex: 1, minWidth: 0 }}>
+          {item.is_pinned && (
+            <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 2, background: "#fff0f0", color: "#e03131", border: "1px solid #ffc9c9", whiteSpace: "nowrap" }}>
+              공지
+            </span>
+          )}
+          <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 2, background: board.tone.bg, color: board.tone.text, border: `1px solid ${board.tone.border}`, whiteSpace: "nowrap" }}>
+            {board.shortLabel}
+          </span>
+          <span style={{ fontSize: 16, fontWeight: 700, color: "#111", wordBreak: "break-word" }}>
+            {item.title}
+          </span>
+          <span style={{ fontSize: 12, color: "#888", whiteSpace: "nowrap" }}>[0]</span>
+          <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 2, background: "#e8f4fd", color: "#1a6fbd", border: "1px solid #bee3f8", whiteSpace: "nowrap", cursor: "pointer" }}>
+            ✦ AI요약
+          </span>
+        </div>
+        {/* 좋아요 */}
+        <button
+          onClick={() => setLiked((p) => !p)}
+          style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", color: liked ? "#e03131" : "#bbb", fontSize: 20, flexShrink: 0, padding: 0 }}
+        >
+          {liked ? "❤" : "♡"}
+        </button>
+      </div>
 
-        {/* 작성자 / 날짜 / 버튼 */}
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          gap: 16, flexWrap: "wrap", position: "relative",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{
-              display: "flex", alignItems: "center", gap: 8,
-              background: "rgba(255,255,255,0.08)", borderRadius: 10, padding: "8px 14px",
-              border: "1px solid rgba(255,255,255,0.1)",
-            }}>
-              <span style={{ fontSize: 16 }}>👤</span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: "#e0f2fe" }}>
-                {item.author_name ?? "-"}
-              </span>
-            </div>
-            <div style={{
-              display: "flex", alignItems: "center", gap: 6,
-              fontSize: 13, color: "rgba(180,215,230,0.8)", fontWeight: 600,
-            }}>
-              <span style={{ fontSize: 14 }}>🕐</span>
-              <span>{dateLabel} {formatDateTime(dateValue)}</span>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <Link href={`/admin/notice/boards?board=${item.board_key}`} style={boardGhostButtonStyle}>
-              ← 목록
-            </Link>
-            {canManageAll && (
-              <>
-                <Link href={`/admin/notice/boards/${item.id}/edit`} style={boardPrimaryButtonStyle}>
-                  수정
-                </Link>
-                <button onClick={onDelete} style={boardDangerButtonStyle}>
-                  삭제
-                </button>
-              </>
-            )}
-          </div>
+      {/* ── 작성자 정보 ── */}
+      <div style={{ padding: "8px 18px", borderBottom: "1px solid #eef2f6", display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#d0e8f5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
+          👤
+        </div>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#222" }}>{item.author_name ?? "-"}</div>
+          <div style={{ fontSize: 12, color: "#888" }}>{formatDateTime(dateValue)}</div>
         </div>
       </div>
 
       {/* ── 본문 ── */}
-      <div style={{
-        borderRadius: 20,
-        background: "#ffffff",
-        border: "1px solid #e2ecf4",
-        boxShadow: "0 4px 24px rgba(2,32,46,0.06)",
-        overflow: "hidden",
-      }}>
-        <div
-          className="notice-body-html"
-          style={{
-            padding: "36px 40px",
-            color: "#1a3344",
-            fontSize: 15,
-            lineHeight: 1.95,
-            minHeight: 300,
-          }}
-          onClick={(e) => {
-            const target = e.target as HTMLElement;
-            if (target.tagName === "IMG" && target.getAttribute("data-notice-image") === "1") {
-              setLightboxSrc((target as HTMLImageElement).src);
-            }
-          }}
-          dangerouslySetInnerHTML={{ __html: bodyHtml || "<p></p>" }}
-        />
+      <div
+        className="notice-body-html"
+        style={{ padding: "28px 24px", minHeight: 280, color: "#222", fontSize: 14, lineHeight: 1.9 }}
+        onClick={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.tagName === "IMG" && target.getAttribute("data-notice-image") === "1") {
+            setLightboxSrc((target as HTMLImageElement).src);
+          }
+        }}
+        dangerouslySetInnerHTML={{ __html: bodyHtml || "<p></p>" }}
+      />
+
+      {/* ── 하단 정보 ── */}
+      <div style={{ padding: "10px 18px", borderTop: "1px solid #eef2f6", display: "flex", alignItems: "center", gap: 16, fontSize: 13, color: "#888" }}>
+        <span>💬 댓글 0개</span>
+        <span>👁 조회 -</span>
+        <span>♡ 좋아요 누른 사람 {liked ? 1 : 0}명</span>
       </div>
 
       <style jsx>{`
-        .notice-body-html :global(p) {
-          margin: 0 0 18px;
-          white-space: pre-wrap;
-          word-break: break-word;
+        .notice-body-html :global(p) { margin: 0 0 16px; white-space: pre-wrap; word-break: break-word; }
+        .notice-body-html :global(h1), .notice-body-html :global(h2),
+        .notice-body-html :global(h3), .notice-body-html :global(h4) {
+          margin: 28px 0 12px; color: #111; font-weight: 700; line-height: 1.45;
         }
-        .notice-body-html :global(h1),
-        .notice-body-html :global(h2),
-        .notice-body-html :global(h3),
-        .notice-body-html :global(h4) {
-          margin: 32px 0 14px;
-          color: #0f2d3f;
-          line-height: 1.45;
-          font-weight: 900;
-        }
-        .notice-body-html :global(h1) { font-size: 24px; }
-        .notice-body-html :global(h2) { font-size: 21px; }
-        .notice-body-html :global(h3) { font-size: 18px; }
-        .notice-body-html :global(ul),
-        .notice-body-html :global(ol) {
-          margin: 0 0 18px;
-          padding-left: 22px;
-        }
-        .notice-body-html :global(li) { margin-bottom: 6px; }
-        .notice-body-html :global(table) {
-          width: 100%;
-          border-collapse: collapse;
-          margin: 20px 0;
-          font-size: 14px;
-          border-radius: 10px;
-          overflow: hidden;
-        }
-        .notice-body-html :global(th),
-        .notice-body-html :global(td) {
-          border: 1px solid #e2ecf4;
-          padding: 11px 14px;
-          text-align: left;
-          vertical-align: top;
-        }
-        .notice-body-html :global(th) {
-          background: #f0f6fa;
-          color: #103b53;
-          font-weight: 900;
-        }
-        .notice-body-html :global([data-notice-image-wrapper='1']) {
-          display: inline-block;
-          max-width: 100%;
-          margin: 20px 0;
-          vertical-align: top;
-        }
-        .notice-body-html :global(img[data-notice-image='1']) {
-          display: block;
-          width: 100%;
-          max-width: 100%;
-          height: auto;
-          border-radius: 12px;
-          border: 1px solid #e2ecf4;
-          background: #f5f9fc;
-          cursor: zoom-in;
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        .notice-body-html :global(img[data-notice-image='1']:hover) {
-          transform: scale(1.01);
-          box-shadow: 0 8px 32px rgba(16,59,83,0.14);
-        }
+        .notice-body-html :global(h1) { font-size: 22px; }
+        .notice-body-html :global(h2) { font-size: 19px; }
+        .notice-body-html :global(h3) { font-size: 16px; }
+        .notice-body-html :global(ul), .notice-body-html :global(ol) { margin: 0 0 16px; padding-left: 22px; }
+        .notice-body-html :global(li) { margin-bottom: 4px; }
+        .notice-body-html :global(table) { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+        .notice-body-html :global(th), .notice-body-html :global(td) { border: 1px solid #dde6ee; padding: 8px 12px; text-align: left; vertical-align: top; }
+        .notice-body-html :global(th) { background: #f5f7f9; font-weight: 700; color: #333; }
+        .notice-body-html :global(a) { color: #1a6fbd; }
+        .notice-body-html :global([data-notice-image-wrapper='1']) { display: inline-block; max-width: 100%; margin: 14px 0; vertical-align: top; }
+        .notice-body-html :global(img[data-notice-image='1']) { display: block; max-width: 100%; height: auto; border: 1px solid #dde6ee; background: #fff; cursor: zoom-in; }
         @media (max-width: 640px) {
-          .notice-body-html {
-            padding: 24px 20px !important;
-            font-size: 14px !important;
-          }
+          .notice-body-html { padding: 20px 14px !important; font-size: 13px !important; }
         }
       `}</style>
     </div>
   );
 }
+
+const toolBtn: React.CSSProperties = {
+  height: 26,
+  padding: "0 8px",
+  border: "none",
+  background: "none",
+  fontSize: 12,
+  color: "#444",
+  cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 3,
+  textDecoration: "none",
+  whiteSpace: "nowrap",
+  borderRadius: 2,
+};
+
+const divider: React.CSSProperties = {
+  display: "inline-block",
+  width: 1,
+  height: 12,
+  background: "#ddd",
+  margin: "0 2px",
+};
