@@ -39,10 +39,10 @@ export default function BoardsLayout({ children }: { children: React.ReactNode }
             href={`/admin/notice/boards/write?board=${activeBoard ?? "notice"}`}
             style={{
               display: "flex", alignItems: "center", justifyContent: "center",
-              height: 36, borderRadius: 4,
+              height: 40, borderRadius: 4,
               border: "1px solid #aaa",
               background: "#fff",
-              color: "#222", fontWeight: 600, fontSize: 14,
+              color: "#222", fontWeight: 600, fontSize: 16,
               textDecoration: "none",
             }}
           >
@@ -55,11 +55,11 @@ export default function BoardsLayout({ children }: { children: React.ReactNode }
           {/* 섹션 헤더 */}
           <div style={{
             padding: "6px 14px",
-            fontSize: 12, fontWeight: 700, color: "#555",
+            fontSize: 14, fontWeight: 700, color: "#555",
             display: "flex", alignItems: "center", gap: 4,
             cursor: "default",
           }}>
-            <span style={{ fontSize: 10 }}>▼</span> 게시판
+            <span style={{ fontSize: 11 }}>▼</span> 게시판
           </div>
 
           {NOTICE_BOARD_DEFS.map((board) => {
@@ -71,8 +71,8 @@ export default function BoardsLayout({ children }: { children: React.ReactNode }
                 className="sidebar-nav-item"
                 style={{
                   display: "block",
-                  padding: "6px 14px 6px 22px",
-                  fontSize: 13,
+                  padding: "8px 14px 8px 22px",
+                  fontSize: 15,
                   fontWeight: active ? 700 : 400,
                   color: active ? "#111" : "#333",
                   background: active ? "#e8f4fd" : "transparent",
@@ -93,7 +93,7 @@ export default function BoardsLayout({ children }: { children: React.ReactNode }
         <div style={{ marginTop: 12 }}>
           <div style={{
             padding: "6px 14px",
-            fontSize: 12, fontWeight: 700, color: "#555",
+            fontSize: 14, fontWeight: 700, color: "#555",
             display: "flex", alignItems: "center", gap: 4,
             cursor: "default",
           }}>
