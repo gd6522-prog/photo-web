@@ -197,7 +197,6 @@ export default function BoardListPage() {
           <tbody>
             {/* 고정 게시글 */}
             {pinnedItems.map((item) => {
-              const bDef = getNoticeBoardDef(item.board_key);
               return (
                 <tr key={item.id} className="board-row pinned-row" style={{ borderBottom: "1px solid #f0f0f0", background: "#fff" }}>
                   <td style={{ textAlign: "center", padding: "9px 6px" }}>
@@ -205,15 +204,6 @@ export default function BoardListPage() {
                   </td>
                   <td style={{ padding: "9px 12px", overflow: "hidden" }}>
                     <Link href={`/admin/notice/boards/${item.id}?board=${item.board_key}`} style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{
-                        display: "inline-block", fontSize: 12, fontWeight: 700,
-                        padding: "2px 7px", borderRadius: 2,
-                        background: bDef.tone.bg, color: bDef.tone.text,
-                        border: `1px solid ${bDef.tone.border}`,
-                        whiteSpace: "nowrap", marginRight: 2,
-                      }}>
-                        {bDef.shortLabel}
-                      </span>
                       <span style={{
                         fontSize: 15, fontWeight: 700, color: "#cc4400",
                         whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
@@ -230,22 +220,12 @@ export default function BoardListPage() {
             })}
             {/* 일반 게시글 */}
             {normalItems.map((item, idx) => {
-              const bDef = getNoticeBoardDef(item.board_key);
               const num = items.length - (pinnedItems.length + idx);
               return (
                 <tr key={item.id} className="board-row" style={{ borderBottom: "1px solid #f0f0f0", background: "#fff" }}>
                   <td style={{ textAlign: "center", fontSize: 14, color: "#888", padding: "9px 6px" }}>{num}</td>
                   <td style={{ padding: "9px 12px", overflow: "hidden" }}>
-                    <Link href={`/admin/notice/boards/${item.id}?board=${item.board_key}`} style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{
-                        display: "inline-block", fontSize: 12, fontWeight: 700,
-                        padding: "2px 7px", borderRadius: 2,
-                        background: bDef.tone.bg, color: bDef.tone.text,
-                        border: `1px solid ${bDef.tone.border}`,
-                        whiteSpace: "nowrap", marginRight: 2,
-                      }}>
-                        {bDef.shortLabel}
-                      </span>
+                    <Link href={`/admin/notice/boards/${item.id}?board=${item.board_key}`} style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
                       <span style={{
                         fontSize: 15, fontWeight: 500, color: "#222",
                         whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
