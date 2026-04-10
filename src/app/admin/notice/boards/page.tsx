@@ -115,20 +115,8 @@ export default function BoardListPage() {
         </form>
       </div>
 
-      {/* ── 게시판 정보 ── */}
-      <div style={{ background: "#f9fbfc", borderBottom: "1px solid #dde6ee", padding: "10px 16px", fontSize: 13, color: "#444" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <span style={{ color: "#555", fontWeight: 600, minWidth: 70 }}>■ 게시판 주소</span>
-          <span style={{ color: "#1a6fbd", fontSize: 12 }}>한이스프레스 / {boardDef.label}</span>
-          <button style={{ fontSize: 11, padding: "2px 8px", border: "1px solid #ccc", borderRadius: 2, background: "#fff", cursor: "pointer", color: "#555" }}>복사</button>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ color: "#555", fontWeight: 600, minWidth: 70 }}>■ 이메일 수신</span>
-          <button style={{ fontSize: 11, padding: "2px 10px", border: "1px solid #1a6fbd", borderRadius: 2, background: "#fff", cursor: "pointer", color: "#1a6fbd" }}>+ 신청하기</button>
-        </div>
-      </div>
 
-      {err && (
+{err && (
         <div style={{ padding: "10px 16px", color: "#b42318", fontWeight: 700, background: "#fff5f5", borderBottom: "1px solid #fecaca" }}>
           {err}
         </div>
