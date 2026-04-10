@@ -54,12 +54,12 @@ export default function BoardsLayout({ children }: { children: React.ReactNode }
         <div style={{ marginTop: 4 }}>
           {/* 섹션 헤더 */}
           <div style={{
-            padding: "6px 14px",
-            fontSize: 14, fontWeight: 700, color: "#555",
+            padding: "8px 14px",
+            fontSize: 16, fontWeight: 700, color: "#222",
             display: "flex", alignItems: "center", gap: 4,
             cursor: "default",
           }}>
-            <span style={{ fontSize: 11 }}>▼</span> 게시판
+            <span style={{ fontSize: 12 }}>▼</span> 게시판
           </div>
 
           {NOTICE_BOARD_DEFS.map((board) => {
@@ -71,8 +71,8 @@ export default function BoardsLayout({ children }: { children: React.ReactNode }
                 className="sidebar-nav-item"
                 style={{
                   display: "block",
-                  padding: "8px 14px 8px 22px",
-                  fontSize: 15,
+                  padding: "7px 14px 7px 24px",
+                  fontSize: 14,
                   fontWeight: active ? 700 : 400,
                   color: active ? "#111" : "#333",
                   background: active ? "#e8f4fd" : "transparent",
@@ -92,20 +92,20 @@ export default function BoardsLayout({ children }: { children: React.ReactNode }
         {/* 일정 관리 섹션 */}
         <div style={{ marginTop: 12 }}>
           <div style={{
-            padding: "6px 14px",
-            fontSize: 14, fontWeight: 700, color: "#555",
+            padding: "8px 14px",
+            fontSize: 16, fontWeight: 700, color: "#222",
             display: "flex", alignItems: "center", gap: 4,
             cursor: "default",
           }}>
-            <span style={{ fontSize: 10 }}>▼</span> 일정 관리
+            <span style={{ fontSize: 12 }}>▼</span> 일정 관리
           </div>
           <Link
             href="/admin/notice/calendar"
             className="sidebar-nav-item"
             style={{
               display: "block",
-              padding: "6px 14px 6px 22px",
-              fontSize: 13,
+              padding: "7px 14px 7px 24px",
+              fontSize: 14,
               fontWeight: isCalendarActive ? 700 : 400,
               color: isCalendarActive ? "#111" : "#333",
               background: isCalendarActive ? "#e8f4fd" : "transparent",
