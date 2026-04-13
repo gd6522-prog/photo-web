@@ -35,18 +35,27 @@ export async function GET(req: NextRequest) {
   const storeCodes = [...new Set(stores.map((s) => s.store_code).filter(Boolean))];
   const storeNames = [...new Set(stores.map((s) => s.store_name).filter(Boolean))];
 
+  // .or() 대신 .in() 사용 — 점포명에 특수문자/공백 포함 시 .or() 필터 문자열이 깨지는 버그 방지
   let contactData: Array<{ store_code: string | null; store_name: string; phone: string; memo: string | null }> = [];
 
-  if (storeCodes.length > 0 || storeNames.length > 0) {
-    const filters: string[] = [
-      ...storeCodes.map((c) => `store_code.eq.${c}`),
-      ...storeNames.map((n) => `store_name.eq.${n}`),
-    ];
+  if (storeCodes.length > 0) {
     const { data } = await sb
       .from("store_contacts")
       .select("store_code, store_name, phone, memo")
-      .or(filters.join(","));
-    contactData = (data ?? []) as typeof contactData;
+      .in("store_code", storeCodes);
+    contactData.push(...((data ?? []) as typeof contactData));
+  }
+
+  if (storeNames.length > 0) {
+    const { data } = await sb
+      .from("store_contacts")
+      .select("store_code, store_name, phone, memo")
+      .in("store_name", storeNames);
+    // store_code 쿼리에서 이미 가져온 항목은 중복 추가 방지
+    const existingNames = new Set(contactData.map((c) => c.store_name));
+    for (const row of (data ?? []) as typeof contactData) {
+      if (!existingNames.has(row.store_name)) contactData.push(row);
+    }
   }
 
   const contactByCode = new Map<string, (typeof contactData)[0]>();
