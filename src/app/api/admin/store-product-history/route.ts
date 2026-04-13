@@ -70,12 +70,10 @@ async function scanDailyFile(
     const results: Array<{ date: string; product_code: string; product_name: string; work_type: string; qty: number }> = [];
 
     for (const row of snapshot.productRows ?? []) {
-      // 점포 매칭
       const codeMatch = storeCode && normalizeStoreCode(row.store_code) === normStoreCode;
       const nameMatch = storeName && normalizeStoreName(row.store_name) === normStoreName;
       if (!codeMatch && !nameMatch) continue;
 
-      // 상품 검색어 매칭 (바코드 또는 상품명 포함)
       const codeQ = normalizeProductText(row.product_code).includes(normQuery);
       const nameQ = normalizeProductText(row.product_name).includes(normQuery);
       if (!codeQ && !nameQ) continue;
@@ -90,43 +88,6 @@ async function scanDailyFile(
         work_type: row.work_type,
         qty,
       });
-    }
-
-    return results;
-  } catch {
-    return [];
-  }
-}
-
-const SB_BUCKET = "vehicle-data";
-const SB_DAILY_FOLDER = "daily";
-
-async function scanDailyFileFromText(
-  text: string,
-  date: string,
-  normStoreCode: string,
-  normStoreName: string,
-  normQuery: string,
-  storeCode: string,
-  storeName: string,
-): Promise<Array<{ date: string; product_code: string; product_name: string; work_type: string; qty: number }>> {
-  try {
-    const snapshot = JSON.parse(text) as VehicleSnapshot;
-    const results: Array<{ date: string; product_code: string; product_name: string; work_type: string; qty: number }> = [];
-
-    for (const row of snapshot.productRows ?? []) {
-      const codeMatch = storeCode && normalizeStoreCode(row.store_code) === normStoreCode;
-      const nameMatch = storeName && normalizeStoreName(row.store_name) === normStoreName;
-      if (!codeMatch && !nameMatch) continue;
-
-      const codeQ = normalizeProductText(row.product_code).includes(normQuery);
-      const nameQ = normalizeProductText(row.product_name).includes(normQuery);
-      if (!codeQ && !nameQ) continue;
-
-      const qty = qtyBase(row);
-      if (qty <= 0) continue;
-
-      results.push({ date, product_code: row.product_code, product_name: row.product_name, work_type: row.work_type, qty });
     }
 
     return results;
@@ -155,31 +116,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // R2에서 날짜 목록 수집
-    const allR2Keys = await listR2Keys(DAILY_PREFIX);
-    const r2DailyKeys = allR2Keys
+    const allKeys = await listR2Keys(DAILY_PREFIX);
+
+    const dailyKeys = allKeys
       .filter((k) => /vehicle-data\/daily\/\d{4}-\d{2}-\d{2}\.json$/.test(k))
       .sort()
-      .reverse();
-
-    const r2Dates = new Set(r2DailyKeys.map((k) => k.replace(DAILY_PREFIX, "").replace(".json", "")));
-
-    // Supabase Storage에서 날짜 목록 수집 (R2에 없는 날짜만)
-    const { data: sbFiles } = await guard.sbAdmin.storage
-      .from(SB_BUCKET)
-      .list(SB_DAILY_FOLDER, { limit: HARD_MAX_DAYS, sortBy: { column: "name", order: "desc" } });
-
-    const sbDailyEntries = (sbFiles ?? [])
-      .map((f) => ({ name: f.name, date: f.name.replace(".json", "") }))
-      .filter(({ date }) => /^\d{4}-\d{2}-\d{2}$/.test(date) && !r2Dates.has(date))
-      .sort((a, b) => b.date.localeCompare(a.date));
-
-    // 두 소스를 합쳐 최신순으로 days개 선택
-    const combined = [
-      ...r2DailyKeys.map((k) => ({ source: "r2" as const, key: k, date: k.replace(DAILY_PREFIX, "").replace(".json", "") })),
-      ...sbDailyEntries.map(({ name, date }) => ({ source: "sb" as const, key: `${SB_DAILY_FOLDER}/${name}`, date })),
-    ]
-      .sort((a, b) => b.date.localeCompare(a.date))
+      .reverse()
       .slice(0, days);
 
     const normStoreCode = normalizeStoreCode(storeCode);
@@ -188,27 +130,10 @@ export async function GET(req: NextRequest) {
 
     const allResults: Array<{ date: string; product_code: string; product_name: string; work_type: string; qty: number }> = [];
 
-    // 배치 병렬 처리
-    for (let i = 0; i < combined.length; i += BATCH_SIZE) {
-      const batch = combined.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < dailyKeys.length; i += BATCH_SIZE) {
+      const batch = dailyKeys.slice(i, i + BATCH_SIZE);
       const batchResults = await Promise.all(
-        batch.map(async (entry) => {
-          if (entry.source === "r2") {
-            return scanDailyFile(entry.key, normStoreCode, normStoreName, normQuery, storeCode, storeName);
-          } else {
-            // Supabase Storage에서 다운로드
-            try {
-              const { data: blob, error } = await guard.sbAdmin.storage
-                .from(SB_BUCKET)
-                .download(entry.key);
-              if (error || !blob) return [];
-              const text = await blob.text();
-              return scanDailyFileFromText(text, entry.date, normStoreCode, normStoreName, normQuery, storeCode, storeName);
-            } catch {
-              return [];
-            }
-          }
-        }),
+        batch.map((key) => scanDailyFile(key, normStoreCode, normStoreName, normQuery, storeCode, storeName)),
       );
       for (const rows of batchResults) allResults.push(...rows);
     }
@@ -233,7 +158,7 @@ export async function GET(req: NextRequest) {
       return a.product_name.localeCompare(b.product_name, "ko");
     });
 
-    return json(true, undefined, { history, scanned: combined.length });
+    return json(true, undefined, { history, scanned: dailyKeys.length });
   } catch (e) {
     return json(false, e instanceof Error ? e.message : String(e), null, 500);
   }
