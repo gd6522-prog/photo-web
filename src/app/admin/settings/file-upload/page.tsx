@@ -54,42 +54,42 @@ const SLOT_CONFIGS: SlotConfig[] = [
   {
     key: "product-master",
     label: "상품마스터",
-    description: "서버에 파일로 저장됩니다",
+    description: "",
     accept: "*",
     type: "generic",
   },
   {
     key: "workcenter-product-master",
     label: "작업센터별 취급상품 마스터",
-    description: "서버에 파일로 저장됩니다",
+    description: "",
     accept: "*",
     type: "generic",
   },
   {
     key: "cell-management",
     label: "셀관리",
-    description: "서버에 파일로 저장됩니다",
+    description: "",
     accept: "*",
     type: "generic",
   },
   {
     key: "product-strategy",
     label: "상품별 전략관리",
-    description: "서버에 파일로 저장됩니다",
+    description: "",
     accept: "*",
     type: "generic",
   },
   {
     key: "inventory-status",
     label: "재고현황",
-    description: "서버에 파일로 저장됩니다",
+    description: "",
     accept: "*",
     type: "generic",
   },
   {
     key: "product-inventory",
     label: "상품별재고현황",
-    description: "서버에 파일로 저장됩니다",
+    description: "",
     accept: "*",
     type: "generic",
   },
@@ -573,8 +573,6 @@ function SlotCard({
           </span>
         )}
       </div>
-      <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 12 }}>{config.description}</div>
-
       {/* 현재 서버 파일 (generic 슬롯만) */}
       {config.type === "generic" && (
         <div
@@ -587,16 +585,16 @@ function SlotCard({
             color: "#374151",
           }}
         >
-          <span style={{ fontWeight: 700 }}>현재 서버 파일: </span>
+          <div style={{ fontWeight: 700 }}>현재 서버 파일</div>
           {serverFile ? (
             <>
-              <span>{serverFile.fileName}</span>
-              <span style={{ color: "#9CA3AF", marginLeft: 6 }}>
-                ({formatUploadedAt(serverFile.uploadedAt)})
-              </span>
+              <div style={{ marginTop: 2 }}>{serverFile.fileName}</div>
+              <div style={{ marginTop: 2, color: "#9CA3AF" }}>
+                {formatUploadedAt(serverFile.uploadedAt)}
+              </div>
             </>
           ) : (
-            <span style={{ color: "#9CA3AF" }}>없음</span>
+            <div style={{ marginTop: 2, color: "#9CA3AF" }}>없음</div>
           )}
         </div>
       )}
