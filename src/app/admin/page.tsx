@@ -1634,6 +1634,7 @@ function StoreSearchWidget() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
   const [historyScanned, setHistoryScanned] = useState(0);
+  const [historyDays, setHistoryDays] = useState(60);
   const productDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const productInputRef = useRef<HTMLInputElement>(null);
 
@@ -1724,7 +1725,7 @@ function StoreSearchWidget() {
   };
 
   // ── 상품 이력 검색 ──
-  const doProductSearch = async (q: string, store: StoreResult) => {
+  const doProductSearch = async (q: string, store: StoreResult, days: number) => {
     if (!q.trim() || q.trim().length < 2) { setHistory(null); setHistoryError(""); return; }
     setHistoryLoading(true);
     setHistoryError("");
@@ -1736,6 +1737,7 @@ function StoreSearchWidget() {
         store_code: store.store_code,
         store_name: store.store_name,
         q: q.trim(),
+        days: String(days),
       });
       const res = await fetch(`/api/admin/store-product-history?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -1757,7 +1759,15 @@ function StoreSearchWidget() {
     if (productDebounceRef.current) clearTimeout(productDebounceRef.current);
     if (!selectedStore) return;
     const store = selectedStore;
-    productDebounceRef.current = setTimeout(() => void doProductSearch(v, store), 500);
+    const days = historyDays;
+    productDebounceRef.current = setTimeout(() => void doProductSearch(v, store, days), 500);
+  };
+
+  const onHistoryDaysChange = (v: number) => {
+    setHistoryDays(v);
+    if (productQuery.trim().length >= 2 && selectedStore) {
+      void doProductSearch(productQuery, selectedStore, v);
+    }
   };
 
   useEffect(() => {
@@ -2001,7 +2011,23 @@ function StoreSearchWidget() {
               {activeTab === "product" && (
                 <>
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: "#374151", marginBottom: 6 }}>바코드 또는 상품명 검색</div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: "#374151" }}>바코드 또는 상품명 검색</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 11, color: "#64748b", fontWeight: 700 }}>조회 기간</span>
+                        <select
+                          value={historyDays}
+                          onChange={(e) => onHistoryDaysChange(Number(e.target.value))}
+                          style={{ height: 28, padding: "0 6px", border: "1px solid #D1D5DB", borderRadius: 0, fontSize: 12, outline: "none", cursor: "pointer", background: "white", color: "#0f2940", fontWeight: 800 }}
+                        >
+                          <option value={30}>30일</option>
+                          <option value={60}>60일</option>
+                          <option value={90}>90일</option>
+                          <option value={180}>180일</option>
+                          <option value={365}>365일</option>
+                        </select>
+                      </div>
+                    </div>
                     <input
                       ref={productInputRef}
                       value={productQuery}
@@ -2009,7 +2035,7 @@ function StoreSearchWidget() {
                       placeholder="바코드 또는 상품명 2자 이상 입력"
                       style={{ width: "100%", height: 40, padding: "0 12px", border: "1px solid #D1D5DB", borderRadius: 0, fontSize: 14, outline: "none", boxSizing: "border-box" }}
                     />
-                    <div style={{ marginTop: 4, fontSize: 11, color: "#94a3b8" }}>최근 60일 이내 납품예정일 이력을 조회합니다.</div>
+                    <div style={{ marginTop: 4, fontSize: 11, color: "#94a3b8" }}>최근 {historyDays}일 이내 납품예정일 이력을 조회합니다.</div>
                   </div>
 
                   {historyLoading ? (

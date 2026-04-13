@@ -5,7 +5,8 @@ import { getR2ObjectText, listR2Keys } from "@/lib/r2";
 export const runtime = "nodejs";
 
 const DAILY_PREFIX = "vehicle-data/daily/";
-const MAX_DAYS = 60;
+const DEFAULT_DAYS = 60;
+const HARD_MAX_DAYS = 365;
 const BATCH_SIZE = 6;
 
 type ProductRow = {
@@ -104,6 +105,10 @@ export async function GET(req: NextRequest) {
   const storeCode = req.nextUrl.searchParams.get("store_code")?.trim() ?? "";
   const storeName = req.nextUrl.searchParams.get("store_name")?.trim() ?? "";
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
+  const daysParam = parseInt(req.nextUrl.searchParams.get("days") ?? "", 10);
+  const days = Number.isFinite(daysParam) && daysParam > 0
+    ? Math.min(daysParam, HARD_MAX_DAYS)
+    : DEFAULT_DAYS;
 
   if (!storeCode && !storeName) {
     return json(false, "store_code 또는 store_name이 필요합니다.", null, 400);
@@ -115,12 +120,12 @@ export async function GET(req: NextRequest) {
   try {
     const allKeys = await listR2Keys(DAILY_PREFIX);
 
-    // YYYY-MM-DD.json 형식만 필터, 최신순 정렬, 최대 MAX_DAYS개
+    // YYYY-MM-DD.json 형식만 필터, 최신순 정렬, 요청한 days개
     const dailyKeys = allKeys
       .filter((k) => /vehicle-data\/daily\/\d{4}-\d{2}-\d{2}\.json$/.test(k))
       .sort()
       .reverse()
-      .slice(0, MAX_DAYS);
+      .slice(0, days);
 
     const normStoreCode = normalizeStoreCode(storeCode);
     const normStoreName = normalizeStoreName(storeName);
