@@ -58,6 +58,7 @@ export const MENU_REGISTRY: MenuItem[] = [
   { key: "admin_worklog_detail", label: "상세근태", href: "/admin/work-log?tab=detail",         group: "nav", order: 402, parent: "admin_work_log" },
 
   // ── 설정
+  { key: "settings_file_upload",         label: "파일 업로드",            href: "/admin/settings/file-upload",        group: "settings", order: 105 },
   { key: "settings_store_master",       label: "점포마스터",             href: "/admin/settings/store-master",       group: "settings", order: 110 },
   { key: "settings_inspection_stores",  label: "검수점포",               href: "/admin/settings/inspection-stores",  group: "settings", order: 120 },
   { key: "settings_user_master",        label: "운영/현장 사용자마스터", href: "/admin/settings/user-master",        group: "settings", order: 140 },
