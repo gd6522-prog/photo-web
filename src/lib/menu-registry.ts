@@ -65,6 +65,7 @@ export const MENU_REGISTRY: MenuItem[] = [
   { key: "settings_store_contacts",     label: "점포 연락처",            href: "/admin/settings/store-contacts",     group: "settings", order: 148 },
   { key: "settings_permissions",        label: "권한 설정",              href: "/admin/settings/permissions",        group: "settings", order: 150, mainOnly: true },
   { key: "settings_holidays",           label: "공휴일 동기화",          href: "/admin/settings/holidays",           group: "settings", order: 160, mainOnly: true },
+  { key: "settings_vehicle_history",    label: "과거 차량데이터 업로드",  href: "/admin/settings/vehicle-history",    group: "settings", order: 165, mainOnly: true },
 ];
 
 /** 상단 Nav의 최상위 항목만 (parent 없는 것) */
