@@ -79,7 +79,8 @@ type RedeliveryDoneRow = {
 type DriverCategory = "bottle" | "tobacco" | "miochul" | "wash";
 type MiochulFlags = { redelivery: boolean; damage: boolean; other: boolean };
 
-const PAGE_SIZE = 21;
+const PAGE_SIZE = 100;       // 서버 fetch 단위 (넉넉히 가져와서 그룹핑)
+const GROUP_PAGE_SIZE = 21; // 화면에 표시할 그룹 단위
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -218,6 +219,9 @@ export default function AdminDeliveryPhotosPage() {
   const [rawPhotos, setRawPhotos] = useState<DeliveryPhotoRow[]>([]); // 서버에서 받은 원본 (필터 미적용)
   const [profilesById, setProfilesById] = useState<Record<string, ProfileRow>>({});
   const [redeliveryDoneByPhotoId, setRedeliveryDoneByPhotoId] = useState<Record<string, RedeliveryDoneRow>>({});
+
+  // ---------- group display ----------
+  const [visibleGroupCount, setVisibleGroupCount] = useState(GROUP_PAGE_SIZE);
 
   // ---------- selection ----------
   const [selectMode, setSelectMode] = useState(false);
@@ -445,6 +449,7 @@ export default function AdminDeliveryPhotosPage() {
       setPhotos(sorted);
       setPage(0);
       setHasMore(rawRows.length === PAGE_SIZE);
+      setVisibleGroupCount(GROUP_PAGE_SIZE);
       resetSelection();
     } catch (e: any) {
       alert(e?.message ?? String(e));
@@ -649,6 +654,9 @@ export default function AdminDeliveryPhotosPage() {
 
   // ✅ 그룹핑된 사진 목록
   const groupedPhotos = useMemo(() => groupPhotosByDateAndStore(photos), [photos]);
+
+  // 화면에 표시할 그룹 (21개씩)
+  const displayedGroups = useMemo(() => groupedPhotos.slice(0, visibleGroupCount), [groupedPhotos, visibleGroupCount]);
 
   // 현재 열린 그룹 및 그룹 내 슬라이드 사진
   const previewGroup = groupedPhotos[previewGroupIndex] ?? null;
@@ -943,7 +951,7 @@ export default function AdminDeliveryPhotosPage() {
             ) : (
               <div style={{ padding: 14 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(178px, 1fr))", gap: 10 }}>
-                  {groupedPhotos.map((group, gIdx) => {
+                  {displayedGroups.map((group, gIdx) => {
                     const rep = group.photos[0];
                     const prof = profilesById[rep.created_by];
                     const uploader = prof?.name?.trim() ? prof.name.trim() : "-";
@@ -1024,8 +1032,14 @@ export default function AdminDeliveryPhotosPage() {
 
                 {/* 더보기 */}
                 <div style={{ display: "flex", justifyContent: "center", padding: "20px 0 6px" }}>
-                  {hasMore ? (
-                    <button className="btn-secondary" onClick={fetchMore} disabled={loadingMore} style={{ height: 40, padding: "0 28px", borderRadius: 9, border: "1.5px solid #E2E8F0", background: loadingMore ? "#F8FAFC" : "white", fontWeight: 800, fontSize: 13, cursor: loadingMore ? "not-allowed" : "pointer", color: "#64748B", boxShadow: "0 2px 8px rgba(2,32,46,0.06)" }}>
+                  {visibleGroupCount < groupedPhotos.length ? (
+                    // 이미 가져온 데이터에서 더 보여주기
+                    <button className="btn-secondary" onClick={() => setVisibleGroupCount((v) => v + GROUP_PAGE_SIZE)} style={{ height: 40, padding: "0 28px", borderRadius: 9, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 800, fontSize: 13, cursor: "pointer", color: "#64748B", boxShadow: "0 2px 8px rgba(2,32,46,0.06)" }}>
+                      더 보기 ({displayedGroups.length} / {groupedPhotos.length})
+                    </button>
+                  ) : hasMore ? (
+                    // 서버에서 추가 fetch
+                    <button className="btn-secondary" onClick={async () => { await fetchMore(); setVisibleGroupCount((v) => v + GROUP_PAGE_SIZE); }} disabled={loadingMore} style={{ height: 40, padding: "0 28px", borderRadius: 9, border: "1.5px solid #E2E8F0", background: loadingMore ? "#F8FAFC" : "white", fontWeight: 800, fontSize: 13, cursor: loadingMore ? "not-allowed" : "pointer", color: "#64748B", boxShadow: "0 2px 8px rgba(2,32,46,0.06)" }}>
                       {loadingMore ? "불러오는 중..." : "더 보기"}
                     </button>
                   ) : (
