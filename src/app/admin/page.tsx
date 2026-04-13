@@ -1581,6 +1581,7 @@ type StoreResult = {
 };
 
 type ProductOrderItem = {
+  cell_name: string;
   product_code: string;
   product_name: string;
   work_type: string;
@@ -1975,18 +1976,18 @@ function StoreSearchWidget() {
                           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                             <thead>
                               <tr style={{ background: "#eef5fb" }}>
+                                <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 950, color: "#103b53", fontSize: 12, borderBottom: "1px solid #d9e6ef", whiteSpace: "nowrap" }}>피킹셀</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 950, color: "#103b53", fontSize: 12, borderBottom: "1px solid #d9e6ef", whiteSpace: "nowrap" }}>상품코드</th>
                                 <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 950, color: "#103b53", fontSize: 12, borderBottom: "1px solid #d9e6ef" }}>상품명</th>
-                                <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 950, color: "#103b53", fontSize: 12, borderBottom: "1px solid #d9e6ef", whiteSpace: "nowrap" }}>바코드</th>
-                                <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 950, color: "#103b53", fontSize: 12, borderBottom: "1px solid #d9e6ef", whiteSpace: "nowrap" }}>작업구분</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", fontWeight: 950, color: "#103b53", fontSize: 12, borderBottom: "1px solid #d9e6ef", whiteSpace: "nowrap" }}>수량</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", fontWeight: 950, color: "#103b53", fontSize: 12, borderBottom: "1px solid #d9e6ef", whiteSpace: "nowrap" }}>출고수량</th>
                               </tr>
                             </thead>
                             <tbody>
                               {products.map((p, i) => (
                                 <tr key={i} style={{ borderTop: "1px solid #f1f5f9", background: i % 2 === 0 ? "#fff" : "#fafcfe" }}>
-                                  <td style={{ padding: "8px 10px", fontSize: 12.5, color: "#0f2940", fontWeight: 700, wordBreak: "keep-all" }}>{p.product_name}</td>
+                                  <td style={{ padding: "8px 10px", fontSize: 12, color: "#374151", fontFamily: "monospace", whiteSpace: "nowrap" }}>{p.cell_name || "-"}</td>
                                   <td style={{ padding: "8px 10px", fontSize: 11.5, color: "#64748b", fontFamily: "monospace", whiteSpace: "nowrap" }}>{p.product_code || "-"}</td>
-                                  <td style={{ padding: "8px 10px", fontSize: 12, color: "#374151", whiteSpace: "nowrap" }}>{p.work_type || "-"}</td>
+                                  <td style={{ padding: "8px 10px", fontSize: 12.5, color: "#0f2940", fontWeight: 700, wordBreak: "keep-all" }}>{p.product_name}</td>
                                   <td style={{ padding: "8px 10px", fontSize: 13, fontWeight: 900, color: "#0284c7", textAlign: "right", whiteSpace: "nowrap" }}>{p.qty.toLocaleString("ko-KR")}</td>
                                 </tr>
                               ))}

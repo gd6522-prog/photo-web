@@ -158,8 +158,10 @@ export async function GET(req: NextRequest) {
     }
 
     const history = [...grouped.values()].sort((a, b) => {
-      const dateDiff = a.date.localeCompare(b.date);
+      // 1순위: 납품예정일 내림차순
+      const dateDiff = b.date.localeCompare(a.date);
       if (dateDiff !== 0) return dateDiff;
+      // 2순위: 상품명 오름차순
       return a.product_name.localeCompare(b.product_name, "ko");
     });
 

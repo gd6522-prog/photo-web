@@ -12,6 +12,7 @@ type ProductRow = {
   store_name: string;
   product_code: string;
   product_name: string;
+  cell_name: string;
   work_type: string;
   original_qty: number;
   current_qty: number;
@@ -78,13 +79,16 @@ export async function GET(req: NextRequest) {
       return false;
     });
 
-    const products = matching.map((row) => ({
-      product_code: row.product_code,
-      product_name: row.product_name,
-      work_type: row.work_type,
-      qty: qtyBase(row),
-      delivery_date: row.delivery_date,
-    }));
+    const products = matching
+      .map((row) => ({
+        cell_name: String(row.cell_name ?? "").trim(),
+        product_code: row.product_code,
+        product_name: row.product_name,
+        work_type: row.work_type,
+        qty: qtyBase(row),
+        delivery_date: row.delivery_date,
+      }))
+      .sort((a, b) => a.cell_name.localeCompare(b.cell_name, "ko", { numeric: true }));
 
     return json(true, undefined, {
       products,
