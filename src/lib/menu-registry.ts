@@ -59,7 +59,6 @@ export const MENU_REGISTRY: MenuItem[] = [
 
   // ── 설정
   { key: "settings_file_upload",         label: "파일 업로드",            href: "/admin/settings/file-upload",        group: "settings", order: 105 },
-  { key: "settings_store_master",       label: "점포마스터",             href: "/admin/settings/store-master",       group: "settings", order: 110 },
   { key: "settings_inspection_stores",  label: "검수점포",               href: "/admin/settings/inspection-stores",  group: "settings", order: 120 },
   { key: "settings_user_master",        label: "운영/현장 사용자마스터", href: "/admin/settings/user-master",        group: "settings", order: 140 },
   { key: "settings_driver_master",      label: "기사 사용자마스터",      href: "/admin/settings/driver-master",      group: "settings", order: 145 },
@@ -116,7 +115,7 @@ export function findMenuKeyByPath(pathname: string): string | null {
     if (path === href || path.startsWith(href + "/")) return item.key;
   }
 
-  if (path === "/admin/settings" || path.startsWith("/admin/settings/")) return "settings_store_master";
+  if (path === "/admin/settings" || path.startsWith("/admin/settings/")) return "settings_file_upload";
   if (path === "/admin/notice" || path.startsWith("/admin/notice/")) return "admin_notice";
   return null;
 }
