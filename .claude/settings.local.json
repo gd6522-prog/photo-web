@@ -12,7 +12,8 @@
       "Bash(do)",
       "Bash(sed -i -e 's/rounded-3xl/rounded/g' -e 's/rounded-2xl/rounded/g' -e 's/rounded-xl/rounded/g' -e 's/rounded-lg/rounded/g' \"$f\")",
       "Bash(done)",
-      "Bash(grep -rn border-radius c:/Users/wals741/webphoto/han-admin/src/app/admin/notice/boards/[id]/page.tsx)"
+      "Bash(grep -rn border-radius c:/Users/wals741/webphoto/han-admin/src/app/admin/notice/boards/[id]/page.tsx)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
