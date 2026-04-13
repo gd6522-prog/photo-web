@@ -52,36 +52,43 @@ const SLOT_CONFIGS: SlotConfig[] = [
     type: "store-master",
   },
   {
-    key: "delivery-schedule",
-    label: "배송일정",
+    key: "product-master",
+    label: "상품마스터",
     description: "서버에 파일로 저장됩니다",
     accept: "*",
     type: "generic",
   },
   {
-    key: "vehicle-info",
-    label: "차량정보",
+    key: "workcenter-product-master",
+    label: "작업센터별 취급상품 마스터",
     description: "서버에 파일로 저장됩니다",
     accept: "*",
     type: "generic",
   },
   {
-    key: "driver-list",
-    label: "기사명단",
+    key: "cell-management",
+    label: "셀관리",
     description: "서버에 파일로 저장됩니다",
     accept: "*",
     type: "generic",
   },
   {
-    key: "work-order",
-    label: "작업지시서",
+    key: "product-strategy",
+    label: "상품별 전략관리",
     description: "서버에 파일로 저장됩니다",
     accept: "*",
     type: "generic",
   },
   {
-    key: "misc",
-    label: "기타",
+    key: "inventory-status",
+    label: "재고현황",
+    description: "서버에 파일로 저장됩니다",
+    accept: "*",
+    type: "generic",
+  },
+  {
+    key: "product-inventory",
+    label: "상품별재고현황",
     description: "서버에 파일로 저장됩니다",
     accept: "*",
     type: "generic",
@@ -341,7 +348,7 @@ export default function FileUploadPage() {
           if (!json.ok) throw new Error(json.message ?? "DB 반영 실패");
           updateSlot(key, {
             busy: false,
-            message: `반영 완료 — ${json.count}건 반영 / ${json.deleted}건 삭제`,
+            message: `업로드 완료 — ${state.fileName} (${json.count}건 반영 / ${json.deleted}건 삭제)`,
             isError: false,
           });
         } catch (err: any) {

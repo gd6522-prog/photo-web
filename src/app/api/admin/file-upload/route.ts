@@ -7,11 +7,12 @@ export const runtime = "nodejs";
 // "store-master" is handled via /api/admin/store-master/import (DB import).
 // All other keys store files in R2.
 const GENERIC_SLOT_KEYS = [
-  "delivery-schedule",
-  "vehicle-info",
-  "driver-list",
-  "work-order",
-  "misc",
+  "product-master",
+  "workcenter-product-master",
+  "cell-management",
+  "product-strategy",
+  "inventory-status",
+  "product-inventory",
 ] as const;
 
 type GenericSlotKey = (typeof GENERIC_SLOT_KEYS)[number];
