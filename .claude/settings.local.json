@@ -15,7 +15,9 @@
       "Bash(grep -rn border-radius c:/Users/wals741/webphoto/han-admin/src/app/admin/notice/boards/[id]/page.tsx)",
       "Bash(npx tsc:*)",
       "Bash(cat vercel.json)",
-      "Bash(ls .vercel)"
+      "Bash(ls .vercel)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)"
     ]
   }
 }
