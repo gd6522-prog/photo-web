@@ -197,7 +197,7 @@ function StoreNoticeCardMulti({
   const groups: { noticeText: string; rows: CargoRow[] }[] = [];
   const noticeIndexMap = new Map<string, number>();
   for (const row of activeRows) {
-    const text = noticeMap[row.id]?.trim() ?? "";
+    const text = noticeMap[row.store_code]?.trim() ?? "";
     if (noticeIndexMap.has(text)) {
       groups[noticeIndexMap.get(text)!].rows.push(row);
     } else {
@@ -506,7 +506,7 @@ function DriverMessageCardHorizontal({
     const groups = new Map<string, CargoRow[]>();
     for (const row of rows) {
       // 2개 이상일 때 미입력은 1회전으로 처리, 1개일 때는 그룹 무시
-      const r = rows.length === 1 ? "single" : (roundMap[row.id]?.trim() || "1");
+      const r = rows.length === 1 ? "single" : (roundMap[row.store_code]?.trim() || "1");
       if (!groups.has(r)) groups.set(r, []);
       groups.get(r)!.push(row);
     }
@@ -742,7 +742,7 @@ export default function SupportPage() {
   }
 
   async function loadRounds(rows: CargoRow[]) {
-    const ids = rows.filter((r) => r.support_excluded).map((r) => r.id);
+    const ids = rows.filter((r) => r.support_excluded && r.store_code).map((r) => r.store_code);
     if (!ids.length) return;
     const { data } = await supabase.from("support_rounds").select("row_id,round_no").in("row_id", ids);
     if (!data?.length) return;
@@ -756,7 +756,7 @@ export default function SupportPage() {
   }
 
   async function loadNotices(rows: CargoRow[]) {
-    const ids = rows.filter((r) => r.support_excluded).map((r) => r.id);
+    const ids = rows.filter((r) => r.support_excluded && r.store_code).map((r) => r.store_code);
     if (!ids.length) return;
     const { data } = await supabase.from("support_notices").select("row_id,notice").in("row_id", ids);
     if (!data?.length) return;
@@ -990,7 +990,7 @@ export default function SupportPage() {
       })()}
 
       {/* 전체 선작업/이동점포 공지 섹션 */}
-      {regularSupportRows.some((r) => noticeInputs[r.id]?.trim()) && (() => {
+      {regularSupportRows.some((r) => noticeInputs[r.store_code]?.trim()) && (() => {
         const globalNoticeRef = getNoticeRef("global-notice");
         return (
           <div style={{ border: "1px solid #a7f3d0", background: "#f0fdf4", padding: "16px 20px", marginBottom: 16, borderRadius: 4 }}>
@@ -1021,7 +1021,7 @@ export default function SupportPage() {
         // 회전별 집계
         const roundMap = new Map<string, { large: number; small: number }>();
         for (const r of rows) {
-          const rv = roundInputs[r.id]?.trim() || "";
+          const rv = roundInputs[r.store_code]?.trim() || "";
           const key = rv || "미입력";
           const prev = roundMap.get(key) ?? { large: 0, small: 0 };
           const { largeTotal: l, smallTotal: s } = cargoTotals(r);
@@ -1088,8 +1088,8 @@ export default function SupportPage() {
             {/* 점포 행 목록 */}
             {!isCollapsed && rows.map((row) => {
               const { largeTotal, smallTotal } = cargoTotals(row);
-              const roundVal = roundInputs[row.id] ?? "";
-              const noticeVal = noticeInputs[row.id] ?? "";
+              const roundVal = roundInputs[row.store_code] ?? "";
+              const noticeVal = noticeInputs[row.store_code] ?? "";
 
               return (
                 <div key={row.id} style={{ borderTop: "1px solid #e9f0f5", paddingTop: 12, paddingBottom: 12 }}>
@@ -1100,8 +1100,8 @@ export default function SupportPage() {
                         value={roundVal}
                         onChange={(e) => {
                           const v = e.target.value.replace(/[^\d]/g, "");
-                          setRoundInputs((prev) => ({ ...prev, [row.id]: v }));
-                          void saveRound(row.id, v);
+                          setRoundInputs((prev) => ({ ...prev, [row.store_code]: v }));
+                          void saveRound(row.store_code, v);
                         }}
                         placeholder="–"
                         inputMode="numeric"
@@ -1134,8 +1134,8 @@ export default function SupportPage() {
                         value={noticeVal}
                         onChange={(e) => {
                           const v = e.target.value;
-                          setNoticeInputs((prev) => ({ ...prev, [row.id]: v }));
-                          void saveNotice(row.id, v);
+                          setNoticeInputs((prev) => ({ ...prev, [row.store_code]: v }));
+                          void saveNotice(row.store_code, v);
                         }}
                         placeholder="선작업/이동점포 공지 내용"
                         rows={3}

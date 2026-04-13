@@ -1405,7 +1405,7 @@ function buildSupportReportGroups(
   const groups = new Map<string, CargoRow[]>();
   for (const row of supportRows) {
     const driverName = row.note?.trim() ?? "";
-    const round = roundsMap[row.id]?.trim() || "1";
+    const round = roundsMap[row.store_code]?.trim() || "1";
     const key = `${driverName}|||${round}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(row);
@@ -2030,7 +2030,7 @@ export function VehiclePageScreen({
     if (!initialSupportAuto || !storageReady) return;
     setMessage("지원 자동: 기사명+회전별로 자동 출력합니다.");
     void (async () => {
-      const ids = cargoRows.filter((r) => r.support_excluded).map((r) => r.id);
+      const ids = cargoRows.filter((r) => r.support_excluded && r.store_code).map((r) => r.store_code);
       if (!ids.length) return;
       const { data } = await supabase.from("support_rounds").select("row_id,round_no").in("row_id", ids);
       if (data?.length) {
@@ -3824,7 +3824,7 @@ export function VehiclePageScreen({
                 setSupportDriverNameInput("");
                 setSupportStoreNameInputs(Array.from({ length: 20 }, () => ""));
                 setMessage("지원 자동: 기사명+회전별로 자동 출력합니다.");
-                const ids = cargoRows.filter((r) => r.support_excluded).map((r) => r.id);
+                const ids = cargoRows.filter((r) => r.support_excluded && r.store_code).map((r) => r.store_code);
                 if (ids.length) {
                   const { data } = await supabase.from("support_rounds").select("row_id,round_no").in("row_id", ids);
                   if (data?.length) {
