@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as XLSX from "xlsx";
+import { supabase } from "@/lib/supabase";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,7 +38,7 @@ type SlotState = {
   duplicates: string[];
 };
 
-type ServerSlotInfo = { fileName: string; uploadedAt: string } | null;
+type ServerSlotInfo = { fileName: string; uploadedAt: string; uploaderName?: string } | null;
 
 // ─── Slot Configuration ───────────────────────────────────────────────────────
 // 슬롯 추가 시 이 배열에만 항목을 추가하면 됩니다.
@@ -254,6 +255,7 @@ export default function FileUploadPage() {
     Object.fromEntries(SLOT_CONFIGS.map((s) => [s.key, { ...INIT_SLOT }]))
   );
   const [serverFiles, setServerFiles] = useState<Record<string, ServerSlotInfo>>({});
+  const [currentUserName, setCurrentUserName] = useState<string>("");
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const updateSlot = useCallback((key: string, patch: Partial<SlotState>) => {
@@ -272,6 +274,22 @@ export default function FileUploadPage() {
   useEffect(() => {
     loadStatus();
   }, [loadStatus]);
+
+  // 현재 로그인 사용자 이름 조회
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+        const { data } = await supabase
+          .from("profiles")
+          .select("name")
+          .eq("id", session.user.id)
+          .maybeSingle();
+        if (data?.name) setCurrentUserName(data.name);
+      } catch {}
+    })();
+  }, []);
 
   // 파일 선택/드롭 시 처리
   const handleFilePick = useCallback(
@@ -397,11 +415,29 @@ export default function FileUploadPage() {
           });
           const json = await res.json();
           if (!json.ok) throw new Error(json.message ?? "DB 반영 실패");
+
+          // 메타데이터 저장 (마지막 업로더 이름 포함)
+          await fetch("/api/admin/file-upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "save-meta",
+              slotKey: key,
+              fileName: state.fileName,
+              ...(currentUserName ? { uploaderName: currentUserName } : {}),
+            }),
+          });
+
+          const now = new Date().toISOString();
           updateSlot(key, {
             busy: false,
             message: `업로드 완료 — ${state.fileName} (${json.count}건 반영 / ${json.deleted}건 삭제)`,
             isError: false,
           });
+          setServerFiles((prev) => ({
+            ...prev,
+            [key]: { fileName: state.fileName, uploadedAt: now, uploaderName: currentUserName || undefined },
+          }));
         } catch (err: any) {
           updateSlot(key, {
             busy: false,
@@ -447,7 +483,12 @@ export default function FileUploadPage() {
           await fetch("/api/admin/file-upload", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "confirm", slotKey: key, fileName: file.name }),
+            body: JSON.stringify({
+              action: "confirm",
+              slotKey: key,
+              fileName: file.name,
+              ...(currentUserName ? { uploaderName: currentUserName } : {}),
+            }),
           });
 
           const now = new Date().toISOString();
@@ -458,7 +499,7 @@ export default function FileUploadPage() {
           });
           setServerFiles((prev) => ({
             ...prev,
-            [key]: { fileName: file.name, uploadedAt: now },
+            [key]: { fileName: file.name, uploadedAt: now, uploaderName: currentUserName || undefined },
           }));
         } catch (err: any) {
           updateSlot(key, {
@@ -469,7 +510,7 @@ export default function FileUploadPage() {
         }
       }
     },
-    [slotStates, updateSlot]
+    [slotStates, updateSlot, currentUserName]
   );
 
   // 슬롯 초기화
@@ -530,7 +571,7 @@ export default function FileUploadPage() {
       >
         {SLOT_CONFIGS.map((config) => {
           const state = slotStates[config.key];
-          const serverFile = config.type === "generic" ? serverFiles[config.key] : null;
+          const serverFile = serverFiles[config.key] ?? null;
           const canUpload =
             !state.busy &&
             !!state.fileName &&
@@ -607,20 +648,27 @@ function SlotCard({
       }}
     >
       {/* 슬롯 헤더 */}
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 4 }}>
-        <span style={{ fontWeight: 900, fontSize: 16 }}>{config.label}</span>
-        {config.type === "store-master" && (
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              background: "#EFF6FF",
-              color: "#1D4ED8",
-              border: "1px solid #BFDBFE",
-              padding: "1px 6px",
-            }}
-          >
-            DB 반영
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 4 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+          <span style={{ fontWeight: 900, fontSize: 16 }}>{config.label}</span>
+          {config.type === "store-master" && (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                background: "#EFF6FF",
+                color: "#1D4ED8",
+                border: "1px solid #BFDBFE",
+                padding: "1px 6px",
+              }}
+            >
+              DB 반영
+            </span>
+          )}
+        </div>
+        {serverFile?.uploaderName && (
+          <span style={{ fontSize: 11, color: "#6B7280", whiteSpace: "nowrap" }}>
+            {serverFile.uploaderName}
           </span>
         )}
       </div>

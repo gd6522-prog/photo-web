@@ -21,10 +21,21 @@ const GENERIC_SLOT_KEYS = [
   "product-inventory",
 ] as const;
 
+// store-master uses DB import but also saves R2 metadata (for last uploader display)
+const STORE_MASTER_KEY = "store-master";
+
+// All keys that can have metadata saved
+const ALL_META_KEYS = [...GENERIC_SLOT_KEYS, STORE_MASTER_KEY] as const;
+type AllMetaKey = (typeof ALL_META_KEYS)[number];
+
 type GenericSlotKey = (typeof GENERIC_SLOT_KEYS)[number];
 
 function isGenericSlotKey(key: string): key is GenericSlotKey {
   return GENERIC_SLOT_KEYS.includes(key as GenericSlotKey);
+}
+
+function isMetaKey(key: string): key is AllMetaKey {
+  return ALL_META_KEYS.includes(key as AllMetaKey);
 }
 
 /** R2 key prefix for files in a slot */
@@ -37,16 +48,16 @@ function metaKey(key: string) {
   return `file-uploads/${key}.meta`;
 }
 
-// ─── GET: return current file status for all generic slots ───────────────────
+// ─── GET: return current file status for all slots (including store-master) ──
 export async function GET() {
-  const slots: Record<string, { fileName: string; uploadedAt: string } | null> = {};
+  const slots: Record<string, { fileName: string; uploadedAt: string; uploaderName?: string } | null> = {};
 
   await Promise.all(
-    GENERIC_SLOT_KEYS.map(async (key) => {
+    ALL_META_KEYS.map(async (key) => {
       try {
         const text = await getR2ObjectText(metaKey(key));
         slots[key] = text
-          ? (JSON.parse(text) as { fileName: string; uploadedAt: string })
+          ? (JSON.parse(text) as { fileName: string; uploadedAt: string; uploaderName?: string })
           : null;
       } catch {
         slots[key] = null;
@@ -74,9 +85,23 @@ export async function POST(req: NextRequest) {
       slotKey?: string;
       fileName?: string;
       contentType?: string;
+      uploaderName?: string;
     };
 
-    const { action, slotKey = "", fileName = "", contentType = "application/octet-stream" } = body;
+    const { action, slotKey = "", fileName = "", contentType = "application/octet-stream", uploaderName } = body;
+
+    // ── action: save-meta — any slot key (used after store-master DB import) ─
+    if (action === "save-meta") {
+      if (!slotKey || !isMetaKey(slotKey)) {
+        return NextResponse.json({ ok: false, message: `유효하지 않은 슬롯: ${slotKey}` }, { status: 400 });
+      }
+      if (!fileName) {
+        return NextResponse.json({ ok: false, message: "fileName이 없습니다." }, { status: 400 });
+      }
+      const meta = { fileName, uploadedAt: new Date().toISOString(), ...(uploaderName ? { uploaderName } : {}) };
+      await putR2Object(metaKey(slotKey), JSON.stringify(meta), "application/json");
+      return NextResponse.json({ ok: true });
+    }
 
     if (!slotKey || !isGenericSlotKey(slotKey)) {
       return NextResponse.json(
@@ -91,7 +116,6 @@ export async function POST(req: NextRequest) {
 
     // ── action: upload-url ──────────────────────────────────────────────────
     if (action === "upload-url") {
-      // Delete existing files for the slot before issuing a new upload URL
       const oldKeys = await listR2Keys(slotPrefix(slotKey));
       if (oldKeys.length > 0) {
         await deleteR2Objects(oldKeys);
@@ -105,7 +129,7 @@ export async function POST(req: NextRequest) {
 
     // ── action: confirm ─────────────────────────────────────────────────────
     if (action === "confirm") {
-      const meta = { fileName, uploadedAt: new Date().toISOString() };
+      const meta = { fileName, uploadedAt: new Date().toISOString(), ...(uploaderName ? { uploaderName } : {}) };
       await putR2Object(metaKey(slotKey), JSON.stringify(meta), "application/json");
       return NextResponse.json({ ok: true });
     }
