@@ -33,7 +33,7 @@ AS $$
     -- 처리대기: 예정일 많이 남은것부터(DESC), 동률이면 제보순서
     CASE WHEN hr.sort_key = 1 THEN r.planned_due_date ELSE NULL END DESC NULLS LAST,
     CASE WHEN hr.sort_key = 1 THEN hr.created_at    ELSE NULL END ASC  NULLS LAST,
-    -- 처리완료: 개선시간순서
-    CASE WHEN hr.sort_key = 2 THEN r.improved_at ELSE NULL END ASC NULLS LAST
+    -- 처리완료: 최근 개선순(DESC)
+    CASE WHEN hr.sort_key = 2 THEN r.improved_at ELSE NULL END DESC NULLS LAST
   LIMIT (p_to - p_from + 1) OFFSET p_from
 $$;
