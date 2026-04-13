@@ -21,7 +21,9 @@
       "mcp__claude_ai_Supabase__list_projects",
       "Bash(node -e ':*)",
       "mcp__claude_ai_Supabase__get_project",
-      "mcp__claude_ai_Supabase__execute_sql"
+      "mcp__claude_ai_Supabase__execute_sql",
+      "mcp__claude_ai_Supabase__list_edge_functions",
+      "mcp__claude_ai_Supabase__get_edge_function"
     ]
   }
 }
