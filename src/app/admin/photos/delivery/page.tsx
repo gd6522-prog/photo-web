@@ -215,6 +215,7 @@ export default function AdminDeliveryPhotosPage() {
 
   // ---------- data ----------
   const [photos, setPhotos] = useState<DeliveryPhotoRow[]>([]);
+  const [rawPhotos, setRawPhotos] = useState<DeliveryPhotoRow[]>([]); // 서버에서 받은 원본 (필터 미적용)
   const [profilesById, setProfilesById] = useState<Record<string, ProfileRow>>({});
   const [redeliveryDoneByPhotoId, setRedeliveryDoneByPhotoId] = useState<Record<string, RedeliveryDoneRow>>({});
 
@@ -398,6 +399,20 @@ export default function AdminDeliveryPhotosPage() {
     return sorted;
   };
 
+  // 서버 쿼리에 카테고리 + 점포(store_code/store_name) 필터 적용
+  const applyServerFilters = (q: any) => {
+    if (driverCategory === "wash") {
+      q = q.or("path.ilike.wash1/%,path.ilike.wash2/%");
+    } else {
+      q = q.ilike("path", `${driverCategory}/%`);
+    }
+    const st = searchText.trim();
+    if (st) {
+      q = q.or(`store_code.ilike.%${st}%,store_name.ilike.%${st}%`);
+    }
+    return q;
+  };
+
   const fetchFirstPage = async () => {
     if (!dateFrom || !dateTo) return;
     if (dateFrom > dateTo) return alert("날짜 범위가 올바르지 않습니다. (시작일 <= 종료일)");
@@ -406,16 +421,9 @@ export default function AdminDeliveryPhotosPage() {
     try {
       const { startUTC, endUTC } = kstRangeToUtcRange(dateFrom, dateTo);
 
-      const from = 0;
-      const to = PAGE_SIZE - 1;
-
       let q = buildBaseQuery(startUTC, endUTC);
-      if (driverCategory === "wash") {
-        q = (q as any).or("path.ilike.wash1/%,path.ilike.wash2/%");
-      } else {
-        q = (q as any).ilike("path", `${driverCategory}/%`);
-      }
-      q = (q as any).range(from, to);
+      q = applyServerFilters(q);
+      q = q.range(0, PAGE_SIZE - 1);
 
       const { data, error } = await q;
       if (error) throw error;
@@ -429,18 +437,11 @@ export default function AdminDeliveryPhotosPage() {
       // enrich (done + profile) for this page
       await enrichDoneAndProfiles(rawRows, false);
 
-      // filters + sorting (sorting needs doneMap → 최신 state 반영 위해 local로도 계산)
-      // doneMap은 setState 비동기라, 여기서는 일단 서버 재조회 없이 “현재 페이지에서만” 다시 뽑음:
-      // (enrichDoneAndProfiles 내부에서 만든 doneMapNew를 외부로 빼지 않기 위해,
-      //  아래는 재배송우선정렬이 켜진 경우엔 다음 fetchData에서 한번 더 안정화됨.
-      //  실사용에는 충분히 자연스럽게 동작함)
       const filtered = applyClientFilters(rawRows);
-
-      // 임시 doneMap (현재 state + 곧 반영될 값) 기준으로 정렬
-      // state가 늦게 반영되더라도, “더보기/조회” 시 재정렬됨
       const doneSnapshot = { ...(redeliveryDoneByPhotoId || {}) };
       const sorted = applySorting(filtered, doneSnapshot);
 
+      setRawPhotos(rawRows);
       setPhotos(sorted);
       setPage(0);
       setHasMore(rawRows.length === PAGE_SIZE);
@@ -448,6 +449,7 @@ export default function AdminDeliveryPhotosPage() {
     } catch (e: any) {
       alert(e?.message ?? String(e));
       setPhotos([]);
+      setRawPhotos([]);
       setHasMore(false);
       setPage(0);
     } finally {
@@ -468,29 +470,26 @@ export default function AdminDeliveryPhotosPage() {
       const to = from + PAGE_SIZE - 1;
 
       let q = buildBaseQuery(startUTC, endUTC);
-      if (driverCategory === "wash") {
-        q = (q as any).or("path.ilike.wash1/%,path.ilike.wash2/%");
-      } else {
-        q = (q as any).ilike("path", `${driverCategory}/%`);
-      }
-      q = (q as any).range(from, to);
+      q = applyServerFilters(q);
+      q = q.range(from, to);
 
       const { data, error } = await q;
       if (error) throw error;
 
-      const rawRows = (data ?? []) as DeliveryPhotoRow[];
-      await enrichDoneAndProfiles(rawRows, true);
+      const newRows = (data ?? []) as DeliveryPhotoRow[];
+      await enrichDoneAndProfiles(newRows, true);
 
-      // 기존 + 신규 합치고 → 필터/정렬 다시
-      const mergedRaw = [...photos, ...rawRows];
+      // rawPhotos(원본) 기준으로 합치고 → 필터/정렬 적용
+      const mergedRaw = [...rawPhotos, ...newRows];
 
       const filtered = applyClientFilters(mergedRaw);
-      const doneSnapshot = { ...(redeliveryDoneByPhotoId || {}) }; // state 반영 전일 수 있음
+      const doneSnapshot = { ...(redeliveryDoneByPhotoId || {}) };
       const sorted = applySorting(filtered, doneSnapshot);
 
+      setRawPhotos(mergedRaw);
       setPhotos(sorted);
       setPage(nextPage);
-      setHasMore(rawRows.length === PAGE_SIZE);
+      setHasMore(newRows.length === PAGE_SIZE);
     } catch (e: any) {
       alert(e?.message ?? String(e));
       setHasMore(false);
