@@ -528,6 +528,13 @@ function sanitizeFileName(name: string) {
   return name.replace(/[^\w.-]+/g, "_");
 }
 
+function normDeliveryDate(v: string): string {
+  const s = String(v ?? "").trim().replace(/\//g, "-");
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+  return "";
+}
+
 async function readCurrentSnapshot() {
   const text = await getR2ObjectText(CURRENT_PATH);
   if (!text) return null;
@@ -793,9 +800,18 @@ export async function POST(req: NextRequest) {
     await putR2Object(CURRENT_PATH, snapshotJson, "application/json");
     await putR2Object(archivePath, snapshotJson, "application/json");
 
-    // 날짜별 스냅샷 저장 (daily/YYYY-MM-DD.json) — 이전 파일 덮어쓰기
-    const dailyPath = `${R2_PREFIX}/daily/${kstTodayYYYYMMDD(uploadedAt)}.json`;
-    void putR2Object(dailyPath, snapshotJson, "application/json");
+    // 납품예정일별 daily 파일 저장 — delivery_date 기준으로 그룹핑 후 각 날짜별 저장
+    const byDeliveryDate = new Map<string, ProductRow[]>();
+    for (const row of mappedRows) {
+      const dd = normDeliveryDate(row.delivery_date);
+      if (!dd) continue;
+      if (!byDeliveryDate.has(dd)) byDeliveryDate.set(dd, []);
+      byDeliveryDate.get(dd)!.push(row);
+    }
+    for (const [dd, rows] of byDeliveryDate) {
+      const dailySnap: VehicleSnapshot = { ...snapshot, productRows: rows };
+      void putR2Object(`${R2_PREFIX}/daily/${dd}.json`, JSON.stringify(dailySnap), "application/json");
+    }
 
     return json(true, undefined, { snapshot, matchedCount });
   } catch (e) {

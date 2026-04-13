@@ -44,6 +44,13 @@ function normalizeProductText(v: string) {
   return String(v ?? "").replace(/\s+/g, "").toLowerCase();
 }
 
+function normalizeDeliveryDate(v: string): string {
+  const s = String(v ?? "").trim().replace(/\//g, "-");
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+  return "";
+}
+
 function qtyBase(row: ProductRow): number {
   const assigned = row.assigned_qty || row.confirmed_qty || row.current_qty || row.original_qty || 0;
   if (assigned <= 0) return 0;
@@ -81,8 +88,11 @@ async function scanDailyFile(
       const qty = qtyBase(row);
       if (qty <= 0) continue;
 
+      // 파일명 날짜가 아닌 row 내의 납품예정일 사용
+      const rowDate = normalizeDeliveryDate(row.delivery_date) || date;
+
       results.push({
-        date,
+        date: rowDate,
         product_code: row.product_code,
         product_name: row.product_name,
         work_type: row.work_type,
