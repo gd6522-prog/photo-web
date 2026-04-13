@@ -1566,6 +1566,383 @@ function ThreeDayPreview({
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// 점포 검색 위젯 (우측 하단 fixed)
+// ─────────────────────────────────────────────────────────────────────
+type StoreResult = {
+  store_code: string;
+  store_name: string;
+  car_no: string;
+  seq_no: number;
+  delivery_due_time: string | null;
+  address: string | null;
+  phone: string | null;
+  phone_memo: string | null;
+};
+
+type CargoOrderRow = {
+  id: string;
+  car_no: string;
+  seq_no: number;
+  store_code: string;
+  store_name: string;
+  large_box: number;
+  large_inner: number;
+  large_other: number;
+  large_day2l: number;
+  large_nb2l: number;
+  small_low: number;
+  small_high: number;
+  event: number;
+  tobacco: number;
+  certificate: number;
+  cdc: number;
+  pbox: number;
+  standard_time: string;
+  address: string;
+};
+
+function formatPhoneDisplay(raw: string | null) {
+  if (!raw) return null;
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 11) return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  if (digits.length === 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  if (digits.length === 9) return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5)}`;
+  return raw;
+}
+
+function StoreSearchWidget() {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<StoreResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedStore, setSelectedStore] = useState<StoreResult | null>(null);
+  const [orderDate, setOrderDate] = useState("");
+  const [orders, setOrders] = useState<CargoOrderRow[] | null>(null);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState("");
+  const [ordersFileName, setOrdersFileName] = useState("");
+  const [noData, setNoData] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const getToken = async () => {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    return data.session?.access_token ?? null;
+  };
+
+  const doSearch = async (q: string) => {
+    if (!q.trim()) { setResults([]); return; }
+    setSearching(true);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const res = await fetch(`/api/admin/store-search?q=${encodeURIComponent(q)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      const data = await res.json();
+      if (data.ok) setResults(data.stores ?? []);
+    } catch {}
+    finally { setSearching(false); }
+  };
+
+  const onQueryChange = (v: string) => {
+    setQuery(v);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => void doSearch(v), 300);
+  };
+
+  const openStore = (store: StoreResult) => {
+    setSelectedStore(store);
+    setOrderDate("");
+    setOrders(null);
+    setOrdersError("");
+    setNoData(false);
+    setOrdersFileName("");
+  };
+
+  const closeStore = () => {
+    setSelectedStore(null);
+    setOrders(null);
+    setOrdersError("");
+    setNoData(false);
+  };
+
+  const loadOrders = async (date: string) => {
+    if (!selectedStore || !date) return;
+    setOrdersLoading(true);
+    setOrdersError("");
+    setOrders(null);
+    setNoData(false);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const params = new URLSearchParams({
+        date,
+        store_code: selectedStore.store_code,
+        store_name: selectedStore.store_name,
+      });
+      const res = await fetch(`/api/admin/store-daily-orders?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      const data = await res.json();
+      if (!data.ok) { setOrdersError(data.message ?? "불러오기 실패"); return; }
+      if (data.noData) { setNoData(true); return; }
+      setOrders(data.orders ?? []);
+      setOrdersFileName(data.fileName ?? "");
+    } catch (e: any) {
+      setOrdersError(e?.message ?? "오류 발생");
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  const onDateChange = (v: string) => {
+    setOrderDate(v);
+    if (v) void loadOrders(v);
+  };
+
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 60);
+    else { setQuery(""); setResults([]); }
+  }, [open]);
+
+  const totalOrders = (rows: CargoOrderRow[]) =>
+    rows.reduce((s, r) => s + r.large_box + r.large_inner + r.large_other + r.large_day2l + r.large_nb2l + r.small_low + r.small_high + r.event + r.tobacco + r.certificate + r.cdc + r.pbox, 0);
+
+  const ORDER_COLS: { key: keyof CargoOrderRow; label: string }[] = [
+    { key: "large_box", label: "박스" },
+    { key: "large_inner", label: "이너" },
+    { key: "large_other", label: "이형" },
+    { key: "large_day2l", label: "올데이2L" },
+    { key: "large_nb2l", label: "NB2L" },
+    { key: "small_low", label: "경량" },
+    { key: "small_high", label: "슬라" },
+    { key: "event", label: "행사" },
+    { key: "tobacco", label: "담배" },
+    { key: "certificate", label: "유가" },
+    { key: "cdc", label: "CDC" },
+    { key: "pbox", label: "피박스" },
+  ];
+
+  const btnBase: React.CSSProperties = {
+    position: "fixed",
+    bottom: 24,
+    right: 24,
+    zIndex: 9000,
+    width: 52,
+    height: 52,
+    borderRadius: "50%",
+    border: "none",
+    background: "linear-gradient(135deg,#103b53 0%,#0f766e 100%)",
+    boxShadow: "0 8px 24px rgba(16,59,83,0.38)",
+    color: "white",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 22,
+  };
+
+  return (
+    <>
+      {/* 고정 버튼 */}
+      <button
+        style={btnBase}
+        title="점포 검색"
+        onClick={() => setOpen(true)}
+      >
+        🔍
+      </button>
+
+      {/* 검색 패널 오버레이 */}
+      {open && !selectedStore && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.45)", zIndex: 9100, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", padding: 24 }}
+          onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
+        >
+          <div style={{ width: 360, background: "white", borderRadius: 0, boxShadow: "0 30px 60px rgba(2,6,23,0.25)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            {/* 헤더 */}
+            <div style={{ padding: "14px 16px 12px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ fontWeight: 950, fontSize: 15, color: "#0f2940" }}>점포 검색</div>
+              <button onClick={() => setOpen(false)} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 18, color: "#94a3b8", lineHeight: 1, padding: 2 }}>✕</button>
+            </div>
+            {/* 검색창 */}
+            <div style={{ padding: "12px 16px" }}>
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={(e) => onQueryChange(e.target.value)}
+                placeholder="점포코드 또는 점포명 입력"
+                style={{ width: "100%", height: 40, padding: "0 12px", border: "1px solid #D1D5DB", borderRadius: 0, fontSize: 14, outline: "none", boxSizing: "border-box" }}
+              />
+            </div>
+            {/* 결과 */}
+            <div style={{ maxHeight: 360, overflowY: "auto", borderTop: "1px solid #f1f5f9" }}>
+              {searching ? (
+                <div style={{ padding: "16px 16px", color: "#64748b", fontSize: 13 }}>검색 중...</div>
+              ) : results.length === 0 && query.trim() ? (
+                <div style={{ padding: "16px 16px", color: "#64748b", fontSize: 13 }}>검색 결과 없음</div>
+              ) : results.length === 0 ? (
+                <div style={{ padding: "16px 16px", color: "#94a3b8", fontSize: 13 }}>점포코드 또는 점포명으로 검색하세요.</div>
+              ) : (
+                results.map((s) => (
+                  <button
+                    key={s.store_code}
+                    onClick={() => openStore(s)}
+                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", border: "none", borderBottom: "1px solid #f1f5f9", background: "white", cursor: "pointer", textAlign: "left" }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: 14, color: "#0f2940" }}>{s.store_name}</div>
+                      <div style={{ marginTop: 2, fontSize: 12, color: "#64748b", display: "flex", gap: 8 }}>
+                        <span>{s.store_code}</span>
+                        {s.car_no && <span>호차: {s.car_no}</span>}
+                        {s.phone && <span style={{ color: "#0284c7" }}>{formatPhoneDisplay(s.phone)}</span>}
+                      </div>
+                    </div>
+                    <span style={{ color: "#cbd5e1", fontSize: 13 }}>{">"}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 점포 상세 모달 */}
+      {selectedStore && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.5)", zIndex: 9200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+          onClick={(e) => { if (e.target === e.currentTarget) closeStore(); }}
+        >
+          <div style={{ width: "100%", maxWidth: 560, maxHeight: "90vh", background: "white", borderRadius: 0, boxShadow: "0 30px 60px rgba(2,6,23,0.28)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            {/* 헤더 */}
+            <div style={{ padding: "14px 16px 12px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+              <div>
+                <div style={{ fontWeight: 950, fontSize: 16, color: "#0f2940" }}>{selectedStore.store_name}</div>
+                <div style={{ marginTop: 2, fontSize: 12, color: "#64748b" }}>
+                  {selectedStore.store_code}
+                  {selectedStore.car_no && ` · ${selectedStore.car_no}호차`}
+                  {selectedStore.seq_no ? ` · 순번 ${selectedStore.seq_no}` : ""}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  onClick={() => { closeStore(); }}
+                  style={{ height: 30, padding: "0 12px", border: "1px solid #CBD5E1", borderRadius: 0, background: "white", cursor: "pointer", fontSize: 13, fontWeight: 800, color: "#64748b" }}
+                >
+                  목록
+                </button>
+                <button onClick={closeStore} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 18, color: "#94a3b8", lineHeight: 1, padding: 2 }}>✕</button>
+              </div>
+            </div>
+
+            {/* 본문 */}
+            <div style={{ overflowY: "auto", flex: 1, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
+              {/* 기본 정보 */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div style={{ border: "1px solid #e2e8f0", borderRadius: 0, padding: "10px 12px", background: "#f8fafc" }}>
+                  <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, marginBottom: 4 }}>연락처</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "#0f2940", fontFamily: "monospace" }}>
+                    {formatPhoneDisplay(selectedStore.phone) ?? "-"}
+                  </div>
+                  {selectedStore.phone_memo && (
+                    <div style={{ marginTop: 4, fontSize: 11, color: "#64748b" }}>{selectedStore.phone_memo}</div>
+                  )}
+                </div>
+                <div style={{ border: "1px solid #e2e8f0", borderRadius: 0, padding: "10px 12px", background: "#f8fafc" }}>
+                  <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, marginBottom: 4 }}>점착기준시간</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "#0f2940" }}>
+                    {selectedStore.delivery_due_time || "-"}
+                  </div>
+                </div>
+              </div>
+
+              {selectedStore.address && (
+                <div style={{ border: "1px solid #e2e8f0", borderRadius: 0, padding: "10px 12px", background: "#f8fafc", fontSize: 13, color: "#374151" }}>
+                  <span style={{ fontSize: 11, color: "#64748b", fontWeight: 700, marginRight: 8 }}>주소</span>
+                  {selectedStore.address}
+                </div>
+              )}
+
+              {/* 날짜 선택 */}
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#374151", marginBottom: 6 }}>납품예정일 선택</div>
+                <input
+                  type="date"
+                  value={orderDate}
+                  onChange={(e) => onDateChange(e.target.value)}
+                  style={{ height: 38, padding: "0 10px", border: "1px solid #D1D5DB", borderRadius: 0, fontSize: 14, outline: "none", width: "100%", boxSizing: "border-box" }}
+                />
+              </div>
+
+              {/* 발주 리스트 */}
+              {orderDate && (
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: "#374151", marginBottom: 6, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span>발주 리스트 (물동량)</span>
+                    {ordersFileName && (
+                      <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>{ordersFileName}</span>
+                    )}
+                  </div>
+
+                  {ordersLoading ? (
+                    <div style={{ padding: "14px 0", color: "#64748b", fontSize: 13 }}>불러오는 중...</div>
+                  ) : ordersError ? (
+                    <div style={{ padding: "10px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 0, color: "#b91c1c", fontSize: 13 }}>{ordersError}</div>
+                  ) : noData ? (
+                    <div style={{ padding: "14px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 0, color: "#64748b", fontSize: 13 }}>
+                      해당 날짜의 단품별 데이터가 없습니다.
+                    </div>
+                  ) : orders && orders.length === 0 ? (
+                    <div style={{ padding: "14px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 0, color: "#64748b", fontSize: 13 }}>
+                      해당 날짜에 이 점포의 발주가 없습니다.
+                    </div>
+                  ) : orders && orders.length > 0 ? (
+                    orders.map((row) => {
+                      const nonZero = ORDER_COLS.filter((c) => (row[c.key] as number) > 0);
+                      const total = totalOrders([row]);
+                      return (
+                        <div key={row.id} style={{ border: "1px solid #e2e8f0", borderRadius: 0, padding: "10px 12px", background: "#fff", marginBottom: 8 }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                            <div style={{ fontSize: 12, color: "#64748b" }}>
+                              {row.car_no && <span>호차 {row.car_no}</span>}
+                              {row.seq_no ? <span style={{ marginLeft: 8 }}>순번 {row.seq_no}</span> : null}
+                              {row.standard_time && <span style={{ marginLeft: 8 }}>점착 {row.standard_time}</span>}
+                            </div>
+                            <div style={{ fontSize: 14, fontWeight: 950, color: "#0f2940" }}>
+                              총 <span style={{ color: "#0284c7" }}>{total.toLocaleString("ko-KR")}</span>
+                            </div>
+                          </div>
+                          {nonZero.length > 0 ? (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                              {nonZero.map((c) => (
+                                <div key={c.key} style={{ padding: "4px 8px", background: "#eef5fb", border: "1px solid #d9e6ef", borderRadius: 4, fontSize: 12 }}>
+                                  <span style={{ color: "#64748b" }}>{c.label} </span>
+                                  <span style={{ fontWeight: 900, color: "#0f2940" }}>{(row[c.key] as number).toLocaleString("ko-KR")}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: 12, color: "#94a3b8" }}>발주 수량 없음</div>
+                          )}
+                        </div>
+                      );
+                    })
+                  ) : null}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function AdminHomePage() {
   const [ready, setReady] = useState(false);
 
@@ -2221,6 +2598,8 @@ export default function AdminHomePage() {
             </div>
           </div>
         </div>
+
+        <StoreSearchWidget />
 
         <style jsx>{`
           .homeGrid {
