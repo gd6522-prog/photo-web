@@ -510,12 +510,6 @@ export default function AdminDeliveryPhotosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checking, isAdmin]);
 
-  // ✅ 필터 변경 시: 첫 페이지로 리셋
-  useEffect(() => {
-    if (checking || !isAdmin) return;
-    fetchFirstPage();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFrom, dateTo, driverCategory, miochulFlags.redelivery, miochulFlags.damage, miochulFlags.other, carNo, searchText]);
 
   const carOptions = useMemo(() => {
     const set = new Set<string>();
@@ -907,7 +901,7 @@ export default function AdminDeliveryPhotosPage() {
             {/* 검색어 */}
             <div style={{ marginBottom: 18 }}>
               <div style={{ fontSize: 10, fontWeight: 900, color: "#94A3B8", letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>검색</div>
-              <input value={searchText} onChange={(e) => setSearchText(e.target.value)} placeholder="점포코드, 점포명, 메모..." className="filter-input" style={{ width: "100%", height: 38, borderRadius: 8, border: "1.5px solid #E2E8F0", padding: "0 12px", fontWeight: 700, fontSize: 13, color: "#0F172A", outline: "none", boxSizing: "border-box" }} />
+              <input value={searchText} onChange={(e) => setSearchText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") fetchFirstPage(); }} placeholder="점포코드, 점포명, 메모..." className="filter-input" style={{ width: "100%", height: 38, borderRadius: 8, border: "1.5px solid #E2E8F0", padding: "0 12px", fontWeight: 700, fontSize: 13, color: "#0F172A", outline: "none", boxSizing: "border-box" }} />
             </div>
 
             {/* 조회 / 초기화 */}
