@@ -165,7 +165,7 @@ export default function VehicleHistoryUploadPage() {
       if (!token) return;
       const res  = await fetch("/api/admin/vehicles/daily-list", { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
-      if (data.ok) setFileDates(new Set<string>(data.data?.dates ?? []));
+      if (data.ok) setFileDates(new Set<string>(data.dates ?? []));
     } catch {
       // 무시
     } finally {
@@ -186,7 +186,7 @@ export default function VehicleHistoryUploadPage() {
       if (!token) return;
       const res  = await fetch(`/api/admin/vehicles/daily-list?date=${date}`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
-      if (data.ok) setDateInfo(data.data);
+      if (data.ok) setDateInfo({ fileName: data.fileName ?? "", uploadedAt: data.uploadedAt ?? "" });
     } catch {
       setDateInfo(null);
     } finally {
