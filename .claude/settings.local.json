@@ -17,7 +17,11 @@
       "Bash(cat vercel.json)",
       "Bash(ls .vercel)",
       "Bash(git add:*)",
-      "Bash(git commit -m ':*)"
+      "Bash(git commit -m ':*)",
+      "mcp__claude_ai_Supabase__list_projects",
+      "Bash(node -e ':*)",
+      "mcp__claude_ai_Supabase__get_project",
+      "mcp__claude_ai_Supabase__execute_sql"
     ]
   }
 }
