@@ -168,8 +168,8 @@ export default function AdminPhotosPage() {
   const [dragging, setDragging] = useState(false);
   const dragStart = React.useRef<{ mx: number; my: number; px: number; py: number } | null>(null);
 
-  // photo pagination (우측 패널)
-  const [photoPage, setPhotoPage] = useState(0);
+  // photo load-more (우측 패널)
+  const [visibleCount, setVisibleCount] = useState(21);
   const PHOTO_PAGE_SIZE = 21;
 
   // ---------- 작업파트 촬영 현황 ----------
@@ -302,15 +302,14 @@ export default function AdminPhotosPage() {
     });
   }, [photos, profilesById]);
 
-  // 점포 바뀌면 페이지 리셋
+  // 점포 바뀌면 더보기 리셋
   useEffect(() => {
-    setPhotoPage(0);
+    setVisibleCount(PHOTO_PAGE_SIZE);
   }, [selectedStoreCode]);
 
   const pagedPhotos = useMemo(() => {
-    const start = photoPage * PHOTO_PAGE_SIZE;
-    return selectedStorePhotos.slice(start, start + PHOTO_PAGE_SIZE);
-  }, [selectedStorePhotos, photoPage]);
+    return selectedStorePhotos.slice(0, visibleCount);
+  }, [selectedStorePhotos, visibleCount]);
 
 
   // 선택 점포의 작업파트별 사진 수
@@ -871,7 +870,7 @@ export default function AdminPhotosPage() {
                   <div>
                     <div className="photos-grid-reveal" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(178px, 1fr))", gap: 10 }}>
                     {pagedPhotos.map((p, localIdx) => {
-                      const globalIdx = photoPage * PHOTO_PAGE_SIZE + localIdx;
+                      const globalIdx = localIdx;
                       const selected = selectedPhotoIds.has(p.id);
                       const prof = profilesById[p.user_id];
                       const uploaderName = prof?.name?.trim() ? prof.name.trim() : "-";
@@ -910,14 +909,12 @@ export default function AdminPhotosPage() {
                   </div>{/* grid end */}
                   </div>{/* wrapper end */}
 
-                  {/* 페이지네이션 */}
-                  {selectedStorePhotos.length > PHOTO_PAGE_SIZE && (
-                    <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                      <button onClick={() => setPhotoPage((v) => Math.max(0, v - 1))} disabled={photoPage === 0} style={{ height: 32, padding: "0 14px", borderRadius: 7, border: "1.5px solid #E2E8F0", background: photoPage === 0 ? "#F8FAFC" : "white", fontWeight: 800, fontSize: 13, cursor: photoPage === 0 ? "not-allowed" : "pointer", color: photoPage === 0 ? "#CBD5E1" : "#374151" }}>← 이전</button>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: "#64748B" }}>
-                        {photoPage + 1} / {Math.ceil(selectedStorePhotos.length / PHOTO_PAGE_SIZE)}
-                      </span>
-                      <button onClick={() => setPhotoPage((v) => Math.min(Math.ceil(selectedStorePhotos.length / PHOTO_PAGE_SIZE) - 1, v + 1))} disabled={photoPage >= Math.ceil(selectedStorePhotos.length / PHOTO_PAGE_SIZE) - 1} style={{ height: 32, padding: "0 14px", borderRadius: 7, border: "1.5px solid #E2E8F0", background: photoPage >= Math.ceil(selectedStorePhotos.length / PHOTO_PAGE_SIZE) - 1 ? "#F8FAFC" : "white", fontWeight: 800, fontSize: 13, cursor: photoPage >= Math.ceil(selectedStorePhotos.length / PHOTO_PAGE_SIZE) - 1 ? "not-allowed" : "pointer", color: photoPage >= Math.ceil(selectedStorePhotos.length / PHOTO_PAGE_SIZE) - 1 ? "#CBD5E1" : "#374151" }}>다음 →</button>
+                  {/* 더보기 */}
+                  {visibleCount < selectedStorePhotos.length && (
+                    <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <button onClick={() => setVisibleCount((v) => v + PHOTO_PAGE_SIZE)} style={{ height: 36, padding: "0 28px", borderRadius: 8, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 800, fontSize: 13, cursor: "pointer", color: "#374151" }}>
+                        더보기 ({visibleCount} / {selectedStorePhotos.length})
+                      </button>
                     </div>
                   )}
                 </>
