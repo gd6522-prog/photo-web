@@ -17,7 +17,8 @@ function isAuthorized(req: NextRequest) {
 }
 
 async function syncRecord(
-  sbAdmin: ReturnType<typeof createClient>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sbAdmin: any,
   bucket: string,
   filePath: string,
   recordId: string,
