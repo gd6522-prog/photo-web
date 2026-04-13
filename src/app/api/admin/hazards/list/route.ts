@@ -55,21 +55,18 @@ export async function GET(req: NextRequest) {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  // Phase 1: fix RPC + reports 병렬 실행 (fix는 summary 전에만 완료되면 됨)
-  const [, reportsResult] = await Promise.all([
+  // Phase 1: fix RPC + count + sorted page 병렬 실행
+  const [, countResult, itemsResult] = await Promise.all([
     guard.sbAdmin.rpc("fix_expired_hazard_sort_keys"),
-    guard.sbAdmin
-      .from("hazard_reports")
-      .select("id,user_id,comment,photo_path,photo_url,created_at,sort_key", { count: "exact" })
-      .order("sort_key", { ascending: true })
-      .order("created_at", { ascending: false })
-      .range(from, to),
+    guard.sbAdmin.from("hazard_reports").select("*", { count: "exact", head: true }),
+    guard.sbAdmin.rpc("get_hazard_page_sorted", { p_from: from, p_to: to }),
   ]);
 
-  if (reportsResult.error) return json(false, reportsResult.error.message, null, 500);
+  if (countResult.error) return json(false, countResult.error.message, null, 500);
+  if (itemsResult.error) return json(false, itemsResult.error.message, null, 500);
 
-  const reports = (reportsResult.data ?? []) as ReportRow[];
-  const totalCount = reportsResult.count ?? 0;
+  const reports = (itemsResult.data ?? []) as ReportRow[];
+  const totalCount = countResult.count ?? 0;
   const reportIds = reports.map((r) => r.id);
 
   // Phase 2: summary + resolutions + extraPhotos + profiles 모두 병렬
