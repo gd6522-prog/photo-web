@@ -365,20 +365,41 @@ export default function FileUploadPage() {
           return;
         }
 
-        updateSlot(key, { busy: true, message: "업로드 중..." });
+        updateSlot(key, { busy: true, message: "업로드 URL 발급 중..." });
 
         try {
-          const formData = new FormData();
-          formData.append("slotKey", key);
-          formData.append("file", file);
-
-          const res = await fetch("/api/admin/file-upload", {
+          // 1) 서버에서 presigned PUT URL 발급 + 기존 파일 삭제
+          const urlRes = await fetch("/api/admin/file-upload", {
             method: "POST",
-            body: formData,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "upload-url",
+              slotKey: key,
+              fileName: file.name,
+              contentType: file.type || "application/octet-stream",
+            }),
           });
-          const json = await res.json();
-          if (!json.ok) throw new Error(json.message ?? "업로드 실패");
+          const urlJson = await urlRes.json();
+          if (!urlJson.ok) throw new Error(urlJson.message ?? "URL 발급 실패");
 
+          updateSlot(key, { message: "R2에 업로드 중..." });
+
+          // 2) 브라우저에서 R2로 직접 PUT (서버 body 제한 우회)
+          const putRes = await fetch(urlJson.uploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": file.type || "application/octet-stream" },
+            body: file,
+          });
+          if (!putRes.ok) throw new Error(`R2 업로드 실패 (${putRes.status})`);
+
+          // 3) 서버에 메타데이터 저장
+          await fetch("/api/admin/file-upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "confirm", slotKey: key, fileName: file.name }),
+          });
+
+          const now = new Date().toISOString();
           updateSlot(key, {
             busy: false,
             message: `업로드 완료 — ${file.name}`,
@@ -386,7 +407,7 @@ export default function FileUploadPage() {
           });
           setServerFiles((prev) => ({
             ...prev,
-            [key]: { fileName: file.name, uploadedAt: new Date().toISOString() },
+            [key]: { fileName: file.name, uploadedAt: now },
           }));
         } catch (err: any) {
           updateSlot(key, {

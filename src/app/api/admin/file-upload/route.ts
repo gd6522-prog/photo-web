@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { putR2Object, getR2ObjectText, listR2Keys, deleteR2Objects } from "@/lib/r2";
+import {
+  getUploadPresignedUrl,
+  putR2Object,
+  getR2ObjectText,
+  listR2Keys,
+  deleteR2Objects,
+} from "@/lib/r2";
 
 export const runtime = "nodejs";
 
 // ─── Slot keys that support generic file storage ─────────────────────────────
 // "store-master" is handled via /api/admin/store-master/import (DB import).
-// All other keys store files in R2.
+// All other keys store files in R2 via presigned PUT URL (browser → R2 directly).
 const GENERIC_SLOT_KEYS = [
   "product-master",
   "workcenter-product-master",
@@ -21,12 +27,12 @@ function isGenericSlotKey(key: string): key is GenericSlotKey {
   return GENERIC_SLOT_KEYS.includes(key as GenericSlotKey);
 }
 
-/** R2 prefix for all files in a slot */
+/** R2 key prefix for files in a slot */
 function slotPrefix(key: string) {
   return `file-uploads/${key}/`;
 }
 
-/** R2 key for slot metadata (filename, uploadedAt) */
+/** R2 key for slot metadata JSON */
 function metaKey(key: string) {
   return `file-uploads/${key}.meta`;
 }
@@ -39,7 +45,9 @@ export async function GET() {
     GENERIC_SLOT_KEYS.map(async (key) => {
       try {
         const text = await getR2ObjectText(metaKey(key));
-        slots[key] = text ? (JSON.parse(text) as { fileName: string; uploadedAt: string }) : null;
+        slots[key] = text
+          ? (JSON.parse(text) as { fileName: string; uploadedAt: string })
+          : null;
       } catch {
         slots[key] = null;
       }
@@ -49,47 +57,63 @@ export async function GET() {
   return NextResponse.json({ ok: true, slots });
 }
 
-// ─── POST: upload a file to a generic slot ───────────────────────────────────
+// ─── POST: two actions via JSON body ─────────────────────────────────────────
+//
+//  action = "upload-url"
+//    body: { slotKey, fileName, contentType }
+//    → deletes existing R2 files for the slot, returns a presigned PUT URL
+//
+//  action = "confirm"
+//    body: { slotKey, fileName }
+//    → writes .meta after the browser has successfully PUT the file
+//
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData();
-    const slotKey = String(formData.get("slotKey") ?? "").trim();
-    const file = formData.get("file");
+    const body = (await req.json()) as {
+      action?: string;
+      slotKey?: string;
+      fileName?: string;
+      contentType?: string;
+    };
 
-    if (!slotKey) {
-      return NextResponse.json({ ok: false, message: "slotKey가 없습니다." }, { status: 400 });
-    }
+    const { action, slotKey = "", fileName = "", contentType = "application/octet-stream" } = body;
 
-    if (!isGenericSlotKey(slotKey)) {
+    if (!slotKey || !isGenericSlotKey(slotKey)) {
       return NextResponse.json(
         { ok: false, message: `유효하지 않은 슬롯입니다: ${slotKey}` },
         { status: 400 }
       );
     }
 
-    if (!file || !(file instanceof File)) {
-      return NextResponse.json({ ok: false, message: "파일이 없습니다." }, { status: 400 });
+    if (!fileName) {
+      return NextResponse.json({ ok: false, message: "fileName이 없습니다." }, { status: 400 });
     }
 
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const contentType = file.type || "application/octet-stream";
+    // ── action: upload-url ──────────────────────────────────────────────────
+    if (action === "upload-url") {
+      // Delete existing files for the slot before issuing a new upload URL
+      const oldKeys = await listR2Keys(slotPrefix(slotKey));
+      if (oldKeys.length > 0) {
+        await deleteR2Objects(oldKeys);
+      }
 
-    // Delete all existing files for this slot
-    const oldKeys = await listR2Keys(slotPrefix(slotKey));
-    if (oldKeys.length > 0) {
-      await deleteR2Objects(oldKeys);
+      const r2Key = `${slotPrefix(slotKey)}${fileName}`;
+      const uploadUrl = await getUploadPresignedUrl(r2Key, contentType);
+
+      return NextResponse.json({ ok: true, uploadUrl, r2Key });
     }
 
-    // Upload new file
-    const r2Key = `${slotPrefix(slotKey)}${file.name}`;
-    await putR2Object(r2Key, buffer, contentType);
+    // ── action: confirm ─────────────────────────────────────────────────────
+    if (action === "confirm") {
+      const meta = { fileName, uploadedAt: new Date().toISOString() };
+      await putR2Object(metaKey(slotKey), JSON.stringify(meta), "application/json");
+      return NextResponse.json({ ok: true });
+    }
 
-    // Store metadata (for status display)
-    const meta = { fileName: file.name, uploadedAt: new Date().toISOString() };
-    await putR2Object(metaKey(slotKey), JSON.stringify(meta), "application/json");
-
-    return NextResponse.json({ ok: true, fileName: file.name });
+    return NextResponse.json(
+      { ok: false, message: `알 수 없는 action: ${action}` },
+      { status: 400 }
+    );
   } catch (e: any) {
     return NextResponse.json(
       { ok: false, message: e?.message ?? String(e) },
