@@ -22,6 +22,7 @@ type SlotConfig = {
   description: string;
   accept: string;
   type: SlotType;
+  requiredHeaders?: string[]; // 파일 내 필수 컬럼 (없으면 검증 생략)
 };
 
 type SlotState = {
@@ -57,6 +58,7 @@ const SLOT_CONFIGS: SlotConfig[] = [
     description: "",
     accept: ".xlsx,.xls",
     type: "generic",
+    requiredHeaders: ["화주사코드", "화주사명", "외박스입수", "센터피킹입수"],
   },
   {
     key: "workcenter-product-master",
@@ -64,6 +66,7 @@ const SLOT_CONFIGS: SlotConfig[] = [
     description: "",
     accept: ".xlsx,.xls",
     type: "generic",
+    requiredHeaders: ["센터명", "외박스바코드", "센터피킹입수", "취급여부"],
   },
   {
     key: "cell-management",
@@ -71,6 +74,7 @@ const SLOT_CONFIGS: SlotConfig[] = [
     description: "",
     accept: ".xlsx,.xls",
     type: "generic",
+    requiredHeaders: ["셀코드", "셀명", "스테이지여부", "보관설비형태"],
   },
   {
     key: "product-strategy",
@@ -78,6 +82,7 @@ const SLOT_CONFIGS: SlotConfig[] = [
     description: "",
     accept: ".xlsx,.xls",
     type: "generic",
+    requiredHeaders: ["할당전략코드", "보충전략코드", "적치전략코드"],
   },
   {
     key: "inventory-status",
@@ -85,6 +90,7 @@ const SLOT_CONFIGS: SlotConfig[] = [
     description: "",
     accept: ".xlsx,.xls",
     type: "generic",
+    requiredHeaders: ["로케이션코드", "로트번호", "입고일자", "재고회전일"],
   },
   {
     key: "product-inventory",
@@ -92,10 +98,11 @@ const SLOT_CONFIGS: SlotConfig[] = [
     description: "",
     accept: ".xlsx,.xls",
     type: "generic",
+    requiredHeaders: ["화주사코드", "화주사명", "재고수량", "보류수량"],
   },
 ];
 
-// ─── Store Master Excel Helpers (기존 페이지와 동일 로직) ─────────────────────
+// ─── Excel Helpers ────────────────────────────────────────────────────────────
 
 function normalizeHeader(value: unknown) {
   return String(value ?? "")
@@ -103,6 +110,26 @@ function normalizeHeader(value: unknown) {
     .replace(/\s+/g, "")
     .replace(/\*/g, "")
     .toLowerCase();
+}
+
+/** 파일의 첫 번째 시트 헤더 행을 읽어 필수 컬럼 존재 여부를 검증 */
+async function validateFileHeaders(
+  file: File,
+  requiredHeaders: string[]
+): Promise<{ valid: boolean; missing: string[] }> {
+  try {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: "array" });
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    if (!worksheet) return { valid: false, missing: requiredHeaders };
+    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false }) as unknown[][];
+    if (!rows || rows.length === 0) return { valid: false, missing: requiredHeaders };
+    const fileHeaders = rows[0].map((h) => normalizeHeader(h));
+    const missing = requiredHeaders.filter((h) => !fileHeaders.includes(normalizeHeader(h)));
+    return { valid: missing.length === 0, missing };
+  } catch {
+    return { valid: false, missing: requiredHeaders };
+  }
 }
 
 function normalizeStoreCode(value: unknown) {
@@ -299,6 +326,21 @@ export default function FileUploadPage() {
           });
           return;
         }
+
+        // 필수 컬럼 검증
+        if (config.requiredHeaders && config.requiredHeaders.length > 0) {
+          updateSlot(key, { ...INIT_SLOT, fileName: file.name, busy: true, message: "파일 형식 확인 중..." });
+          const { valid, missing } = await validateFileHeaders(file, config.requiredHeaders);
+          if (!valid) {
+            updateSlot(key, {
+              ...INIT_SLOT,
+              message: `올바른 파일이 아닙니다. 누락된 컬럼: ${missing.join(", ")}`,
+              isError: true,
+            });
+            return;
+          }
+        }
+
         updateSlot(key, {
           ...INIT_SLOT,
           fileObject: file,
