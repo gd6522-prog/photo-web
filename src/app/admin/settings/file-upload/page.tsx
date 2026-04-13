@@ -55,42 +55,42 @@ const SLOT_CONFIGS: SlotConfig[] = [
     key: "product-master",
     label: "상품마스터",
     description: "",
-    accept: "*",
+    accept: ".xlsx,.xls",
     type: "generic",
   },
   {
     key: "workcenter-product-master",
     label: "작업센터별 취급상품 마스터",
     description: "",
-    accept: "*",
+    accept: ".xlsx,.xls",
     type: "generic",
   },
   {
     key: "cell-management",
     label: "셀관리",
     description: "",
-    accept: "*",
+    accept: ".xlsx,.xls",
     type: "generic",
   },
   {
     key: "product-strategy",
     label: "상품별 전략관리",
     description: "",
-    accept: "*",
+    accept: ".xlsx,.xls",
     type: "generic",
   },
   {
     key: "inventory-status",
     label: "재고현황",
     description: "",
-    accept: "*",
+    accept: ".xlsx,.xls",
     type: "generic",
   },
   {
     key: "product-inventory",
     label: "상품별재고현황",
     description: "",
-    accept: "*",
+    accept: ".xlsx,.xls",
     type: "generic",
   },
 ];
@@ -290,6 +290,15 @@ export default function FileUploadPage() {
           isError: false,
         });
       } else {
+        const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+        if (ext !== "xlsx" && ext !== "xls") {
+          updateSlot(key, {
+            ...INIT_SLOT,
+            message: `엑셀 파일만 업로드할 수 있습니다. (.xlsx / .xls)`,
+            isError: true,
+          });
+          return;
+        }
         updateSlot(key, {
           ...INIT_SLOT,
           fileObject: file,
