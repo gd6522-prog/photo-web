@@ -1580,26 +1580,20 @@ type StoreResult = {
   phone_memo: string | null;
 };
 
-type CargoOrderRow = {
-  id: string;
-  car_no: string;
-  seq_no: number;
-  store_code: string;
-  store_name: string;
-  large_box: number;
-  large_inner: number;
-  large_other: number;
-  large_day2l: number;
-  large_nb2l: number;
-  small_low: number;
-  small_high: number;
-  event: number;
-  tobacco: number;
-  certificate: number;
-  cdc: number;
-  pbox: number;
-  standard_time: string;
-  address: string;
+type ProductOrderItem = {
+  product_code: string;
+  product_name: string;
+  work_type: string;
+  qty: number;
+  delivery_date: string;
+};
+
+type ProductHistoryItem = {
+  date: string;
+  product_code: string;
+  product_name: string;
+  work_type: string;
+  qty: number;
 };
 
 function formatPhoneDisplay(raw: string | null) {
@@ -1611,20 +1605,37 @@ function formatPhoneDisplay(raw: string | null) {
   return raw;
 }
 
+type StoreDetailTab = "order" | "product";
+
 function StoreSearchWidget() {
+  // ── 점포 검색 패널 ──
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<StoreResult[]>([]);
   const [searching, setSearching] = useState(false);
-  const [selectedStore, setSelectedStore] = useState<StoreResult | null>(null);
-  const [orderDate, setOrderDate] = useState("");
-  const [orders, setOrders] = useState<CargoOrderRow[] | null>(null);
-  const [ordersLoading, setOrdersLoading] = useState(false);
-  const [ordersError, setOrdersError] = useState("");
-  const [ordersFileName, setOrdersFileName] = useState("");
-  const [noData, setNoData] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const storeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── 점포 상세 모달 ──
+  const [selectedStore, setSelectedStore] = useState<StoreResult | null>(null);
+  const [activeTab, setActiveTab] = useState<StoreDetailTab>("order");
+
+  // ── 발주 단품 탭 ──
+  const [orderDate, setOrderDate] = useState("");
+  const [products, setProducts] = useState<ProductOrderItem[] | null>(null);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [productsError, setProductsError] = useState("");
+  const [productsFileName, setProductsFileName] = useState("");
+  const [productsNoData, setProductsNoData] = useState(false);
+
+  // ── 상품 이력 탭 ──
+  const [productQuery, setProductQuery] = useState("");
+  const [history, setHistory] = useState<ProductHistoryItem[] | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+  const [historyScanned, setHistoryScanned] = useState(0);
+  const productDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const productInputRef = useRef<HTMLInputElement>(null);
 
   const getToken = async () => {
     const { data, error } = await supabase.auth.getSession();
@@ -1632,7 +1643,8 @@ function StoreSearchWidget() {
     return data.session?.access_token ?? null;
   };
 
-  const doSearch = async (q: string) => {
+  // ── 점포 검색 ──
+  const doStoreSearch = async (q: string) => {
     if (!q.trim()) { setResults([]); return; }
     setSearching(true);
     try {
@@ -1650,59 +1662,102 @@ function StoreSearchWidget() {
 
   const onQueryChange = (v: string) => {
     setQuery(v);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => void doSearch(v), 300);
+    if (storeDebounceRef.current) clearTimeout(storeDebounceRef.current);
+    storeDebounceRef.current = setTimeout(() => void doStoreSearch(v), 300);
   };
 
+  // ── 점포 선택 ──
   const openStore = (store: StoreResult) => {
     setSelectedStore(store);
+    setActiveTab("order");
     setOrderDate("");
-    setOrders(null);
-    setOrdersError("");
-    setNoData(false);
-    setOrdersFileName("");
+    setProducts(null);
+    setProductsError("");
+    setProductsNoData(false);
+    setProductsFileName("");
+    setProductQuery("");
+    setHistory(null);
+    setHistoryError("");
   };
 
   const closeStore = () => {
     setSelectedStore(null);
-    setOrders(null);
-    setOrdersError("");
-    setNoData(false);
   };
 
-  const loadOrders = async (date: string) => {
-    if (!selectedStore || !date) return;
-    setOrdersLoading(true);
-    setOrdersError("");
-    setOrders(null);
-    setNoData(false);
+  const backToList = () => {
+    setSelectedStore(null);
+  };
+
+  // ── 발주 단품 로드 ──
+  const loadProducts = async (date: string, store: StoreResult) => {
+    setProductsLoading(true);
+    setProductsError("");
+    setProducts(null);
+    setProductsNoData(false);
     try {
       const token = await getToken();
       if (!token) return;
       const params = new URLSearchParams({
         date,
-        store_code: selectedStore.store_code,
-        store_name: selectedStore.store_name,
+        store_code: store.store_code,
+        store_name: store.store_name,
       });
       const res = await fetch(`/api/admin/store-daily-orders?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
       });
       const data = await res.json();
-      if (!data.ok) { setOrdersError(data.message ?? "불러오기 실패"); return; }
-      if (data.noData) { setNoData(true); return; }
-      setOrders(data.orders ?? []);
-      setOrdersFileName(data.fileName ?? "");
+      if (!data.ok) { setProductsError(data.message ?? "불러오기 실패"); return; }
+      if (data.noData) { setProductsNoData(true); return; }
+      setProducts(data.products ?? []);
+      setProductsFileName(data.fileName ?? "");
     } catch (e: any) {
-      setOrdersError(e?.message ?? "오류 발생");
+      setProductsError(e?.message ?? "오류 발생");
     } finally {
-      setOrdersLoading(false);
+      setProductsLoading(false);
     }
   };
 
   const onDateChange = (v: string) => {
     setOrderDate(v);
-    if (v) void loadOrders(v);
+    if (v && selectedStore) void loadProducts(v, selectedStore);
+  };
+
+  // ── 상품 이력 검색 ──
+  const doProductSearch = async (q: string, store: StoreResult) => {
+    if (!q.trim() || q.trim().length < 2) { setHistory(null); setHistoryError(""); return; }
+    setHistoryLoading(true);
+    setHistoryError("");
+    setHistory(null);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const params = new URLSearchParams({
+        store_code: store.store_code,
+        store_name: store.store_name,
+        q: q.trim(),
+      });
+      const res = await fetch(`/api/admin/store-product-history?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      const data = await res.json();
+      if (!data.ok) { setHistoryError(data.message ?? "불러오기 실패"); return; }
+      setHistory(data.history ?? []);
+      setHistoryScanned(data.scanned ?? 0);
+    } catch (e: any) {
+      setHistoryError(e?.message ?? "오류 발생");
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const onProductQueryChange = (v: string) => {
+    setProductQuery(v);
+    if (productDebounceRef.current) clearTimeout(productDebounceRef.current);
+    if (!selectedStore) return;
+    const store = selectedStore;
+    productDebounceRef.current = setTimeout(() => void doProductSearch(v, store), 500);
   };
 
   useEffect(() => {
@@ -1710,23 +1765,34 @@ function StoreSearchWidget() {
     else { setQuery(""); setResults([]); }
   }, [open]);
 
-  const totalOrders = (rows: CargoOrderRow[]) =>
-    rows.reduce((s, r) => s + r.large_box + r.large_inner + r.large_other + r.large_day2l + r.large_nb2l + r.small_low + r.small_high + r.event + r.tobacco + r.certificate + r.cdc + r.pbox, 0);
+  useEffect(() => {
+    if (activeTab === "product") setTimeout(() => productInputRef.current?.focus(), 60);
+  }, [activeTab]);
 
-  const ORDER_COLS: { key: keyof CargoOrderRow; label: string }[] = [
-    { key: "large_box", label: "박스" },
-    { key: "large_inner", label: "이너" },
-    { key: "large_other", label: "이형" },
-    { key: "large_day2l", label: "올데이2L" },
-    { key: "large_nb2l", label: "NB2L" },
-    { key: "small_low", label: "경량" },
-    { key: "small_high", label: "슬라" },
-    { key: "event", label: "행사" },
-    { key: "tobacco", label: "담배" },
-    { key: "certificate", label: "유가" },
-    { key: "cdc", label: "CDC" },
-    { key: "pbox", label: "피박스" },
-  ];
+  // ── 탭 전환 시 상품 검색 초기화 ──
+  const switchTab = (tab: StoreDetailTab) => {
+    setActiveTab(tab);
+    if (tab === "order") {
+      // 날짜 유지
+    } else {
+      setProductQuery("");
+      setHistory(null);
+      setHistoryError("");
+    }
+  };
+
+  const tabBtnStyle = (active: boolean): React.CSSProperties => ({
+    flex: 1,
+    height: 38,
+    border: "none",
+    borderBottom: active ? "2px solid #103b53" : "2px solid transparent",
+    background: "transparent",
+    color: active ? "#103b53" : "#64748b",
+    fontWeight: active ? 950 : 700,
+    fontSize: 13,
+    cursor: "pointer",
+    transition: "color 0.15s",
+  });
 
   const btnBase: React.CSSProperties = {
     position: "fixed",
@@ -1750,27 +1816,21 @@ function StoreSearchWidget() {
   return (
     <>
       {/* 고정 버튼 */}
-      <button
-        style={btnBase}
-        title="점포 검색"
-        onClick={() => setOpen(true)}
-      >
+      <button style={btnBase} title="점포 검색" onClick={() => setOpen(true)}>
         🔍
       </button>
 
-      {/* 검색 패널 오버레이 */}
+      {/* ── 점포 검색 패널 (우하단 슬라이드업) ── */}
       {open && !selectedStore && (
         <div
           style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.45)", zIndex: 9100, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", padding: 24 }}
           onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
         >
           <div style={{ width: 360, background: "white", borderRadius: 0, boxShadow: "0 30px 60px rgba(2,6,23,0.25)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-            {/* 헤더 */}
             <div style={{ padding: "14px 16px 12px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ fontWeight: 950, fontSize: 15, color: "#0f2940" }}>점포 검색</div>
               <button onClick={() => setOpen(false)} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 18, color: "#94a3b8", lineHeight: 1, padding: 2 }}>✕</button>
             </div>
-            {/* 검색창 */}
             <div style={{ padding: "12px 16px" }}>
               <input
                 ref={inputRef}
@@ -1780,7 +1840,6 @@ function StoreSearchWidget() {
                 style={{ width: "100%", height: 40, padding: "0 12px", border: "1px solid #D1D5DB", borderRadius: 0, fontSize: 14, outline: "none", boxSizing: "border-box" }}
               />
             </div>
-            {/* 결과 */}
             <div style={{ maxHeight: 360, overflowY: "auto", borderTop: "1px solid #f1f5f9" }}>
               {searching ? (
                 <div style={{ padding: "16px 16px", color: "#64748b", fontSize: 13 }}>검색 중...</div>
@@ -1812,128 +1871,189 @@ function StoreSearchWidget() {
         </div>
       )}
 
-      {/* 점포 상세 모달 */}
+      {/* ── 점포 상세 모달 ── */}
       {selectedStore && (
         <div
           style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.5)", zIndex: 9200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
           onClick={(e) => { if (e.target === e.currentTarget) closeStore(); }}
         >
-          <div style={{ width: "100%", maxWidth: 560, maxHeight: "90vh", background: "white", borderRadius: 0, boxShadow: "0 30px 60px rgba(2,6,23,0.28)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div style={{ width: "100%", maxWidth: 600, maxHeight: "92vh", background: "white", borderRadius: 0, boxShadow: "0 30px 60px rgba(2,6,23,0.28)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+
             {/* 헤더 */}
-            <div style={{ padding: "14px 16px 12px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-              <div>
-                <div style={{ fontWeight: 950, fontSize: 16, color: "#0f2940" }}>{selectedStore.store_name}</div>
-                <div style={{ marginTop: 2, fontSize: 12, color: "#64748b" }}>
-                  {selectedStore.store_code}
-                  {selectedStore.car_no && ` · ${selectedStore.car_no}호차`}
-                  {selectedStore.seq_no ? ` · 순번 ${selectedStore.seq_no}` : ""}
+            <div style={{ padding: "12px 16px 0", borderBottom: "1px solid #e2e8f0", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", paddingBottom: 10 }}>
+                <div>
+                  <div style={{ fontWeight: 950, fontSize: 16, color: "#0f2940" }}>{selectedStore.store_name}</div>
+                  <div style={{ marginTop: 2, fontSize: 12, color: "#64748b" }}>
+                    {selectedStore.store_code}
+                    {selectedStore.car_no && ` · ${selectedStore.car_no}호차`}
+                    {selectedStore.seq_no ? ` · 순번 ${selectedStore.seq_no}` : ""}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <button
+                    onClick={backToList}
+                    style={{ height: 28, padding: "0 10px", border: "1px solid #CBD5E1", borderRadius: 0, background: "white", cursor: "pointer", fontSize: 12, fontWeight: 800, color: "#64748b" }}
+                  >
+                    목록
+                  </button>
+                  <button onClick={closeStore} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 18, color: "#94a3b8", lineHeight: 1, padding: 2 }}>✕</button>
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 6 }}>
-                <button
-                  onClick={() => { closeStore(); }}
-                  style={{ height: 30, padding: "0 12px", border: "1px solid #CBD5E1", borderRadius: 0, background: "white", cursor: "pointer", fontSize: 13, fontWeight: 800, color: "#64748b" }}
-                >
-                  목록
-                </button>
-                <button onClick={closeStore} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 18, color: "#94a3b8", lineHeight: 1, padding: 2 }}>✕</button>
+
+              {/* 탭 */}
+              <div style={{ display: "flex", marginBottom: -1 }}>
+                <button style={tabBtnStyle(activeTab === "order")} onClick={() => switchTab("order")}>발주 단품</button>
+                <button style={tabBtnStyle(activeTab === "product")} onClick={() => switchTab("product")}>상품 이력</button>
               </div>
             </div>
 
             {/* 본문 */}
-            <div style={{ overflowY: "auto", flex: 1, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
-              {/* 기본 정보 */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <div style={{ border: "1px solid #e2e8f0", borderRadius: 0, padding: "10px 12px", background: "#f8fafc" }}>
-                  <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, marginBottom: 4 }}>연락처</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: "#0f2940", fontFamily: "monospace" }}>
+            <div style={{ overflowY: "auto", flex: 1, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+
+              {/* 기본 정보 (공통) */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <div style={{ border: "1px solid #e2e8f0", padding: "9px 12px", background: "#f8fafc" }}>
+                  <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, marginBottom: 3 }}>연락처</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "#0f2940", fontFamily: "monospace", letterSpacing: 0.3 }}>
                     {formatPhoneDisplay(selectedStore.phone) ?? "-"}
                   </div>
-                  {selectedStore.phone_memo && (
-                    <div style={{ marginTop: 4, fontSize: 11, color: "#64748b" }}>{selectedStore.phone_memo}</div>
-                  )}
+                  {selectedStore.phone_memo && <div style={{ marginTop: 3, fontSize: 11, color: "#64748b" }}>{selectedStore.phone_memo}</div>}
                 </div>
-                <div style={{ border: "1px solid #e2e8f0", borderRadius: 0, padding: "10px 12px", background: "#f8fafc" }}>
-                  <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, marginBottom: 4 }}>점착기준시간</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: "#0f2940" }}>
-                    {selectedStore.delivery_due_time || "-"}
-                  </div>
+                <div style={{ border: "1px solid #e2e8f0", padding: "9px 12px", background: "#f8fafc" }}>
+                  <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, marginBottom: 3 }}>점착기준시간</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "#0f2940" }}>{selectedStore.delivery_due_time || "-"}</div>
                 </div>
               </div>
-
               {selectedStore.address && (
-                <div style={{ border: "1px solid #e2e8f0", borderRadius: 0, padding: "10px 12px", background: "#f8fafc", fontSize: 13, color: "#374151" }}>
+                <div style={{ border: "1px solid #e2e8f0", padding: "8px 12px", background: "#f8fafc", fontSize: 13, color: "#374151" }}>
                   <span style={{ fontSize: 11, color: "#64748b", fontWeight: 700, marginRight: 8 }}>주소</span>
                   {selectedStore.address}
                 </div>
               )}
 
-              {/* 날짜 선택 */}
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 800, color: "#374151", marginBottom: 6 }}>납품예정일 선택</div>
-                <input
-                  type="date"
-                  value={orderDate}
-                  onChange={(e) => onDateChange(e.target.value)}
-                  style={{ height: 38, padding: "0 10px", border: "1px solid #D1D5DB", borderRadius: 0, fontSize: 14, outline: "none", width: "100%", boxSizing: "border-box" }}
-                />
-              </div>
-
-              {/* 발주 리스트 */}
-              {orderDate && (
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: "#374151", marginBottom: 6, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span>발주 리스트 (물동량)</span>
-                    {ordersFileName && (
-                      <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>{ordersFileName}</span>
-                    )}
+              {/* ── 발주 단품 탭 ── */}
+              {activeTab === "order" && (
+                <>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: "#374151", marginBottom: 6 }}>납품예정일 선택</div>
+                    <input
+                      type="date"
+                      value={orderDate}
+                      onChange={(e) => onDateChange(e.target.value)}
+                      style={{ height: 38, padding: "0 10px", border: "1px solid #D1D5DB", borderRadius: 0, fontSize: 14, outline: "none", width: "100%", boxSizing: "border-box" }}
+                    />
                   </div>
 
-                  {ordersLoading ? (
-                    <div style={{ padding: "14px 0", color: "#64748b", fontSize: 13 }}>불러오는 중...</div>
-                  ) : ordersError ? (
-                    <div style={{ padding: "10px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 0, color: "#b91c1c", fontSize: 13 }}>{ordersError}</div>
-                  ) : noData ? (
-                    <div style={{ padding: "14px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 0, color: "#64748b", fontSize: 13 }}>
-                      해당 날짜의 단품별 데이터가 없습니다.
-                    </div>
-                  ) : orders && orders.length === 0 ? (
-                    <div style={{ padding: "14px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 0, color: "#64748b", fontSize: 13 }}>
-                      해당 날짜에 이 점포의 발주가 없습니다.
-                    </div>
-                  ) : orders && orders.length > 0 ? (
-                    orders.map((row) => {
-                      const nonZero = ORDER_COLS.filter((c) => (row[c.key] as number) > 0);
-                      const total = totalOrders([row]);
-                      return (
-                        <div key={row.id} style={{ border: "1px solid #e2e8f0", borderRadius: 0, padding: "10px 12px", background: "#fff", marginBottom: 8 }}>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                            <div style={{ fontSize: 12, color: "#64748b" }}>
-                              {row.car_no && <span>호차 {row.car_no}</span>}
-                              {row.seq_no ? <span style={{ marginLeft: 8 }}>순번 {row.seq_no}</span> : null}
-                              {row.standard_time && <span style={{ marginLeft: 8 }}>점착 {row.standard_time}</span>}
-                            </div>
-                            <div style={{ fontSize: 14, fontWeight: 950, color: "#0f2940" }}>
-                              총 <span style={{ color: "#0284c7" }}>{total.toLocaleString("ko-KR")}</span>
-                            </div>
-                          </div>
-                          {nonZero.length > 0 ? (
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                              {nonZero.map((c) => (
-                                <div key={c.key} style={{ padding: "4px 8px", background: "#eef5fb", border: "1px solid #d9e6ef", borderRadius: 4, fontSize: 12 }}>
-                                  <span style={{ color: "#64748b" }}>{c.label} </span>
-                                  <span style={{ fontWeight: 900, color: "#0f2940" }}>{(row[c.key] as number).toLocaleString("ko-KR")}</span>
-                                </div>
+                  {orderDate && (
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: "#374151", marginBottom: 6, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <span>발주 단품 리스트</span>
+                        {productsFileName && <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>{productsFileName}</span>}
+                      </div>
+
+                      {productsLoading ? (
+                        <div style={{ padding: "14px 0", color: "#64748b", fontSize: 13 }}>불러오는 중...</div>
+                      ) : productsError ? (
+                        <div style={{ padding: "10px 12px", background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", fontSize: 13 }}>{productsError}</div>
+                      ) : productsNoData ? (
+                        <div style={{ padding: "12px", background: "#f8fafc", border: "1px solid #e2e8f0", color: "#64748b", fontSize: 13 }}>해당 날짜의 단품 데이터가 없습니다.</div>
+                      ) : products && products.length === 0 ? (
+                        <div style={{ padding: "12px", background: "#f8fafc", border: "1px solid #e2e8f0", color: "#64748b", fontSize: 13 }}>해당 날짜에 이 점포의 발주가 없습니다.</div>
+                      ) : products && products.length > 0 ? (
+                        <div style={{ border: "1px solid #e2e8f0", overflow: "hidden" }}>
+                          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                            <thead>
+                              <tr style={{ background: "#eef5fb" }}>
+                                <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 950, color: "#103b53", fontSize: 12, borderBottom: "1px solid #d9e6ef" }}>상품명</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 950, color: "#103b53", fontSize: 12, borderBottom: "1px solid #d9e6ef", whiteSpace: "nowrap" }}>바코드</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 950, color: "#103b53", fontSize: 12, borderBottom: "1px solid #d9e6ef", whiteSpace: "nowrap" }}>작업구분</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", fontWeight: 950, color: "#103b53", fontSize: 12, borderBottom: "1px solid #d9e6ef", whiteSpace: "nowrap" }}>수량</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {products.map((p, i) => (
+                                <tr key={i} style={{ borderTop: "1px solid #f1f5f9", background: i % 2 === 0 ? "#fff" : "#fafcfe" }}>
+                                  <td style={{ padding: "8px 10px", fontSize: 12.5, color: "#0f2940", fontWeight: 700, wordBreak: "keep-all" }}>{p.product_name}</td>
+                                  <td style={{ padding: "8px 10px", fontSize: 11.5, color: "#64748b", fontFamily: "monospace", whiteSpace: "nowrap" }}>{p.product_code || "-"}</td>
+                                  <td style={{ padding: "8px 10px", fontSize: 12, color: "#374151", whiteSpace: "nowrap" }}>{p.work_type || "-"}</td>
+                                  <td style={{ padding: "8px 10px", fontSize: 13, fontWeight: 900, color: "#0284c7", textAlign: "right", whiteSpace: "nowrap" }}>{p.qty.toLocaleString("ko-KR")}</td>
+                                </tr>
                               ))}
-                            </div>
-                          ) : (
-                            <div style={{ fontSize: 12, color: "#94a3b8" }}>발주 수량 없음</div>
-                          )}
+                            </tbody>
+                            <tfoot>
+                              <tr style={{ borderTop: "2px solid #d9e6ef", background: "#eef5fb" }}>
+                                <td colSpan={3} style={{ padding: "8px 10px", fontSize: 12.5, fontWeight: 950, color: "#103b53" }}>합계</td>
+                                <td style={{ padding: "8px 10px", fontSize: 13, fontWeight: 950, color: "#0f2940", textAlign: "right" }}>
+                                  {products.reduce((s, p) => s + p.qty, 0).toLocaleString("ko-KR")}
+                                </td>
+                              </tr>
+                            </tfoot>
+                          </table>
                         </div>
-                      );
-                    })
-                  ) : null}
-                </div>
+                      ) : null}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* ── 상품 이력 탭 ── */}
+              {activeTab === "product" && (
+                <>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: "#374151", marginBottom: 6 }}>바코드 또는 상품명 검색</div>
+                    <input
+                      ref={productInputRef}
+                      value={productQuery}
+                      onChange={(e) => onProductQueryChange(e.target.value)}
+                      placeholder="바코드 또는 상품명 2자 이상 입력"
+                      style={{ width: "100%", height: 40, padding: "0 12px", border: "1px solid #D1D5DB", borderRadius: 0, fontSize: 14, outline: "none", boxSizing: "border-box" }}
+                    />
+                    <div style={{ marginTop: 4, fontSize: 11, color: "#94a3b8" }}>최근 60일 이내 납품예정일 이력을 조회합니다.</div>
+                  </div>
+
+                  {historyLoading ? (
+                    <div style={{ padding: "14px 0", color: "#64748b", fontSize: 13 }}>이력 조회 중... (최대 60일 스캔)</div>
+                  ) : historyError ? (
+                    <div style={{ padding: "10px 12px", background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", fontSize: 13 }}>{historyError}</div>
+                  ) : history !== null && history.length === 0 ? (
+                    <div style={{ padding: "12px", background: "#f8fafc", border: "1px solid #e2e8f0", color: "#64748b", fontSize: 13 }}>
+                      검색 결과 없음{historyScanned > 0 && ` (${historyScanned}일치 스캔)`}
+                    </div>
+                  ) : history && history.length > 0 ? (
+                    <div>
+                      <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>
+                        {history.length}건{historyScanned > 0 && ` · ${historyScanned}일치 스캔`}
+                      </div>
+                      <div style={{ border: "1px solid #e2e8f0", overflow: "hidden" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                          <thead>
+                            <tr style={{ background: "#eef5fb" }}>
+                              <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 950, color: "#103b53", fontSize: 12, borderBottom: "1px solid #d9e6ef", whiteSpace: "nowrap" }}>납품예정일</th>
+                              <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 950, color: "#103b53", fontSize: 12, borderBottom: "1px solid #d9e6ef" }}>상품명</th>
+                              <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 950, color: "#103b53", fontSize: 12, borderBottom: "1px solid #d9e6ef", whiteSpace: "nowrap" }}>바코드</th>
+                              <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 950, color: "#103b53", fontSize: 12, borderBottom: "1px solid #d9e6ef", whiteSpace: "nowrap" }}>작업구분</th>
+                              <th style={{ padding: "8px 10px", textAlign: "right", fontWeight: 950, color: "#103b53", fontSize: 12, borderBottom: "1px solid #d9e6ef", whiteSpace: "nowrap" }}>수량</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {history.map((h, i) => (
+                              <tr key={i} style={{ borderTop: "1px solid #f1f5f9", background: i % 2 === 0 ? "#fff" : "#fafcfe" }}>
+                                <td style={{ padding: "8px 10px", fontSize: 12.5, fontWeight: 800, color: "#0f2940", whiteSpace: "nowrap" }}>{h.date}</td>
+                                <td style={{ padding: "8px 10px", fontSize: 12, color: "#374151", wordBreak: "keep-all" }}>{h.product_name}</td>
+                                <td style={{ padding: "8px 10px", fontSize: 11.5, color: "#64748b", fontFamily: "monospace", whiteSpace: "nowrap" }}>{h.product_code || "-"}</td>
+                                <td style={{ padding: "8px 10px", fontSize: 12, color: "#374151", whiteSpace: "nowrap" }}>{h.work_type || "-"}</td>
+                                <td style={{ padding: "8px 10px", fontSize: 13, fontWeight: 900, color: "#0284c7", textAlign: "right", whiteSpace: "nowrap" }}>{h.qty.toLocaleString("ko-KR")}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : productQuery.trim().length >= 2 ? null : (
+                    <div style={{ padding: "12px 0", color: "#94a3b8", fontSize: 13 }}>바코드 또는 상품명을 2자 이상 입력하면 이력을 조회합니다.</div>
+                  )}
+                </>
               )}
             </div>
           </div>

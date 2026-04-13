@@ -4,34 +4,27 @@ import { getR2ObjectText } from "@/lib/r2";
 
 export const runtime = "nodejs";
 
-type CargoRow = {
-  id: string;
-  support_excluded?: boolean;
-  note?: string;
+type ProductRow = {
+  delivery_date: string;
   car_no: string;
   seq_no: number;
   store_code: string;
   store_name: string;
-  large_box: number;
-  large_inner: number;
-  large_other: number;
-  large_day2l: number;
-  large_nb2l: number;
-  small_low: number;
-  small_high: number;
-  event: number;
-  tobacco: number;
-  certificate: number;
-  cdc: number;
-  pbox: number;
-  standard_time: string;
-  address: string;
+  product_code: string;
+  product_name: string;
+  work_type: string;
+  original_qty: number;
+  current_qty: number;
+  assigned_qty: number;
+  confirmed_qty: number;
+  center_unit: number;
+  [key: string]: unknown;
 };
 
 type VehicleSnapshot = {
   fileName: string;
-  productRows: unknown[];
-  cargoRows: CargoRow[];
+  productRows: ProductRow[];
+  cargoRows: unknown[];
   uploadedAt: string;
   uploadedBy: string;
 };
@@ -45,6 +38,13 @@ function normalizeStoreCode(v: string) {
   const digits = raw.replace(/\D/g, "");
   if (!digits) return raw.toLowerCase();
   return digits.length < 5 ? digits.padStart(5, "0") : digits.slice(0, 5);
+}
+
+function qtyBase(row: ProductRow): number {
+  const assigned = row.assigned_qty || row.confirmed_qty || row.current_qty || row.original_qty || 0;
+  if (assigned <= 0) return 0;
+  if (row.center_unit > 0) return assigned / row.center_unit;
+  return assigned;
 }
 
 export async function GET(req: NextRequest) {
@@ -65,21 +65,29 @@ export async function GET(req: NextRequest) {
   try {
     const text = await getR2ObjectText(`vehicle-data/daily/${date}.json`);
     if (!text) {
-      return json(true, undefined, { orders: null, noData: true, fileName: null, uploadedAt: null });
+      return json(true, undefined, { products: null, noData: true, fileName: null, uploadedAt: null });
     }
 
     const snapshot = JSON.parse(text) as VehicleSnapshot;
     const normCode = normalizeStoreCode(storeCode);
     const normName = normalizeStoreName(storeName);
 
-    const matching = (snapshot.cargoRows ?? []).filter((row) => {
+    const matching = (snapshot.productRows ?? []).filter((row) => {
       if (storeCode && normalizeStoreCode(row.store_code) === normCode) return true;
       if (storeName && normalizeStoreName(row.store_name) === normName) return true;
       return false;
     });
 
+    const products = matching.map((row) => ({
+      product_code: row.product_code,
+      product_name: row.product_name,
+      work_type: row.work_type,
+      qty: qtyBase(row),
+      delivery_date: row.delivery_date,
+    }));
+
     return json(true, undefined, {
-      orders: matching,
+      products,
       noData: false,
       fileName: snapshot.fileName ?? null,
       uploadedAt: snapshot.uploadedAt ?? null,
