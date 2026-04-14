@@ -105,18 +105,27 @@ async function evaluateClickByText(frame, texts) {
   }, texts).catch(() => false);
 }
 
-// ── 조회 버튼 클릭 (evaluate → 실제 ExtJS 이벤트 발생) ───────────────────────
+// ── 조회 버튼 클릭 (evaluate → 실제 ExtJS 이벤트 발생, 최대 4회 재시도) ──────
 
 async function clickSearchButton(page, log, label) {
-  const targets = getElogisFrames(page);
-  for (const target of targets) {
-    const clicked = await evaluateClickByText(target, ["조회"]);
-    if (clicked) {
-      log(`${label}: 조회 클릭 완료`);
-      return true;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt > 0) {
+      log(`${label}: 조회 버튼 재시도 (${attempt + 1}/4) — iframe 로드 대기...`);
+      await page.waitForTimeout(3_000);
+    }
+    const targets = getElogisFrames(page);
+    for (const target of targets) {
+      const clicked = await evaluateClickByText(target, ["조회"]);
+      if (clicked) {
+        log(`${label}: 조회 클릭 완료`);
+        return true;
+      }
     }
   }
+  // 모든 시도 실패 → 프레임 URL 디버그 출력 + 스크린샷
+  const frameUrls = page.frames().map((f) => f.url()).join(", ");
   log(`[경고] ${label}: 조회 버튼을 찾지 못했습니다. (프레임 수: ${page.frames().length})`);
+  log(`[DEBUG] 프레임 URL: ${frameUrls}`);
   await page.screenshot({ path: path.join(__dirname, `debug_${label}.png`) }).catch(() => {});
   return false;
 }
@@ -299,16 +308,29 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
 
   log(`${label}: 노선-점포(배송처)매핑 클릭...`);
   await tmsPage.click("text=노선-점포(배송처)매핑");
-  await tmsPage.waitForTimeout(3_000);
+  await tmsPage.waitForTimeout(2_000);
+
+  // TmsPmMastRouteStop 콘텐츠 프레임이 완전히 로드될 때까지 대기
+  const contentFrame = tmsPage.frames().find((f) => f.url().includes("TmsPmMastRouteStop"));
+  if (contentFrame) {
+    log(`${label}: 콘텐츠 프레임 로드 대기...`);
+    await contentFrame.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => {});
+    await tmsPage.waitForTimeout(2_000);
+  } else {
+    await tmsPage.waitForTimeout(3_000);
+  }
 
   log(`${label}: 배송그룹 입력 (${배송그룹})...`);
   let groupInput = null;
-  for (let attempt = 0; attempt < 3 && !groupInput; attempt++) {
+  for (let attempt = 0; attempt < 5 && !groupInput; attempt++) {
     for (const target of [tmsPage, ...tmsPage.frames()]) {
       const el = target.locator('#deli_seq_cd, [name="deli_seq_cd"]').first();
       if (await el.isVisible({ timeout: 1_500 }).catch(() => false)) { groupInput = el; break; }
     }
-    if (!groupInput) await tmsPage.waitForTimeout(2_000);
+    if (!groupInput) {
+      log(`${label}: deli_seq_cd 재탐색 (${attempt + 1}/5)...`);
+      await tmsPage.waitForTimeout(2_000);
+    }
   }
   if (!groupInput) {
     const frameUrls = tmsPage.frames().map((f) => f.url()).join(", ");
