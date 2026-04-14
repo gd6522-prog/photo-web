@@ -216,28 +216,21 @@ async function fillSearchInputs(page, searchInputs, log) {
           // condition 설정 시: = 버튼 클릭 → 비교조건 패널 → 원하는 조건 선택
           if (input.condition) {
             log(`검색 조건 변경: "${input.label}" → ${input.condition}`);
-            // input 왼쪽 td에 있는 = 버튼 클릭
-            // (Q 버튼은 오른쪽 td, = 버튼은 왼쪽 td에 위치)
+            // input 기준 DOM 상 앞에 위치한 버튼 = 왼쪽(=) 버튼
             const triggered = await target.evaluate((sel) => {
               const inp = document.querySelector(sel);
               if (!inp) return false;
-              // inp가 속한 td를 기준으로 이전 td에서 버튼 탐색
-              const inpCell = inp.closest("td");
-              if (inpCell) {
-                let prevCell = inpCell.previousElementSibling;
-                while (prevCell) {
-                  const btn = prevCell.querySelector('a[role="button"], button');
-                  if (btn) { btn.click(); return true; }
-                  prevCell = prevCell.previousElementSibling;
+              const row = inp.closest("tr") || inp.closest(".x-form-item") || inp.parentElement?.parentElement;
+              if (row) {
+                const allBtns = Array.from(row.querySelectorAll('a[role="button"], button'));
+                // input보다 DOM 상 앞에 있는 버튼들 (왼쪽)
+                const before = allBtns.filter(btn =>
+                  inp.compareDocumentPosition(btn) & Node.DOCUMENT_POSITION_PRECEDING
+                );
+                if (before.length > 0) {
+                  before[before.length - 1].click(); // 가장 input에 가까운 왼쪽 버튼
+                  return true;
                 }
-              }
-              // fallback: input 직전 형제 버튼
-              let sib = inp.previousElementSibling;
-              while (sib) {
-                if (sib.tagName === "A" || sib.tagName === "BUTTON" || sib.getAttribute("role") === "button") {
-                  sib.click(); return true;
-                }
-                sib = sib.previousElementSibling;
               }
               return false;
             }, input.selector).catch(() => false);
