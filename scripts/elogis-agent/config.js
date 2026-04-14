@@ -78,7 +78,6 @@ const FILE_CONFIGS = [
         selector: '[name="TASK_CENT_CD"]',
       },
     ],
-    clickSearch: true,   // 코드 입력 후 조회 클릭해야 그리드 채워짐
     prepareParams: {
       PAGING: "N",
       CURRENT_MENUCODE: "MD201040",

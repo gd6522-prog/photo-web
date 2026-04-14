@@ -259,18 +259,13 @@ async function downloadWmsFile(page, context, fileConfig, log) {
     await navigateViaMenu(page, menuPath, log);
   }
 
-  // 검색 입력 채우기
+  // 검색 입력이 있는 경우: 값만 입력 (조회 클릭 불필요)
   if (searchInputs && searchInputs.length > 0) {
     await fillSearchInputs(page, searchInputs, log);
   }
 
-  // clickSearch: true 인 경우 조회 클릭 후 그리드 로드 대기
-  if (fileConfig.clickSearch) {
-    await clickSearchButton(page, log, label);
-    await page.waitForTimeout(5_000);
-  }
-
-  // 엑셀 버튼 클릭 + 다운로드 캡처
+  // 엑셀 클릭 직전 스크린샷 (디버그용)
+  await page.screenshot({ path: path.join(__dirname, `debug_before_excel_${label}.png`) }).catch(() => {});
   log(`${label}: 엑셀 다운로드 시작...`);
   const buffer = await clickExcelAndDownload(page, log, label);
   log(`${label}: 다운로드 완료 (${Math.round(buffer.length / 1024)} KB)`);
