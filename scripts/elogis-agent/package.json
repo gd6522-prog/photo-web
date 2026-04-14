@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.47.0",
+    "dotenv": "^16.4.5",
     "node-cron": "^3.0.3",
     "playwright": "^1.44.0",
     "xlsx": "^0.18.5"

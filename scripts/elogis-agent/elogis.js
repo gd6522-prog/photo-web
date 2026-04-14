@@ -26,13 +26,33 @@ async function createSession(id, pw, log) {
   log("elogis 로그인 페이지 접속...");
   await page.goto(LOGIN_URL, { waitUntil: "networkidle", timeout: 30_000 });
 
-  await page.fill('input[name="USER_ID"], input[id="userId"], input[type="text"]', id);
-  await page.fill('input[name="USER_PW"], input[id="userPw"], input[type="password"]', pw);
+  // ExtJS 기반 로그인 폼 — readonly가 아닌 실제 입력 가능한 필드 대기
+  log("로그인 입력창 대기...");
+  const idInput = page.locator(
+    'input[name="USER_ID"]:not([readonly]), ' +
+    'input[id="userId"]:not([readonly]), ' +
+    'input[placeholder*="아이디"], ' +
+    'input[placeholder*="ID"], ' +
+    'input[placeholder*="id"]'
+  ).first();
+
+  await idInput.waitFor({ state: "visible", timeout: 15_000 });
+  await idInput.fill(id);
+
+  const pwInput = page.locator(
+    'input[name="USER_PW"]:not([readonly]), ' +
+    'input[id="userPw"]:not([readonly]), ' +
+    'input[type="password"]'
+  ).first();
+  await pwInput.fill(pw);
 
   log("로그인 시도...");
   await Promise.all([
     page.waitForNavigation({ waitUntil: "networkidle", timeout: 30_000 }).catch(() => {}),
-    page.click('button[type="submit"], input[type="submit"], .btn-login, #loginBtn').catch(async () => {
+    page.locator(
+      'button[type="submit"], input[type="submit"], ' +
+      '.btn-login, #loginBtn, button:has-text("로그인")'
+    ).first().click().catch(async () => {
       await page.keyboard.press("Enter");
     }),
   ]);
