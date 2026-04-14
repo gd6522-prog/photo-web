@@ -27,15 +27,15 @@ type SyncStatus = {
   } | null;
 };
 
-// 슬롯별 예상 소요 시간 (초)
+// 슬롯별 예상 소요 시간 (초) — 실제 완료 시점보다 약간 크게 설정해 0초 조기 도달 방지
 const SLOT_ESTIMATED_SEC: Record<string, number> = {
-  "store-master": 60,
-  "product-master": 40,
-  "workcenter-product-master": 25,
-  "cell-management": 10,
-  "product-strategy": 25,
-  "inventory-status": 15,
-  "product-inventory": 15,
+  "store-master": 120,           // TMS 새 탭 열기 포함, 가장 오래 걸림
+  "product-master": 90,          // MDM 즐겨찾기 경유, 다운로드까지
+  "workcenter-product-master": 90, // 작업센터코드 입력 + 다운로드
+  "cell-management": 60,         // WMS 단순 다운로드
+  "product-strategy": 60,        // WMS 단순 다운로드
+  "inventory-status": 60,        // WMS 단순 다운로드
+  "product-inventory": 60,       // WMS 단순 다운로드
 };
 
 function ElogisSyncPanel({
@@ -930,7 +930,8 @@ function SlotCard({
     const tick = () => {
       const sec = Math.floor((Date.now() - startedAt) / 1000);
       setElapsed(sec);
-      const raw = Math.min(Math.round(sec / estimatedSec * 100), 95);
+      // 지수 감소: estimatedSec 시점에 약 86%, 이후에도 계속 95%에 수렴
+      const raw = Math.round(95 * (1 - Math.exp(-sec / (estimatedSec * 0.5))));
       const next = Math.max(raw, maxBarRef.current);
       maxBarRef.current = next;
       setBarWidth(next);
