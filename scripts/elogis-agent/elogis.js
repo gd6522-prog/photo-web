@@ -18,7 +18,7 @@ const LOGIN_URL = `${BASE_URL}/`;
 
 async function createSession(id, pw, log) {
   log("브라우저 시작...");
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({ headless: false, slowMo: 300 });
   const context = await browser.newContext();
   const page = await context.newPage();
 
@@ -264,8 +264,6 @@ async function downloadWmsFile(page, context, fileConfig, log) {
     await fillSearchInputs(page, searchInputs, log);
   }
 
-  // 엑셀 클릭 직전 스크린샷 (디버그용)
-  await page.screenshot({ path: path.join(__dirname, `debug_before_excel_${label}.png`) }).catch(() => {});
   log(`${label}: 엑셀 다운로드 시작...`);
   const buffer = await clickExcelAndDownload(page, log, label);
   log(`${label}: 다운로드 완료 (${Math.round(buffer.length / 1024)} KB)`);
