@@ -71,13 +71,7 @@ const FILE_CONFIGS = [
     type: "generic",
     pageUrl: "https://elogis.emart24.co.kr/",
     menuPath: ["즐겨찾기", "마스터관리 (MDM)", "상품관리", "작업센터 취급상품 마스터"],
-    searchInputs: [
-      {
-        label: "작업센터코드",
-        value: "901234,901235,901237,901238,901239,901240,901363",
-        selector: '[name="TASK_CENT_CD"]',
-      },
-    ],
+    searchInputs: [],
     prepareParams: {
       PAGING: "N",
       CURRENT_MENUCODE: "MD201040",
