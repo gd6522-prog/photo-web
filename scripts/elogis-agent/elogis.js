@@ -216,24 +216,15 @@ async function fillSearchInputs(page, searchInputs, log) {
           // condition 설정 시: = 버튼 클릭 → 비교조건 패널 → 원하는 조건 선택
           if (input.condition) {
             log(`검색 조건 변경: "${input.label}" → ${input.condition}`);
-            // input 기준 DOM 상 앞에 위치한 버튼 = 왼쪽(=) 버튼
-            const triggered = await target.evaluate((sel) => {
+            // DOM 구조 파악용 로그
+            const domDebug = await target.evaluate((sel) => {
               const inp = document.querySelector(sel);
-              if (!inp) return false;
-              const row = inp.closest("tr") || inp.closest(".x-form-item") || inp.parentElement?.parentElement;
-              if (row) {
-                const allBtns = Array.from(row.querySelectorAll('a[role="button"], button'));
-                // input보다 DOM 상 앞에 있는 버튼들 (왼쪽)
-                const before = allBtns.filter(btn =>
-                  inp.compareDocumentPosition(btn) & Node.DOCUMENT_POSITION_PRECEDING
-                );
-                if (before.length > 0) {
-                  before[before.length - 1].click(); // 가장 input에 가까운 왼쪽 버튼
-                  return true;
-                }
-              }
-              return false;
-            }, input.selector).catch(() => false);
+              if (!inp) return "input not found";
+              const row = inp.closest("tr") || inp.parentElement?.parentElement;
+              return row ? row.outerHTML.slice(0, 2000) : inp.parentElement?.outerHTML?.slice(0, 2000);
+            }, input.selector).catch(() => "eval error");
+            log(`[DOM] ${input.label} 주변:\n${domDebug}`);
+            const triggered = false;
 
             if (triggered) {
               await page.waitForTimeout(600);
