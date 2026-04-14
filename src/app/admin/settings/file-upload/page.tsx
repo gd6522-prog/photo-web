@@ -1000,16 +1000,15 @@ function SlotCard({
         <div style={{ marginBottom: 10 }}>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#6B7280", marginBottom: 3 }}>
             <span>다운로드 중...</span>
-            <span>약 {remaining}초 남음 ({elapsed}초 경과)</span>
+            <span>약 {remaining}초 남음</span>
           </div>
-          <div style={{ height: 6, background: "#E5E7EB", overflow: "hidden", position: "relative" }}>
+          <div style={{ height: 6, background: "#E5E7EB", overflow: "hidden" }}>
             <div
               style={{
-                position: "absolute",
                 height: "100%",
-                width: "25%",
+                width: `${Math.min(Math.round(elapsed / estimatedSec * 100), 95)}%`,
                 background: "#2563EB",
-                animation: "slideBar 1.4s ease-in-out infinite",
+                transition: "width 1s linear",
               }}
             />
           </div>
