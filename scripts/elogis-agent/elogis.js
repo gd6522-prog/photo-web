@@ -218,7 +218,11 @@ async function callDownloadApi(page, context, prepareParams, log) {
     { sessionId, prepareParams }
   );
 
-  return Buffer.from(fileBytes);
+  const buffer = Buffer.from(fileBytes);
+  if (buffer.length < 200) {
+    throw new Error(`다운로드 파일이 비어 있습니다 (${buffer.length} bytes). USER_SESSION_ID(${sessionId.substring(0,10)}...) 또는 조회 상태를 확인하세요.`);
+  }
+  return buffer;
 }
 
 // ── WMS 파일 다운로드 ─────────────────────────────────────────────────────────
