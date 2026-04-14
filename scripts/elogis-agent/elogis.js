@@ -111,12 +111,16 @@ async function performSearch(page, searchInputs, log) {
   }
 
   log("조회 클릭...");
-  // ExtJS 버튼은 <a>, <span> 등 다양한 태그 — text 셀렉터로 클릭
-  const srchBtn = page.locator('text="조회"').first();
-  await srchBtn.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {});
-  await srchBtn.click({ timeout: 8_000 }).catch(async () => {
-    await srchBtn.click({ force: true, timeout: 5_000 });
-  });
+  let srchClicked = false;
+  for (const target of [page, ...page.frames()]) {
+    const btn = target.locator('text="조회"').first();
+    if (await btn.isVisible({ timeout: 800 }).catch(() => false)) {
+      await btn.click({ force: true }).catch(() => {});
+      srchClicked = true;
+      break;
+    }
+  }
+  if (!srchClicked) log(`[경고] 조회 버튼을 찾지 못했습니다. (프레임 수: ${page.frames().length})`);
   await page.waitForTimeout(5_000); // 그리드 렌더링 대기
 }
 
@@ -237,16 +241,23 @@ async function downloadWmsFile(page, context, fileConfig, log) {
   if (searchInputs && searchInputs.length > 0) {
     await performSearch(page, searchInputs, log);
   } else {
-    // 검색 입력 없어도 조회 버튼 클릭 (조회 없이 다운로드하면 빈 파일)
-    // ExtJS 버튼은 <a>, <span> 등 다양한 태그이므로 text 셀렉터 사용
+    // elogis 탭 내용은 iframe 내에 렌더링될 수 있어서 모든 프레임 탐색
     log(`${label}: 조회 클릭...`);
-    const searchBtn = page.locator('text="조회"').first();
-    await searchBtn.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {});
-    await searchBtn.click({ timeout: 5_000 }).catch(async () => {
-      await searchBtn.click({ force: true, timeout: 3_000 }).catch(() => {
-        log(`[경고] ${label}: 조회 버튼을 찾지 못했습니다.`);
-      });
-    });
+    let searchClicked = false;
+    for (const target of [page, ...page.frames()]) {
+      const btn = target.locator('text="조회"').first();
+      if (await btn.isVisible({ timeout: 800 }).catch(() => false)) {
+        await btn.click({ force: true }).catch(() => {});
+        searchClicked = true;
+        log(`${label}: 조회 클릭 완료 (frame: ${target.url?.() ?? "main"})`);
+        break;
+      }
+    }
+    if (!searchClicked) {
+      log(`[경고] ${label}: 조회 버튼을 찾지 못했습니다. (프레임 수: ${page.frames().length})`);
+      // 디버깅용 스크린샷
+      await page.screenshot({ path: require("path").join(__dirname, `debug_${label}.png`) }).catch(() => {});
+    }
     await page.waitForTimeout(5_000);
   }
 
@@ -282,14 +293,21 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
   await tmsPage.waitForTimeout(3_000);
 
   log(`${label}: 배송그룹 입력 (${배송그룹})...`);
-  // TMS iframe 내부 폼에서 배송그룹 필드 탐색 (name="deli_seq_cd")
-  const searchTargets = [tmsPage, ...tmsPage.frames()];
+  // TMS 내부 iframe이 로드될 때까지 대기 후 탐색
   let groupInput = null;
-  outer: for (const target of searchTargets) {
-    const el = target.locator('#deli_seq_cd, [name="deli_seq_cd"]').first();
-    if (await el.isVisible({ timeout: 1_000 }).catch(() => false)) { groupInput = el; break outer; }
+  for (let attempt = 0; attempt < 3 && !groupInput; attempt++) {
+    for (const target of [tmsPage, ...tmsPage.frames()]) {
+      const el = target.locator('#deli_seq_cd, [name="deli_seq_cd"]').first();
+      if (await el.isVisible({ timeout: 1_500 }).catch(() => false)) { groupInput = el; break; }
+    }
+    if (!groupInput) await tmsPage.waitForTimeout(2_000); // 재시도 전 대기
   }
-  if (!groupInput) throw new Error("배송그룹 입력 필드를 찾을 수 없습니다.");
+  if (!groupInput) {
+    const frameUrls = tmsPage.frames().map(f => f.url()).join(", ");
+    log(`[DEBUG] TMS 프레임 URL 목록: ${frameUrls}`);
+    await tmsPage.screenshot({ path: require("path").join(__dirname, "debug_tms.png") }).catch(() => {});
+    throw new Error("배송그룹 입력 필드를 찾을 수 없습니다.");
+  }
   await groupInput.fill(배송그룹);
 
   log(`${label}: 조회 클릭...`);
