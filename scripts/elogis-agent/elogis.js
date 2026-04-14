@@ -111,20 +111,21 @@ async function performSearch(page, searchInputs, log) {
   }
 
   log("조회 클릭...");
-  await page.click(
-    'button:has-text("조회"), input[value="조회"], [title="조회"], [alt="조회"]',
-    { timeout: 10_000 }
-  );
-  await page.waitForTimeout(5_000); // 그리드 렌더링 대기 (networkidle 불안정)
+  // ExtJS 버튼은 <a>, <span> 등 다양한 태그 — text 셀렉터로 클릭
+  const srchBtn = page.locator('text="조회"').first();
+  await srchBtn.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {});
+  await srchBtn.click({ timeout: 8_000 }).catch(async () => {
+    await srchBtn.click({ force: true, timeout: 5_000 });
+  });
+  await page.waitForTimeout(5_000); // 그리드 렌더링 대기
 }
 
 // ── WMS 3단계 API 다운로드 ────────────────────────────────────────────────────
 
 async function callDownloadApi(page, context, prepareParams, log) {
-  // 0. Playwright context.cookies() 로 HttpOnly 쿠키 포함 전체 탐색 (가장 신뢰)
+  // 0. Playwright context.cookies() — elogis 도메인 쿠키만 탐색 (etms 쿠키 혼입 방지)
   let sessionId = null;
-  const allCookies = await context.cookies();
-  log(`[DEBUG] 전체 쿠키: ${allCookies.map(c => `${c.name}=${c.value.substring(0,20)}`).join(" | ")}`);
+  const allCookies = await context.cookies("https://elogis.emart24.co.kr");
   for (const c of allCookies) {
     if (/session/i.test(c.name) && c.value) { sessionId = c.value; break; }
   }
@@ -237,10 +238,12 @@ async function downloadWmsFile(page, context, fileConfig, log) {
     await performSearch(page, searchInputs, log);
   } else {
     // 검색 입력 없어도 조회 버튼 클릭 (조회 없이 다운로드하면 빈 파일)
+    // ExtJS 버튼은 <a>, <span> 등 다양한 태그이므로 text 셀렉터 사용
     log(`${label}: 조회 클릭...`);
-    await page.click('button:has-text("조회"), input[value="조회"]', { timeout: 8_000 }).catch(async () => {
-      // 버튼 텍스트가 다를 수 있으므로 이미지 버튼도 시도
-      await page.click('[title="조회"], [alt="조회"]', { timeout: 3_000 }).catch(() => {
+    const searchBtn = page.locator('text="조회"').first();
+    await searchBtn.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {});
+    await searchBtn.click({ timeout: 5_000 }).catch(async () => {
+      await searchBtn.click({ force: true, timeout: 3_000 }).catch(() => {
         log(`[경고] ${label}: 조회 버튼을 찾지 못했습니다.`);
       });
     });
