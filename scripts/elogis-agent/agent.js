@@ -93,10 +93,11 @@ async function runSync(jobId) {
     const session = await createSession(ELOGIS_ID, ELOGIS_PW, addLog);
     browser = session.browser;
     page = session.page;
+    const context = session.context;
 
     for (const fileConfig of targets) {
       try {
-        const buffer = await downloadFile(page, fileConfig, addLog);
+        const buffer = await downloadFile(page, context, fileConfig, addLog);
         await uploadToAdmin(ADMIN_URL, fileConfig, buffer, addLog);
         results.push({ slotKey: fileConfig.slotKey, label: fileConfig.label, ok: true, message: "완료" });
       } catch (err) {

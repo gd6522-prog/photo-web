@@ -14,40 +14,17 @@
  */
 
 const FILE_CONFIGS = [
-  // ── 1. 점포마스터 ─────────────────────────────────────────────────────────
+  // ── 1. 점포마스터 (etms TMS 시스템, 클릭 자동화) ─────────────────────────
   {
     slotKey: "store-master",
     label: "점포마스터",
     type: "store-master",
-    pageUrl: "TODO", // elogis 점포마스터 페이지 URL
-    prepareParams: {
-      PAGING: "N",
-      CURRENT_MENUCODE: "TODO",
-      CURRENT_MENUNAME: "TODO",
-      DOWN_EXCEL_FILTERED_ROWS: "N",
-      SEARCH_URL: "TODO",
-      EXCEL_SHEET_TITLE: "TODO",
-      EXCEL_HEADERCOLS: "TODO",
-      EXCEL_HEADERCOLS_TEXT: "TODO",
-      EXCEL_HEADER_DEPTH: "1",
-      EXCEL_REQUIRED_HEADERS: "",
-      EXCEL_COLNAMES: "TODO",
-      EXCEL_COL_WIDTH: "TODO",
-      EXCEL_EDIT_FALSE_COLS: "",
-      EXCEL_FIXED_COLS: "",
-      EXCEL_DATE_COLS: "",
-      EXCEL_DATE_COLS_FORMAT: "",
-      EXCEL_NUMBER_COLS: "",
-      EXCEL_COL_ALIGN: "TODO",
-      EXCEL_COL_HIDDEN: "",
-      EXCEL_COL_COMBOCOLS: "",
-      EXCEL_COL_CHECKCOLS: "",
-      EXCEL_HEADERMERGE: "",
-      SES_LANG: "KO",
-      SES_USERGROUP: "2000000300",
-      SES_WHSE: "T01234",
-      SES_MULTI_LANG_YN: "N",
+    tmsDownload: true,          // TMS 새창에서 클릭으로 다운로드
+    pageUrl: "https://elogis.emart24.co.kr/", // TMS 진입점 (elogis 메인)
+    tmsConfig: {
+      배송그룹: "D9012343",     // 배송그룹 입력값
     },
+    prepareParams: null,        // TMS 는 API 방식 아님
   },
 
   // ── 2. 상품마스터 ─────────────────────────────────────────────────────────
