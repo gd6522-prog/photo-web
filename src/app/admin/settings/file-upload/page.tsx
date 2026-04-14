@@ -989,25 +989,55 @@ function SlotCard({
               {serverFile.uploaderName}
             </span>
           )}
-          {/* 개별 실행 버튼 */}
-          <button
-            onClick={handleRun}
-            disabled={!agentOnline || isBusy || running}
-            title={!agentOnline ? "에이전트 오프라인" : isBusy ? "동기화 중..." : "이 파일만 다운로드"}
-            style={{
-              fontSize: 11,
-              padding: "3px 10px",
-              fontWeight: 700,
-              border: "1px solid",
-              borderColor: !agentOnline || isBusy || running ? "#D1D5DB" : "#111827",
-              background: !agentOnline || isBusy || running ? "#F3F4F6" : "#111827",
-              color: !agentOnline || isBusy || running ? "#9CA3AF" : "#fff",
-              cursor: !agentOnline || isBusy || running ? "not-allowed" : "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {running ? "요청 중..." : isBusy && isInJob && !isSlotDone ? "실행 중..." : "실행"}
-          </button>
+          {/* 개별 실행 버튼 — 완료 후에는 "완료" 버튼으로 표시, 누르면 재실행 */}
+          {(() => {
+            const isDone = isSlotDone && slotResult;
+            const isRunningThis = isBusy && isInJob && !isSlotDone;
+            const disabled = !agentOnline || (isBusy && !isDone) || running;
+            let label = "실행";
+            if (running) label = "요청 중...";
+            else if (isRunningThis) label = "실행 중...";
+            else if (isDone) label = slotResult.ok ? "✓ 완료" : "✗ 실패";
+            const isSuccess = isDone && slotResult.ok;
+            const isFailure = isDone && !slotResult.ok;
+            return (
+              <button
+                onClick={handleRun}
+                disabled={disabled}
+                title={
+                  !agentOnline ? "에이전트 오프라인"
+                  : isBusy && !isDone ? "동기화 중..."
+                  : isDone ? "클릭하면 다시 실행"
+                  : "이 파일만 다운로드"
+                }
+                style={{
+                  fontSize: 11,
+                  padding: "3px 10px",
+                  fontWeight: 700,
+                  border: "1px solid",
+                  borderColor: disabled
+                    ? "#D1D5DB"
+                    : isSuccess ? "#86EFAC"
+                    : isFailure ? "#FCA5A5"
+                    : "#111827",
+                  background: disabled
+                    ? "#F3F4F6"
+                    : isSuccess ? "#F0FDF4"
+                    : isFailure ? "#FEF2F2"
+                    : "#111827",
+                  color: disabled
+                    ? "#9CA3AF"
+                    : isSuccess ? "#15803D"
+                    : isFailure ? "#B91C1C"
+                    : "#fff",
+                  cursor: disabled ? "not-allowed" : "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {label}
+              </button>
+            );
+          })()}
         </div>
       </div>
 
@@ -1030,14 +1060,9 @@ function SlotCard({
           </div>
         </div>
       )}
-      {isSlotDone && slotResult && (
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ height: 6, background: "#E5E7EB" }}>
-            <div style={{ height: "100%", width: "100%", background: slotResult.ok ? "#22C55E" : "#EF4444" }} />
-          </div>
-          <div style={{ fontSize: 11, marginTop: 2, color: slotResult.ok ? "#15803D" : "#B91C1C", fontWeight: 700 }}>
-            {slotResult.ok ? "✓ 완료" : `✗ ${slotResult.message}`}
-          </div>
+      {isSlotDone && slotResult && !slotResult.ok && (
+        <div style={{ marginBottom: 8, fontSize: 11, color: "#B91C1C", fontWeight: 700 }}>
+          ✗ {slotResult.message}
         </div>
       )}
       {/* 현재 서버 파일 (generic 슬롯만) */}
