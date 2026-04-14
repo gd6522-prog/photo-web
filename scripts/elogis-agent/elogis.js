@@ -111,7 +111,10 @@ async function performSearch(page, searchInputs, log) {
   }
 
   log("조회 클릭...");
-  await page.click('button:has-text("조회"), input[value="조회"]', { timeout: 10_000 });
+  await page.click(
+    'button:has-text("조회"), input[value="조회"], [title="조회"], [alt="조회"]',
+    { timeout: 10_000 }
+  );
   await page.waitForTimeout(5_000); // 그리드 렌더링 대기 (networkidle 불안정)
 }
 
@@ -229,9 +232,19 @@ async function downloadWmsFile(page, context, fileConfig, log) {
     await navigateViaMenu(page, menuPath, log);
   }
 
-  // 검색 입력 + 조회 (필요한 경우)
+  // 검색 입력 + 조회
   if (searchInputs && searchInputs.length > 0) {
     await performSearch(page, searchInputs, log);
+  } else {
+    // 검색 입력 없어도 조회 버튼 클릭 (조회 없이 다운로드하면 빈 파일)
+    log(`${label}: 조회 클릭...`);
+    await page.click('button:has-text("조회"), input[value="조회"]', { timeout: 8_000 }).catch(async () => {
+      // 버튼 텍스트가 다를 수 있으므로 이미지 버튼도 시도
+      await page.click('[title="조회"], [alt="조회"]', { timeout: 3_000 }).catch(() => {
+        log(`[경고] ${label}: 조회 버튼을 찾지 못했습니다.`);
+      });
+    });
+    await page.waitForTimeout(5_000);
   }
 
   const buffer = await callDownloadApi(page, context, prepareParams, log);
@@ -266,25 +279,26 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
   await tmsPage.waitForLoadState("networkidle", { timeout: 30_000 });
 
   log(`${label}: 배송그룹 입력 (${배송그룹})...`);
-  // 여러 selector 패턴 + XPath 레이블 기반으로 입력 필드 탐색
+  // TMS는 iframe 내부 폼일 수 있으므로 프레임 포함 탐색
+  const searchTargets = [tmsPage, ...tmsPage.frames()];
   let groupInput = null;
-  for (const sel of [
-    'input[placeholder*="배송그룹"]',
-    'input[name*="grpCd"]', 'input[name*="groupCd"]',
-    'input[id*="grpCd"]',   'input[name*="grp"]',
-    'input[id*="grp"]',
-  ]) {
-    const el = tmsPage.locator(sel).first();
-    if (await el.isVisible({ timeout: 800 }).catch(() => false)) { groupInput = el; break; }
-  }
-  if (!groupInput) {
+  outer: for (const target of searchTargets) {
+    for (const sel of [
+      'input[placeholder*="배송그룹"]',
+      'input[name*="grpCd"]', 'input[name*="groupCd"]',
+      'input[id*="grpCd"]',   'input[name*="grp"]',
+      'input[id*="grp"]',
+    ]) {
+      const el = target.locator(sel).first();
+      if (await el.isVisible({ timeout: 500 }).catch(() => false)) { groupInput = el; break outer; }
+    }
     for (const xpath of [
       '//*[contains(text(),"배송그룹")]/following::input[1]',
       '//label[contains(text(),"배송그룹")]/following::input[1]',
       '//td[contains(text(),"배송그룹")]/following::input[1]',
     ]) {
-      const el = tmsPage.locator(`xpath=${xpath}`).first();
-      if (await el.isVisible({ timeout: 800 }).catch(() => false)) { groupInput = el; break; }
+      const el = target.locator(`xpath=${xpath}`).first();
+      if (await el.isVisible({ timeout: 500 }).catch(() => false)) { groupInput = el; break outer; }
     }
   }
   if (!groupInput) throw new Error("배송그룹 입력 필드를 찾을 수 없습니다. TMS 페이지 구조 확인 필요.");
