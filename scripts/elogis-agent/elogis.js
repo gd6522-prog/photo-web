@@ -62,11 +62,12 @@ async function createSession(id, pw, log) {
 async function navigateViaMenu(page, menuPath, log) {
   for (const menuItem of menuPath) {
     log(`메뉴 클릭: ${menuItem}`);
-    await page.click(`text="${menuItem}"`, { timeout: 10_000 });
-    await page.waitForTimeout(600);
+    // ExtJS 트리는 DOM에 있지만 숨겨진 상태일 수 있어 force:true 사용
+    await page.click(`text="${menuItem}"`, { timeout: 10_000, force: true });
+    await page.waitForTimeout(800);
   }
-  await page.waitForLoadState("networkidle", { timeout: 30_000 });
-  await page.waitForTimeout(1_000);
+  // elogis SPA 는 networkidle 이 안 됨 → 고정 대기
+  await page.waitForTimeout(3_000);
 }
 
 // ── 검색 입력 + 조회 ──────────────────────────────────────────────────────────
@@ -108,8 +109,7 @@ async function performSearch(page, searchInputs, log) {
 
   log("조회 클릭...");
   await page.click('button:has-text("조회"), input[value="조회"]', { timeout: 10_000 });
-  await page.waitForLoadState("networkidle", { timeout: 30_000 });
-  await page.waitForTimeout(1_500); // 그리드 렌더링 대기
+  await page.waitForTimeout(5_000); // 그리드 렌더링 대기 (networkidle 불안정)
 }
 
 // ── WMS 3단계 API 다운로드 ────────────────────────────────────────────────────
@@ -156,7 +156,8 @@ async function downloadWmsFile(page, fileConfig, log) {
   if (pageUrl === "TODO") throw new Error(`${label}: pageUrl 이 설정되지 않았습니다.`);
 
   log(`${label}: 페이지 이동...`);
-  await page.goto(pageUrl, { waitUntil: "networkidle", timeout: 60_000 });
+  await page.goto(pageUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
+  await page.waitForTimeout(2_000);
 
   // 메뉴 네비게이션 (필요한 경우)
   if (menuPath && menuPath.length > 0) {
@@ -181,10 +182,16 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
 
   log(`${label}: TMS 새창 열기...`);
   const [tmsPage] = await Promise.all([
-    context.waitForEvent("page", { timeout: 15_000 }),
-    mainPage.click("text=TMS 시스템 로그인"),
+    context.waitForEvent("page", { timeout: 30_000 }),
+    mainPage.click(
+      'text="TMS 시스템 로그인", text="TMS시스템로그인", text="TMS", a[href*="etms"], button:has-text("TMS")',
+      { timeout: 10_000, force: true }
+    ).catch(async () => {
+      // 텍스트 셀렉터 실패시 etms 링크 직접 클릭 시도
+      await mainPage.click('a[href*="etms"]', { timeout: 5_000, force: true }).catch(() => {});
+    }),
   ]);
-  await tmsPage.waitForLoadState("networkidle", { timeout: 30_000 });
+  await tmsPage.waitForLoadState("domcontentloaded", { timeout: 30_000 });
   log(`${label}: etms 접속 완료`);
 
   log(`${label}: 계획관리 메뉴 클릭...`);
@@ -203,8 +210,7 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
 
   log(`${label}: 조회 클릭...`);
   await tmsPage.click('button:has-text("조회"), input[value="조회"]');
-  await tmsPage.waitForLoadState("networkidle", { timeout: 30_000 });
-  await tmsPage.waitForTimeout(1_500);
+  await tmsPage.waitForTimeout(5_000);
 
   log(`${label}: 그리드 메뉴(≡) 클릭...`);
   await tmsPage.click(
