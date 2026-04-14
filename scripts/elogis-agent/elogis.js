@@ -126,10 +126,15 @@ async function performSearch(page, searchInputs, log) {
   }
 
   log("조회 클릭...");
+  const srchTargets = [
+    ...page.frames().filter(f => f.url().includes("elogis.emart24.co.kr") && f.url() !== page.url()),
+    page,
+  ];
   let srchClicked = false;
-  for (const target of [page, ...page.frames()]) {
-    const btn = target.locator('[role="button"]:has-text("조회"), text="조회"').first();
-    if (await btn.isVisible({ timeout: 1_500 }).catch(() => false)) {
+  for (const target of srchTargets) {
+    const btn = target.locator('text="조회"').first();
+    await btn.waitFor({ state: "visible", timeout: 3_000 }).catch(() => {});
+    if (await btn.isVisible({ timeout: 500 }).catch(() => false)) {
       await btn.click({ force: true }).catch(() => {});
       srchClicked = true;
       break;
@@ -239,7 +244,9 @@ async function callDownloadApi(page, context, prepareParams, log, getSessionId) 
 
   const buffer = Buffer.from(fileBytes);
   if (buffer.length < 200) {
-    throw new Error(`다운로드 파일이 비어 있습니다 (${buffer.length} bytes). USER_SESSION_ID(${sessionId.substring(0,10)}...) 또는 조회 상태를 확인하세요.`);
+    const preview = buffer.toString("utf8").substring(0, 300).replace(/\n/g, " ");
+    log(`[DEBUG] 응답 내용: ${preview}`);
+    throw new Error(`다운로드 파일이 비어 있습니다 (${buffer.length} bytes).`);
   }
   return buffer;
 }
@@ -266,11 +273,17 @@ async function downloadWmsFile(page, context, fileConfig, log, getSessionId) {
   } else {
     // elogis 탭 내용은 iframe 내에 렌더링될 수 있어서 모든 프레임 탐색
     log(`${label}: 조회 클릭...`);
+    // elogis iframe 우선 탐색 (메인 프레임 제외, elogis 도메인 프레임)
+    const targets = [
+      ...page.frames().filter(f => f.url().includes("elogis.emart24.co.kr") && f.url() !== page.url()),
+      page,
+    ];
     let searchClicked = false;
-    for (const target of [page, ...page.frames()]) {
-      // ExtJS 버튼: <a role="button"> 또는 text="조회"
-      const btn = target.locator('[role="button"]:has-text("조회"), text="조회"').first();
-      if (await btn.isVisible({ timeout: 1_500 }).catch(() => false)) {
+    for (const target of targets) {
+      // text-is 는 정확히 "조회"인 텍스트만 매칭 (재고조회 등 제외)
+      const btn = target.locator('text="조회"').first();
+      await btn.waitFor({ state: "visible", timeout: 3_000 }).catch(() => {});
+      if (await btn.isVisible({ timeout: 500 }).catch(() => false)) {
         await btn.click({ force: true }).catch(() => {});
         searchClicked = true;
         log(`${label}: 조회 클릭 완료`);
@@ -296,13 +309,17 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
   const 배송그룹 = tmsConfig?.배송그룹 ?? "D9012343";
 
   log(`${label}: 차량관리(TMS) 메뉴 클릭...`);
-  await mainPage.click('text="차량관리 (TMS)"', { timeout: 10_000, force: true });
-  await mainPage.waitForTimeout(800);
+  const tmsMenuEl = mainPage.locator('text="차량관리 (TMS)"').first();
+  await tmsMenuEl.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {});
+  await tmsMenuEl.click({ force: true });
+  await mainPage.waitForTimeout(1_500);
 
   log(`${label}: TMS 시스템 로그인 클릭 → 새창 대기...`);
+  const tmsLoginEl = mainPage.locator('text="TMS 시스템 로그인"').first();
+  await tmsLoginEl.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {});
   const [tmsPage] = await Promise.all([
     context.waitForEvent("page", { timeout: 30_000 }),
-    mainPage.click('text="TMS 시스템 로그인"', { timeout: 10_000, force: true }),
+    tmsLoginEl.click({ force: true }),
   ]);
   await tmsPage.waitForLoadState("domcontentloaded", { timeout: 30_000 });
   log(`${label}: etms 접속 완료`);
