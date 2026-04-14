@@ -46,8 +46,10 @@ async function createSession(id, pw, log) {
     }),
   ]);
 
-  const currentUrl = page.url();
-  if (currentUrl.includes("/login") || currentUrl === LOGIN_URL) {
+  // SPA 라서 URL 이 변하지 않음 → 로그인 폼 사라짐 여부로 판단
+  try {
+    await page.waitForSelector('input[name="USERID"]', { state: "hidden", timeout: 15_000 });
+  } catch {
     throw new Error("로그인 실패: 아이디/패스워드를 확인하세요.");
   }
   log("로그인 성공");
