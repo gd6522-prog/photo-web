@@ -117,9 +117,17 @@ async function performSearch(page, searchInputs, log) {
 
 // ── WMS 3단계 API 다운로드 ────────────────────────────────────────────────────
 
-async function callDownloadApi(page, prepareParams, log) {
-  // window 전역 변수 → UserInfo/User 객체 → sessionStorage → localStorage → 쿠키 순서로 탐색
-  const sessionId = await page.evaluate(() => {
+async function callDownloadApi(page, context, prepareParams, log) {
+  // 0. Playwright context.cookies() 로 HttpOnly 쿠키 포함 전체 탐색 (가장 신뢰)
+  let sessionId = null;
+  const allCookies = await context.cookies();
+  log(`[DEBUG] 전체 쿠키: ${allCookies.map(c => `${c.name}=${c.value.substring(0,20)}`).join(" | ")}`);
+  for (const c of allCookies) {
+    if (/session/i.test(c.name) && c.value) { sessionId = c.value; break; }
+  }
+
+  // 1. window 전역 변수 → UserInfo/User 객체 → sessionStorage → localStorage → document.cookie 순서로 탐색
+  if (!sessionId) sessionId = await page.evaluate(() => {
     // 1. 직접 전역 변수
     const fromWindow =
       window.USER_SESSION_ID || window.userSessionId ||
@@ -207,7 +215,7 @@ async function callDownloadApi(page, prepareParams, log) {
 
 // ── WMS 파일 다운로드 ─────────────────────────────────────────────────────────
 
-async function downloadWmsFile(page, fileConfig, log) {
+async function downloadWmsFile(page, context, fileConfig, log) {
   const { label, pageUrl, menuPath, searchInputs, prepareParams } = fileConfig;
 
   if (pageUrl === "TODO") throw new Error(`${label}: pageUrl 이 설정되지 않았습니다.`);
@@ -226,7 +234,7 @@ async function downloadWmsFile(page, fileConfig, log) {
     await performSearch(page, searchInputs, log);
   }
 
-  const buffer = await callDownloadApi(page, prepareParams, log);
+  const buffer = await callDownloadApi(page, context, prepareParams, log);
   log(`${label}: 다운로드 완료 (${Math.round(buffer.length / 1024)} KB)`);
   return buffer;
 }
@@ -315,7 +323,7 @@ async function downloadFile(page, context, fileConfig, log) {
   if (fileConfig.tmsDownload) {
     return downloadTmsFile(page, context, fileConfig, log);
   }
-  return downloadWmsFile(page, fileConfig, log);
+  return downloadWmsFile(page, context, fileConfig, log);
 }
 
 module.exports = { createSession, downloadFile };
