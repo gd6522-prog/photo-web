@@ -259,12 +259,9 @@ async function downloadWmsFile(page, context, fileConfig, log) {
     await navigateViaMenu(page, menuPath, log);
   }
 
-  // 검색 입력이 있는 경우: 값 입력 → 조회 → 그리드 대기
+  // 검색 입력이 있는 경우: 값만 입력 (조회 클릭 불필요)
   if (searchInputs && searchInputs.length > 0) {
     await fillSearchInputs(page, searchInputs, log);
-    await clickSearchButton(page, log, label);
-    log(`${label}: 그리드 데이터 로드 대기...`);
-    await page.waitForTimeout(15_000);
   }
 
   // 엑셀 버튼 클릭 + 다운로드 캡처
