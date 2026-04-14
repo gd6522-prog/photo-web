@@ -71,8 +71,21 @@ async function runSync(jobId) {
     if (jobId) await appendLog(jobId, [`[${now()}] ${msg}`]);
   };
 
-  // 설정되지 않은 파일 필터링
-  const targets = FILE_CONFIGS.filter((c) => c.pageUrl !== "TODO");
+  // target_slots 조회 (null = 전체)
+  let targetSlots = null;
+  if (jobId) {
+    const { data: job } = await supabase
+      .from("elogis_sync_log")
+      .select("target_slots")
+      .eq("id", jobId)
+      .single();
+    targetSlots = job?.target_slots ?? null;
+  }
+
+  // 설정되지 않은 파일 필터링 + target_slots 필터링
+  const targets = FILE_CONFIGS.filter((c) =>
+    c.pageUrl !== "TODO" && (targetSlots === null || targetSlots.includes(c.slotKey))
+  );
   const skipped = FILE_CONFIGS.filter((c) => c.pageUrl === "TODO");
 
   if (skipped.length > 0) {

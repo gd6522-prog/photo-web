@@ -37,6 +37,11 @@ body {
   border-radius: 0;
 }
 
+@keyframes slideBar {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 .ha-admin {
   color: #113247;
 }

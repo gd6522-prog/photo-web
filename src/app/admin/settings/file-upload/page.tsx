@@ -23,40 +23,35 @@ type SyncStatus = {
     results: SyncResult[] | null;
     error_text: string | null;
     log_tail: string[] | null;
+    target_slots: string[] | null;
   } | null;
 };
 
-function ElogisSyncPanel() {
-  const [status, setStatus] = useState<SyncStatus | null>(null);
+// 슬롯별 예상 소요 시간 (초)
+const SLOT_ESTIMATED_SEC: Record<string, number> = {
+  "store-master": 60,
+  "product-master": 40,
+  "workcenter-product-master": 25,
+  "cell-management": 10,
+  "product-strategy": 25,
+  "inventory-status": 15,
+  "product-inventory": 15,
+};
+
+function ElogisSyncPanel({
+  status,
+  onTrigger,
+}: {
+  status: SyncStatus | null;
+  onTrigger: () => Promise<void>;
+}) {
   const [triggering, setTriggering] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const fetchStatus = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/elogis-sync/status");
-      const json = await res.json();
-      if (json.ok) setStatus(json);
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    fetchStatus();
-    intervalRef.current = setInterval(fetchStatus, 10_000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [fetchStatus]);
 
   const handleTrigger = async () => {
     if (triggering) return;
     setTriggering(true);
     try {
-      const res = await fetch("/api/admin/elogis-sync/start", { method: "POST" });
-      const json = await res.json();
-      if (json.ok) await fetchStatus();
-      else alert(json.message ?? "요청 실패");
-    } catch {
-      alert("요청 중 오류가 발생했습니다.");
+      await onTrigger();
     } finally {
       setTriggering(false);
     }
@@ -445,6 +440,36 @@ export default function FileUploadPage() {
   const [currentUserName, setCurrentUserName] = useState<string>("");
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
+  // ── elogis 동기화 상태 (page 레벨 — SlotCard와 공유) ─────────────────────
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
+  const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchSyncStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/elogis-sync/status");
+      const json = await res.json();
+      if (json.ok) setSyncStatus(json);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    fetchSyncStatus();
+    syncIntervalRef.current = setInterval(fetchSyncStatus, 5_000);
+    return () => { if (syncIntervalRef.current) clearInterval(syncIntervalRef.current); };
+  }, [fetchSyncStatus]);
+
+  const handleSyncTrigger = useCallback(async (targetSlot?: string) => {
+    const body = targetSlot ? JSON.stringify({ targetSlot }) : "{}";
+    const res = await fetch("/api/admin/elogis-sync/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+    });
+    const json = await res.json();
+    if (json.ok) await fetchSyncStatus();
+    else alert(json.message ?? "요청 실패");
+  }, [fetchSyncStatus]);
+
   const updateSlot = useCallback((key: string, patch: Partial<SlotState>) => {
     setSlotStates((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }));
   }, []);
@@ -749,7 +774,7 @@ export default function FileUploadPage() {
       </p>
 
       <div style={{ marginTop: 24 }}>
-        <ElogisSyncPanel />
+        <ElogisSyncPanel status={syncStatus} onTrigger={() => handleSyncTrigger()} />
       </div>
 
       <div
@@ -777,6 +802,8 @@ export default function FileUploadPage() {
               state={state}
               serverFile={serverFile}
               canUpload={canUpload}
+              syncStatus={syncStatus}
+              onRun={() => handleSyncTrigger(config.key)}
               inputRef={(el) => {
                 inputRefs.current[config.key] = el;
               }}
@@ -854,6 +881,8 @@ function SlotCard({
   state,
   serverFile,
   canUpload,
+  syncStatus,
+  onRun,
   inputRef,
   onFilePick,
   onUpload,
@@ -864,6 +893,8 @@ function SlotCard({
   state: SlotState;
   serverFile: ServerSlotInfo;
   canUpload: boolean;
+  syncStatus: SyncStatus | null;
+  onRun: () => Promise<void>;
   inputRef: (el: HTMLInputElement | null) => void;
   onFilePick: (file: File) => void;
   onUpload: () => void;
@@ -871,6 +902,37 @@ function SlotCard({
   dragHandlers: DragHandlers;
 }) {
   const localInputRef = useRef<HTMLInputElement | null>(null);
+  const [running, setRunning] = React.useState(false);
+  const [elapsed, setElapsed] = React.useState(0);
+
+  // 이 슬롯이 현재 실행 중인지 계산
+  const job = syncStatus?.latest ?? null;
+  const jobTargets = job?.target_slots ?? null; // null = 전체
+  const isInJob = jobTargets === null || jobTargets.includes(config.key);
+  const isJobActive = (syncStatus?.running || syncStatus?.pending) && isInJob;
+  const slotResult = job?.results?.find((r) => r.slotKey === config.key) ?? null;
+  const isSlotDone = !!slotResult;
+  const agentOnline = syncStatus?.agentOnline ?? false;
+  const isBusy = !!(syncStatus?.running || syncStatus?.pending);
+
+  // 경과 시간 카운터
+  React.useEffect(() => {
+    if (!isJobActive || isSlotDone) { setElapsed(0); return; }
+    const startedAt = job?.started_at ? new Date(job.started_at).getTime() : Date.now();
+    const tick = () => setElapsed(Math.floor((Date.now() - startedAt) / 1000));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [isJobActive, isSlotDone, job?.started_at]);
+
+  const estimatedSec = SLOT_ESTIMATED_SEC[config.key] ?? 30;
+  const remaining = Math.max(0, estimatedSec - elapsed);
+
+  const handleRun = async () => {
+    if (running || isBusy) return;
+    setRunning(true);
+    try { await onRun(); } finally { setRunning(false); }
+  };
 
   const openPicker = () => {
     if (state.busy) return;
@@ -887,8 +949,8 @@ function SlotCard({
       }}
     >
       {/* 슬롯 헤더 */}
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 4 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 4 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
           <span style={{ fontWeight: 900, fontSize: 16 }}>{config.label}</span>
           {config.type === "store-master" && (
             <span
@@ -905,12 +967,64 @@ function SlotCard({
             </span>
           )}
         </div>
-        {serverFile?.uploaderName && (
-          <span style={{ fontSize: 11, color: "#6B7280", whiteSpace: "nowrap" }}>
-            {serverFile.uploaderName}
-          </span>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {serverFile?.uploaderName && (
+            <span style={{ fontSize: 11, color: "#6B7280", whiteSpace: "nowrap" }}>
+              {serverFile.uploaderName}
+            </span>
+          )}
+          {/* 개별 실행 버튼 */}
+          <button
+            onClick={handleRun}
+            disabled={!agentOnline || isBusy || running}
+            title={!agentOnline ? "에이전트 오프라인" : isBusy ? "동기화 중..." : "이 파일만 다운로드"}
+            style={{
+              fontSize: 11,
+              padding: "3px 10px",
+              fontWeight: 700,
+              border: "1px solid",
+              borderColor: !agentOnline || isBusy || running ? "#D1D5DB" : "#111827",
+              background: !agentOnline || isBusy || running ? "#F3F4F6" : "#111827",
+              color: !agentOnline || isBusy || running ? "#9CA3AF" : "#fff",
+              cursor: !agentOnline || isBusy || running ? "not-allowed" : "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {running ? "요청 중..." : isBusy && isInJob && !isSlotDone ? "실행 중..." : "실행"}
+          </button>
+        </div>
       </div>
+
+      {/* 게이지바 */}
+      {isJobActive && !isSlotDone && (
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#6B7280", marginBottom: 3 }}>
+            <span>다운로드 중...</span>
+            <span>약 {remaining}초 남음 ({elapsed}초 경과)</span>
+          </div>
+          <div style={{ height: 6, background: "#E5E7EB", overflow: "hidden" }}>
+            <div
+              style={{
+                height: "100%",
+                width: "40%",
+                background: "linear-gradient(90deg, #2563EB 0%, #60A5FA 50%, #2563EB 100%)",
+                backgroundSize: "200% 100%",
+                animation: "slideBar 1.4s linear infinite",
+              }}
+            />
+          </div>
+        </div>
+      )}
+      {isSlotDone && slotResult && (
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ height: 6, background: "#E5E7EB" }}>
+            <div style={{ height: "100%", width: "100%", background: slotResult.ok ? "#22C55E" : "#EF4444" }} />
+          </div>
+          <div style={{ fontSize: 11, marginTop: 2, color: slotResult.ok ? "#15803D" : "#B91C1C", fontWeight: 700 }}>
+            {slotResult.ok ? "✓ 완료" : `✗ ${slotResult.message}`}
+          </div>
+        </div>
+      )}
       {/* 현재 서버 파일 (generic 슬롯만) */}
       {config.type === "generic" && (
         <div

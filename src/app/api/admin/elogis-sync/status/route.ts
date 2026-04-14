@@ -15,7 +15,7 @@ export async function GET() {
     const [{ data: latest }, { data: agentStatus }] = await Promise.all([
       supabase
         .from("elogis_sync_log")
-        .select("id, status, requested_at, started_at, completed_at, results, error_text, log_tail")
+        .select("id, status, requested_at, started_at, completed_at, results, error_text, log_tail, target_slots")
         .order("requested_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
