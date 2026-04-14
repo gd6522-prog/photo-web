@@ -34,15 +34,12 @@ async function createSession(id, pw, log) {
   await pwInput.fill(pw);
 
   log("로그인 시도...");
-  await Promise.all([
-    page.waitForNavigation({ waitUntil: "networkidle", timeout: 30_000 }).catch(() => {}),
-    page.locator(
-      'button[type="submit"], input[type="submit"], ' +
-      '.btn-login, #loginBtn, button:has-text("로그인")'
-    ).first().click().catch(async () => {
-      await page.keyboard.press("Enter");
-    }),
-  ]);
+  await page.locator(
+    'button[type="submit"], input[type="submit"], ' +
+    '.btn-login, #loginBtn, button:has-text("로그인")'
+  ).first().click().catch(async () => {
+    await page.keyboard.press("Enter");
+  });
 
   // SPA 라서 URL 이 변하지 않음 → 로그인 폼 사라짐 여부로 판단
   try {
