@@ -180,16 +180,14 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
   const { label, tmsConfig } = fileConfig;
   const 배송그룹 = tmsConfig?.배송그룹 ?? "D9012343";
 
-  log(`${label}: TMS 새창 열기...`);
+  log(`${label}: 차량관리(TMS) 메뉴 클릭...`);
+  await mainPage.click('text="차량관리 (TMS)"', { timeout: 10_000, force: true });
+  await mainPage.waitForTimeout(800);
+
+  log(`${label}: TMS 시스템 로그인 클릭 → 새창 대기...`);
   const [tmsPage] = await Promise.all([
     context.waitForEvent("page", { timeout: 30_000 }),
-    mainPage.click(
-      'text="TMS 시스템 로그인", text="TMS시스템로그인", text="TMS", a[href*="etms"], button:has-text("TMS")',
-      { timeout: 10_000, force: true }
-    ).catch(async () => {
-      // 텍스트 셀렉터 실패시 etms 링크 직접 클릭 시도
-      await mainPage.click('a[href*="etms"]', { timeout: 5_000, force: true }).catch(() => {});
-    }),
+    mainPage.click('text="TMS 시스템 로그인"', { timeout: 10_000, force: true }),
   ]);
   await tmsPage.waitForLoadState("domcontentloaded", { timeout: 30_000 });
   log(`${label}: etms 접속 완료`);
