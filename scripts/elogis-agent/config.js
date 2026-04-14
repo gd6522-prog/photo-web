@@ -189,8 +189,8 @@ const FILE_CONFIGS = [
     slotKey: "inventory-status",
     label: "재고현황",
     type: "generic",
-    pageUrl:
-      "https://elogis.emart24.co.kr/view/module/wms/inventory/search/invnTotList.jsp?MENUCODE=WMS141123&MENUPATH=%253A%253A%253A%253AMENU_INVENTORY%253A%253AMENU_CMBN_INVN_SRCH%253A%253AMENU_CMBN_INVN_STATUS&APP=wms",
+    pageUrl: "https://elogis.emart24.co.kr/",
+    menuPath: ["창고관리 (WMS)", "재고", "재고조회", "재고현황", "재고현황"],
     prepareParams: {
       PAGING: "N",
       CURRENT_MENUCODE: "WMS141123",
