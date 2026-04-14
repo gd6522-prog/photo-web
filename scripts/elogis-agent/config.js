@@ -33,7 +33,7 @@ const FILE_CONFIGS = [
     label: "상품마스터",
     type: "generic",
     pageUrl: "https://elogis.emart24.co.kr/",
-    menuPath: ["마스터관리 (MDM)", "상품관리", "상품"],
+    menuPath: ["즐겨찾기", "마스터관리 (MDM)", "상품관리", "상품"],
     prepareParams: {
       PAGING: "N",
       CURRENT_MENUCODE: "MDM202000",
@@ -70,7 +70,7 @@ const FILE_CONFIGS = [
     label: "작업센터별 취급상품 마스터",
     type: "generic",
     pageUrl: "https://elogis.emart24.co.kr/",
-    menuPath: ["마스터관리 (MDM)", "상품관리", "작업센터 취급상품 마스터"],
+    menuPath: ["즐겨찾기", "마스터관리 (MDM)", "상품관리", "작업센터 취급상품 마스터"],
     searchInputs: [
       {
         label: "작업센터코드",
