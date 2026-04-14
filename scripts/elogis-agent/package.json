@@ -1,0 +1,15 @@
+{
+  "name": "elogis-agent",
+  "version": "1.0.0",
+  "description": "elogis 파일 자동 다운로드 → admin 업로드 에이전트",
+  "main": "agent.js",
+  "scripts": {
+    "start": "node agent.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.47.0",
+    "node-cron": "^3.0.3",
+    "playwright": "^1.44.0",
+    "xlsx": "^0.18.5"
+  }
+}

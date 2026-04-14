@@ -4,6 +4,193 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
 
+// ─── Elogis Sync Panel ────────────────────────────────────────────────────────
+
+type SyncResult = { slotKey: string; label: string; ok: boolean; message: string };
+
+type SyncStatus = {
+  ok: boolean;
+  agentOnline: boolean;
+  lastHeartbeat: string | null;
+  pending: boolean;
+  running: boolean;
+  latest: {
+    id: number;
+    status: string;
+    requested_at: string;
+    started_at: string | null;
+    completed_at: string | null;
+    results: SyncResult[] | null;
+    error_text: string | null;
+    log_tail: string[] | null;
+  } | null;
+};
+
+function ElogisSyncPanel() {
+  const [status, setStatus] = useState<SyncStatus | null>(null);
+  const [triggering, setTriggering] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/elogis-sync/status");
+      const json = await res.json();
+      if (json.ok) setStatus(json);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    fetchStatus();
+    intervalRef.current = setInterval(fetchStatus, 10_000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [fetchStatus]);
+
+  const handleTrigger = async () => {
+    if (triggering) return;
+    setTriggering(true);
+    try {
+      const res = await fetch("/api/admin/elogis-sync/start", { method: "POST" });
+      const json = await res.json();
+      if (json.ok) await fetchStatus();
+      else alert(json.message ?? "요청 실패");
+    } catch {
+      alert("요청 중 오류가 발생했습니다.");
+    } finally {
+      setTriggering(false);
+    }
+  };
+
+  const isBusy = status?.pending || status?.running;
+  const agentOnline = status?.agentOnline ?? false;
+
+  function formatKst(iso: string | null | undefined) {
+    if (!iso) return "-";
+    try { return new Date(iso).toLocaleString("ko-KR"); } catch { return iso; }
+  }
+
+  return (
+    <div
+      style={{
+        marginBottom: 24,
+        border: "1px solid #E5E7EB",
+        background: "#F8FAFC",
+        padding: 18,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <span style={{ fontWeight: 900, fontSize: 16 }}>elogis 자동 다운로드</span>
+          <span
+            style={{
+              marginLeft: 10,
+              fontSize: 11,
+              fontWeight: 700,
+              padding: "2px 7px",
+              border: "1px solid",
+              borderColor: agentOnline ? "#86EFAC" : "#FCA5A5",
+              background: agentOnline ? "#F0FDF4" : "#FEF2F2",
+              color: agentOnline ? "#15803D" : "#B91C1C",
+            }}
+          >
+            {agentOnline ? "에이전트 온라인" : "에이전트 오프라인"}
+          </span>
+        </div>
+        <button
+          onClick={handleTrigger}
+          disabled={!agentOnline || !!isBusy || triggering}
+          style={{
+            height: 36,
+            padding: "0 18px",
+            border: "1px solid #111827",
+            background: !agentOnline || isBusy || triggering ? "#E5E7EB" : "#111827",
+            color: !agentOnline || isBusy || triggering ? "#9CA3AF" : "#fff",
+            fontWeight: 900,
+            fontSize: 13,
+            cursor: !agentOnline || isBusy || triggering ? "not-allowed" : "pointer",
+          }}
+        >
+          {triggering ? "요청 중..." : isBusy ? "동기화 중..." : "지금 다운로드"}
+        </button>
+      </div>
+
+      {status?.latest && (
+        <div style={{ marginTop: 12, fontSize: 12 }}>
+          <div style={{ color: "#6B7280", marginBottom: 4 }}>
+            최근 실행: {formatKst(status.latest.requested_at)}
+            {status.latest.completed_at && ` → ${formatKst(status.latest.completed_at)}`}
+          </div>
+
+          {/* 파일별 결과 */}
+          {status.latest.results && status.latest.results.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+              {status.latest.results.map((r) => (
+                <span
+                  key={r.slotKey}
+                  title={r.message}
+                  style={{
+                    padding: "2px 8px",
+                    border: "1px solid",
+                    borderColor: r.ok ? "#86EFAC" : "#FCA5A5",
+                    background: r.ok ? "#F0FDF4" : "#FEF2F2",
+                    color: r.ok ? "#15803D" : "#B91C1C",
+                    fontWeight: 700,
+                  }}
+                >
+                  {r.ok ? "✓" : "✗"} {r.label}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* 에러 */}
+          {status.latest.error_text && (
+            <div
+              style={{
+                marginTop: 8,
+                padding: "6px 10px",
+                background: "#FEF2F2",
+                border: "1px solid #FCA5A5",
+                color: "#B91C1C",
+                fontWeight: 700,
+              }}
+            >
+              {status.latest.error_text}
+            </div>
+          )}
+
+          {/* 진행 중 로그 */}
+          {isBusy && status.latest.log_tail && status.latest.log_tail.length > 0 && (
+            <div
+              style={{
+                marginTop: 8,
+                padding: "6px 10px",
+                background: "#EFF6FF",
+                border: "1px solid #BFDBFE",
+                color: "#1D4ED8",
+                fontFamily: "monospace",
+                fontSize: 11,
+                lineHeight: 1.6,
+              }}
+            >
+              {status.latest.log_tail.slice(-5).map((line, i) => (
+                <div key={i}>{line}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {!agentOnline && (
+        <div style={{ marginTop: 10, fontSize: 12, color: "#6B7280" }}>
+          사무실 PC에서 <code style={{ background: "#F3F4F6", padding: "1px 5px" }}>scripts/elogis-agent/start.bat</code> 를 실행하면 에이전트가 활성화됩니다.
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type StoreMasterRow = {
@@ -560,6 +747,10 @@ export default function FileUploadPage() {
       <p style={{ marginTop: 8, color: "#6B7280", fontSize: 14 }}>
         슬롯별로 파일을 업로드합니다. 같은 슬롯에 새 파일을 올리면 기존 파일이 교체됩니다.
       </p>
+
+      <div style={{ marginTop: 24 }}>
+        <ElogisSyncPanel />
+      </div>
 
       <div
         style={{
