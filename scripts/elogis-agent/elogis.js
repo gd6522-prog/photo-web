@@ -216,14 +216,15 @@ async function fillSearchInputs(page, searchInputs, log) {
           // condition 설정 시: = 버튼 클릭 → 비교조건 패널 → 원하는 조건 선택
           if (input.condition) {
             log(`검색 조건 변경: "${input.label}" → ${input.condition}`);
-            // DOM 구조 파악용 로그
+            // DOM 구조 파악용 로그 (5단계 위 조상)
             const domDebug = await target.evaluate((sel) => {
               const inp = document.querySelector(sel);
               if (!inp) return "input not found";
-              const row = inp.closest("tr") || inp.parentElement?.parentElement;
-              return row ? row.outerHTML.slice(0, 2000) : inp.parentElement?.outerHTML?.slice(0, 2000);
+              let el = inp;
+              for (let i = 0; i < 5; i++) { if (el.parentElement) el = el.parentElement; }
+              return el.outerHTML.slice(0, 3000);
             }, input.selector).catch(() => "eval error");
-            log(`[DOM] ${input.label} 주변:\n${domDebug}`);
+            log(`[DOM] ${input.label} 5단계위:\n${domDebug}`);
             const triggered = false;
 
             if (triggered) {
