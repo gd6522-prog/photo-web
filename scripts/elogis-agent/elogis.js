@@ -54,7 +54,22 @@ async function createSession(id, pw, log) {
   }
   log("로그인 성공");
 
-  return { browser, context, page };
+  // elogis 내부 API 요청에서 USER_SESSION_ID 자동 캡처
+  let capturedSessionId = null;
+  const captureSession = (request) => {
+    const url = request.url();
+    if (!url.includes("elogis.emart24.co.kr")) return;
+    // URL 쿼리 파라미터에서 캡처
+    const m = url.match(/[?&]USER_SESSION_ID=([^&]+)/);
+    if (m) { capturedSessionId = decodeURIComponent(m[1]); return; }
+    // POST body 에서 캡처
+    const body = request.postData() ?? "";
+    const mb = body.match(/USER_SESSION_ID=([^&\s]+)/);
+    if (mb) capturedSessionId = decodeURIComponent(mb[1]);
+  };
+  page.on("request", captureSession);
+
+  return { browser, context, page, getSessionId: () => capturedSessionId };
 }
 
 // ── 메뉴 클릭 네비게이션 ──────────────────────────────────────────────────────
@@ -113,8 +128,8 @@ async function performSearch(page, searchInputs, log) {
   log("조회 클릭...");
   let srchClicked = false;
   for (const target of [page, ...page.frames()]) {
-    const btn = target.locator('text="조회"').first();
-    if (await btn.isVisible({ timeout: 800 }).catch(() => false)) {
+    const btn = target.locator('[role="button"]:has-text("조회"), text="조회"').first();
+    if (await btn.isVisible({ timeout: 1_500 }).catch(() => false)) {
       await btn.click({ force: true }).catch(() => {});
       srchClicked = true;
       break;
@@ -126,12 +141,16 @@ async function performSearch(page, searchInputs, log) {
 
 // ── WMS 3단계 API 다운로드 ────────────────────────────────────────────────────
 
-async function callDownloadApi(page, context, prepareParams, log) {
-  // 0. Playwright context.cookies() — elogis 도메인 쿠키만 탐색 (etms 쿠키 혼입 방지)
-  let sessionId = null;
-  const allCookies = await context.cookies("https://elogis.emart24.co.kr");
-  for (const c of allCookies) {
-    if (/session/i.test(c.name) && c.value) { sessionId = c.value; break; }
+async function callDownloadApi(page, context, prepareParams, log, getSessionId) {
+  // 0. 네트워크 인터셉터로 캡처된 USER_SESSION_ID 우선 사용
+  let sessionId = getSessionId ? getSessionId() : null;
+
+  // 1. 캡처 못한 경우 → elogis 도메인 쿠키(JSESSIONID) 사용
+  if (!sessionId) {
+    const allCookies = await context.cookies("https://elogis.emart24.co.kr");
+    for (const c of allCookies) {
+      if (/session/i.test(c.name) && c.value) { sessionId = c.value; break; }
+    }
   }
 
   // 1. window 전역 변수 → UserInfo/User 객체 → sessionStorage → localStorage → document.cookie 순서로 탐색
@@ -227,7 +246,7 @@ async function callDownloadApi(page, context, prepareParams, log) {
 
 // ── WMS 파일 다운로드 ─────────────────────────────────────────────────────────
 
-async function downloadWmsFile(page, context, fileConfig, log) {
+async function downloadWmsFile(page, context, fileConfig, log, getSessionId) {
   const { label, pageUrl, menuPath, searchInputs, prepareParams } = fileConfig;
 
   if (pageUrl === "TODO") throw new Error(`${label}: pageUrl 이 설정되지 않았습니다.`);
@@ -249,23 +268,23 @@ async function downloadWmsFile(page, context, fileConfig, log) {
     log(`${label}: 조회 클릭...`);
     let searchClicked = false;
     for (const target of [page, ...page.frames()]) {
-      const btn = target.locator('text="조회"').first();
-      if (await btn.isVisible({ timeout: 800 }).catch(() => false)) {
+      // ExtJS 버튼: <a role="button"> 또는 text="조회"
+      const btn = target.locator('[role="button"]:has-text("조회"), text="조회"').first();
+      if (await btn.isVisible({ timeout: 1_500 }).catch(() => false)) {
         await btn.click({ force: true }).catch(() => {});
         searchClicked = true;
-        log(`${label}: 조회 클릭 완료 (frame: ${target.url?.() ?? "main"})`);
+        log(`${label}: 조회 클릭 완료`);
         break;
       }
     }
     if (!searchClicked) {
       log(`[경고] ${label}: 조회 버튼을 찾지 못했습니다. (프레임 수: ${page.frames().length})`);
-      // 디버깅용 스크린샷
       await page.screenshot({ path: require("path").join(__dirname, `debug_${label}.png`) }).catch(() => {});
     }
     await page.waitForTimeout(5_000);
   }
 
-  const buffer = await callDownloadApi(page, context, prepareParams, log);
+  const buffer = await callDownloadApi(page, context, prepareParams, log, getSessionId);
   log(`${label}: 다운로드 완료 (${Math.round(buffer.length / 1024)} KB)`);
   return buffer;
 }
@@ -353,11 +372,11 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
 
 // ── 통합 다운로드 (agent.js 에서 호출) ───────────────────────────────────────
 
-async function downloadFile(page, context, fileConfig, log) {
+async function downloadFile(page, context, fileConfig, log, getSessionId) {
   if (fileConfig.tmsDownload) {
     return downloadTmsFile(page, context, fileConfig, log);
   }
-  return downloadWmsFile(page, context, fileConfig, log);
+  return downloadWmsFile(page, context, fileConfig, log, getSessionId);
 }
 
 module.exports = { createSession, downloadFile };

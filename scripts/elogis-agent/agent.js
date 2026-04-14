@@ -94,10 +94,11 @@ async function runSync(jobId) {
     browser = session.browser;
     page = session.page;
     const context = session.context;
+    const getSessionId = session.getSessionId;
 
     for (const fileConfig of targets) {
       try {
-        const buffer = await downloadFile(page, context, fileConfig, addLog);
+        const buffer = await downloadFile(page, context, fileConfig, addLog, getSessionId);
         await uploadToAdmin(ADMIN_URL, fileConfig, buffer, addLog);
         results.push({ slotKey: fileConfig.slotKey, label: fileConfig.label, ok: true, message: "완료" });
       } catch (err) {
