@@ -105,6 +105,7 @@ async function runSync(jobId) {
   try {
     const session = await createSession(ELOGIS_ID, ELOGIS_PW, addLog);
     browser = session.browser;
+    currentBrowser = browser;
     page = session.page;
     const context = session.context;
 
@@ -121,6 +122,7 @@ async function runSync(jobId) {
     }
   } finally {
     if (browser) await browser.close().catch(() => {});
+    currentBrowser = null;
   }
 
   return results;
@@ -129,10 +131,13 @@ async function runSync(jobId) {
 // ── 작업 처리 ─────────────────────────────────────────────────────────────────
 
 let isProcessing = false;
+let currentBrowser = null;   // 종료 시 강제 닫기용
+let currentJobId = null;     // 종료 시 DB 상태 정리용
 
 async function processJob(jobId) {
   if (isProcessing) return;
   isProcessing = true;
+  currentJobId = jobId;
 
   log(`작업 #${jobId} 시작`);
 
@@ -163,8 +168,38 @@ async function processJob(jobId) {
     }).eq("id", jobId);
   } finally {
     isProcessing = false;
+    currentJobId = null;
   }
 }
+
+// ── 종료 처리 (Ctrl+C / SIGTERM) ──────────────────────────────────────────────
+
+async function shutdown(signal) {
+  log(`\n[${signal}] 에이전트 종료 중...`);
+
+  // 실행 중인 브라우저 닫기
+  if (currentBrowser) {
+    log("브라우저 닫는 중...");
+    await currentBrowser.close().catch(() => {});
+    currentBrowser = null;
+  }
+
+  // 중단된 작업 DB 상태 정리
+  if (currentJobId) {
+    log(`작업 #${currentJobId} → 중단됨 (interrupted)`);
+    await supabase.from("elogis_sync_log").update({
+      status: "failed",
+      completed_at: new Date().toISOString(),
+      error_text: `에이전트가 강제 종료되었습니다 (${signal})`,
+    }).eq("id", currentJobId).catch(() => {});
+  }
+
+  log("에이전트 종료 완료");
+  process.exit(0);
+}
+
+process.on("SIGINT",  () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
 
 // 스케줄 트리거 (DB에 pending 작업 삽입 후 즉시 실행)
 async function triggerScheduled() {
@@ -211,6 +246,21 @@ async function main() {
   log("=== elogis 에이전트 시작 ===");
   log(`스케줄: ${CRON_SCHEDULE}`);
   log(`대상 파일: ${FILE_CONFIGS.filter((c) => c.pageUrl !== "TODO").map((c) => c.label).join(", ") || "없음 (config.js 설정 필요)"}`);
+
+  // 이전에 중단된 running/pending 작업 정리
+  const { data: stale } = await supabase
+    .from("elogis_sync_log")
+    .select("id")
+    .in("status", ["running", "pending"]);
+  if (stale && stale.length > 0) {
+    const ids = stale.map((r) => r.id);
+    await supabase.from("elogis_sync_log").update({
+      status: "failed",
+      completed_at: new Date().toISOString(),
+      error_text: "에이전트 재시작으로 인해 중단됨",
+    }).in("id", ids);
+    log(`이전 중단 작업 ${ids.length}건 정리: #${ids.join(", #")}`);
+  }
 
   // heartbeat
   await sendHeartbeat();
