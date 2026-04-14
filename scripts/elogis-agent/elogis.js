@@ -259,9 +259,15 @@ async function downloadWmsFile(page, context, fileConfig, log) {
     await navigateViaMenu(page, menuPath, log);
   }
 
-  // 검색 입력이 있는 경우: 값만 입력 (조회 클릭 불필요)
+  // 검색 입력 채우기
   if (searchInputs && searchInputs.length > 0) {
     await fillSearchInputs(page, searchInputs, log);
+  }
+
+  // clickSearch: true 인 경우 조회 클릭 후 그리드 로드 대기
+  if (fileConfig.clickSearch) {
+    await clickSearchButton(page, log, label);
+    await page.waitForTimeout(5_000);
   }
 
   // 엑셀 버튼 클릭 + 다운로드 캡처
