@@ -28,7 +28,7 @@ const ELOGIS_PW = process.env.ELOGIS_PW;
   console.log("로그인 성공");
 
   // 메뉴 클릭
-  const menuPath = ["즐겨찾기", "마스터관리 (MDM)", "상품관리", "상품"];
+  const menuPath = ["즐겨찾기", "마스터관리 (MDM)", "상품관리", "작업센터 취급상품 마스터"];
   for (const item of menuPath) {
     console.log(`메뉴 클릭: ${item}`);
     const el = page.locator(`text="${item}"`).first();
@@ -41,7 +41,7 @@ const ELOGIS_PW = process.env.ELOGIS_PW;
   await page.waitForTimeout(5_000);
 
   // 스크린샷
-  await page.screenshot({ path: path.join(__dirname, "debug_mdm_상품마스터.png"), fullPage: true });
+  await page.screenshot({ path: path.join(__dirname, "debug_mdm_작업센터.png"), fullPage: true });
   console.log("스크린샷 저장: debug_mdm_상품마스터.png");
 
   // 프레임 정보 덤프
@@ -52,6 +52,17 @@ const ELOGIS_PW = process.env.ELOGIS_PW;
     const f = frames[i];
     const url = f.url();
     console.log(`\n[프레임 ${i}] ${url}`);
+
+    // input 목록
+    const inputs = await f.evaluate(() => {
+      return Array.from(document.querySelectorAll("input[type='text'], input:not([type])")).map((el) => {
+        return `name="${el.name}" id="${el.id}" placeholder="${el.placeholder}"`;
+      });
+    }).catch(() => []);
+    if (inputs.length > 0) {
+      console.log("  [입력필드]");
+      inputs.forEach((i) => console.log("    " + i));
+    }
 
     // 버튼 목록
     const buttons = await f.evaluate(() => {

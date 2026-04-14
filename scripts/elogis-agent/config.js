@@ -75,8 +75,7 @@ const FILE_CONFIGS = [
       {
         label: "작업센터코드",
         value: "901234,901235,901237,901238,901239,901240,901363",
-        // 자동 탐색 실패 시 아래 selector 주석 해제 후 수정:
-        // selector: 'input[name="centCd"]',
+        selector: '[name="TASK_CENT_CD"]',
       },
     ],
     prepareParams: {
