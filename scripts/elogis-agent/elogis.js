@@ -18,7 +18,7 @@ const LOGIN_URL = `${BASE_URL}/`;
 
 async function createSession(id, pw, log) {
   log("브라우저 시작...");
-  const browser = await chromium.launch({ headless: false, slowMo: 300 });
+  const browser = await chromium.launch({ headless: false });
   const context = await browser.newContext();
   const page = await context.newPage();
 
@@ -169,10 +169,19 @@ async function clickExcelAndDownload(page, log, label) {
   await page.waitForTimeout(800);
   for (const target of targets) {
     const dropdownClicked = await target.evaluate(() => {
-      // ExtJS 메뉴 아이템
-      for (const el of document.querySelectorAll(".x-menu-item-text, .x-menu-item")) {
-        const text = (el.textContent || "").replace(/\s+/g, "").trim();
-        if (text.includes("엑셀") || text.includes("Excel") || text.includes("다운")) {
+      const normalize = (s) => (s || "").replace(/\s+/g, "").trim();
+      const items = document.querySelectorAll(".x-menu-item-text, .x-menu-item");
+      // 1순위: "전체 데이터 다운로드" 정확히 일치
+      for (const el of items) {
+        if (normalize(el.textContent) === "전체데이터다운로드") {
+          el.click();
+          return true;
+        }
+      }
+      // 2순위: 다운로드 관련 텍스트 포함 (엑셀/Excel 제외 — 엑셀 버튼 자신 재클릭 방지)
+      for (const el of items) {
+        const text = normalize(el.textContent);
+        if (text.includes("다운로드") || text.includes("download")) {
           el.click();
           return true;
         }
@@ -180,7 +189,7 @@ async function clickExcelAndDownload(page, log, label) {
       return false;
     }).catch(() => false);
     if (dropdownClicked) {
-      log(`${label}: 드롭다운 메뉴 클릭`);
+      log(`${label}: 드롭다운 → 전체 데이터 다운로드 클릭`);
       break;
     }
   }
