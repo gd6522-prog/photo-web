@@ -1002,14 +1002,14 @@ function SlotCard({
             <span>다운로드 중...</span>
             <span>약 {remaining}초 남음 ({elapsed}초 경과)</span>
           </div>
-          <div style={{ height: 6, background: "#E5E7EB", overflow: "hidden" }}>
+          <div style={{ height: 6, background: "#E5E7EB", overflow: "hidden", position: "relative" }}>
             <div
               style={{
+                position: "absolute",
                 height: "100%",
-                width: "40%",
-                background: "linear-gradient(90deg, #2563EB 0%, #60A5FA 50%, #2563EB 100%)",
-                backgroundSize: "200% 100%",
-                animation: "slideBar 1.4s linear infinite",
+                width: "25%",
+                background: "#2563EB",
+                animation: "slideBar 1.4s ease-in-out infinite",
               }}
             />
           </div>
