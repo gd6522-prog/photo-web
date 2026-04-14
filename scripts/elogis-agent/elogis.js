@@ -122,11 +122,17 @@ async function clickSearchButton(page, log, label) {
 
 // ── 엑셀 버튼 클릭 + 다운로드 캡처 ──────────────────────────────────────────
 
-async function clickExcelAndDownload(page, log, label) {
+async function clickExcelAndDownload(page, context, log, label) {
   const targets = getElogisFrames(page);
 
-  // 다운로드 이벤트 대기 먼저 등록 (대용량 파일 생성 시간 고려해 120초)
-  const downloadPromise = page.waitForEvent("download", { timeout: 120_000 });
+  // page + context 양쪽에서 download 이벤트 대기 (MDM은 새 탭으로 다운로드할 수 있음)
+  const downloadPromise = Promise.race([
+    page.waitForEvent("download", { timeout: 120_000 }),
+    context.waitForEvent("page", { timeout: 120_000 }).then(async (newPage) => {
+      const dl = await newPage.waitForEvent("download", { timeout: 60_000 });
+      return dl;
+    }),
+  ]);
 
   // 엑셀 버튼 클릭
   let excelClicked = false;
@@ -235,15 +241,16 @@ async function fillSearchInputs(page, searchInputs, log) {
             }, input.selector).catch(() => false);
 
             if (triggered) {
-              await page.waitForTimeout(600);
-              // 비교조건 패널에서 원하는 조건 클릭
-              // 조건 다이얼로그는 메인 프레임에 뜰 수 있으므로 모든 프레임 탐색
+              await page.waitForTimeout(1_500);
+              // 비교조건 패널에서 원하는 조건 클릭 (모든 프레임 탐색)
               let condClicked = false;
               for (const f of [page, ...page.frames()]) {
                 condClicked = await f.evaluate((cond) => {
                   const norm = (s) => (s || "").replace(/\s+/g, "").trim();
                   for (const el of document.querySelectorAll(".x-btn-inner, .x-btn-inner-default-small, button, a")) {
-                    if (norm(el.textContent) === norm(cond)) { el.click(); return true; }
+                    if (norm(el.textContent) === norm(cond) || el.textContent.includes(cond)) {
+                      el.click(); return true;
+                    }
                   }
                   return false;
                 }, input.condition).catch(() => false);
@@ -315,7 +322,7 @@ async function downloadWmsFile(page, context, fileConfig, log) {
   }
 
   log(`${label}: 엑셀 다운로드 시작...`);
-  const buffer = await clickExcelAndDownload(page, log, label);
+  const buffer = await clickExcelAndDownload(page, context, log, label);
   log(`${label}: 다운로드 완료 (${Math.round(buffer.length / 1024)} KB)`);
   return buffer;
 }
