@@ -246,30 +246,19 @@ async function fillSearchInputs(page, searchInputs, log) {
 }
 
 // ── WMS/MDM 파일 다운로드 ─────────────────────────────────────────────────────
+// 조회 버튼 클릭 불필요 — 페이지 진입 시 기본 데이터가 자동 로드됨
 
 async function downloadWmsFile(page, context, fileConfig, log) {
-  const { label, menuPath, searchInputs } = fileConfig;
+  const { label, menuPath } = fileConfig;
 
   log(`${label}: elogis 메인 이동...`);
   await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
   await page.waitForTimeout(2_000);
 
-  // 메뉴 네비게이션
+  // 메뉴 네비게이션 (navigateViaMenu 내부에 3초 대기 포함)
   if (menuPath && menuPath.length > 0) {
     await navigateViaMenu(page, menuPath, log);
   }
-
-  // 검색 입력 (있는 경우)
-  if (searchInputs && searchInputs.length > 0) {
-    await fillSearchInputs(page, searchInputs, log);
-  }
-
-  // 조회 버튼 클릭 (evaluate → 실제 JS 이벤트)
-  await clickSearchButton(page, log, label);
-
-  // 그리드 데이터 로드 대기
-  log(`${label}: 그리드 데이터 로드 대기...`);
-  await page.waitForTimeout(6_000);
 
   // 엑셀 버튼 클릭 + 다운로드 캡처
   log(`${label}: 엑셀 다운로드 시작...`);
