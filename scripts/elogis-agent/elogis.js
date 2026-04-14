@@ -237,23 +237,21 @@ async function fillSearchInputs(page, searchInputs, log) {
             if (triggered) {
               await page.waitForTimeout(600);
               // 비교조건 패널에서 원하는 조건 클릭
-              const condClicked = await target.evaluate((cond) => {
-                const norm = (s) => (s || "").replace(/\s+/g, "").trim();
-                for (const el of document.querySelectorAll(".x-btn-inner, .x-menu-item-text, button, a")) {
-                  if (norm(el.textContent) === norm(cond)) { el.click(); return true; }
-                }
-                return false;
-              }, input.condition).catch(() => false);
+              // 조건 다이얼로그는 메인 프레임에 뜰 수 있으므로 모든 프레임 탐색
+              let condClicked = false;
+              for (const f of [page, ...page.frames()]) {
+                condClicked = await f.evaluate((cond) => {
+                  const norm = (s) => (s || "").replace(/\s+/g, "").trim();
+                  for (const el of document.querySelectorAll(".x-btn-inner, .x-btn-inner-default-small, button, a")) {
+                    if (norm(el.textContent) === norm(cond)) { el.click(); return true; }
+                  }
+                  return false;
+                }, input.condition).catch(() => false);
+                if (condClicked) break;
+              }
               if (condClicked) {
                 log(`조건 "${input.condition}" 선택 완료`);
                 await page.waitForTimeout(400);
-                // 조건 패널이 닫히지 않은 경우 X 버튼으로 닫기
-                await target.evaluate(() => {
-                  for (const el of document.querySelectorAll('.x-tool-close, .x-window-closable .x-tool, [class*="close"]')) {
-                    const win = el.closest('.x-window, .x-panel');
-                    if (win && win.offsetParent) { el.click(); return; }
-                  }
-                }).catch(() => {});
               } else {
                 log(`[경고] 조건 "${input.condition}" 버튼을 찾지 못했습니다.`);
               }
