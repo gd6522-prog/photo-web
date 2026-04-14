@@ -155,25 +155,6 @@ function ElogisSyncPanel({
             </div>
           )}
 
-          {/* 진행 중 로그 */}
-          {isBusy && status.latest.log_tail && status.latest.log_tail.length > 0 && (
-            <div
-              style={{
-                marginTop: 8,
-                padding: "6px 10px",
-                background: "#EFF6FF",
-                border: "1px solid #BFDBFE",
-                color: "#1D4ED8",
-                fontFamily: "monospace",
-                fontSize: 11,
-                lineHeight: 1.6,
-              }}
-            >
-              {status.latest.log_tail.slice(-5).map((line, i) => (
-                <div key={i}>{line}</div>
-              ))}
-            </div>
-          )}
         </div>
       )}
 
@@ -1044,10 +1025,18 @@ function SlotCard({
       {/* 게이지바 */}
       {isJobActive && !isSlotDone && (
         <div style={{ marginBottom: 10 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#6B7280", marginBottom: 3 }}>
-            <span>다운로드 중...</span>
-            <span>{remaining > 0 ? `약 ${remaining}초 남음` : `완료 대기 중... (${elapsed}초 경과)`}</span>
-          </div>
+          {(() => {
+            const logTail = syncStatus?.latest?.log_tail ?? [];
+            const lastLine = logTail.length > 0 ? logTail[logTail.length - 1] : null;
+            // 타임스탬프 제거: "[2026. 4. 14. 오후 5:04:29] 메시지" → "메시지"
+            const msg = lastLine ? lastLine.replace(/^\[.*?\]\s*/, "") : "다운로드 중...";
+            return (
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#6B7280", marginBottom: 3, gap: 8 }}>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{msg}</span>
+                <span style={{ whiteSpace: "nowrap", flexShrink: 0 }}>{remaining > 0 ? `약 ${remaining}초 남음` : `${elapsed}초 경과`}</span>
+              </div>
+            );
+          })()}
           <div style={{ height: 6, background: "#E5E7EB", overflow: "hidden" }}>
             <div
               style={{
