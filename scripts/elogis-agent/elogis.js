@@ -62,11 +62,14 @@ async function createSession(id, pw, log) {
 async function navigateViaMenu(page, menuPath, log) {
   for (const menuItem of menuPath) {
     log(`메뉴 클릭: ${menuItem}`);
-    // ExtJS 트리는 DOM에 있지만 숨겨진 상태일 수 있어 force:true 사용
-    await page.click(`text="${menuItem}"`, { timeout: 10_000, force: true });
-    await page.waitForTimeout(800);
+    const el = page.locator(`text="${menuItem}"`).first();
+    // visible 해질 때까지 최대 5초 대기 후 클릭, 실패 시 force 클릭
+    await el.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {});
+    await el.click({ timeout: 5_000 }).catch(async () => {
+      await el.click({ force: true, timeout: 5_000 }).catch(() => {});
+    });
+    await page.waitForTimeout(1_200); // 하위 메뉴 펼쳐지는 시간 대기
   }
-  // elogis SPA 는 networkidle 이 안 됨 → 고정 대기
   await page.waitForTimeout(3_000);
 }
 
@@ -229,9 +232,28 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
   await tmsPage.waitForLoadState("networkidle", { timeout: 30_000 });
 
   log(`${label}: 배송그룹 입력 (${배송그룹})...`);
-  const groupInput = tmsPage.locator(
-    'input[placeholder*="배송그룹"], input[name*="grpCd"], input[name*="groupCd"], input[id*="grpCd"]'
-  ).first();
+  // 여러 selector 패턴 + XPath 레이블 기반으로 입력 필드 탐색
+  let groupInput = null;
+  for (const sel of [
+    'input[placeholder*="배송그룹"]',
+    'input[name*="grpCd"]', 'input[name*="groupCd"]',
+    'input[id*="grpCd"]',   'input[name*="grp"]',
+    'input[id*="grp"]',
+  ]) {
+    const el = tmsPage.locator(sel).first();
+    if (await el.isVisible({ timeout: 800 }).catch(() => false)) { groupInput = el; break; }
+  }
+  if (!groupInput) {
+    for (const xpath of [
+      '//*[contains(text(),"배송그룹")]/following::input[1]',
+      '//label[contains(text(),"배송그룹")]/following::input[1]',
+      '//td[contains(text(),"배송그룹")]/following::input[1]',
+    ]) {
+      const el = tmsPage.locator(`xpath=${xpath}`).first();
+      if (await el.isVisible({ timeout: 800 }).catch(() => false)) { groupInput = el; break; }
+    }
+  }
+  if (!groupInput) throw new Error("배송그룹 입력 필드를 찾을 수 없습니다. TMS 페이지 구조 확인 필요.");
   await groupInput.fill(배송그룹);
 
   log(`${label}: 조회 클릭...`);

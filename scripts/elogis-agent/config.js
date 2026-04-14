@@ -190,7 +190,7 @@ const FILE_CONFIGS = [
     label: "재고현황",
     type: "generic",
     pageUrl: "https://elogis.emart24.co.kr/",
-    menuPath: ["창고관리 (WMS)", "재고", "재고조회", "재고현황", "재고현황"],
+    menuPath: ["창고관리 (WMS)", "재고", "재고조회", "재고현황"],  // 재고현황 탭이 기본값
     prepareParams: {
       PAGING: "N",
       CURRENT_MENUCODE: "WMS141123",
