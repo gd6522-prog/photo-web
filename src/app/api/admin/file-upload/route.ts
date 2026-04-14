@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getUploadPresignedUrl,
+  getViewPresignedUrl,
   putR2Object,
   getR2ObjectText,
   listR2Keys,
@@ -112,6 +113,16 @@ export async function POST(req: NextRequest) {
 
     if (!fileName) {
       return NextResponse.json({ ok: false, message: "fileName이 없습니다." }, { status: 400 });
+    }
+
+    // ── action: download-url ────────────────────────────────────────────────
+    if (action === "download-url") {
+      const keys = await listR2Keys(slotPrefix(slotKey));
+      if (keys.length === 0) {
+        return NextResponse.json({ ok: false, message: "파일이 없습니다." }, { status: 404 });
+      }
+      const downloadUrl = await getViewPresignedUrl(keys[0]);
+      return NextResponse.json({ ok: true, downloadUrl });
     }
 
     // ── action: upload-url ──────────────────────────────────────────────────

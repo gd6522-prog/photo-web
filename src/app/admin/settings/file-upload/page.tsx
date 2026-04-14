@@ -792,6 +792,54 @@ export default function FileUploadPage() {
   );
 }
 
+// ─── DownloadButton Component ─────────────────────────────────────────────────
+
+function DownloadButton({ slotKey }: { slotKey: string }) {
+  const [loading, setLoading] = React.useState(false);
+
+  const handleDownload = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/file-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "download-url", slotKey, fileName: "_" }),
+      });
+      const json = await res.json();
+      if (json.ok && json.downloadUrl) {
+        const a = document.createElement("a");
+        a.href = json.downloadUrl;
+        a.download = "";
+        a.click();
+      } else {
+        alert(json.message ?? "다운로드 URL 발급 실패");
+      }
+    } catch {
+      alert("다운로드 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleDownload}
+      disabled={loading}
+      style={{
+        fontSize: 11,
+        padding: "2px 8px",
+        background: loading ? "#E5E7EB" : "#EFF6FF",
+        color: loading ? "#9CA3AF" : "#1D4ED8",
+        border: "1px solid #BFDBFE",
+        cursor: loading ? "not-allowed" : "pointer",
+        fontWeight: 700,
+      }}
+    >
+      {loading ? "..." : "다운로드"}
+    </button>
+  );
+}
+
 // ─── SlotCard Component ───────────────────────────────────────────────────────
 
 type DragHandlers = {
@@ -875,7 +923,12 @@ function SlotCard({
             color: "#374151",
           }}
         >
-          <div style={{ fontWeight: 700 }}>현재 서버 파일</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ fontWeight: 700 }}>현재 서버 파일</div>
+            {serverFile && (
+              <DownloadButton slotKey={config.key} />
+            )}
+          </div>
           {serverFile ? (
             <>
               <div style={{ marginTop: 2 }}>{serverFile.fileName}</div>
