@@ -133,8 +133,8 @@ async function clickSearchButton(page, log, label) {
 async function clickExcelAndDownload(page, log, label) {
   const targets = getElogisFrames(page);
 
-  // 다운로드 이벤트 대기 먼저 등록
-  const downloadPromise = page.waitForEvent("download", { timeout: 60_000 });
+  // 다운로드 이벤트 대기 먼저 등록 (대용량 파일 생성 시간 고려해 120초)
+  const downloadPromise = page.waitForEvent("download", { timeout: 120_000 });
 
   // 엑셀 버튼 클릭
   let excelClicked = false;
@@ -264,7 +264,7 @@ async function downloadWmsFile(page, context, fileConfig, log) {
     await fillSearchInputs(page, searchInputs, log);
     await clickSearchButton(page, log, label);
     log(`${label}: 그리드 데이터 로드 대기...`);
-    await page.waitForTimeout(6_000);
+    await page.waitForTimeout(15_000);
   }
 
   // 엑셀 버튼 클릭 + 다운로드 캡처
@@ -290,10 +290,10 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
   const tmsLoginEl = mainPage.locator('text="TMS 시스템 로그인"').first();
   await tmsLoginEl.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {});
   const [tmsPage] = await Promise.all([
-    context.waitForEvent("page", { timeout: 30_000 }),
+    context.waitForEvent("page", { timeout: 60_000 }),
     tmsLoginEl.click({ force: true }),
   ]);
-  await tmsPage.waitForLoadState("domcontentloaded", { timeout: 30_000 });
+  await tmsPage.waitForLoadState("domcontentloaded", { timeout: 60_000 });
   log(`${label}: etms 접속 완료`);
 
   log(`${label}: 계획관리 메뉴 클릭...`);
