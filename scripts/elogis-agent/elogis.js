@@ -118,15 +118,39 @@ async function performSearch(page, searchInputs, log) {
 // ── WMS 3단계 API 다운로드 ────────────────────────────────────────────────────
 
 async function callDownloadApi(page, prepareParams, log) {
-  // 1. window 전역 변수 → 2. localStorage → 3. 쿠키 순서로 세션 ID 탐색
+  // window 전역 변수 → UserInfo/User 객체 → sessionStorage → localStorage → 쿠키 순서로 탐색
   const sessionId = await page.evaluate(() => {
+    // 1. 직접 전역 변수
     const fromWindow =
       window.USER_SESSION_ID || window.userSessionId ||
       window.g_userSessionId || window.SESSION_ID ||
       window.SES_ID || window.sesId || window.sessionId;
     if (fromWindow) return String(fromWindow);
 
-    // localStorage
+    // 2. UserInfo / User 객체 내부 탐색
+    for (const objName of ["UserInfo", "User", "userInfo", "user", "LOGIN_INFO", "loginInfo"]) {
+      const obj = window[objName];
+      if (obj && typeof obj === "object") {
+        // 세션 관련 키 탐색
+        for (const key of Object.keys(obj)) {
+          if (/session|ses_id|sesId/i.test(key) && obj[key]) return String(obj[key]);
+        }
+        // USER_SESSION_ID 키 직접 탐색
+        if (obj.USER_SESSION_ID) return String(obj.USER_SESSION_ID);
+        if (obj.userSessionId) return String(obj.userSessionId);
+        if (obj.SESSION_ID) return String(obj.SESSION_ID);
+      }
+    }
+
+    // 3. sessionStorage
+    for (const key of Object.keys(sessionStorage)) {
+      if (/session/i.test(key)) {
+        const v = sessionStorage.getItem(key);
+        if (v) return v;
+      }
+    }
+
+    // 4. localStorage
     for (const key of Object.keys(localStorage)) {
       if (/session/i.test(key)) {
         const v = localStorage.getItem(key);
@@ -134,7 +158,7 @@ async function callDownloadApi(page, prepareParams, log) {
       }
     }
 
-    // 쿠키
+    // 5. 쿠키
     for (const part of document.cookie.split(";")) {
       const [k, v] = part.trim().split("=");
       if (k && /session/i.test(k) && v) return decodeURIComponent(v);
@@ -142,16 +166,18 @@ async function callDownloadApi(page, prepareParams, log) {
     return null;
   });
 
-  // 못 찾은 경우 쿠키 목록과 window 키를 로그에 남겨 디버깅 지원
+  // 못 찾은 경우 UserInfo 내용 전체를 로그에 출력
   if (!sessionId) {
     const debugInfo = await page.evaluate(() => ({
       cookies: document.cookie.split(";").map(c => c.trim().split("=")[0]).join(", "),
-      localKeys: Object.keys(localStorage).join(", "),
+      sessionKeys: Object.keys(sessionStorage).join(", "),
       windowKeys: Object.keys(window).filter(k => /session|SES_|user/i.test(k)).join(", "),
+      userInfo: (() => { try { return JSON.stringify(window.UserInfo || window.User || null); } catch { return "parse error"; } })(),
     }));
     log(`[DEBUG] cookies: ${debugInfo.cookies}`);
-    log(`[DEBUG] localStorage: ${debugInfo.localKeys}`);
+    log(`[DEBUG] sessionStorage keys: ${debugInfo.sessionKeys}`);
     log(`[DEBUG] window vars: ${debugInfo.windowKeys}`);
+    log(`[DEBUG] UserInfo: ${debugInfo.userInfo?.substring(0, 300)}`);
     throw new Error("USER_SESSION_ID 를 추출할 수 없습니다.");
   }
 
