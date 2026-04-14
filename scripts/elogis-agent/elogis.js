@@ -279,36 +279,31 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
 
   log(`${label}: 노선-점포(배송처)매핑 클릭...`);
   await tmsPage.click("text=노선-점포(배송처)매핑");
-  await tmsPage.waitForLoadState("networkidle", { timeout: 30_000 });
+  await tmsPage.waitForTimeout(3_000);
 
   log(`${label}: 배송그룹 입력 (${배송그룹})...`);
-  // TMS는 iframe 내부 폼일 수 있으므로 프레임 포함 탐색
+  // TMS iframe 내부 폼에서 배송그룹 필드 탐색 (name="deli_seq_cd")
   const searchTargets = [tmsPage, ...tmsPage.frames()];
   let groupInput = null;
   outer: for (const target of searchTargets) {
-    for (const sel of [
-      'input[placeholder*="배송그룹"]',
-      'input[name*="grpCd"]', 'input[name*="groupCd"]',
-      'input[id*="grpCd"]',   'input[name*="grp"]',
-      'input[id*="grp"]',
-    ]) {
-      const el = target.locator(sel).first();
-      if (await el.isVisible({ timeout: 500 }).catch(() => false)) { groupInput = el; break outer; }
-    }
-    for (const xpath of [
-      '//*[contains(text(),"배송그룹")]/following::input[1]',
-      '//label[contains(text(),"배송그룹")]/following::input[1]',
-      '//td[contains(text(),"배송그룹")]/following::input[1]',
-    ]) {
-      const el = target.locator(`xpath=${xpath}`).first();
-      if (await el.isVisible({ timeout: 500 }).catch(() => false)) { groupInput = el; break outer; }
-    }
+    const el = target.locator('#deli_seq_cd, [name="deli_seq_cd"]').first();
+    if (await el.isVisible({ timeout: 1_000 }).catch(() => false)) { groupInput = el; break outer; }
   }
-  if (!groupInput) throw new Error("배송그룹 입력 필드를 찾을 수 없습니다. TMS 페이지 구조 확인 필요.");
+  if (!groupInput) throw new Error("배송그룹 입력 필드를 찾을 수 없습니다.");
   await groupInput.fill(배송그룹);
 
   log(`${label}: 조회 클릭...`);
-  await tmsPage.click('button:has-text("조회"), input[value="조회"]');
+  // TMS는 iframe 내부이므로 프레임 포함 조회 버튼 탐색
+  let clicked = false;
+  for (const target of [tmsPage, ...tmsPage.frames()]) {
+    const btn = target.locator('input[name="btn_search"], input[value="조회"], button:has-text("조회"), text="조회"').first();
+    if (await btn.isVisible({ timeout: 500 }).catch(() => false)) {
+      await btn.click({ force: true });
+      clicked = true;
+      break;
+    }
+  }
+  if (!clicked) log(`[경고] ${label}: 조회 버튼을 찾지 못했습니다.`);
   await tmsPage.waitForTimeout(5_000);
 
   log(`${label}: 그리드 메뉴(≡) 클릭...`);
