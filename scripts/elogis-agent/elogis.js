@@ -3,9 +3,8 @@
  * Playwright 로 elogis/etms 에서 파일을 다운로드합니다.
  *
  * 파일 유형별 흐름:
- *   WMS (직접 URL)   : 로그인 → URL 이동 → 3단계 API
- *   WMS (메뉴+검색)  : 로그인 → 메뉴 클릭 → 검색입력+조회 → 3단계 API
- *   TMS (점포마스터) : 로그인 → TMS새창 → 메뉴 클릭 → 입력+조회 → 다운로드 인터셉트
+ *   WMS/MDM (메뉴+조회) : 로그인 → 메뉴 클릭 → 검색입력 → 조회(evaluate) → 엑셀(evaluate) → download 이벤트 캡처
+ *   TMS (점포마스터)    : 로그인 → TMS새창 → 메뉴 클릭 → 입력+조회 → 엑셀다운로드 → download 이벤트 캡처
  */
 
 const { chromium } = require("playwright");
@@ -26,7 +25,6 @@ async function createSession(id, pw, log) {
   log("elogis 로그인 페이지 접속...");
   await page.goto(LOGIN_URL, { waitUntil: "networkidle", timeout: 30_000 });
 
-  // ExtJS 기반 로그인 폼 — readonly가 아닌 실제 입력 가능한 필드 대기
   log("로그인 입력창 대기...");
   const idInput = page.locator('input[name="USERID"]').first();
   await idInput.waitFor({ state: "visible", timeout: 15_000 });
@@ -54,22 +52,7 @@ async function createSession(id, pw, log) {
   }
   log("로그인 성공");
 
-  // elogis 내부 API 요청에서 USER_SESSION_ID 자동 캡처
-  let capturedSessionId = null;
-  const captureSession = (request) => {
-    const url = request.url();
-    if (!url.includes("elogis.emart24.co.kr")) return;
-    // URL 쿼리 파라미터에서 캡처
-    const m = url.match(/[?&]USER_SESSION_ID=([^&]+)/);
-    if (m) { capturedSessionId = decodeURIComponent(m[1]); return; }
-    // POST body 에서 캡처
-    const body = request.postData() ?? "";
-    const mb = body.match(/USER_SESSION_ID=([^&\s]+)/);
-    if (mb) capturedSessionId = decodeURIComponent(mb[1]);
-  };
-  page.on("request", captureSession);
-
-  return { browser, context, page, getSessionId: () => capturedSessionId };
+  return { browser, context, page };
 }
 
 // ── 메뉴 클릭 네비게이션 ──────────────────────────────────────────────────────
@@ -78,226 +61,212 @@ async function navigateViaMenu(page, menuPath, log) {
   for (const menuItem of menuPath) {
     log(`메뉴 클릭: ${menuItem}`);
     const el = page.locator(`text="${menuItem}"`).first();
-    // visible 해질 때까지 최대 5초 대기 후 클릭, 실패 시 force 클릭
     await el.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {});
     await el.click({ timeout: 5_000 }).catch(async () => {
       await el.click({ force: true, timeout: 5_000 }).catch(() => {});
     });
-    await page.waitForTimeout(1_200); // 하위 메뉴 펼쳐지는 시간 대기
+    await page.waitForTimeout(1_200);
   }
   await page.waitForTimeout(3_000);
 }
 
-// ── 검색 입력 + 조회 ──────────────────────────────────────────────────────────
+// ── iframe 포함 모든 대상 프레임 반환 ─────────────────────────────────────────
 
-async function performSearch(page, searchInputs, log) {
-  for (const input of searchInputs) {
-    log(`검색 입력: ${input.label} = ${input.value}`);
-
-    // 라벨 텍스트 옆 input 을 XPath 로 찾기 (여러 패턴 시도)
-    let filled = false;
-    const xpaths = [
-      `//label[contains(text(),"${input.label}")]/following::input[1]`,
-      `//td[contains(text(),"${input.label}")]/following::input[1]`,
-      `//th[contains(text(),"${input.label}")]/following::input[1]`,
-      `//span[contains(text(),"${input.label}")]/following::input[1]`,
-    ];
-    for (const xpath of xpaths) {
-      try {
-        const el = page.locator(`xpath=${xpath}`).first();
-        if (await el.isVisible({ timeout: 2_000 })) {
-          await el.triple_click();
-          await el.fill(input.value);
-          filled = true;
-          break;
-        }
-      } catch {}
-    }
-
-    // XPath 실패 시 placeholder 또는 name 으로 시도
-    if (!filled && input.selector) {
-      await page.fill(input.selector, input.value);
-      filled = true;
-    }
-
-    if (!filled) {
-      log(`[경고] "${input.label}" 입력칸을 찾지 못했습니다. selector 설정이 필요할 수 있습니다.`);
-    }
-  }
-
-  log("조회 클릭...");
-  const srchTargets = [
-    ...page.frames().filter(f => f.url().includes("elogis.emart24.co.kr") && f.url() !== page.url()),
+function getElogisFrames(page) {
+  return [
+    ...page.frames().filter(
+      (f) => f.url().includes("elogis.emart24.co.kr") && f.url() !== page.url()
+    ),
     page,
   ];
-  let srchClicked = false;
-  for (const target of srchTargets) {
-    const btn = target.locator('text="조회"').first();
-    await btn.waitFor({ state: "visible", timeout: 3_000 }).catch(() => {});
-    if (await btn.isVisible({ timeout: 500 }).catch(() => false)) {
-      await btn.click({ force: true }).catch(() => {});
-      srchClicked = true;
+}
+
+// ── frame.evaluate 로 버튼 텍스트 매칭 클릭 ──────────────────────────────────
+
+async function evaluateClickByText(frame, texts) {
+  return frame.evaluate((texts) => {
+    const normalize = (s) => (s || "").replace(/\s+/g, "").trim();
+    // x-btn-inner span (ExtJS 버튼)
+    for (const span of document.querySelectorAll(".x-btn-inner")) {
+      if (texts.some((t) => normalize(span.textContent) === normalize(t))) {
+        const btn = span.closest('a[role="button"], button');
+        if (btn) { btn.click(); return true; }
+      }
+    }
+    // 일반 버튼/링크
+    for (const el of document.querySelectorAll('a[role="button"], button, input[type="button"], input[type="submit"]')) {
+      const text = el.value !== undefined && el.value !== "" ? el.value : el.textContent;
+      if (texts.some((t) => normalize(text) === normalize(t))) {
+        el.click();
+        return true;
+      }
+    }
+    return false;
+  }, texts).catch(() => false);
+}
+
+// ── 조회 버튼 클릭 (evaluate → 실제 ExtJS 이벤트 발생) ───────────────────────
+
+async function clickSearchButton(page, log, label) {
+  const targets = getElogisFrames(page);
+  for (const target of targets) {
+    const clicked = await evaluateClickByText(target, ["조회"]);
+    if (clicked) {
+      log(`${label}: 조회 클릭 완료`);
+      return true;
+    }
+  }
+  log(`[경고] ${label}: 조회 버튼을 찾지 못했습니다. (프레임 수: ${page.frames().length})`);
+  await page.screenshot({ path: path.join(__dirname, `debug_${label}.png`) }).catch(() => {});
+  return false;
+}
+
+// ── 엑셀 버튼 클릭 + 다운로드 캡처 ──────────────────────────────────────────
+
+async function clickExcelAndDownload(page, log, label) {
+  const targets = getElogisFrames(page);
+
+  // 다운로드 이벤트 대기 먼저 등록
+  const downloadPromise = page.waitForEvent("download", { timeout: 60_000 });
+
+  // 엑셀 버튼 클릭
+  let excelClicked = false;
+  for (const target of targets) {
+    const clicked = await evaluateClickByText(target, ["엑셀", "Excel", "EXCEL", "엑셀다운로드", "엑셀 다운로드"]);
+    if (clicked) {
+      log(`${label}: 엑셀 버튼 클릭`);
+      excelClicked = true;
       break;
     }
   }
-  if (!srchClicked) log(`[경고] 조회 버튼을 찾지 못했습니다. (프레임 수: ${page.frames().length})`);
-  await page.waitForTimeout(5_000); // 그리드 렌더링 대기
-}
 
-// ── WMS 3단계 API 다운로드 ────────────────────────────────────────────────────
-
-async function callDownloadApi(page, context, prepareParams, log, getSessionId) {
-  // 0. 네트워크 인터셉터로 캡처된 USER_SESSION_ID 우선 사용
-  let sessionId = getSessionId ? getSessionId() : null;
-
-  // 1. 캡처 못한 경우 → elogis 도메인 쿠키(JSESSIONID) 사용
-  if (!sessionId) {
-    const allCookies = await context.cookies("https://elogis.emart24.co.kr");
-    for (const c of allCookies) {
-      if (/session/i.test(c.name) && c.value) { sessionId = c.value; break; }
+  if (!excelClicked) {
+    // 폴백: locator 로 시도
+    for (const target of targets) {
+      const btn = target.locator('text="엑셀"').first();
+      if (await btn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await btn.click().catch(() => btn.click({ force: true }).catch(() => {}));
+        log(`${label}: 엑셀 버튼 클릭 (locator fallback)`);
+        excelClicked = true;
+        break;
+      }
     }
   }
 
-  // 1. window 전역 변수 → UserInfo/User 객체 → sessionStorage → localStorage → document.cookie 순서로 탐색
-  if (!sessionId) sessionId = await page.evaluate(() => {
-    // 1. 직접 전역 변수
-    const fromWindow =
-      window.USER_SESSION_ID || window.userSessionId ||
-      window.g_userSessionId || window.SESSION_ID ||
-      window.SES_ID || window.sesId || window.sessionId;
-    if (fromWindow) return String(fromWindow);
+  if (!excelClicked) {
+    log(`[경고] ${label}: 엑셀 버튼을 찾지 못했습니다.`);
+    await page.screenshot({ path: path.join(__dirname, `debug_${label}.png`) }).catch(() => {});
+  }
 
-    // 2. UserInfo / User 객체 내부 탐색
-    for (const objName of ["UserInfo", "User", "userInfo", "user", "LOGIN_INFO", "loginInfo"]) {
-      const obj = window[objName];
-      if (obj && typeof obj === "object") {
-        // 세션 관련 키 탐색
-        for (const key of Object.keys(obj)) {
-          if (/session|ses_id|sesId/i.test(key) && obj[key]) return String(obj[key]);
+  // 드롭다운 메뉴가 나타난 경우 처리 (짧게 대기 후 확인)
+  await page.waitForTimeout(800);
+  for (const target of targets) {
+    const dropdownClicked = await target.evaluate(() => {
+      // ExtJS 메뉴 아이템
+      for (const el of document.querySelectorAll(".x-menu-item-text, .x-menu-item")) {
+        const text = (el.textContent || "").replace(/\s+/g, "").trim();
+        if (text.includes("엑셀") || text.includes("Excel") || text.includes("다운")) {
+          el.click();
+          return true;
         }
-        // USER_SESSION_ID 키 직접 탐색
-        if (obj.USER_SESSION_ID) return String(obj.USER_SESSION_ID);
-        if (obj.userSessionId) return String(obj.userSessionId);
-        if (obj.SESSION_ID) return String(obj.SESSION_ID);
       }
+      return false;
+    }).catch(() => false);
+    if (dropdownClicked) {
+      log(`${label}: 드롭다운 메뉴 클릭`);
+      break;
     }
-
-    // 3. sessionStorage
-    for (const key of Object.keys(sessionStorage)) {
-      if (/session/i.test(key)) {
-        const v = sessionStorage.getItem(key);
-        if (v) return v;
-      }
-    }
-
-    // 4. localStorage
-    for (const key of Object.keys(localStorage)) {
-      if (/session/i.test(key)) {
-        const v = localStorage.getItem(key);
-        if (v) return v;
-      }
-    }
-
-    // 5. 쿠키
-    for (const part of document.cookie.split(";")) {
-      const [k, v] = part.trim().split("=");
-      if (k && /session/i.test(k) && v) return decodeURIComponent(v);
-    }
-    return null;
-  });
-
-  // 못 찾은 경우 UserInfo 내용 전체를 로그에 출력
-  if (!sessionId) {
-    const debugInfo = await page.evaluate(() => ({
-      cookies: document.cookie.split(";").map(c => c.trim().split("=")[0]).join(", "),
-      sessionKeys: Object.keys(sessionStorage).join(", "),
-      windowKeys: Object.keys(window).filter(k => /session|SES_|user/i.test(k)).join(", "),
-      userInfo: (() => { try { return JSON.stringify(window.UserInfo || window.User || null); } catch { return "parse error"; } })(),
-    }));
-    log(`[DEBUG] cookies: ${debugInfo.cookies}`);
-    log(`[DEBUG] sessionStorage keys: ${debugInfo.sessionKeys}`);
-    log(`[DEBUG] window vars: ${debugInfo.windowKeys}`);
-    log(`[DEBUG] UserInfo: ${debugInfo.userInfo?.substring(0, 300)}`);
-    throw new Error("USER_SESSION_ID 를 추출할 수 없습니다.");
   }
 
-  log("엑셀 데이터 준비 중...");
-  const fileBytes = await page.evaluate(
-    async ({ sessionId, prepareParams }) => {
-      const BASE = "https://elogis.emart24.co.kr";
+  const download = await downloadPromise;
+  const tmpPath = path.join(__dirname, `_tmp_${Date.now()}.xlsx`);
+  await download.saveAs(tmpPath);
+  const buffer = fs.readFileSync(tmpPath);
+  fs.unlinkSync(tmpPath);
 
-      const saveParams = new URLSearchParams({ ...prepareParams, USER_SESSION_ID: sessionId });
-      await fetch(`${BASE}/utilService/saveUserTempData?${saveParams.toString()}`);
-
-      const fd = new FormData();
-      fd.append("USER_SESSION_ID", sessionId);
-      for (const [k, v] of Object.entries(prepareParams)) fd.append(k, v);
-      await fetch(`${BASE}/utilService/commonExcelDownPrepare`, { method: "POST", body: fd });
-
-      const res = await fetch(`${BASE}/utilService/commonExcelDown`);
-      if (!res.ok) throw new Error(`commonExcelDown 실패: HTTP ${res.status}`);
-      const ab = await res.arrayBuffer();
-      return Array.from(new Uint8Array(ab));
-    },
-    { sessionId, prepareParams }
-  );
-
-  const buffer = Buffer.from(fileBytes);
   if (buffer.length < 200) {
-    const preview = buffer.toString("utf8").substring(0, 300).replace(/\n/g, " ");
-    log(`[DEBUG] 응답 내용: ${preview}`);
     throw new Error(`다운로드 파일이 비어 있습니다 (${buffer.length} bytes).`);
   }
   return buffer;
 }
 
-// ── WMS 파일 다운로드 ─────────────────────────────────────────────────────────
+// ── 검색 입력 필드 채우기 ─────────────────────────────────────────────────────
 
-async function downloadWmsFile(page, context, fileConfig, log, getSessionId) {
-  const { label, pageUrl, menuPath, searchInputs, prepareParams } = fileConfig;
+async function fillSearchInputs(page, searchInputs, log) {
+  const targets = getElogisFrames(page);
 
-  if (pageUrl === "TODO") throw new Error(`${label}: pageUrl 이 설정되지 않았습니다.`);
+  for (const input of searchInputs) {
+    log(`검색 입력: ${input.label} = ${input.value}`);
+    let filled = false;
 
-  log(`${label}: 페이지 이동...`);
-  await page.goto(pageUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    // selector 가 명시된 경우 우선 사용
+    if (input.selector) {
+      for (const target of targets) {
+        const el = target.locator(input.selector).first();
+        if (await el.isVisible({ timeout: 2_000 }).catch(() => false)) {
+          await el.fill(input.value);
+          filled = true;
+          break;
+        }
+      }
+    }
+
+    // XPath 로 라벨 인근 input 탐색
+    if (!filled) {
+      const xpaths = [
+        `//label[contains(text(),"${input.label}")]/following::input[1]`,
+        `//td[contains(text(),"${input.label}")]/following::input[1]`,
+        `//th[contains(text(),"${input.label}")]/following::input[1]`,
+        `//span[contains(text(),"${input.label}")]/following::input[1]`,
+      ];
+      for (const target of targets) {
+        for (const xpath of xpaths) {
+          const el = target.locator(`xpath=${xpath}`).first();
+          if (await el.isVisible({ timeout: 1_500 }).catch(() => false)) {
+            await el.fill(input.value);
+            filled = true;
+            break;
+          }
+        }
+        if (filled) break;
+      }
+    }
+
+    if (!filled) {
+      log(`[경고] "${input.label}" 입력칸을 찾지 못했습니다.`);
+    }
+  }
+}
+
+// ── WMS/MDM 파일 다운로드 ─────────────────────────────────────────────────────
+
+async function downloadWmsFile(page, context, fileConfig, log) {
+  const { label, menuPath, searchInputs } = fileConfig;
+
+  log(`${label}: elogis 메인 이동...`);
+  await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
   await page.waitForTimeout(2_000);
 
-  // 메뉴 네비게이션 (필요한 경우)
+  // 메뉴 네비게이션
   if (menuPath && menuPath.length > 0) {
     await navigateViaMenu(page, menuPath, log);
   }
 
-  // 검색 입력 + 조회
+  // 검색 입력 (있는 경우)
   if (searchInputs && searchInputs.length > 0) {
-    await performSearch(page, searchInputs, log);
-  } else {
-    // elogis 탭 내용은 iframe 내에 렌더링될 수 있어서 모든 프레임 탐색
-    log(`${label}: 조회 클릭...`);
-    // elogis iframe 우선 탐색 (메인 프레임 제외, elogis 도메인 프레임)
-    const targets = [
-      ...page.frames().filter(f => f.url().includes("elogis.emart24.co.kr") && f.url() !== page.url()),
-      page,
-    ];
-    let searchClicked = false;
-    for (const target of targets) {
-      // text-is 는 정확히 "조회"인 텍스트만 매칭 (재고조회 등 제외)
-      const btn = target.locator('text="조회"').first();
-      await btn.waitFor({ state: "visible", timeout: 3_000 }).catch(() => {});
-      if (await btn.isVisible({ timeout: 500 }).catch(() => false)) {
-        await btn.click({ force: true }).catch(() => {});
-        searchClicked = true;
-        log(`${label}: 조회 클릭 완료`);
-        break;
-      }
-    }
-    if (!searchClicked) {
-      log(`[경고] ${label}: 조회 버튼을 찾지 못했습니다. (프레임 수: ${page.frames().length})`);
-      await page.screenshot({ path: require("path").join(__dirname, `debug_${label}.png`) }).catch(() => {});
-    }
-    await page.waitForTimeout(5_000);
+    await fillSearchInputs(page, searchInputs, log);
   }
 
-  const buffer = await callDownloadApi(page, context, prepareParams, log, getSessionId);
+  // 조회 버튼 클릭 (evaluate → 실제 JS 이벤트)
+  await clickSearchButton(page, log, label);
+
+  // 그리드 데이터 로드 대기
+  log(`${label}: 그리드 데이터 로드 대기...`);
+  await page.waitForTimeout(6_000);
+
+  // 엑셀 버튼 클릭 + 다운로드 캡처
+  log(`${label}: 엑셀 다운로드 시작...`);
+  const buffer = await clickExcelAndDownload(page, log, label);
   log(`${label}: 다운로드 완료 (${Math.round(buffer.length / 1024)} KB)`);
   return buffer;
 }
@@ -333,35 +302,41 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
   await tmsPage.waitForTimeout(3_000);
 
   log(`${label}: 배송그룹 입력 (${배송그룹})...`);
-  // TMS 내부 iframe이 로드될 때까지 대기 후 탐색
   let groupInput = null;
   for (let attempt = 0; attempt < 3 && !groupInput; attempt++) {
     for (const target of [tmsPage, ...tmsPage.frames()]) {
       const el = target.locator('#deli_seq_cd, [name="deli_seq_cd"]').first();
       if (await el.isVisible({ timeout: 1_500 }).catch(() => false)) { groupInput = el; break; }
     }
-    if (!groupInput) await tmsPage.waitForTimeout(2_000); // 재시도 전 대기
+    if (!groupInput) await tmsPage.waitForTimeout(2_000);
   }
   if (!groupInput) {
-    const frameUrls = tmsPage.frames().map(f => f.url()).join(", ");
+    const frameUrls = tmsPage.frames().map((f) => f.url()).join(", ");
     log(`[DEBUG] TMS 프레임 URL 목록: ${frameUrls}`);
-    await tmsPage.screenshot({ path: require("path").join(__dirname, "debug_tms.png") }).catch(() => {});
+    await tmsPage.screenshot({ path: path.join(__dirname, "debug_점포마스터.png") }).catch(() => {});
     throw new Error("배송그룹 입력 필드를 찾을 수 없습니다.");
   }
   await groupInput.fill(배송그룹);
 
   log(`${label}: 조회 클릭...`);
-  // TMS는 iframe 내부이므로 프레임 포함 조회 버튼 탐색
-  let clicked = false;
+  // TMS는 iframe 내부이므로 evaluate 로 실제 클릭
+  let srchClicked = false;
   for (const target of [tmsPage, ...tmsPage.frames()]) {
-    const btn = target.locator('input[name="btn_search"], input[value="조회"], button:has-text("조회"), text="조회"').first();
-    if (await btn.isVisible({ timeout: 500 }).catch(() => false)) {
-      await btn.click({ force: true });
-      clicked = true;
-      break;
+    const clicked = await evaluateClickByText(target, ["조회"]).catch(() => false);
+    if (clicked) { srchClicked = true; break; }
+  }
+  if (!srchClicked) {
+    // locator fallback
+    for (const target of [tmsPage, ...tmsPage.frames()]) {
+      const btn = target.locator('input[name="btn_search"], input[value="조회"], button:has-text("조회")').first();
+      if (await btn.isVisible({ timeout: 500 }).catch(() => false)) {
+        await btn.click({ force: true });
+        srchClicked = true;
+        break;
+      }
     }
   }
-  if (!clicked) log(`[경고] ${label}: 조회 버튼을 찾지 못했습니다.`);
+  if (!srchClicked) log(`[경고] ${label}: 조회 버튼을 찾지 못했습니다.`);
   await tmsPage.waitForTimeout(5_000);
 
   log(`${label}: 그리드 메뉴(≡) 클릭...`);
@@ -389,11 +364,11 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
 
 // ── 통합 다운로드 (agent.js 에서 호출) ───────────────────────────────────────
 
-async function downloadFile(page, context, fileConfig, log, getSessionId) {
+async function downloadFile(page, context, fileConfig, log) {
   if (fileConfig.tmsDownload) {
     return downloadTmsFile(page, context, fileConfig, log);
   }
-  return downloadWmsFile(page, context, fileConfig, log, getSessionId);
+  return downloadWmsFile(page, context, fileConfig, log);
 }
 
 module.exports = { createSession, downloadFile };
