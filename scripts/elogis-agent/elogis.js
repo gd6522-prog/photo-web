@@ -71,14 +71,12 @@ async function navigateViaMenu(page, menuPath, log) {
 }
 
 // ── iframe 포함 모든 대상 프레임 반환 ─────────────────────────────────────────
-
+// URL 필터 없이 모든 iframe 우선, 마지막에 메인 프레임
+// (MDM 등 URL이 about:blank 이거나 page.url()과 동일한 경우에도 탐색 가능)
 function getElogisFrames(page) {
-  return [
-    ...page.frames().filter(
-      (f) => f.url().includes("elogis.emart24.co.kr") && f.url() !== page.url()
-    ),
-    page,
-  ];
+  const mainFrame = page.mainFrame();
+  const iframes = page.frames().filter((f) => f !== mainFrame);
+  return [...iframes, page];
 }
 
 // ── frame.evaluate 로 버튼 텍스트 매칭 클릭 ──────────────────────────────────
@@ -320,24 +318,43 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
     await tmsPage.waitForTimeout(3_000);
   }
 
-  log(`${label}: 배송그룹 입력 (${배송그룹})...`);
+  log(`${label}: 배송그룹 입력 필드 대기 (최대 20초)...`);
   let groupInput = null;
-  for (let attempt = 0; attempt < 5 && !groupInput; attempt++) {
-    for (const target of [tmsPage, ...tmsPage.frames()]) {
-      const el = target.locator('#deli_seq_cd, [name="deli_seq_cd"]').first();
-      if (await el.isVisible({ timeout: 1_500 }).catch(() => false)) { groupInput = el; break; }
-    }
-    if (!groupInput) {
-      log(`${label}: deli_seq_cd 재탐색 (${attempt + 1}/5)...`);
-      await tmsPage.waitForTimeout(2_000);
+
+  // 1) TmsPmMastRouteStop 프레임에서 waitForSelector (가장 확실)
+  const contentFrame = tmsPage.frames().find((f) => f.url().includes("TmsPmMastRouteStop"));
+  if (contentFrame) {
+    try {
+      await contentFrame.waitForSelector('#deli_seq_cd, [name="deli_seq_cd"]', {
+        state: "visible",
+        timeout: 20_000,
+      });
+      groupInput = contentFrame.locator('#deli_seq_cd, [name="deli_seq_cd"]').first();
+      log(`${label}: 배송그룹 필드 발견 (TmsPmMastRouteStop 프레임)`);
+    } catch {
+      log(`${label}: TmsPmMastRouteStop 프레임에서 waitForSelector 실패, 전체 프레임 탐색...`);
     }
   }
+
+  // 2) 전체 프레임 순회 fallback
   if (!groupInput) {
-    const frameUrls = tmsPage.frames().map((f) => f.url()).join(", ");
-    log(`[DEBUG] TMS 프레임 URL 목록: ${frameUrls}`);
+    for (const target of [tmsPage, ...tmsPage.frames()]) {
+      const el = target.locator('#deli_seq_cd, [name="deli_seq_cd"]').first();
+      if (await el.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        groupInput = el;
+        log(`${label}: 배송그룹 필드 발견 (프레임: ${target.url()})`);
+        break;
+      }
+    }
+  }
+
+  if (!groupInput) {
+    const frameUrls = tmsPage.frames().map((f) => f.url()).join("\n  ");
+    log(`[DEBUG] TMS 프레임 URL 목록:\n  ${frameUrls}`);
     await tmsPage.screenshot({ path: path.join(__dirname, "debug_점포마스터.png") }).catch(() => {});
     throw new Error("배송그룹 입력 필드를 찾을 수 없습니다.");
   }
+  log(`${label}: 배송그룹 입력 (${배송그룹})...`);
   await groupInput.fill(배송그룹);
 
   log(`${label}: 조회 클릭...`);
