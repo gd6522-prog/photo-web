@@ -1015,7 +1015,7 @@ function SlotCard({
         <div style={{ marginBottom: 10 }}>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#6B7280", marginBottom: 3 }}>
             <span>다운로드 중...</span>
-            <span>약 {remaining}초 남음</span>
+            <span>{remaining > 0 ? `약 ${remaining}초 남음` : `완료 대기 중... (${elapsed}초 경과)`}</span>
           </div>
           <div style={{ height: 6, background: "#E5E7EB", overflow: "hidden" }}>
             <div
