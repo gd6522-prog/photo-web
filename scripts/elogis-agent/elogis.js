@@ -23,7 +23,7 @@ async function createSession(id, pw, log) {
   const page = await context.newPage();
 
   log("elogis 로그인 페이지 접속...");
-  await page.goto(LOGIN_URL, { waitUntil: "networkidle", timeout: 30_000 });
+  await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30_000 });
 
   log("로그인 입력창 대기...");
   const idInput = page.locator('input[name="USERID"]').first();
@@ -34,12 +34,7 @@ async function createSession(id, pw, log) {
   await pwInput.fill(pw);
 
   log("로그인 시도...");
-  await page.locator(
-    'button[type="submit"], input[type="submit"], ' +
-    '.btn-login, #loginBtn, button:has-text("로그인")'
-  ).first().click().catch(async () => {
-    await page.keyboard.press("Enter");
-  });
+  await pwInput.press("Enter");
 
   // SPA 라서 URL 이 변하지 않음 → 로그인 폼 사라짐 여부로 판단
   try {
