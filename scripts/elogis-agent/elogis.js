@@ -308,23 +308,14 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
   await tmsPage.click("text=노선-점포(배송처)매핑");
   await tmsPage.waitForTimeout(2_000);
 
-  // TmsPmMastRouteStop 콘텐츠 프레임이 완전히 로드될 때까지 대기
-  const contentFrame = tmsPage.frames().find((f) => f.url().includes("TmsPmMastRouteStop"));
-  if (contentFrame) {
-    log(`${label}: 콘텐츠 프레임 로드 대기...`);
-    await contentFrame.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => {});
-    await tmsPage.waitForTimeout(2_000);
-  } else {
-    await tmsPage.waitForTimeout(3_000);
-  }
-
   log(`${label}: 배송그룹 입력 필드 대기 (최대 20초)...`);
   let groupInput = null;
 
-  // 1) TmsPmMastRouteStop 프레임에서 waitForSelector (가장 확실)
+  // TmsPmMastRouteStop 콘텐츠 프레임 로드 완료 대기 후 waitForSelector
   const contentFrame = tmsPage.frames().find((f) => f.url().includes("TmsPmMastRouteStop"));
   if (contentFrame) {
     try {
+      await contentFrame.waitForLoadState("domcontentloaded", { timeout: 10_000 }).catch(() => {});
       await contentFrame.waitForSelector('#deli_seq_cd, [name="deli_seq_cd"]', {
         state: "visible",
         timeout: 20_000,
