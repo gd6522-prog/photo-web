@@ -88,7 +88,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const loggingOutRef = useRef(false);
 
   const SETTINGS_ITEMS = useMemo(() => getSettingsItems(), []);
-  const SETTINGS_ROOT = "/admin/settings/store-master";
+  const SETTINGS_ROOT = "/admin/settings/file-upload";
 
   const PHOTO_ITEMS     = useMemo(() => getSubItems("admin_photos"),    []);
   const VEHICLE_ITEMS   = useMemo(() => getSubItems("admin_vehicle"),   []);
