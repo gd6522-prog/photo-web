@@ -216,24 +216,28 @@ async function fillSearchInputs(page, searchInputs, log) {
           // condition 설정 시: = 버튼 클릭 → 비교조건 패널 → 원하는 조건 선택
           if (input.condition) {
             log(`검색 조건 변경: "${input.label}" → ${input.condition}`);
-            // input 주변의 조건 트리거 버튼(= 아이콘) 클릭
+            // input 왼쪽 td에 있는 = 버튼 클릭
+            // (Q 버튼은 오른쪽 td, = 버튼은 왼쪽 td에 위치)
             const triggered = await target.evaluate((sel) => {
               const inp = document.querySelector(sel);
               if (!inp) return false;
-              // input 앞 형제 요소에서 버튼 탐색
+              // inp가 속한 td를 기준으로 이전 td에서 버튼 탐색
+              const inpCell = inp.closest("td");
+              if (inpCell) {
+                let prevCell = inpCell.previousElementSibling;
+                while (prevCell) {
+                  const btn = prevCell.querySelector('a[role="button"], button');
+                  if (btn) { btn.click(); return true; }
+                  prevCell = prevCell.previousElementSibling;
+                }
+              }
+              // fallback: input 직전 형제 버튼
               let sib = inp.previousElementSibling;
               while (sib) {
                 if (sib.tagName === "A" || sib.tagName === "BUTTON" || sib.getAttribute("role") === "button") {
                   sib.click(); return true;
                 }
                 sib = sib.previousElementSibling;
-              }
-              // 부모/조상 컨테이너에서 탐색 (td, tr, x-form-item 등)
-              const container = inp.closest("td, tr, .x-form-item, .x-field") || inp.parentElement?.parentElement;
-              if (container) {
-                for (const btn of container.querySelectorAll('a[role="button"], button, .x-form-trigger')) {
-                  if (btn !== inp) { btn.click(); return true; }
-                }
               }
               return false;
             }, input.selector).catch(() => false);
@@ -250,7 +254,14 @@ async function fillSearchInputs(page, searchInputs, log) {
               }, input.condition).catch(() => false);
               if (condClicked) {
                 log(`조건 "${input.condition}" 선택 완료`);
-                await page.waitForTimeout(300);
+                await page.waitForTimeout(400);
+                // 조건 패널이 닫히지 않은 경우 X 버튼으로 닫기
+                await target.evaluate(() => {
+                  for (const el of document.querySelectorAll('.x-tool-close, .x-window-closable .x-tool, [class*="close"]')) {
+                    const win = el.closest('.x-window, .x-panel');
+                    if (win && win.offsetParent) { el.click(); return; }
+                  }
+                }).catch(() => {});
               } else {
                 log(`[경고] 조건 "${input.condition}" 버튼을 찾지 못했습니다.`);
               }
