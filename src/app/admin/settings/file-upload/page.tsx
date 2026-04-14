@@ -904,6 +904,8 @@ function SlotCard({
   const localInputRef = useRef<HTMLInputElement | null>(null);
   const [running, setRunning] = React.useState(false);
   const [elapsed, setElapsed] = React.useState(0);
+  const [barWidth, setBarWidth] = React.useState(0);
+  const maxBarRef = React.useRef(0);
 
   // 이 슬롯이 현재 실행 중인지 계산
   const job = syncStatus?.latest ?? null;
@@ -915,15 +917,28 @@ function SlotCard({
   const agentOnline = syncStatus?.agentOnline ?? false;
   const isBusy = !!(syncStatus?.running || syncStatus?.pending);
 
-  // 경과 시간 카운터
+  // 새 작업 시작 시 게이지바 초기화
+  React.useEffect(() => {
+    maxBarRef.current = 0;
+    setBarWidth(0);
+  }, [job?.id]);
+
+  // 경과 시간 카운터 + 게이지바 (절대 뒤로 안 감)
   React.useEffect(() => {
     if (!isJobActive || isSlotDone) { setElapsed(0); return; }
     const startedAt = job?.started_at ? new Date(job.started_at).getTime() : Date.now();
-    const tick = () => setElapsed(Math.floor((Date.now() - startedAt) / 1000));
+    const tick = () => {
+      const sec = Math.floor((Date.now() - startedAt) / 1000);
+      setElapsed(sec);
+      const raw = Math.min(Math.round(sec / estimatedSec * 100), 95);
+      const next = Math.max(raw, maxBarRef.current);
+      maxBarRef.current = next;
+      setBarWidth(next);
+    };
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [isJobActive, isSlotDone, job?.started_at]);
+  }, [isJobActive, isSlotDone, job?.started_at, job?.id]);
 
   const estimatedSec = SLOT_ESTIMATED_SEC[config.key] ?? 30;
   const remaining = Math.max(0, estimatedSec - elapsed);
@@ -1006,7 +1021,7 @@ function SlotCard({
             <div
               style={{
                 height: "100%",
-                width: `${Math.min(Math.round(elapsed / estimatedSec * 100), 95)}%`,
+                width: `${barWidth}%`,
                 background: "#2563EB",
                 transition: "width 1s linear",
               }}
