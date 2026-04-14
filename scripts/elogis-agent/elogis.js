@@ -115,14 +115,42 @@ async function performSearch(page, searchInputs, log) {
 // ── WMS 3단계 API 다운로드 ────────────────────────────────────────────────────
 
 async function callDownloadApi(page, prepareParams, log) {
-  const sessionId = await page.evaluate(() =>
-    window.USER_SESSION_ID ||
-    window.userSessionId ||
-    window.g_userSessionId ||
-    window.SESSION_ID ||
-    null
-  );
-  if (!sessionId) throw new Error("USER_SESSION_ID 를 추출할 수 없습니다.");
+  // 1. window 전역 변수 → 2. localStorage → 3. 쿠키 순서로 세션 ID 탐색
+  const sessionId = await page.evaluate(() => {
+    const fromWindow =
+      window.USER_SESSION_ID || window.userSessionId ||
+      window.g_userSessionId || window.SESSION_ID ||
+      window.SES_ID || window.sesId || window.sessionId;
+    if (fromWindow) return String(fromWindow);
+
+    // localStorage
+    for (const key of Object.keys(localStorage)) {
+      if (/session/i.test(key)) {
+        const v = localStorage.getItem(key);
+        if (v) return v;
+      }
+    }
+
+    // 쿠키
+    for (const part of document.cookie.split(";")) {
+      const [k, v] = part.trim().split("=");
+      if (k && /session/i.test(k) && v) return decodeURIComponent(v);
+    }
+    return null;
+  });
+
+  // 못 찾은 경우 쿠키 목록과 window 키를 로그에 남겨 디버깅 지원
+  if (!sessionId) {
+    const debugInfo = await page.evaluate(() => ({
+      cookies: document.cookie.split(";").map(c => c.trim().split("=")[0]).join(", "),
+      localKeys: Object.keys(localStorage).join(", "),
+      windowKeys: Object.keys(window).filter(k => /session|SES_|user/i.test(k)).join(", "),
+    }));
+    log(`[DEBUG] cookies: ${debugInfo.cookies}`);
+    log(`[DEBUG] localStorage: ${debugInfo.localKeys}`);
+    log(`[DEBUG] window vars: ${debugInfo.windowKeys}`);
+    throw new Error("USER_SESSION_ID 를 추출할 수 없습니다.");
+  }
 
   log("엑셀 데이터 준비 중...");
   const fileBytes = await page.evaluate(
