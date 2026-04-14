@@ -214,14 +214,62 @@ async function fillSearchInputs(page, searchInputs, log) {
   for (const input of searchInputs) {
     log(`검색 입력: ${input.label} = ${input.value}`);
     let filled = false;
+    let filledTarget = null;
 
     // selector 가 명시된 경우 우선 사용
     if (input.selector) {
       for (const target of targets) {
         const el = target.locator(input.selector).first();
         if (await el.isVisible({ timeout: 2_000 }).catch(() => false)) {
+          // condition 설정 시: = 버튼 클릭 → 비교조건 패널 → 원하는 조건 선택
+          if (input.condition) {
+            log(`검색 조건 변경: "${input.label}" → ${input.condition}`);
+            // input 주변의 조건 트리거 버튼(= 아이콘) 클릭
+            const triggered = await target.evaluate((sel) => {
+              const inp = document.querySelector(sel);
+              if (!inp) return false;
+              // input 앞 형제 요소에서 버튼 탐색
+              let sib = inp.previousElementSibling;
+              while (sib) {
+                if (sib.tagName === "A" || sib.tagName === "BUTTON" || sib.getAttribute("role") === "button") {
+                  sib.click(); return true;
+                }
+                sib = sib.previousElementSibling;
+              }
+              // 부모/조상 컨테이너에서 탐색 (td, tr, x-form-item 등)
+              const container = inp.closest("td, tr, .x-form-item, .x-field") || inp.parentElement?.parentElement;
+              if (container) {
+                for (const btn of container.querySelectorAll('a[role="button"], button, .x-form-trigger')) {
+                  if (btn !== inp) { btn.click(); return true; }
+                }
+              }
+              return false;
+            }, input.selector).catch(() => false);
+
+            if (triggered) {
+              await page.waitForTimeout(600);
+              // 비교조건 패널에서 원하는 조건 클릭
+              const condClicked = await target.evaluate((cond) => {
+                const norm = (s) => (s || "").replace(/\s+/g, "").trim();
+                for (const el of document.querySelectorAll(".x-btn-inner, .x-menu-item-text, button, a")) {
+                  if (norm(el.textContent) === norm(cond)) { el.click(); return true; }
+                }
+                return false;
+              }, input.condition).catch(() => false);
+              if (condClicked) {
+                log(`조건 "${input.condition}" 선택 완료`);
+                await page.waitForTimeout(300);
+              } else {
+                log(`[경고] 조건 "${input.condition}" 버튼을 찾지 못했습니다.`);
+              }
+            } else {
+              log(`[경고] "${input.label}" 조건 트리거 버튼을 찾지 못했습니다.`);
+            }
+          }
+
           await el.fill(input.value);
           filled = true;
+          filledTarget = target;
           break;
         }
       }

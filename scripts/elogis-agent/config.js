@@ -76,6 +76,7 @@ const FILE_CONFIGS = [
         label: "작업센터코드",
         value: "901234,901235,901237,901238,901239,901240,901363",
         selector: '[name="TASK_CENT_CD"]',
+        condition: "포함",   // = 버튼 → 데이터 비교조건 패널 → 포함 선택
       },
     ],
     prepareParams: {
