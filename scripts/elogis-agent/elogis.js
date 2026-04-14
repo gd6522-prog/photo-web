@@ -28,22 +28,11 @@ async function createSession(id, pw, log) {
 
   // ExtJS 기반 로그인 폼 — readonly가 아닌 실제 입력 가능한 필드 대기
   log("로그인 입력창 대기...");
-  const idInput = page.locator(
-    'input[name="USER_ID"]:not([readonly]), ' +
-    'input[id="userId"]:not([readonly]), ' +
-    'input[placeholder*="아이디"], ' +
-    'input[placeholder*="ID"], ' +
-    'input[placeholder*="id"]'
-  ).first();
-
+  const idInput = page.locator('input[name="USERID"]').first();
   await idInput.waitFor({ state: "visible", timeout: 15_000 });
   await idInput.fill(id);
 
-  const pwInput = page.locator(
-    'input[name="USER_PW"]:not([readonly]), ' +
-    'input[id="userPw"]:not([readonly]), ' +
-    'input[type="password"]'
-  ).first();
+  const pwInput = page.locator('input[type="password"]').first();
   await pwInput.fill(pw);
 
   log("로그인 시도...");
