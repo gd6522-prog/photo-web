@@ -216,16 +216,23 @@ async function fillSearchInputs(page, searchInputs, log) {
           // condition 설정 시: = 버튼 클릭 → 비교조건 패널 → 원하는 조건 선택
           if (input.condition) {
             log(`검색 조건 변경: "${input.label}" → ${input.condition}`);
-            // DOM 구조 파악용 로그 (5단계 위 조상)
-            const domDebug = await target.evaluate((sel) => {
+            // = 버튼: icon-search-condition-equal 클래스를 가진 span의 부모 a[role="button"]
+            const triggered = await target.evaluate((sel) => {
               const inp = document.querySelector(sel);
-              if (!inp) return "input not found";
-              let el = inp;
-              for (let i = 0; i < 5; i++) { if (el.parentElement) el = el.parentElement; }
-              return el.outerHTML.slice(0, 3000);
-            }, input.selector).catch(() => "eval error");
-            log(`[DOM] ${input.label} 5단계위:\n${domDebug}`);
-            const triggered = false;
+              if (!inp) return false;
+              // 같은 fieldcontainer 안에서 icon-search-condition-equal 찾기
+              let container = inp.parentElement;
+              for (let i = 0; i < 6; i++) {
+                if (!container) break;
+                const icon = container.querySelector('.icon-search-condition-equal');
+                if (icon) {
+                  const btn = icon.closest('a[role="button"], button');
+                  if (btn) { btn.click(); return true; }
+                }
+                container = container.parentElement;
+              }
+              return false;
+            }, input.selector).catch(() => false);
 
             if (triggered) {
               await page.waitForTimeout(600);
