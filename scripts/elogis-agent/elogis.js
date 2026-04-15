@@ -328,10 +328,24 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
   const { label, tmsConfig } = fileConfig;
   const 배송그룹 = tmsConfig?.배송그룹 ?? "D9012343";
 
+  log(`${label}: elogis 메인으로 이동...`);
+  await mainPage.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
+  await mainPage.waitForTimeout(2_000);
+
   log(`${label}: 차량관리(TMS) 메뉴 클릭...`);
-  const tmsMenuEl = mainPage.locator('text="차량관리 (TMS)"').first();
-  await tmsMenuEl.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {});
-  await tmsMenuEl.click({ force: true });
+  // 메뉴가 접혀있을 수 있으므로 먼저 JS evaluate로 탐색
+  let tmsMenuClicked = await mainPage.evaluate(() => {
+    const els = [...document.querySelectorAll("a, li, span, div")];
+    const el = els.find((e) => e.textContent.trim() === "차량관리 (TMS)");
+    if (el) { el.scrollIntoView(); el.click(); return true; }
+    return false;
+  }).catch(() => false);
+  if (!tmsMenuClicked) {
+    const tmsMenuEl = mainPage.locator('text="차량관리 (TMS)"').first();
+    await tmsMenuEl.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {});
+    await tmsMenuEl.click({ force: true }).catch(() => {});
+    tmsMenuClicked = true;
+  }
   await mainPage.waitForTimeout(1_500);
 
   log(`${label}: TMS 시스템 로그인 클릭 → 새창 대기...`);
