@@ -957,6 +957,7 @@ function SlotCard({
   const [elapsed, setElapsed] = React.useState(0);
   const [barWidth, setBarWidth] = React.useState(0);
   const maxBarRef = React.useRef(0);
+  const [nextRunLabel, setNextRunLabel] = React.useState("");
 
   // 이 슬롯이 현재 실행 중인지 계산
   const job = syncStatus?.latest ?? null;
@@ -967,6 +968,7 @@ function SlotCard({
   const isSlotDone = !!slotResult;
   const agentOnline = syncStatus?.agentOnline ?? false;
   const isBusy = !!(syncStatus?.running || syncStatus?.pending);
+  const estimatedSec = SLOT_ESTIMATED_SEC[config.key] ?? 60;
 
   // 새 작업 시작 시 게이지바 초기화
   React.useEffect(() => {
@@ -978,11 +980,12 @@ function SlotCard({
   React.useEffect(() => {
     if (!isJobActive || isSlotDone) { setElapsed(0); return; }
     const startedAt = job?.started_at ? new Date(job.started_at).getTime() : Date.now();
+    const est = SLOT_ESTIMATED_SEC[config.key] ?? 60;
     const tick = () => {
       const sec = Math.floor((Date.now() - startedAt) / 1000);
       setElapsed(sec);
-      // 지수 감소: estimatedSec 시점에 약 86%, 이후에도 계속 95%에 수렴
-      const raw = Math.round(95 * (1 - Math.exp(-sec / (estimatedSec * 0.5))));
+      // 지수 감소: est 시점에 약 86%, 이후에도 95%에 수렴
+      const raw = Math.round(95 * (1 - Math.exp(-sec / (est * 0.5))));
       const next = Math.max(raw, maxBarRef.current);
       maxBarRef.current = next;
       setBarWidth(next);
@@ -990,10 +993,27 @@ function SlotCard({
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [isJobActive, isSlotDone, job?.started_at, job?.id]);
+  }, [isJobActive, isSlotDone, job?.started_at, job?.id, config.key]);
 
-  const estimatedSec = SLOT_ESTIMATED_SEC[config.key] ?? 30;
   const remaining = Math.max(0, estimatedSec - elapsed);
+
+  // 다음 자동 실행까지 남은 시간
+  React.useEffect(() => {
+    if (!schedule.enabled) { setNextRunLabel(""); return; }
+    const compute = () => {
+      const now = new Date();
+      const next = new Date();
+      next.setHours(schedule.hour, schedule.minute, 0, 0);
+      if (next <= now) next.setDate(next.getDate() + 1);
+      const totalMin = Math.ceil((next.getTime() - now.getTime()) / 60000);
+      const h = Math.floor(totalMin / 60);
+      const m = totalMin % 60;
+      setNextRunLabel(h > 0 ? `${h}시간 ${m > 0 ? `${m}분 ` : ""}후` : `${m}분 후`);
+    };
+    compute();
+    const id = setInterval(compute, 60_000);
+    return () => clearInterval(id);
+  }, [schedule.enabled, schedule.hour, schedule.minute]);
 
   const handleRun = async () => {
     if (running || isBusy) return;
@@ -1128,6 +1148,7 @@ function SlotCard({
         {schedule.enabled && (
           <span style={{ fontSize: 11, color: "#2563EB" }}>
             매일 {String(schedule.hour).padStart(2, "0")}:{String(schedule.minute).padStart(2, "0")}
+            {nextRunLabel && <span style={{ color: "#6B7280", marginLeft: 4 }}>({nextRunLabel})</span>}
           </span>
         )}
       </div>
