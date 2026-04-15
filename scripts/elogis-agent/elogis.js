@@ -222,12 +222,13 @@ async function fillSearchInputs(page, searchInputs, log) {
           // condition 설정 시: = 버튼 클릭 → 비교조건 패널 → 원하는 조건 선택
           if (input.condition) {
             log(`검색 조건 변경: "${input.label}" → ${input.condition}`);
-            // Playwright locator로 = 버튼 클릭 (JS evaluate .click()은 ExtJS 이벤트 미발생)
-            const condBtn = target.locator('.icon-search-condition-equal').first();
+            // Playwright locator로 = 버튼 클릭 — span이 아닌 부모 a[role="button"] 직접 클릭
+            const condBtn = target.locator('a[role="button"]:has(.icon-search-condition-equal)').first();
             const btnVisible = await condBtn.isVisible({ timeout: 2_000 }).catch(() => false);
             if (btnVisible) {
               await condBtn.click();
-              await page.waitForTimeout(1_500);
+              await page.waitForTimeout(2_000);
+              await page.screenshot({ path: path.join(__dirname, `debug_작업센터_조건클릭후.png`) }).catch(() => {});
               // 다이얼로그의 "포함" 버튼도 Playwright locator로 클릭
               let condClicked = false;
               for (const f of [target, page, ...page.frames()]) {
