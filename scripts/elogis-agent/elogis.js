@@ -230,8 +230,24 @@ async function fillSearchInputs(page, searchInputs, log) {
               await page.waitForTimeout(2_000);
               await page.screenshot({ path: path.join(__dirname, `debug_작업센터_조건클릭후.png`) }).catch(() => {});
               // 다이얼로그의 "포함" 버튼도 Playwright locator로 클릭
+              // 조건별 아이콘 클래스 매핑
+              const condIconMap = {
+                "포함": "icon-search-condition-in",
+                "완전 일치": "icon-search-condition-equal",
+                "부분 일치": "icon-search-condition-like",
+                "불일치": "icon-search-condition-not-equal",
+              };
+              const condIconClass = condIconMap[input.condition];
               let condClicked = false;
               for (const f of [target, page, ...page.frames()]) {
+                if (condIconClass) {
+                  const btn = f.locator(`a[role="button"]:has(.${condIconClass})`).first();
+                  if (await btn.isVisible({ timeout: 1_000 }).catch(() => false)) {
+                    await btn.click();
+                    condClicked = true;
+                    break;
+                  }
+                }
                 condClicked = await evaluateClickByText(f, [input.condition]);
                 if (condClicked) break;
               }
@@ -239,14 +255,6 @@ async function fillSearchInputs(page, searchInputs, log) {
                 log(`조건 "${input.condition}" 선택 완료`);
                 await page.waitForTimeout(400);
               } else {
-                // dialog HTML 덤프
-                for (const f of [target, page, ...page.frames()]) {
-                  const html = await f.evaluate(() => {
-                    const win = document.querySelector('.x-window, [class*="x-window"]');
-                    return win ? win.outerHTML.slice(0, 3000) : null;
-                  }).catch(() => null);
-                  if (html) { log(`[DEBUG] dialog HTML (${f.url().slice(0,60)}):\n${html}`); break; }
-                }
                 log(`[경고] 조건 "${input.condition}" 버튼을 찾지 못했습니다.`);
               }
             } else {
