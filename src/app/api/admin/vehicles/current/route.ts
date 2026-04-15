@@ -639,6 +639,31 @@ export async function PUT(req: NextRequest) {
       limits?: VehicleLimitsSnapshot | null;
     };
 
+    // ── action: rebuild-daily — latest.json에서 daily 파일 재생성 ────────
+    if ((body as any).action === "rebuild-daily") {
+      const snapshot = await readCurrentSnapshot();
+      if (!snapshot) return json(false, "현재 스냅샷이 없습니다.", null, 404);
+
+      const byDeliveryDate = new Map<string, ProductRow[]>();
+      for (const row of snapshot.productRows ?? []) {
+        const dd = normDeliveryDate(row.delivery_date);
+        if (!dd) continue;
+        if (!byDeliveryDate.has(dd)) byDeliveryDate.set(dd, []);
+        byDeliveryDate.get(dd)!.push(row);
+      }
+
+      const dates: string[] = [];
+      await Promise.all(
+        [...byDeliveryDate.entries()].map(async ([dd, rows]) => {
+          const dailySnap: VehicleSnapshot = { ...snapshot, productRows: rows };
+          await putR2Object(`${R2_PREFIX}/daily/${dd}.json`, JSON.stringify(dailySnap), "application/json");
+          dates.push(dd);
+        })
+      );
+
+      return json(true, undefined, { dates });
+    }
+
     if (body.snapshot) {
       await putR2Object(CURRENT_PATH, JSON.stringify(body.snapshot), "application/json");
 

@@ -271,6 +271,38 @@ export default function VehicleHistoryUploadPage() {
   const errorCount   = files.filter((f) => f.status === "error").length;
   const pendingCount = files.filter((f) => f.status === "pending").length;
 
+  // ── 현재 latest.json → daily 재생성 ──────────────────────────────────
+  const [rebuilding, setRebuilding] = useState(false);
+  const [rebuildMsg, setRebuildMsg] = useState("");
+
+  const handleRebuildDaily = async () => {
+    setRebuilding(true);
+    setRebuildMsg("");
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session?.session?.access_token;
+      if (!token) { setRebuildMsg("로그인이 필요합니다."); return; }
+
+      const res  = await fetch("/api/admin/vehicles/current", {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "rebuild-daily" }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setRebuildMsg(data.message ?? "재생성 실패");
+      } else {
+        const dates: string[] = data.data?.dates ?? [];
+        setRebuildMsg(dates.length > 0 ? `재생성 완료: ${dates.sort().join(", ")}` : "납품예정일 데이터가 없습니다.");
+        void loadDates();
+      }
+    } catch (e: any) {
+      setRebuildMsg(e?.message ?? "오류 발생");
+    } finally {
+      setRebuilding(false);
+    }
+  };
+
   return (
     <div style={{ maxWidth: 760, margin: "0 auto", display: "flex", flexDirection: "column", gap: 18 }}>
 
@@ -383,7 +415,25 @@ export default function VehicleHistoryUploadPage() {
 
       {/* ── 달력 카드 ───────────────────────────────────────────────── */}
       <div style={{ background: "#fff", border: "1px solid #c9d9e4", borderRadius: 18, padding: 28, boxShadow: "0 8px 24px rgba(2,32,46,0.07)" }}>
-        <div style={{ fontSize: 16, fontWeight: 900, color: "#103b53", marginBottom: 4 }}>저장된 데이터 달력</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 4 }}>
+          <div style={{ fontSize: 16, fontWeight: 900, color: "#103b53" }}>저장된 데이터 달력</div>
+          <button
+            onClick={handleRebuildDaily}
+            disabled={rebuilding}
+            style={{
+              padding: "7px 16px", borderRadius: 8, border: "1.5px solid #0f766e",
+              background: rebuilding ? "#f0fdf4" : "#fff", color: rebuilding ? "#94a3b8" : "#0f766e",
+              fontWeight: 800, fontSize: 13, cursor: rebuilding ? "not-allowed" : "pointer",
+            }}
+          >
+            {rebuilding ? "재생성 중..." : "현재 단품별 → daily 재생성"}
+          </button>
+        </div>
+        {rebuildMsg && (
+          <div style={{ fontSize: 12, color: rebuildMsg.includes("완료") ? "#0f766e" : "#ef4444", marginBottom: 8, fontWeight: 700 }}>
+            {rebuildMsg}
+          </div>
+        )}
         <div style={{ fontSize: 12, color: "#64748b", marginBottom: 20 }}>
           음영 표시된 날짜는 R2에 daily 파일이 존재합니다. 클릭하면 파일명을 확인할 수 있습니다.
         </div>
