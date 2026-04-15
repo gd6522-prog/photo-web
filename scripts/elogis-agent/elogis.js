@@ -383,32 +383,66 @@ async function fillSearchInputs(page, searchInputs, log) {
   }
 }
 
-// ── API 직접 호출로 엑셀 다운로드 (prepareParams 활용) ───────────────────────
+// ── UI prepare 요청 intercept → 수정 후 page.request.post 로 재전송 ─────────
+// prepareOverride 가 있을 때 사용.
+// UI의 commonExcelDownPrepare body(세션토큰/SES 값 등)를 그대로 가져와 특정 파라미터만 교체.
 
-async function downloadViaApi(page, fileConfig, log) {
-  const { label, prepareParams } = fileConfig;
+async function downloadViaInterceptAndApi(page, fileConfig, log) {
+  const { label, prepareOverride } = fileConfig;
 
-  log(`${label}: API 직접 다운로드 (${prepareParams.SEARCH_URL})...`);
+  // Step 1: commonExcelDownPrepare 를 가로채 abort + body 캡처
+  let capturedBody = null;
+  await page.route("**/utilService/commonExcelDownPrepare", async (route) => {
+    capturedBody = route.request().postData() || "";
+    log(`[DEBUG] prepare body 캡처 (${capturedBody.length} chars)`);
+    await route.abort();
+  });
 
-  // Step 1: POST commonExcelDownPrepare — page.request 는 브라우저 세션 쿠키 자동 포함
+  // Step 2: 엑셀 버튼 클릭 (드롭다운 포함)
+  const targets = getElogisFrames(page);
+  for (const target of targets) {
+    const clicked = await evaluateClickByText(target, ["엑셀", "Excel", "EXCEL", "엑셀다운로드", "엑셀 다운로드"]);
+    if (clicked) { log(`${label}: 엑셀 버튼 클릭 (intercept 모드)`); break; }
+  }
+  await page.waitForTimeout(800);
+  // 드롭다운 → 전체 데이터 다운로드
+  for (const target of targets) {
+    const ok = await target.evaluate(() => {
+      const normalize = (s) => (s || "").replace(/\s+/g, "").trim();
+      for (const el of document.querySelectorAll(".x-menu-item-text, .x-menu-item")) {
+        const t = normalize(el.textContent);
+        if (t === "전체데이터다운로드" || t.includes("다운로드")) { el.click(); return true; }
+      }
+      return false;
+    }).catch(() => false);
+    if (ok) { log(`${label}: 드롭다운 클릭`); break; }
+  }
+
+  // Step 3: prepare body 캡처 대기 (최대 10초)
+  const deadline = Date.now() + 10_000;
+  while (!capturedBody && Date.now() < deadline) await page.waitForTimeout(300);
+  await page.unroute("**/utilService/commonExcelDownPrepare").catch(() => {});
+  if (!capturedBody) throw new Error("commonExcelDownPrepare body 캡처 실패");
+
+  // Step 4: override 적용
+  const params = new URLSearchParams(capturedBody);
+  for (const [key, val] of Object.entries(prepareOverride)) params.set(key, val);
+  log(`${label}: SEARCH_URL 교체 → ${params.get("SEARCH_URL")}`);
+
+  // Step 5: 수정된 body 로 prepare 재전송
   const prepareRes = await page.request.post(
     `${BASE_URL}/utilService/commonExcelDownPrepare`,
-    {
-      headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
-      data: new URLSearchParams(prepareParams).toString(),
-    }
+    { headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" }, data: params.toString() }
   );
   log(`${label}: prepare 응답: ${prepareRes.status()}`);
 
-  // Step 2: GET commonExcelDown
+  // Step 6: 다운로드
   const downloadRes = await page.request.get(`${BASE_URL}/utilService/commonExcelDown`);
   const buffer = await downloadRes.body();
-
   if (buffer.length < 200) {
-    log(`[DEBUG] commonExcelDown 응답 (${buffer.length} bytes): ${buffer.toString("utf8").slice(0, 300)}`);
+    log(`[DEBUG] commonExcelDown 응답: ${buffer.toString("utf8").slice(0, 300)}`);
     throw new Error(`다운로드 파일이 비어 있습니다 (${buffer.length} bytes)`);
   }
-  log(`${label}: API 다운로드 완료 (${Math.round(buffer.length / 1024)} KB)`);
   return buffer;
 }
 
@@ -432,15 +466,16 @@ async function downloadWmsFile(page, context, fileConfig, log) {
     await fillSearchInputs(page, searchInputs, log);
   }
 
-  // prepareParams가 있으면 UI 클릭 없이 API 직접 호출 (탭 데이터 오염 방지)
-  if (fileConfig.prepareParams) {
-    const buffer = await downloadViaApi(page, fileConfig, log);
+  // prepareOverride가 있으면 UI prepare 요청을 가로채 수정 후 API 재전송
+  if (prepareOverride && Object.keys(prepareOverride).length > 0) {
+    log(`${label}: 엑셀 다운로드 시작 (intercept 모드)...`);
+    const buffer = await downloadViaInterceptAndApi(page, fileConfig, log);
     log(`${label}: 다운로드 완료 (${Math.round(buffer.length / 1024)} KB)`);
     return buffer;
   }
 
   log(`${label}: 엑셀 다운로드 시작...`);
-  const buffer = await clickExcelAndDownload(page, context, log, label, prepareOverride);
+  const buffer = await clickExcelAndDownload(page, context, log, label, null);
   log(`${label}: 다운로드 완료 (${Math.round(buffer.length / 1024)} KB)`);
   return buffer;
 }
