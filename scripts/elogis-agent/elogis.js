@@ -158,8 +158,23 @@ async function clickSearchButton(page, log, label) {
 
 // ── 엑셀 버튼 클릭 + 다운로드 캡처 ──────────────────────────────────────────
 
-async function clickExcelAndDownload(page, context, log, label) {
+async function clickExcelAndDownload(page, context, log, label, prepareOverride) {
   const targets = getElogisFrames(page);
+
+  // prepareOverride 가 있으면 commonExcelDownPrepare POST body 를 가로채서 수정
+  if (prepareOverride && Object.keys(prepareOverride).length > 0) {
+    await page.route("**/utilService/commonExcelDownPrepare", async (route) => {
+      const req = route.request();
+      const body = req.postData() || "";
+      log(`[DEBUG] prepare 원본 SEARCH_URL: ${new URLSearchParams(body).get("SEARCH_URL")}`);
+      const params = new URLSearchParams(body);
+      for (const [key, val] of Object.entries(prepareOverride)) {
+        params.set(key, val);
+      }
+      log(`[DEBUG] prepare 변경 SEARCH_URL: ${params.get("SEARCH_URL")}`);
+      await route.continue({ postData: params.toString() });
+    });
+  }
 
   // 네트워크 요청 감시 — ExcelDownLoad/commonExcelDown 관련 URL 로깅
   const requestLog = [];
@@ -240,6 +255,9 @@ async function clickExcelAndDownload(page, context, log, label) {
 
   const download = await downloadPromise;
   page.off("request", onRequest);
+  if (prepareOverride && Object.keys(prepareOverride).length > 0) {
+    await page.unroute("**/utilService/commonExcelDownPrepare").catch(() => {});
+  }
   if (requestLog.length > 0) log(`[DEBUG] 다운로드 요청:\n  ${requestLog.join("\n  ")}`);
   else log(`[DEBUG] 다운로드 관련 요청 없음`);
   const tmpPath = path.join(__dirname, `_tmp_${Date.now()}.xlsx`);
@@ -377,7 +395,7 @@ async function downloadViaApi(page, fileConfig, log) {
 // ── WMS/MDM 파일 다운로드 ─────────────────────────────────────────────────────
 
 async function downloadWmsFile(page, context, fileConfig, log) {
-  const { label, menuPath, searchInputs } = fileConfig;
+  const { label, menuPath, searchInputs, prepareOverride } = fileConfig;
 
   log(`${label}: elogis 메인 이동...`);
   await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
@@ -411,7 +429,7 @@ async function downloadWmsFile(page, context, fileConfig, log) {
   }
 
   log(`${label}: 엑셀 다운로드 시작...`);
-  const buffer = await clickExcelAndDownload(page, context, log, label);
+  const buffer = await clickExcelAndDownload(page, context, log, label, prepareOverride);
   log(`${label}: 다운로드 완료 (${Math.round(buffer.length / 1024)} KB)`);
   return buffer;
 }

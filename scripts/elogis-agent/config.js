@@ -234,6 +234,10 @@ const FILE_CONFIGS = [
     type: "generic",
     pageUrl: "https://elogis.emart24.co.kr/",
     menuPath: ["창고관리 (WMS)", "재고", "재고조회", "재고현황", "상품별 재고현황"],
+    // UI가 엑셀 버튼 클릭 시 재고현황 SEARCH_URL을 보냄 → 상품별재고현황으로 강제 교체
+    prepareOverride: {
+      SEARCH_URL: "/invnTotListService/searchStockInvn",
+    },
   },
 ];
 
