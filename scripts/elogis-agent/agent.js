@@ -96,34 +96,41 @@ async function runSync(jobId) {
     throw new Error("처리할 파일이 없습니다. config.js 에서 pageUrl 을 설정하세요.");
   }
 
-  await addLog(`처리 대상 ${targets.length}개 파일: ${targets.map((c) => c.label).join(", ")}`);
+  await addLog(`처리 대상 ${targets.length}개 파일 (병렬 실행): ${targets.map((c) => c.label).join(", ")}`);
 
-  let browser = null;
-  let page = null;
-  const results = [];
+  // 각 슬롯을 독립적인 브라우저 세션으로 병렬 실행
+  const activeBrowsers = new Set();
 
-  try {
-    const session = await createSession(ELOGIS_ID, ELOGIS_PW, addLog);
-    browser = session.browser;
-    currentBrowser = browser;
-    page = session.page;
-    const context = session.context;
-
-    for (const fileConfig of targets) {
-      try {
-        const buffer = await downloadFile(page, context, fileConfig, addLog);
-        await uploadToAdmin(ADMIN_URL, fileConfig, buffer, addLog);
-        results.push({ slotKey: fileConfig.slotKey, label: fileConfig.label, ok: true, message: "완료" });
-      } catch (err) {
-        const msg = err?.message ?? String(err);
-        await addLog(`[실패] ${fileConfig.label}: ${msg}`);
-        results.push({ slotKey: fileConfig.slotKey, label: fileConfig.label, ok: false, message: msg });
+  const downloadOne = async (fileConfig) => {
+    let browser = null;
+    try {
+      const session = await createSession(ELOGIS_ID, ELOGIS_PW, addLog);
+      browser = session.browser;
+      activeBrowsers.add(browser);
+      const buffer = await downloadFile(session.page, session.context, fileConfig, addLog);
+      await uploadToAdmin(ADMIN_URL, fileConfig, buffer, addLog);
+      return { slotKey: fileConfig.slotKey, label: fileConfig.label, ok: true, message: "완료" };
+    } catch (err) {
+      const msg = err?.message ?? String(err);
+      await addLog(`[실패] ${fileConfig.label}: ${msg}`);
+      return { slotKey: fileConfig.slotKey, label: fileConfig.label, ok: false, message: msg };
+    } finally {
+      if (browser) {
+        activeBrowsers.delete(browser);
+        await browser.close().catch(() => {});
       }
     }
-  } finally {
-    if (browser) await browser.close().catch(() => {});
-    currentBrowser = null;
-  }
+  };
+
+  // 종료 시 강제 닫기용 (currentBrowser 대신 Set으로 관리)
+  currentBrowserSet = activeBrowsers;
+
+  const settled = await Promise.allSettled(targets.map(downloadOne));
+  currentBrowserSet = null;
+
+  const results = settled.map((s) =>
+    s.status === "fulfilled" ? s.value : { ok: false, message: String(s.reason) }
+  );
 
   return results;
 }
@@ -131,8 +138,8 @@ async function runSync(jobId) {
 // ── 작업 처리 ─────────────────────────────────────────────────────────────────
 
 let isProcessing = false;
-let currentBrowser = null;   // 종료 시 강제 닫기용
-let currentJobId = null;     // 종료 시 DB 상태 정리용
+let currentBrowserSet = null; // 병렬 브라우저 Set (종료 시 강제 닫기용)
+let currentJobId = null;      // 종료 시 DB 상태 정리용
 
 async function processJob(jobId) {
   if (isProcessing) return;
@@ -177,11 +184,11 @@ async function processJob(jobId) {
 async function shutdown(signal) {
   log(`\n[${signal}] 에이전트 종료 중...`);
 
-  // 실행 중인 브라우저 닫기
-  if (currentBrowser) {
-    log("브라우저 닫는 중...");
-    await currentBrowser.close().catch(() => {});
-    currentBrowser = null;
+  // 실행 중인 브라우저 전체 닫기
+  if (currentBrowserSet && currentBrowserSet.size > 0) {
+    log(`브라우저 ${currentBrowserSet.size}개 닫는 중...`);
+    await Promise.all([...currentBrowserSet].map((b) => b.close().catch(() => {})));
+    currentBrowserSet = null;
   }
 
   // 중단된 작업 DB 상태 정리
