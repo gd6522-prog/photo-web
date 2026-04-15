@@ -664,39 +664,56 @@ export default function FileUploadPage() {
         )
           return;
 
-        updateSlot(key, { busy: true, message: "DB 반영 중..." });
+        const file = state.fileObject;
+        if (!file) {
+          updateSlot(key, { message: "파일을 다시 선택해주세요.", isError: true });
+          return;
+        }
+
+        updateSlot(key, { busy: true, message: "R2에 업로드 중..." });
 
         try {
-          const res = await fetch("/api/admin/store-master/import", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ rows: uploadable }),
-          });
-          const json = await res.json();
-          if (!json.ok) throw new Error(json.message ?? "DB 반영 실패");
-
-          // 메타데이터 저장 (마지막 업로더 이름 포함)
-          await fetch("/api/admin/file-upload", {
+          // 1) presigned PUT URL 발급 + 기존 파일 삭제
+          const urlRes = await fetch("/api/admin/file-upload", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              action: "save-meta",
+              action: "upload-url",
               slotKey: key,
-              fileName: state.fileName,
-              ...(currentUserName ? { uploaderName: currentUserName } : {}),
-              ...(state.fileObject?.size != null ? { fileSize: state.fileObject.size } : {}),
+              fileName: file.name,
+              contentType: file.type || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             }),
           });
+          const urlJson = await urlRes.json();
+          if (!urlJson.ok) throw new Error(urlJson.message ?? "URL 발급 실패");
+
+          // 2) R2에 직접 PUT
+          const putRes = await fetch(urlJson.uploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": file.type || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+            body: file,
+          });
+          if (!putRes.ok) throw new Error(`R2 업로드 실패 (${putRes.status})`);
+
+          // 3) 서버에서 R2 파일 읽어 파싱 → DB 반영 + meta 저장
+          updateSlot(key, { busy: true, message: "DB 반영 중..." });
+          const importRes = await fetch("/api/admin/store-master/import", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...(currentUserName ? { uploaderName: currentUserName } : {}) }),
+          });
+          const importJson = await importRes.json();
+          if (!importJson.ok) throw new Error(importJson.message ?? "DB 반영 실패");
 
           const now = new Date().toISOString();
           updateSlot(key, {
             busy: false,
-            message: `업로드 완료 — ${state.fileName} (${json.count}건 반영 / ${json.deleted}건 삭제)`,
+            message: `업로드 완료 — ${file.name} (${importJson.count}건 반영 / ${importJson.deleted}건 삭제)`,
             isError: false,
           });
           setServerFiles((prev) => ({
             ...prev,
-            [key]: { fileName: state.fileName, uploadedAt: now, uploaderName: currentUserName || undefined, fileSize: state.fileObject?.size },
+            [key]: { fileName: file.name, uploadedAt: now, uploaderName: currentUserName || undefined, fileSize: file.size },
           }));
         } catch (err: any) {
           updateSlot(key, {
@@ -1206,7 +1223,7 @@ function SlotCard({
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ fontWeight: 700 }}>현재 서버 파일</div>
-          {serverFile && config.type === "generic" && (
+          {serverFile && (
             <DownloadButton slotKey={config.key} />
           )}
         </div>

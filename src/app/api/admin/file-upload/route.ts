@@ -105,19 +105,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    if (!slotKey || !isGenericSlotKey(slotKey)) {
-      return NextResponse.json(
-        { ok: false, message: `유효하지 않은 슬롯입니다: ${slotKey}` },
-        { status: 400 }
-      );
-    }
-
     if (!fileName) {
       return NextResponse.json({ ok: false, message: "fileName이 없습니다." }, { status: 400 });
     }
 
-    // ── action: download-url ────────────────────────────────────────────────
+    // ── action: download-url — meta key 전체 허용 (store-master 포함) ─────
     if (action === "download-url") {
+      if (!isMetaKey(slotKey)) {
+        return NextResponse.json({ ok: false, message: `유효하지 않은 슬롯: ${slotKey}` }, { status: 400 });
+      }
       const keys = await listR2Keys(slotPrefix(slotKey));
       if (keys.length === 0) {
         return NextResponse.json({ ok: false, message: "파일이 없습니다." }, { status: 404 });
@@ -126,8 +122,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, downloadUrl });
     }
 
-    // ── action: upload-url ──────────────────────────────────────────────────
+    // ── action: upload-url — meta key 전체 허용 (store-master 포함) ──────
     if (action === "upload-url") {
+      if (!isMetaKey(slotKey)) {
+        return NextResponse.json({ ok: false, message: `유효하지 않은 슬롯: ${slotKey}` }, { status: 400 });
+      }
       const oldKeys = await listR2Keys(slotPrefix(slotKey));
       if (oldKeys.length > 0) {
         await deleteR2Objects(oldKeys);
@@ -139,8 +138,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, uploadUrl, r2Key });
     }
 
-    // ── action: confirm ─────────────────────────────────────────────────────
+    // ── action: confirm — generic 슬롯만 (store-master는 import API에서 meta 저장) ─
     if (action === "confirm") {
+      if (!isGenericSlotKey(slotKey)) {
+        return NextResponse.json({ ok: false, message: `유효하지 않은 슬롯: ${slotKey}` }, { status: 400 });
+      }
       const meta = { fileName, uploadedAt: new Date().toISOString(), ...(uploaderName ? { uploaderName } : {}), ...(fileSize != null ? { fileSize } : {}) };
       await putR2Object(metaKey(slotKey), JSON.stringify(meta), "application/json");
       return NextResponse.json({ ok: true });
