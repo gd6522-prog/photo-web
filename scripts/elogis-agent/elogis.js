@@ -418,11 +418,12 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
   log(`${label}: 그리드 메뉴(≡) 클릭...`);
   const gridMenuClicked = await (async () => {
     for (const f of [tmsPage, ...tmsPage.frames()]) {
-      const btn = f.locator('.iw-mTrigger, .btn-sheet.btmenu, #ibsheet01_grid_btn').first();
-      if (await btn.isVisible({ timeout: 3_000 }).catch(() => false)) {
-        await btn.click({ force: true });
-        return true;
-      }
+      const clicked = await f.evaluate(() => {
+        const btn = document.querySelector('.iw-mTrigger, .btn-sheet.btmenu, #ibsheet01_grid_btn');
+        if (btn) { btn.scrollIntoView(); btn.click(); return true; }
+        return false;
+      }).catch(() => false);
+      if (clicked) return true;
     }
     return false;
   })();
