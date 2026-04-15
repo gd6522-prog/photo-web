@@ -416,11 +416,17 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
   await tmsPage.waitForTimeout(5_000);
 
   log(`${label}: 그리드 메뉴(≡) 클릭...`);
-  await tmsPage.click(
-    '.grid-menu, button[title*="메뉴"], button[title*="menu"], ' +
-    '.btnGridMenu, .ag-side-button, [class*="gridMenu"], ' +
-    'button:has-text("≡"), button:has-text("☰")'
-  );
+  const gridMenuClicked = await (async () => {
+    for (const f of [tmsPage, ...tmsPage.frames()]) {
+      const btn = f.locator('.iw-mTrigger, .btn-sheet.btmenu, #ibsheet01_grid_btn').first();
+      if (await btn.isVisible({ timeout: 3_000 }).catch(() => false)) {
+        await btn.click();
+        return true;
+      }
+    }
+    return false;
+  })();
+  if (!gridMenuClicked) log(`[경고] ${label}: 그리드 메뉴 버튼을 찾지 못했습니다.`);
   await tmsPage.waitForTimeout(500);
 
   log(`${label}: 엑셀다운로드 클릭...`);
