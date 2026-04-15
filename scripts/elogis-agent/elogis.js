@@ -16,10 +16,10 @@ const LOGIN_URL = `${BASE_URL}/`;
 
 // ── elogis 로그인 ─────────────────────────────────────────────────────────────
 
-async function createSession(id, pw, log) {
+async function createSession(id, pw, log, { headless = true } = {}) {
   log("브라우저 시작...");
   const browser = await chromium.launch({
-    headless: true,
+    headless,
     args: [
       "--disable-blink-features=AutomationControlled",
       "--no-sandbox",
@@ -709,4 +709,9 @@ async function downloadFile(page, context, fileConfig, log) {
   return downloadWmsFile(page, context, fileConfig, log);
 }
 
-module.exports = { createSession, downloadFile };
+// TMS는 headless: false 필요 — agent.js 에서 직접 세션 생성 시 사용
+async function createTmsSession(id, pw, log) {
+  return createSession(id, pw, log, { headless: false });
+}
+
+module.exports = { createSession, createTmsSession, downloadFile };

@@ -14,7 +14,7 @@ require("dotenv").config({ path: require("path").join(__dirname, ".env") });
 const { createClient } = require("@supabase/supabase-js");
 const cron = require("node-cron");
 const { FILE_CONFIGS } = require("./config");
-const { createSession, downloadFile } = require("./elogis");
+const { createSession, createTmsSession, downloadFile } = require("./elogis");
 const { uploadToAdmin } = require("./upload");
 
 // ── 환경변수 ──────────────────────────────────────────────────────────────────
@@ -104,7 +104,9 @@ async function runSync(jobId) {
   const downloadOne = async (fileConfig) => {
     let browser = null;
     try {
-      const session = await createSession(ELOGIS_ID, ELOGIS_PW, addLog);
+      const session = fileConfig.tmsDownload
+        ? await createTmsSession(ELOGIS_ID, ELOGIS_PW, addLog)
+        : await createSession(ELOGIS_ID, ELOGIS_PW, addLog);
       browser = session.browser;
       activeBrowsers.add(browser);
       const buffer = await downloadFile(session.page, session.context, fileConfig, addLog);
