@@ -344,6 +344,32 @@ async function fillSearchInputs(page, searchInputs, log) {
   }
 }
 
+// ── API 직접 호출로 엑셀 다운로드 (prepareParams 활용) ───────────────────────
+
+async function downloadViaApi(page, fileConfig, log) {
+  const { label, prepareParams } = fileConfig;
+
+  log(`${label}: API 직접 다운로드 (${prepareParams.SEARCH_URL})...`);
+
+  // Step 1: POST commonExcelDownPrepare — page.request 는 브라우저 세션 쿠키 자동 포함
+  const prepareRes = await page.request.post(
+    `${BASE_URL}/utilService/commonExcelDownPrepare`,
+    {
+      headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
+      data: new URLSearchParams(prepareParams).toString(),
+    }
+  );
+  log(`${label}: prepare 응답: ${prepareRes.status()}`);
+
+  // Step 2: GET commonExcelDown
+  const downloadRes = await page.request.get(`${BASE_URL}/utilService/commonExcelDown`);
+  const buffer = await downloadRes.body();
+
+  if (buffer.length < 200) throw new Error(`다운로드 파일이 비어 있습니다 (${buffer.length} bytes)`);
+  log(`${label}: API 다운로드 완료 (${Math.round(buffer.length / 1024)} KB)`);
+  return buffer;
+}
+
 // ── WMS/MDM 파일 다운로드 ─────────────────────────────────────────────────────
 
 async function downloadWmsFile(page, context, fileConfig, log) {
@@ -364,6 +390,13 @@ async function downloadWmsFile(page, context, fileConfig, log) {
   // 검색 입력이 있는 경우: 값만 입력 (조회 클릭 불필요)
   if (searchInputs && searchInputs.length > 0) {
     await fillSearchInputs(page, searchInputs, log);
+  }
+
+  // prepareParams가 있으면 UI 클릭 없이 API 직접 호출 (탭 데이터 오염 방지)
+  if (fileConfig.prepareParams) {
+    const buffer = await downloadViaApi(page, fileConfig, log);
+    log(`${label}: 다운로드 완료 (${Math.round(buffer.length / 1024)} KB)`);
+    return buffer;
   }
 
   // 탭이 포함된 메뉴(depth >= 5)는 조회 버튼을 한번 더 눌러서 해당 탭 데이터 확실히 로드
