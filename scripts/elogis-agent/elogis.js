@@ -429,25 +429,40 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
   if (!srchClicked) log(`[경고] ${label}: 조회 버튼을 찾지 못했습니다.`);
   await tmsPage.waitForTimeout(5_000);
 
+  // 디버그: 모든 프레임의 버튼/링크 텍스트 덤프
+  for (const f of [tmsPage, ...tmsPage.frames()]) {
+    const btns = await f.evaluate(() => {
+      return [...document.querySelectorAll("button, a, input[type=button], input[type=submit], .btn, [role=button]")]
+        .map(e => `[${e.tagName}] id=${e.id} class=${e.className} text=${e.textContent.trim().slice(0, 40)}`)
+        .filter(s => s.length > 10)
+        .join("\n");
+    }).catch(() => "");
+    if (btns) log(`[DEBUG] 프레임(${f.url ? f.url().slice(-40) : "main"}) 버튼:\n${btns}`);
+  }
+
   log(`${label}: 그리드 메뉴(≡) 클릭...`);
   let gridMenuClicked = false;
   for (const f of [tmsPage, ...tmsPage.frames()]) {
-    // IBSheet iw-mTrigger 는 mousedown 이벤트로 동작
-    const clicked = await f.evaluate(() => {
+    const info = await f.evaluate(() => {
       const btn = document.querySelector('#ibsheet01_grid_btn, .iw-mTrigger, .btn-sheet.btmenu');
-      if (!btn) return false;
-      btn.scrollIntoView({ block: "center" });
-      const opts = { bubbles: true, cancelable: true, view: window };
-      btn.dispatchEvent(new MouseEvent("mouseover", opts));
-      btn.dispatchEvent(new MouseEvent("mouseenter", opts));
-      btn.dispatchEvent(new MouseEvent("mousedown", opts));
-      btn.dispatchEvent(new MouseEvent("mouseup", opts));
-      btn.dispatchEvent(new MouseEvent("click", opts));
-      return btn.id || btn.className;
-    }).catch(() => false);
-    if (clicked) {
-      gridMenuClicked = true;
-      log(`${label}: 그리드 메뉴 dispatchEvent 성공 (${clicked}) 프레임: ${f.url ? f.url() : "main"}`);
+      if (!btn) return null;
+      const rect = btn.getBoundingClientRect();
+      return { id: btn.id, cls: btn.className, x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) };
+    }).catch(() => null);
+    if (info) {
+      log(`[DEBUG] 그리드 메뉴 버튼: id=${info.id} x=${info.x} y=${info.y} w=${info.w} h=${info.h}`);
+      // Playwright mouse 로 실제 좌표 클릭 (가장 실제 클릭에 가까움)
+      const frame = f;
+      try {
+        // frame offset 고려해서 tmsPage.mouse 로 클릭
+        const frameEl = tmsPage.frameLocator(`iframe[src*="${f.url ? f.url().split("/").pop() : ""}"]`);
+        // 그냥 tmsPage.mouse 사용
+        await tmsPage.mouse.click(info.x + info.w / 2, info.y + info.h / 2);
+        gridMenuClicked = true;
+        log(`${label}: 그리드 메뉴 mouse.click 성공 (${info.x}, ${info.y})`);
+      } catch (e) {
+        log(`[경고] mouse.click 실패: ${e.message}`);
+      }
       break;
     }
   }
