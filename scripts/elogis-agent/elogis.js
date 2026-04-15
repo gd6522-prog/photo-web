@@ -61,27 +61,33 @@ async function navigateViaMenu(page, menuPath, log) {
       const tabCnt = await tabEl.count().catch(() => 0);
       if (tabCnt > 0) {
         log(`메뉴 탭 발견 (${f.url ? f.url().slice(-50) : "main"}): ${menuItem}`);
-        // frame.evaluate 로 mousedown+mouseup+click 직접 발사 (ExtJS 탭 전환 이벤트)
+        // ExtJS API로 탭 전환 (Ext.ComponentQuery 사용)
         const tabActivated = await f.evaluate((text) => {
-          const normalize = (s) => (s || "").replace(/\s+/g, "").trim();
-          const tabs = document.querySelectorAll("[role='tab']");
-          for (const tab of tabs) {
-            if (normalize(tab.textContent) === normalize(text)) {
-              ["mouseenter", "mouseover", "mousedown", "mouseup", "click"].forEach((type) => {
-                tab.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
-              });
-              return true;
+          try {
+            if (typeof Ext === "undefined") return false;
+            const normalize = (s) => (s || "").replace(/\s+/g, "").trim();
+            const panels = Ext.ComponentQuery.query("tabpanel");
+            for (const panel of panels) {
+              const items = panel.items && panel.items.items;
+              if (!items) continue;
+              for (const tab of items) {
+                const title = tab.title || tab.text || tab.card?.title || "";
+                if (normalize(title) === normalize(text)) {
+                  panel.setActiveItem(tab);
+                  return true;
+                }
+              }
             }
-          }
+          } catch (e) { return false; }
           return false;
         }, menuItem).catch(() => false);
+        log(`메뉴 탭 ExtJS 전환: ${tabActivated ? "성공" : "실패 → locator fallback"}`);
         if (!tabActivated) {
-          // fallback: locator click
           const parentTab = f.locator("[role='tab']").filter({ hasText: menuItem }).first();
           const targetEl = (await parentTab.count().catch(() => 0)) > 0 ? parentTab : tabEl;
           await targetEl.click({ force: true }).catch(() => {});
         }
-        await page.waitForTimeout(800);
+        await page.waitForTimeout(1_500);
         clicked = true;
         break;
       }
