@@ -27,6 +27,19 @@ type SyncStatus = {
   } | null;
 };
 
+// ─── 슬롯별 자동 실행 스케줄 ──────────────────────────────────────────────────
+type SlotSchedule = { enabled: boolean; hour: number; minute: number };
+const SCHEDULE_LS_KEY = "elogis_slot_schedules";
+
+function loadSchedules(): Record<string, SlotSchedule> {
+  try {
+    return JSON.parse(localStorage.getItem(SCHEDULE_LS_KEY) ?? "{}");
+  } catch { return {}; }
+}
+function saveSchedules(s: Record<string, SlotSchedule>) {
+  localStorage.setItem(SCHEDULE_LS_KEY, JSON.stringify(s));
+}
+
 // 슬롯별 예상 소요 시간 (초) — 실제 완료 시점보다 약간 크게 설정해 0초 조기 도달 방지
 const SLOT_ESTIMATED_SEC: Record<string, number> = {
   "store-master": 120,           // TMS 새 탭 열기 포함, 가장 오래 걸림
@@ -421,6 +434,18 @@ export default function FileUploadPage() {
   const [currentUserName, setCurrentUserName] = useState<string>("");
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
+  // ── 슬롯별 자동 실행 스케줄 ─────────────────────────────────────────────────
+  const [schedules, setSchedules] = useState<Record<string, SlotSchedule>>({});
+  useEffect(() => { setSchedules(loadSchedules()); }, []);
+  const updateSchedule = useCallback((key: string, patch: Partial<SlotSchedule>) => {
+    setSchedules((prev) => {
+      const defaults: SlotSchedule = { enabled: false, hour: 6, minute: 0 };
+      const next = { ...prev, [key]: { ...defaults, ...prev[key], ...patch } };
+      saveSchedules(next);
+      return next;
+    });
+  }, []);
+
   // ── elogis 동기화 상태 (page 레벨 — SlotCard와 공유) ─────────────────────
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
   const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -481,6 +506,33 @@ export default function FileUploadPage() {
     prevResultCountRef.current = resultCount;
     prevCompletedAtRef.current = completedAt;
   }, [syncStatus, loadStatus]);
+
+  // ── 자동 실행 타이머 — 매분 체크, 스케줄 맞으면 트리거 ──────────────────────
+  const schedulesRef = useRef(schedules);
+  useEffect(() => { schedulesRef.current = schedules; }, [schedules]);
+  const syncStatusRef = useRef(syncStatus);
+  useEffect(() => { syncStatusRef.current = syncStatus; }, [syncStatus]);
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date();
+      const h = now.getHours(), m = now.getMinutes();
+      const isBusy = syncStatusRef.current?.pending || syncStatusRef.current?.running;
+      if (isBusy) return;
+      for (const [key, sched] of Object.entries(schedulesRef.current)) {
+        if (sched.enabled && sched.hour === h && sched.minute === m) {
+          handleSyncTrigger(key);
+        }
+      }
+    };
+    // 다음 정각 분에 맞춰 시작
+    const msToNextMin = (60 - new Date().getSeconds()) * 1000 - new Date().getMilliseconds();
+    const initTimer = setTimeout(() => {
+      tick();
+      const id = setInterval(tick, 60_000);
+      return () => clearInterval(id);
+    }, msToNextMin);
+    return () => clearTimeout(initTimer);
+  }, [handleSyncTrigger]);
 
   // 현재 로그인 사용자 이름 조회
   useEffect(() => {
@@ -799,13 +851,13 @@ export default function FileUploadPage() {
               canUpload={canUpload}
               syncStatus={syncStatus}
               onRun={() => handleSyncTrigger(config.key)}
-              inputRef={(el) => {
-                inputRefs.current[config.key] = el;
-              }}
+              inputRef={(el) => { inputRefs.current[config.key] = el; }}
               onFilePick={(file) => handleFilePick(config, file)}
               onUpload={() => handleUpload(config)}
               onReset={() => handleReset(config.key)}
               dragHandlers={dragHandlers(config)}
+              schedule={schedules[config.key] ?? { enabled: false, hour: 6, minute: 0 }}
+              onScheduleChange={(patch) => updateSchedule(config.key, patch)}
             />
           );
         })}
@@ -883,6 +935,8 @@ function SlotCard({
   onUpload,
   onReset,
   dragHandlers,
+  schedule,
+  onScheduleChange,
 }: {
   config: SlotConfig;
   state: SlotState;
@@ -895,6 +949,8 @@ function SlotCard({
   onUpload: () => void;
   onReset: () => void;
   dragHandlers: DragHandlers;
+  schedule: SlotSchedule;
+  onScheduleChange: (patch: Partial<SlotSchedule>) => void;
 }) {
   const localInputRef = useRef<HTMLInputElement | null>(null);
   const [running, setRunning] = React.useState(false);
@@ -1104,6 +1160,46 @@ function SlotCard({
           )}
         </div>
       )}
+
+      {/* 자동 실행 스케줄 */}
+      <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 11, color: "#6B7280", whiteSpace: "nowrap" }}>자동 실행</span>
+        <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={schedule.enabled}
+            onChange={(e) => onScheduleChange({ enabled: e.target.checked })}
+            style={{ cursor: "pointer" }}
+          />
+          <span style={{ fontSize: 11, color: schedule.enabled ? "#2563EB" : "#9CA3AF" }}>
+            {schedule.enabled ? "켜짐" : "꺼짐"}
+          </span>
+        </label>
+        <select
+          value={schedule.hour}
+          onChange={(e) => onScheduleChange({ hour: Number(e.target.value) })}
+          style={{ fontSize: 12, padding: "1px 4px", border: "1px solid #D1D5DB", borderRadius: 4, background: "#fff" }}
+        >
+          {Array.from({ length: 24 }, (_, i) => (
+            <option key={i} value={i}>{String(i).padStart(2, "0")}</option>
+          ))}
+        </select>
+        <span style={{ fontSize: 12, color: "#374151" }}>:</span>
+        <select
+          value={schedule.minute}
+          onChange={(e) => onScheduleChange({ minute: Number(e.target.value) })}
+          style={{ fontSize: 12, padding: "1px 4px", border: "1px solid #D1D5DB", borderRadius: 4, background: "#fff" }}
+        >
+          {Array.from({ length: 60 }, (_, i) => (
+            <option key={i} value={i}>{String(i).padStart(2, "0")}</option>
+          ))}
+        </select>
+        {schedule.enabled && (
+          <span style={{ fontSize: 11, color: "#2563EB" }}>
+            매일 {String(schedule.hour).padStart(2, "0")}:{String(schedule.minute).padStart(2, "0")}
+          </span>
+        )}
+      </div>
 
       {/* 파일 선택 드롭존 */}
       <div
