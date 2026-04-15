@@ -18,7 +18,7 @@ const LOGIN_URL = `${BASE_URL}/`;
 
 async function createSession(id, pw, log) {
   log("브라우저 시작...");
-  const browser = await chromium.launch({ headless: false });
+  const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
   const page = await context.newPage();
 
@@ -228,7 +228,6 @@ async function fillSearchInputs(page, searchInputs, log) {
             if (btnVisible) {
               await condBtn.click();
               await page.waitForTimeout(2_000);
-              await page.screenshot({ path: path.join(__dirname, `debug_작업센터_조건클릭후.png`) }).catch(() => {});
               // 다이얼로그의 "포함" 버튼도 Playwright locator로 클릭
               // 조건별 아이콘 클래스 매핑
               const condIconMap = {
@@ -461,8 +460,6 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
   }
   if (!gridMenuClicked) log(`[경고] ${label}: 그리드 메뉴 버튼을 찾지 못했습니다.`);
   await tmsPage.waitForTimeout(1_500);
-  // 디버그 스크린샷 (그리드 메뉴 클릭 후 드롭다운 열렸는지 확인)
-  await tmsPage.screenshot({ path: path.join(__dirname, "debug_그리드메뉴클릭후.png") }).catch(() => {});
 
   log(`${label}: 엑셀다운로드 클릭...`);
   const downloadPromise = tmsPage.waitForEvent("download", { timeout: 60_000 }).catch(() => null);
