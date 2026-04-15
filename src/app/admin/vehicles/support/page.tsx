@@ -185,7 +185,7 @@ function StoreNoticeCardMulti({
 }) {
   // 호차·순번 오름차순 정렬
   const activeRows = rows
-    .filter((r) => noticeMap[r.id]?.trim())
+    .filter((r) => noticeMap[r.store_code]?.trim())
     .sort((a, b) => {
       const carA = normalizeCarNo(a.car_no).localeCompare(normalizeCarNo(b.car_no), "ko", { numeric: true });
       if (carA !== 0) return carA;
