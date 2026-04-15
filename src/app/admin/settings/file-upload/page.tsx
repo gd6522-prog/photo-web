@@ -468,6 +468,20 @@ export default function FileUploadPage() {
     loadStatus();
   }, [loadStatus]);
 
+  // 슬롯 완료 시 자동 새로고침 — 새 결과가 생기거나 작업 완료 시 서버 파일 갱신
+  const prevResultCountRef = useRef(0);
+  const prevCompletedAtRef = useRef<string | null>(null);
+  useEffect(() => {
+    const latest = syncStatus?.latest;
+    if (!latest) return;
+    const resultCount = latest.results?.length ?? 0;
+    const completedAt = latest.completed_at ?? null;
+    if (resultCount > prevResultCountRef.current) loadStatus();
+    if (completedAt && completedAt !== prevCompletedAtRef.current) loadStatus();
+    prevResultCountRef.current = resultCount;
+    prevCompletedAtRef.current = completedAt;
+  }, [syncStatus, loadStatus]);
+
   // 현재 로그인 사용자 이름 조회
   useEffect(() => {
     (async () => {
