@@ -161,6 +161,16 @@ async function clickSearchButton(page, log, label) {
 async function clickExcelAndDownload(page, context, log, label) {
   const targets = getElogisFrames(page);
 
+  // 네트워크 요청 감시 — ExcelDownLoad/commonExcelDown 관련 URL 로깅
+  const requestLog = [];
+  const onRequest = (req) => {
+    const url = req.url();
+    if (url.includes("Excel") || url.includes("excel") || url.includes("Download") || url.includes("download")) {
+      requestLog.push(`[REQ] ${req.method()} ${url}`);
+    }
+  };
+  page.on("request", onRequest);
+
   // page + context 양쪽에서 download 이벤트 대기 (MDM은 새 탭으로 다운로드할 수 있음)
   const downloadPromise = Promise.race([
     page.waitForEvent("download", { timeout: 120_000 }),
@@ -229,8 +239,10 @@ async function clickExcelAndDownload(page, context, log, label) {
   }
 
   const download = await downloadPromise;
+  page.off("request", onRequest);
+  if (requestLog.length > 0) log(`[DEBUG] 다운로드 요청:\n  ${requestLog.join("\n  ")}`);
+  else log(`[DEBUG] 다운로드 관련 요청 없음`);
   const tmpPath = path.join(__dirname, `_tmp_${Date.now()}.xlsx`);
-  await download.saveAs(tmpPath);
   const buffer = fs.readFileSync(tmpPath);
   fs.unlinkSync(tmpPath);
 
