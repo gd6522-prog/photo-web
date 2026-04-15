@@ -232,12 +232,8 @@ async function fillSearchInputs(page, searchInputs, log) {
               // 다이얼로그의 "포함" 버튼도 Playwright locator로 클릭
               let condClicked = false;
               for (const f of [target, page, ...page.frames()]) {
-                const condOptionBtn = f.locator(`a[role="button"]:has-text("${input.condition}"), button:has-text("${input.condition}")`).first();
-                if (await condOptionBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
-                  await condOptionBtn.click();
-                  condClicked = true;
-                  break;
-                }
+                condClicked = await evaluateClickByText(f, [input.condition]);
+                if (condClicked) break;
               }
               if (condClicked) {
                 log(`조건 "${input.condition}" 선택 완료`);
