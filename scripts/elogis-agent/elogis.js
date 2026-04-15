@@ -260,6 +260,17 @@ async function fillSearchInputs(page, searchInputs, log) {
                 log(`조건 "${input.condition}" 선택 완료`);
                 await page.waitForTimeout(400);
               } else {
+                // 어떤 텍스트들이 있는지 덤프
+                for (const f of [page, ...page.frames()]) {
+                  const texts = await f.evaluate(() =>
+                    Array.from(document.querySelectorAll(".x-btn-inner, button, a[role='button']"))
+                      .map(e => JSON.stringify(e.textContent.replace(/\s+/g, " ").trim()))
+                      .filter(t => t.length > 2)
+                      .slice(0, 30)
+                      .join(", ")
+                  ).catch(() => "");
+                  if (texts) log(`[DEBUG] 프레임(${f.url().slice(0,50)}) 버튼텍스트: ${texts}`);
+                }
                 log(`[경고] 조건 "${input.condition}" 버튼을 찾지 못했습니다.`);
               }
             } else {
