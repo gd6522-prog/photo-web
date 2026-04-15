@@ -529,7 +529,8 @@ function sanitizeFileName(name: string) {
 }
 
 function normDeliveryDate(v: string): string {
-  const s = String(v ?? "").trim().replace(/\//g, "-");
+  // 슬래시·점 → 하이픈 통일, 시간 부분 제거 ("2026-04-15 00:00:00" → "2026-04-15")
+  const s = String(v ?? "").trim().replace(/[\/\.]/g, "-").split(/[ T]/)[0];
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
   if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
   return "";
