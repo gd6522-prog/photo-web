@@ -1092,6 +1092,46 @@ function SlotCard({
         </div>
       </div>
 
+      {/* 자동 실행 스케줄 — 카드명과 실행 버튼 사이 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 11, color: "#9CA3AF", whiteSpace: "nowrap" }}>자동</span>
+        <label style={{ display: "flex", alignItems: "center", gap: 3, cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={schedule.enabled}
+            onChange={(e) => onScheduleChange({ enabled: e.target.checked })}
+            style={{ cursor: "pointer", margin: 0 }}
+          />
+          <span style={{ fontSize: 11, color: schedule.enabled ? "#2563EB" : "#9CA3AF" }}>
+            {schedule.enabled ? "켜짐" : "꺼짐"}
+          </span>
+        </label>
+        <select
+          value={schedule.hour}
+          onChange={(e) => onScheduleChange({ hour: Number(e.target.value) })}
+          style={{ fontSize: 11, padding: "1px 2px", border: "1px solid #D1D5DB", borderRadius: 3, background: "#fff" }}
+        >
+          {Array.from({ length: 24 }, (_, i) => (
+            <option key={i} value={i}>{String(i).padStart(2, "0")}</option>
+          ))}
+        </select>
+        <span style={{ fontSize: 11, color: "#374151" }}>:</span>
+        <select
+          value={schedule.minute}
+          onChange={(e) => onScheduleChange({ minute: Number(e.target.value) })}
+          style={{ fontSize: 11, padding: "1px 2px", border: "1px solid #D1D5DB", borderRadius: 3, background: "#fff" }}
+        >
+          {Array.from({ length: 60 }, (_, i) => (
+            <option key={i} value={i}>{String(i).padStart(2, "0")}</option>
+          ))}
+        </select>
+        {schedule.enabled && (
+          <span style={{ fontSize: 11, color: "#2563EB" }}>
+            매일 {String(schedule.hour).padStart(2, "0")}:{String(schedule.minute).padStart(2, "0")}
+          </span>
+        )}
+      </div>
+
       {/* 게이지바 */}
       {isJobActive && !isSlotDone && (
         <div style={{ marginBottom: 10 }}>
@@ -1160,46 +1200,6 @@ function SlotCard({
           )}
         </div>
       )}
-
-      {/* 자동 실행 스케줄 */}
-      <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 11, color: "#6B7280", whiteSpace: "nowrap" }}>자동 실행</span>
-        <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
-          <input
-            type="checkbox"
-            checked={schedule.enabled}
-            onChange={(e) => onScheduleChange({ enabled: e.target.checked })}
-            style={{ cursor: "pointer" }}
-          />
-          <span style={{ fontSize: 11, color: schedule.enabled ? "#2563EB" : "#9CA3AF" }}>
-            {schedule.enabled ? "켜짐" : "꺼짐"}
-          </span>
-        </label>
-        <select
-          value={schedule.hour}
-          onChange={(e) => onScheduleChange({ hour: Number(e.target.value) })}
-          style={{ fontSize: 12, padding: "1px 4px", border: "1px solid #D1D5DB", borderRadius: 4, background: "#fff" }}
-        >
-          {Array.from({ length: 24 }, (_, i) => (
-            <option key={i} value={i}>{String(i).padStart(2, "0")}</option>
-          ))}
-        </select>
-        <span style={{ fontSize: 12, color: "#374151" }}>:</span>
-        <select
-          value={schedule.minute}
-          onChange={(e) => onScheduleChange({ minute: Number(e.target.value) })}
-          style={{ fontSize: 12, padding: "1px 4px", border: "1px solid #D1D5DB", borderRadius: 4, background: "#fff" }}
-        >
-          {Array.from({ length: 60 }, (_, i) => (
-            <option key={i} value={i}>{String(i).padStart(2, "0")}</option>
-          ))}
-        </select>
-        {schedule.enabled && (
-          <span style={{ fontSize: 11, color: "#2563EB" }}>
-            매일 {String(schedule.hour).padStart(2, "0")}:{String(schedule.minute).padStart(2, "0")}
-          </span>
-        )}
-      </div>
 
       {/* 파일 선택 드롭존 */}
       <div
