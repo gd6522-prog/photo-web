@@ -61,7 +61,7 @@ async function navigateViaMenu(page, menuPath, log) {
       const tabCnt = await tabEl.count().catch(() => 0);
       if (tabCnt > 0) {
         log(`메뉴 탭 발견 (${f.url ? f.url().slice(-50) : "main"}): ${menuItem}`);
-        // ExtJS API로 탭 전환 (Ext.ComponentQuery 사용)
+        // ExtJS API로 탭 전환 후 해당 탭의 grid store 로드
         const tabActivated = await f.evaluate((text) => {
           try {
             if (typeof Ext === "undefined") return false;
@@ -74,6 +74,14 @@ async function navigateViaMenu(page, menuPath, log) {
                 const title = tab.title || tab.text || tab.card?.title || "";
                 if (normalize(title) === normalize(text)) {
                   panel.setActiveItem(tab);
+                  // 탭 전환 후 visible grid store 강제 로드
+                  setTimeout(() => {
+                    try {
+                      Ext.ComponentQuery.query("gridpanel").forEach((g) => {
+                        if (g.isVisible(true) && g.store) g.store.load();
+                      });
+                    } catch (_) {}
+                  }, 800);
                   return true;
                 }
               }
@@ -87,7 +95,7 @@ async function navigateViaMenu(page, menuPath, log) {
           const targetEl = (await parentTab.count().catch(() => 0)) > 0 ? parentTab : tabEl;
           await targetEl.click({ force: true }).catch(() => {});
         }
-        await page.waitForTimeout(1_500);
+        await page.waitForTimeout(4_000); // store.load 완료 대기
         clicked = true;
         break;
       }
