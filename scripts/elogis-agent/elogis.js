@@ -18,9 +18,22 @@ const LOGIN_URL = `${BASE_URL}/`;
 
 async function createSession(id, pw, log) {
   log("브라우저 시작...");
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext();
+  const browser = await chromium.launch({
+    headless: true,
+    args: [
+      "--disable-blink-features=AutomationControlled",
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+    ],
+  });
+  const context = await browser.newContext({
+    userAgent:
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  });
   const page = await context.newPage();
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "webdriver", { get: () => undefined });
+  });
 
   log("elogis 로그인 페이지 접속...");
   await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30_000 });
