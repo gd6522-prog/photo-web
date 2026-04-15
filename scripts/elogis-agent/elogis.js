@@ -52,11 +52,35 @@ async function createSession(id, pw, log) {
 async function navigateViaMenu(page, menuPath, log) {
   for (const menuItem of menuPath) {
     log(`메뉴 클릭: ${menuItem}`);
-    const el = page.locator(`text="${menuItem}"`).first();
-    await el.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {});
-    await el.click({ timeout: 5_000 }).catch(async () => {
-      await el.click({ force: true, timeout: 5_000 }).catch(() => {});
-    });
+    // 1) ExtJS 탭(.x-tab-inner) 또는 버튼(.x-btn-inner) 텍스트로 evaluate 클릭
+    const tabClicked = await page.evaluate((text) => {
+      const normalize = (s) => (s || "").replace(/\s+/g, "").trim();
+      // ExtJS 탭 (x-tab-inner)
+      for (const span of document.querySelectorAll(".x-tab-inner")) {
+        if (normalize(span.textContent) === normalize(text)) {
+          const tab = span.closest('[role="tab"], .x-tab');
+          if (tab) { tab.click(); return true; }
+          span.click(); return true;
+        }
+      }
+      // ExtJS 버튼 (x-btn-inner)
+      for (const span of document.querySelectorAll(".x-btn-inner")) {
+        if (normalize(span.textContent) === normalize(text)) {
+          const btn = span.closest('a[role="button"], button, .x-btn');
+          if (btn) { btn.click(); return true; }
+        }
+      }
+      return false;
+    }, menuItem).catch(() => false);
+
+    if (!tabClicked) {
+      // 2) 일반 locator 클릭 fallback
+      const el = page.locator(`text="${menuItem}"`).first();
+      await el.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {});
+      await el.click({ timeout: 5_000 }).catch(async () => {
+        await el.click({ force: true, timeout: 5_000 }).catch(() => {});
+      });
+    }
     await page.waitForTimeout(1_200);
   }
   await page.waitForTimeout(3_000);
