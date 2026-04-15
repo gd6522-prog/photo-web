@@ -61,13 +61,24 @@ async function navigateViaMenu(page, menuPath, log) {
       const tabCnt = await tabEl.count().catch(() => 0);
       if (tabCnt > 0) {
         log(`메뉴 탭 발견 (${f.url ? f.url().slice(-50) : "main"}): ${menuItem}`);
-        // 부모 탭 요소 찾아서 실제 좌표로 클릭 (ExtJS 이벤트 정상 발화)
-        const parentTab = f.locator("[role='tab']").filter({ hasText: menuItem }).first();
-        const targetEl = (await parentTab.count().catch(() => 0)) > 0 ? parentTab : tabEl;
-        const box = await targetEl.boundingBox().catch(() => null);
-        if (box) {
-          await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-        } else {
+        // frame.evaluate 로 mousedown+mouseup+click 직접 발사 (ExtJS 탭 전환 이벤트)
+        const tabActivated = await f.evaluate((text) => {
+          const normalize = (s) => (s || "").replace(/\s+/g, "").trim();
+          const tabs = document.querySelectorAll("[role='tab']");
+          for (const tab of tabs) {
+            if (normalize(tab.textContent) === normalize(text)) {
+              ["mouseenter", "mouseover", "mousedown", "mouseup", "click"].forEach((type) => {
+                tab.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+              });
+              return true;
+            }
+          }
+          return false;
+        }, menuItem).catch(() => false);
+        if (!tabActivated) {
+          // fallback: locator click
+          const parentTab = f.locator("[role='tab']").filter({ hasText: menuItem }).first();
+          const targetEl = (await parentTab.count().catch(() => 0)) > 0 ? parentTab : tabEl;
           await targetEl.click({ force: true }).catch(() => {});
         }
         await page.waitForTimeout(800);
