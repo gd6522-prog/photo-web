@@ -431,9 +431,25 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
   await tmsPage.waitForTimeout(500);
 
   log(`${label}: 엑셀다운로드 클릭...`);
-  const downloadPromise = tmsPage.waitForEvent("download", { timeout: 60_000 });
-  await tmsPage.click("text=엑셀다운로드");
+  const downloadPromise = tmsPage.waitForEvent("download", { timeout: 60_000 }).catch(() => null);
+  let excelClicked = false;
+  for (const f of [tmsPage, ...tmsPage.frames()]) {
+    const clicked = await evaluateClickByText(f, ["엑셀다운로드", "엑셀 다운로드", "Excel"]).catch(() => false);
+    if (clicked) { excelClicked = true; break; }
+  }
+  if (!excelClicked) {
+    for (const f of [tmsPage, ...tmsPage.frames()]) {
+      const btn = f.locator('text=/엑셀/').first();
+      if (await btn.isVisible({ timeout: 1_000 }).catch(() => false)) {
+        await btn.click({ force: true }).catch(() => {});
+        excelClicked = true;
+        break;
+      }
+    }
+  }
+  if (!excelClicked) log(`[경고] ${label}: 엑셀다운로드 버튼을 찾지 못했습니다.`);
   const download = await downloadPromise;
+  if (!download) throw new Error("엑셀 다운로드 이벤트를 받지 못했습니다.");
 
   const tmpPath = path.join(__dirname, `_tmp_${Date.now()}.xlsx`);
   await download.saveAs(tmpPath);
