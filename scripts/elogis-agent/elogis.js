@@ -711,7 +711,7 @@ async function downloadFile(page, context, fileConfig, log) {
 
 // TMS는 headless: false 필요 — agent.js 에서 직접 세션 생성 시 사용
 async function createTmsSession(id, pw, log) {
-  return createSession(id, pw, log, { headless: false });
+  return createSession(id, pw, log, { headless: true });
 }
 
 module.exports = { createSession, createTmsSession, downloadFile };
