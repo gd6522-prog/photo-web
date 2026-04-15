@@ -52,34 +52,38 @@ async function createSession(id, pw, log) {
 async function navigateViaMenu(page, menuPath, log) {
   for (const menuItem of menuPath) {
     log(`메뉴 클릭: ${menuItem}`);
-    // 1) ExtJS 탭(.x-tab-inner) 또는 버튼(.x-btn-inner) 텍스트로 evaluate 클릭
-    const tabClicked = await page.evaluate((text) => {
-      const normalize = (s) => (s || "").replace(/\s+/g, "").trim();
-      // ExtJS 탭 (x-tab-inner)
-      for (const span of document.querySelectorAll(".x-tab-inner")) {
-        if (normalize(span.textContent) === normalize(text)) {
-          const tab = span.closest('[role="tab"], .x-tab');
-          if (tab) { tab.click(); return true; }
-          span.click(); return true;
-        }
+    // 1) ExtJS 탭(.x-tab-inner) → Playwright locator force 클릭 (실제 브라우저 이벤트)
+    const tabSpan = page.locator(`.x-tab-inner`).filter({ hasText: menuItem }).first();
+    const isTab = await tabSpan.count().then(c => c > 0).catch(() => false);
+    if (isTab) {
+      // 탭의 부모(.x-tab) 클릭 — force:true 로 unselectable 무시
+      const tabEl = page.locator(`[role="tab"]:has(.x-tab-inner)`).filter({ hasText: menuItem }).first();
+      const tabCount = await tabEl.count().catch(() => 0);
+      if (tabCount > 0) {
+        await tabEl.click({ force: true }).catch(() => {});
+      } else {
+        await tabSpan.click({ force: true }).catch(() => {});
       }
-      // ExtJS 버튼 (x-btn-inner)
-      for (const span of document.querySelectorAll(".x-btn-inner")) {
-        if (normalize(span.textContent) === normalize(text)) {
-          const btn = span.closest('a[role="button"], button, .x-btn');
-          if (btn) { btn.click(); return true; }
+    } else {
+      // 2) ExtJS 버튼(.x-btn-inner) or 일반 요소
+      const btnSpan = page.locator(`.x-btn-inner`).filter({ hasText: menuItem }).first();
+      const isBtn = await btnSpan.count().then(c => c > 0).catch(() => false);
+      if (isBtn) {
+        const btnEl = btnSpan.locator('xpath=ancestor::a[@role="button"] | ancestor::button').first();
+        const btnCount = await btnEl.count().catch(() => 0);
+        if (btnCount > 0) {
+          await btnEl.click({ force: true }).catch(() => {});
+        } else {
+          await btnSpan.click({ force: true }).catch(() => {});
         }
+      } else {
+        // 3) 일반 locator 클릭 fallback
+        const el = page.locator(`text="${menuItem}"`).first();
+        await el.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {});
+        await el.click({ timeout: 5_000 }).catch(async () => {
+          await el.click({ force: true, timeout: 5_000 }).catch(() => {});
+        });
       }
-      return false;
-    }, menuItem).catch(() => false);
-
-    if (!tabClicked) {
-      // 2) 일반 locator 클릭 fallback
-      const el = page.locator(`text="${menuItem}"`).first();
-      await el.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {});
-      await el.click({ timeout: 5_000 }).catch(async () => {
-        await el.click({ force: true, timeout: 5_000 }).catch(() => {});
-      });
     }
     await page.waitForTimeout(1_200);
   }
