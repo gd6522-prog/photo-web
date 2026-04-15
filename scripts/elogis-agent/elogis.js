@@ -222,59 +222,30 @@ async function fillSearchInputs(page, searchInputs, log) {
           // condition 설정 시: = 버튼 클릭 → 비교조건 패널 → 원하는 조건 선택
           if (input.condition) {
             log(`검색 조건 변경: "${input.label}" → ${input.condition}`);
-            // = 버튼: icon-search-condition-equal 클래스를 가진 span의 부모 a[role="button"]
-            const triggered = await target.evaluate((sel) => {
-              const inp = document.querySelector(sel);
-              if (!inp) return false;
-              // 같은 fieldcontainer 안에서 icon-search-condition-equal 찾기
-              let container = inp.parentElement;
-              for (let i = 0; i < 6; i++) {
-                if (!container) break;
-                const icon = container.querySelector('.icon-search-condition-equal');
-                if (icon) {
-                  const btn = icon.closest('a[role="button"], button');
-                  if (btn) { btn.click(); return true; }
-                }
-                container = container.parentElement;
-              }
-              return false;
-            }, input.selector).catch(() => false);
-
-            if (triggered) {
+            // Playwright locator로 = 버튼 클릭 (JS evaluate .click()은 ExtJS 이벤트 미발생)
+            const condBtn = target.locator('.icon-search-condition-equal').first();
+            const btnVisible = await condBtn.isVisible({ timeout: 2_000 }).catch(() => false);
+            if (btnVisible) {
+              await condBtn.click();
               await page.waitForTimeout(1_500);
-              // 비교조건 패널에서 원하는 조건 클릭 (모든 프레임 탐색)
+              // 다이얼로그의 "포함" 버튼도 Playwright locator로 클릭
               let condClicked = false;
-              for (const f of [page, ...page.frames()]) {
-                condClicked = await f.evaluate((cond) => {
-                  const norm = (s) => (s || "").replace(/\s+/g, "").trim();
-                  for (const el of document.querySelectorAll(".x-btn-inner, .x-btn-inner-default-small, button, a")) {
-                    if (norm(el.textContent) === norm(cond) || el.textContent.includes(cond)) {
-                      el.click(); return true;
-                    }
-                  }
-                  return false;
-                }, input.condition).catch(() => false);
-                if (condClicked) break;
+              for (const f of [target, page, ...page.frames()]) {
+                const포함Btn = f.locator(`text="${input.condition}"`).first();
+                if (await포함Btn.isVisible({ timeout: 1_000 }).catch(() => false)) {
+                  await포함Btn.click();
+                  condClicked = true;
+                  break;
+                }
               }
               if (condClicked) {
                 log(`조건 "${input.condition}" 선택 완료`);
                 await page.waitForTimeout(400);
               } else {
-                // 어떤 텍스트들이 있는지 덤프
-                for (const f of [page, ...page.frames()]) {
-                  const texts = await f.evaluate(() =>
-                    Array.from(document.querySelectorAll(".x-btn-inner, button, a[role='button']"))
-                      .map(e => JSON.stringify(e.textContent.replace(/\s+/g, " ").trim()))
-                      .filter(t => t.length > 2)
-                      .slice(0, 30)
-                      .join(", ")
-                  ).catch(() => "");
-                  if (texts) log(`[DEBUG] 프레임(${f.url().slice(0,50)}) 버튼텍스트: ${texts}`);
-                }
                 log(`[경고] 조건 "${input.condition}" 버튼을 찾지 못했습니다.`);
               }
             } else {
-              log(`[경고] "${input.label}" 조건 트리거 버튼을 찾지 못했습니다.`);
+              log(`[경고] "${input.label}" = 버튼(.icon-search-condition-equal)을 찾지 못했습니다.`);
             }
           }
 
