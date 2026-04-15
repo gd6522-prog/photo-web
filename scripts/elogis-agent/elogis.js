@@ -391,6 +391,8 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
   }
   log(`${label}: 배송그룹 입력 (${배송그룹})...`);
   await groupInput.fill(배송그룹);
+  await groupInput.press("Enter");
+  await tmsPage.waitForTimeout(1_000);
 
   log(`${label}: 조회 클릭...`);
   // TMS는 iframe 내부이므로 evaluate 로 실제 클릭
