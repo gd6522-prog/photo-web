@@ -430,19 +430,37 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
   await tmsPage.waitForTimeout(5_000);
 
   log(`${label}: 그리드 메뉴(≡) 클릭...`);
-  const gridMenuClicked = await (async () => {
+  let gridMenuClicked = false;
+  for (const f of [tmsPage, ...tmsPage.frames()]) {
+    // 1) Playwright locator 로 클릭 시도 (ExtJS 이벤트 정상 발생)
+    const btn = f.locator('#ibsheet01_grid_btn, .iw-mTrigger, .btn-sheet.btmenu').first();
+    if (await btn.isVisible({ timeout: 1_000 }).catch(() => false)) {
+      await btn.scrollIntoViewIfNeeded().catch(() => {});
+      await btn.click({ force: true }).catch(() => {});
+      gridMenuClicked = true;
+      log(`${label}: 그리드 메뉴 locator 클릭 성공 (프레임: ${f.url ? f.url() : "main"})`);
+      break;
+    }
+  }
+  if (!gridMenuClicked) {
+    // 2) dispatchEvent fallback
     for (const f of [tmsPage, ...tmsPage.frames()]) {
       const clicked = await f.evaluate(() => {
-        const btn = document.querySelector('.iw-mTrigger, .btn-sheet.btmenu, #ibsheet01_grid_btn');
-        if (btn) { btn.scrollIntoView(); btn.click(); return true; }
-        return false;
+        const btn = document.querySelector('#ibsheet01_grid_btn, .iw-mTrigger, .btn-sheet.btmenu');
+        if (!btn) return false;
+        btn.scrollIntoView();
+        btn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+        btn.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true }));
+        btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+        return true;
       }).catch(() => false);
-      if (clicked) return true;
+      if (clicked) { gridMenuClicked = true; break; }
     }
-    return false;
-  })();
+  }
   if (!gridMenuClicked) log(`[경고] ${label}: 그리드 메뉴 버튼을 찾지 못했습니다.`);
-  await tmsPage.waitForTimeout(500);
+  await tmsPage.waitForTimeout(1_000);
+  // 디버그 스크린샷 (그리드 메뉴 클릭 후 상태 확인)
+  await tmsPage.screenshot({ path: path.join(__dirname, "debug_그리드메뉴클릭후.png") }).catch(() => {});
 
   log(`${label}: 엑셀다운로드 클릭...`);
   const downloadPromise = tmsPage.waitForEvent("download", { timeout: 60_000 }).catch(() => null);
