@@ -222,13 +222,28 @@ export default function VehicleHistoryUploadPage() {
       setFiles((prev) => prev.map((f, idx) => idx === i ? { ...f, status: "uploading" } : f));
 
       try {
-        const form = new FormData();
-        form.append("file", file);
-
-        const res  = await fetch("/api/admin/vehicles/current", {
+        // 1단계: presigned URL 발급 (서버 body 크기 제한 우회)
+        const urlRes = await fetch("/api/admin/vehicles/upload-url", {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-          body: form,
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ fileName: file.name }),
+        });
+        const urlData = await urlRes.json();
+        if (!urlRes.ok || !urlData.ok) throw new Error(urlData.message ?? "업로드 URL 발급 실패");
+
+        // 2단계: R2에 직접 업로드
+        const r2Res = await fetch(urlData.uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": file.type || "application/octet-stream" },
+          body: file,
+        });
+        if (!r2Res.ok) throw new Error(`R2 업로드 실패 (${r2Res.status})`);
+
+        // 3단계: 서버에서 R2 파일 파싱 후 daily 저장
+        const res = await fetch("/api/admin/vehicles/current", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ path: urlData.path, fileName: file.name }),
         });
         const data = await res.json();
 
