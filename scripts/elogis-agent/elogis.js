@@ -52,24 +52,32 @@ async function createSession(id, pw, log) {
 async function navigateViaMenu(page, menuPath, log) {
   for (const menuItem of menuPath) {
     log(`메뉴 클릭: ${menuItem}`);
-    // 1) ExtJS 탭(.x-tab-inner) → 실제 좌표로 mouse.click
-    const tabRect = await page.evaluate((text) => {
+    // 1) ExtJS API로 탭 활성화 (가장 확실한 방법)
+    const extTabClicked = await page.evaluate((text) => {
       const normalize = (s) => (s || "").replace(/\s+/g, "").trim();
-      for (const span of document.querySelectorAll(".x-tab-inner")) {
-        if (normalize(span.textContent) === normalize(text)) {
-          const el = span.closest('a, [role="tab"], .x-tab') || span;
-          const r = el.getBoundingClientRect();
-          if (r.width > 0 && r.height > 0) {
-            return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      try {
+        if (window.Ext && Ext.ComponentQuery) {
+          const tabs = Ext.ComponentQuery.query("tab");
+          for (const tab of tabs) {
+            const tabText = tab.getText ? tab.getText() : (tab.text || "");
+            if (normalize(tabText) === normalize(text)) {
+              const panel = tab.ownerCt; // TabBar
+              const tabPanel = panel && panel.ownerCt; // TabPanel
+              if (tabPanel && tabPanel.setActiveTab) {
+                tabPanel.setActiveTab(tab.card || tab.index || tab);
+                return "ext-setActiveTab";
+              }
+              tab.fireEvent && tab.fireEvent("click", tab);
+              return "ext-fireEvent";
+            }
           }
         }
-      }
-      return null;
-    }, menuItem).catch(() => null);
+      } catch (e) {}
+      return false;
+    }, menuItem).catch(() => false);
 
-    if (tabRect) {
-      log(`메뉴 탭 mouse.click: ${menuItem} (${Math.round(tabRect.x)}, ${Math.round(tabRect.y)})`);
-      await page.mouse.click(tabRect.x, tabRect.y);
+    if (extTabClicked) {
+      log(`메뉴 탭 ExtJS API 클릭: ${menuItem} (${extTabClicked})`);
     } else {
       // 2) 일반 locator 클릭 fallback
       const el = page.locator(`text="${menuItem}"`).first();
