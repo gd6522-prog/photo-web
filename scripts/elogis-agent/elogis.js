@@ -354,6 +354,13 @@ async function downloadWmsFile(page, context, fileConfig, log) {
     await fillSearchInputs(page, searchInputs, log);
   }
 
+  // 탭이 포함된 메뉴(depth >= 5)는 조회 버튼을 한번 더 눌러서 해당 탭 데이터 확실히 로드
+  if (menuPath && menuPath.length >= 5) {
+    await clickSearchButton(page, log, label);
+    await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
+    await page.waitForTimeout(1_000);
+  }
+
   log(`${label}: 엑셀 다운로드 시작...`);
   const buffer = await clickExcelAndDownload(page, context, log, label);
   log(`${label}: 다운로드 완료 (${Math.round(buffer.length / 1024)} KB)`);
