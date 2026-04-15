@@ -214,7 +214,7 @@ type SlotState = {
   duplicates: string[];
 };
 
-type ServerSlotInfo = { fileName: string; uploadedAt: string; uploaderName?: string } | null;
+type ServerSlotInfo = { fileName: string; uploadedAt: string; uploaderName?: string; fileSize?: number } | null;
 
 // ─── Slot Configuration ───────────────────────────────────────────────────────
 // 슬롯 추가 시 이 배열에만 항목을 추가하면 됩니다.
@@ -684,6 +684,7 @@ export default function FileUploadPage() {
               slotKey: key,
               fileName: state.fileName,
               ...(currentUserName ? { uploaderName: currentUserName } : {}),
+              ...(state.fileObject?.size != null ? { fileSize: state.fileObject.size } : {}),
             }),
           });
 
@@ -695,7 +696,7 @@ export default function FileUploadPage() {
           });
           setServerFiles((prev) => ({
             ...prev,
-            [key]: { fileName: state.fileName, uploadedAt: now, uploaderName: currentUserName || undefined },
+            [key]: { fileName: state.fileName, uploadedAt: now, uploaderName: currentUserName || undefined, fileSize: state.fileObject?.size },
           }));
         } catch (err: any) {
           updateSlot(key, {
@@ -747,6 +748,7 @@ export default function FileUploadPage() {
               slotKey: key,
               fileName: file.name,
               ...(currentUserName ? { uploaderName: currentUserName } : {}),
+              fileSize: file.size,
             }),
           });
 
@@ -758,7 +760,7 @@ export default function FileUploadPage() {
           });
           setServerFiles((prev) => ({
             ...prev,
-            [key]: { fileName: file.name, uploadedAt: now, uploaderName: currentUserName || undefined },
+            [key]: { fileName: file.name, uploadedAt: now, uploaderName: currentUserName || undefined, fileSize: file.size },
           }));
         } catch (err: any) {
           updateSlot(key, {
@@ -1191,36 +1193,37 @@ function SlotCard({
           ✗ {slotResult.message}
         </div>
       )}
-      {/* 현재 서버 파일 (generic 슬롯만) */}
-      {config.type === "generic" && (
-        <div
-          style={{
-            marginBottom: 12,
-            padding: "8px 10px",
-            background: "#F8FAFC",
-            border: "1px solid #E5E7EB",
-            fontSize: 12,
-            color: "#374151",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ fontWeight: 700 }}>현재 서버 파일</div>
-            {serverFile && (
-              <DownloadButton slotKey={config.key} />
-            )}
-          </div>
-          {serverFile ? (
-            <>
-              <div style={{ marginTop: 2 }}>{serverFile.fileName}</div>
-              <div style={{ marginTop: 2, color: "#9CA3AF" }}>
-                {formatUploadedAt(serverFile.uploadedAt)}
-              </div>
-            </>
-          ) : (
-            <div style={{ marginTop: 2, color: "#9CA3AF" }}>없음</div>
+      {/* 현재 서버 파일 (모든 슬롯) */}
+      <div
+        style={{
+          marginBottom: 12,
+          padding: "8px 10px",
+          background: "#F8FAFC",
+          border: "1px solid #E5E7EB",
+          fontSize: 12,
+          color: "#374151",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ fontWeight: 700 }}>현재 서버 파일</div>
+          {serverFile && config.type === "generic" && (
+            <DownloadButton slotKey={config.key} />
           )}
         </div>
-      )}
+        {serverFile ? (
+          <>
+            <div style={{ marginTop: 2 }}>{serverFile.fileName}</div>
+            <div style={{ marginTop: 2, color: "#9CA3AF", display: "flex", gap: 8 }}>
+              <span>{formatUploadedAt(serverFile.uploadedAt)}</span>
+              {serverFile.fileSize != null && (
+                <span>{(serverFile.fileSize / 1024).toFixed(1)} KB</span>
+              )}
+            </div>
+          </>
+        ) : (
+          <div style={{ marginTop: 2, color: "#9CA3AF" }}>없음</div>
+        )}
+      </div>
 
       {/* 파일 선택 드롭존 */}
       <div

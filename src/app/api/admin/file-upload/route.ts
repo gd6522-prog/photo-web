@@ -51,14 +51,14 @@ function metaKey(key: string) {
 
 // ─── GET: return current file status for all slots (including store-master) ──
 export async function GET() {
-  const slots: Record<string, { fileName: string; uploadedAt: string; uploaderName?: string } | null> = {};
+  const slots: Record<string, { fileName: string; uploadedAt: string; uploaderName?: string; fileSize?: number } | null> = {};
 
   await Promise.all(
     ALL_META_KEYS.map(async (key) => {
       try {
         const text = await getR2ObjectText(metaKey(key));
         slots[key] = text
-          ? (JSON.parse(text) as { fileName: string; uploadedAt: string; uploaderName?: string })
+          ? (JSON.parse(text) as { fileName: string; uploadedAt: string; uploaderName?: string; fileSize?: number })
           : null;
       } catch {
         slots[key] = null;
@@ -87,9 +87,10 @@ export async function POST(req: NextRequest) {
       fileName?: string;
       contentType?: string;
       uploaderName?: string;
+      fileSize?: number;
     };
 
-    const { action, slotKey = "", fileName = "", contentType = "application/octet-stream", uploaderName } = body;
+    const { action, slotKey = "", fileName = "", contentType = "application/octet-stream", uploaderName, fileSize } = body;
 
     // ── action: save-meta — any slot key (used after store-master DB import) ─
     if (action === "save-meta") {
@@ -99,7 +100,7 @@ export async function POST(req: NextRequest) {
       if (!fileName) {
         return NextResponse.json({ ok: false, message: "fileName이 없습니다." }, { status: 400 });
       }
-      const meta = { fileName, uploadedAt: new Date().toISOString(), ...(uploaderName ? { uploaderName } : {}) };
+      const meta = { fileName, uploadedAt: new Date().toISOString(), ...(uploaderName ? { uploaderName } : {}), ...(fileSize != null ? { fileSize } : {}) };
       await putR2Object(metaKey(slotKey), JSON.stringify(meta), "application/json");
       return NextResponse.json({ ok: true });
     }
@@ -140,7 +141,7 @@ export async function POST(req: NextRequest) {
 
     // ── action: confirm ─────────────────────────────────────────────────────
     if (action === "confirm") {
-      const meta = { fileName, uploadedAt: new Date().toISOString(), ...(uploaderName ? { uploaderName } : {}) };
+      const meta = { fileName, uploadedAt: new Date().toISOString(), ...(uploaderName ? { uploaderName } : {}), ...(fileSize != null ? { fileSize } : {}) };
       await putR2Object(metaKey(slotKey), JSON.stringify(meta), "application/json");
       return NextResponse.json({ ok: true });
     }
