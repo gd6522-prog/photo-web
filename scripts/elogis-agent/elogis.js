@@ -95,7 +95,27 @@ async function navigateViaMenu(page, menuPath, log) {
           const targetEl = (await parentTab.count().catch(() => 0)) > 0 ? parentTab : tabEl;
           await targetEl.click({ force: true }).catch(() => {});
         }
-        await page.waitForTimeout(4_000); // store.load 완료 대기
+        await page.waitForTimeout(800);
+        // 탭 전환 후 ExtJS 조회 버튼 클릭 (해당 탭 데이터 로드)
+        const searched = await f.evaluate(() => {
+          try {
+            if (typeof Ext === "undefined") return false;
+            const btns = Ext.ComponentQuery.query("button");
+            for (const btn of btns) {
+              if (btn.isVisible(true) && (btn.text || "").replace(/\s+/g, "").includes("조회")) {
+                if (typeof btn.handler === "function") {
+                  btn.handler.call(btn.scope || btn, btn);
+                } else {
+                  btn.fireEvent("click", btn);
+                }
+                return true;
+              }
+            }
+          } catch (_) {}
+          return false;
+        }).catch(() => false);
+        log(`메뉴 탭 조회 클릭: ${searched ? "성공" : "실패"}`);
+        await page.waitForTimeout(3_000); // 조회 결과 로드 대기
         clicked = true;
         break;
       }
@@ -398,11 +418,34 @@ async function downloadViaInterceptAndApi(page, fileConfig, log) {
     await route.abort();
   });
 
-  // Step 2: 엑셀 버튼 클릭 (드롭다운 포함)
+  // Step 2: ExtJS로 visible 엑셀 버튼 클릭 → 드롭다운 → 전체 데이터 다운로드
   const targets = getElogisFrames(page);
+  let excelClicked = false;
   for (const target of targets) {
-    const clicked = await evaluateClickByText(target, ["엑셀", "Excel", "EXCEL", "엑셀다운로드", "엑셀 다운로드"]);
-    if (clicked) { log(`${label}: 엑셀 버튼 클릭 (intercept 모드)`); break; }
+    excelClicked = await target.evaluate(() => {
+      try {
+        if (typeof Ext !== "undefined") {
+          const btns = Ext.ComponentQuery.query("button");
+          for (const btn of btns) {
+            const text = (btn.text || "").replace(/\s+/g, "");
+            if (btn.isVisible(true) && (text === "엑셀" || text === "Excel")) {
+              btn.showMenu ? btn.showMenu() : btn.fireEvent("click", btn);
+              return true;
+            }
+          }
+        }
+      } catch (_) {}
+      // fallback: visible .x-btn-inner
+      const normalize = (s) => (s || "").replace(/\s+/g, "").trim();
+      for (const span of document.querySelectorAll(".x-btn-inner")) {
+        if (normalize(span.textContent) === "엑셀" || normalize(span.textContent) === "Excel") {
+          const btn = span.closest('a[role="button"], button');
+          if (btn && btn.offsetParent !== null) { btn.click(); return true; }
+        }
+      }
+      return false;
+    }).catch(() => false);
+    if (excelClicked) { log(`${label}: 엑셀 버튼 클릭 (intercept 모드)`); break; }
   }
   await page.waitForTimeout(800);
   // 드롭다운 → 전체 데이터 다운로드
