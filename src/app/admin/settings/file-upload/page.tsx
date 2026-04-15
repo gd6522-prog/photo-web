@@ -1027,9 +1027,15 @@ function SlotCard({
         <div style={{ marginBottom: 10 }}>
           {(() => {
             const logTail = syncStatus?.latest?.log_tail ?? [];
-            const lastLine = logTail.length > 0 ? logTail[logTail.length - 1] : null;
-            // 타임스탬프 제거: "[2026. 4. 14. 오후 5:04:29] 메시지" → "메시지"
-            const msg = lastLine ? lastLine.replace(/^\[.*?\]\s*/, "") : "다운로드 중...";
+            // 병렬 실행 시 이 슬롯의 라벨로 시작하는 줄만 필터링
+            const slotLines = logTail.filter((l) => l.includes(`] ${config.label}:`));
+            const lastLine = slotLines.length > 0
+              ? slotLines[slotLines.length - 1]
+              : logTail[logTail.length - 1] ?? null;
+            // 타임스탬프 + 라벨 제거: "[시각] 라벨: 메시지" → "메시지"
+            const msg = lastLine
+              ? lastLine.replace(/^\[.*?\]\s*/, "").replace(/^[^:]+:\s*/, "")
+              : "다운로드 중...";
             return (
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#6B7280", marginBottom: 3, gap: 8 }}>
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{msg}</span>
