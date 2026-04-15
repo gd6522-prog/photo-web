@@ -164,18 +164,21 @@ async function clickSearchButton(page, log, label) {
 async function clickExcelAndDownload(page, context, log, label, prepareOverride) {
   const targets = getElogisFrames(page);
 
-  // 네트워크 감시: searchStockInvn 요청 파라미터 캡처
-  let capturedSearchParams = null;
-  const onReqCapture = (req) => {
-    if (req.url().includes("searchStockInvn") && req.method() === "POST") {
-      capturedSearchParams = req.postData();
-      log(`[DEBUG] searchStockInvn 요청 캡처: ${capturedSearchParams?.slice(0, 300)}`);
-    }
-    if (req.url().includes("commonExcelDownPrepare") && req.method() === "POST") {
-      const body = req.postData() || "";
-      log(`[DEBUG] commonExcelDownPrepare 전체 body: ${body.slice(0, 500)}`);
-    }
-  };
+  // prepareOverride 가 있으면 commonExcelDownPrepare POST body 를 route.fetch 로 교체
+  if (prepareOverride && Object.keys(prepareOverride).length > 0) {
+    await page.route("**/utilService/commonExcelDownPrepare", async (route) => {
+      const body = route.request().postData() || "";
+      const params = new URLSearchParams(body);
+      for (const [key, val] of Object.entries(prepareOverride)) {
+        params.set(key, val);
+      }
+      log(`[DEBUG] prepare SEARCH_URL 교체 → ${params.get("SEARCH_URL")}`);
+      const response = await route.fetch({ postData: params.toString() });
+      await route.fulfill({ response });
+    });
+  }
+
+  const onReqCapture = () => {};
   page.on("request", onReqCapture);
 
   // 네트워크 요청 감시 — ExcelDownLoad/commonExcelDown 관련 URL 로깅
@@ -258,6 +261,9 @@ async function clickExcelAndDownload(page, context, log, label, prepareOverride)
   const download = await downloadPromise;
   page.off("request", onRequest);
   page.off("request", onReqCapture);
+  if (prepareOverride && Object.keys(prepareOverride).length > 0) {
+    await page.unroute("**/utilService/commonExcelDownPrepare").catch(() => {});
+  }
   if (requestLog.length > 0) log(`[DEBUG] 다운로드 요청:\n  ${requestLog.join("\n  ")}`);
   else log(`[DEBUG] 다운로드 관련 요청 없음`);
   const tmpPath = path.join(__dirname, `_tmp_${Date.now()}.xlsx`);
