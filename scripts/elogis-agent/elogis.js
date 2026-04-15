@@ -420,7 +420,7 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
     for (const f of [tmsPage, ...tmsPage.frames()]) {
       const btn = f.locator('.iw-mTrigger, .btn-sheet.btmenu, #ibsheet01_grid_btn').first();
       if (await btn.isVisible({ timeout: 3_000 }).catch(() => false)) {
-        await btn.click();
+        await btn.click({ force: true });
         return true;
       }
     }
