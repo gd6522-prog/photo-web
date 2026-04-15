@@ -52,40 +52,37 @@ async function createSession(id, pw, log) {
 async function navigateViaMenu(page, menuPath, log) {
   for (const menuItem of menuPath) {
     log(`메뉴 클릭: ${menuItem}`);
-    // 1) ExtJS API로 탭 활성화 (가장 확실한 방법)
-    const extTabClicked = await page.evaluate((text) => {
-      const normalize = (s) => (s || "").replace(/\s+/g, "").trim();
-      try {
-        if (window.Ext && Ext.ComponentQuery) {
-          const tabs = Ext.ComponentQuery.query("tab");
-          for (const tab of tabs) {
-            const tabText = tab.getText ? tab.getText() : (tab.text || "");
-            if (normalize(tabText) === normalize(text)) {
-              const panel = tab.ownerCt; // TabBar
-              const tabPanel = panel && panel.ownerCt; // TabPanel
-              if (tabPanel && tabPanel.setActiveTab) {
-                tabPanel.setActiveTab(tab.card || tab.index || tab);
-                return "ext-setActiveTab";
-              }
-              tab.fireEvent && tab.fireEvent("click", tab);
-              return "ext-fireEvent";
-            }
-          }
+    // 모든 프레임에서 텍스트 매칭 클릭 시도
+    const allFrames = [page, ...page.frames()];
+    let clicked = false;
+    for (const f of allFrames) {
+      // 1) ExtJS 탭 locator (frame 내에서)
+      const tabEl = f.locator(".x-tab-inner").filter({ hasText: menuItem }).first();
+      const tabCnt = await tabEl.count().catch(() => 0);
+      if (tabCnt > 0) {
+        log(`메뉴 탭 발견 (${f.url ? f.url().slice(-50) : "main"}): ${menuItem}`);
+        // 부모 탭 요소 찾아서 클릭
+        const parentTab = f.locator("[role='tab']").filter({ hasText: menuItem }).first();
+        const parentCnt = await parentTab.count().catch(() => 0);
+        if (parentCnt > 0) {
+          await parentTab.click({ force: true }).catch(() => {});
+        } else {
+          await tabEl.click({ force: true }).catch(() => {});
         }
-      } catch (e) {}
-      return false;
-    }, menuItem).catch(() => false);
-
-    if (extTabClicked) {
-      log(`메뉴 탭 ExtJS API 클릭: ${menuItem} (${extTabClicked})`);
-    } else {
-      // 2) 일반 locator 클릭 fallback
-      const el = page.locator(`text="${menuItem}"`).first();
-      await el.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {});
-      await el.click({ timeout: 5_000 }).catch(async () => {
+        clicked = true;
+        break;
+      }
+      // 2) 일반 텍스트 locator
+      const el = f.locator(`text="${menuItem}"`).first();
+      const elCnt = await el.count().catch(() => 0);
+      if (elCnt > 0) {
+        log(`메뉴 요소 발견 (${f.url ? f.url().slice(-50) : "main"}): ${menuItem}`);
         await el.click({ force: true, timeout: 5_000 }).catch(() => {});
-      });
+        clicked = true;
+        break;
+      }
     }
+    if (!clicked) log(`[경고] 메뉴 요소를 찾지 못했습니다: ${menuItem}`);
     await page.waitForTimeout(1_200);
   }
   await page.waitForTimeout(3_000);
