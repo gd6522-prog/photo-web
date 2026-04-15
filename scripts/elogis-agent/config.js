@@ -234,9 +234,27 @@ const FILE_CONFIGS = [
     type: "generic",
     pageUrl: "https://elogis.emart24.co.kr/",
     menuPath: ["창고관리 (WMS)", "재고", "재고조회", "재고현황", "상품별 재고현황"],
-    // UI가 엑셀 버튼 클릭 시 재고현황 SEARCH_URL을 보냄 → 상품별재고현황으로 강제 교체
+    // UI가 엑셀 버튼 클릭 시 재고현황 파라미터를 보냄 → 상품별재고현황으로 강제 교체
     prepareOverride: {
       SEARCH_URL: "/invnTotListService/searchStockInvn",
+      CURRENT_MENUCODE: "WMS141123",
+      CURRENT_MENUNAME: "MENU_CMBN_INVN_SRCH::MENU_CMBN_INVN_STATUS",
+      EXCEL_HEADERCOLS: "WH_CD,WH_NM,STRR_ID,STRR_NM,ITEM_CD,ITEM_NM,ITEM_STRG_CD,INVN_SCD_NM,INVN_QTY,LALOC_QTY,PRCS_QTY,ALL_HLD_QTY",
+      EXCEL_HEADERCOLS_TEXT: "창고코드,창고명,화주사코드,화주사명,상품코드,상품명,상품저장코드,재고상태,재고수량,가용수량,예약수량,보류수량",
+      EXCEL_COLNAMES: "WH_CD,WH_NM,STRR_ID,STRR_NM,ITEM_CD,ITEM_NM,ITEM_STRG_CD,INVN_SCD_NM,INVN_QTY,LALOC_QTY,PRCS_QTY,ALL_HLD_QTY",
+      EXCEL_COL_WIDTH: "autofit,autofit,autofit,150,autofit,250,autofit,autofit,autofit,autofit,autofit,autofit",
+      EXCEL_NUMBER_COLS: "INVN_QTY,LALOC_QTY,PRCS_QTY,ALL_HLD_QTY",
+      EXCEL_COL_ALIGN: "center,left,left,left,left,left,left,center,right,right,right,right",
+      EXCEL_COL_COMBOCOLS: "ITEM_STRG_CD",
+      EXCEL_COL_HIDDEN: "",
+      EXCEL_HEADER_DEPTH: "1",
+      EXCEL_REQUIRED_HEADERS: "",
+      EXCEL_EDIT_FALSE_COLS: "",
+      EXCEL_FIXED_COLS: "",
+      EXCEL_DATE_COLS: "",
+      EXCEL_DATE_COLS_FORMAT: "",
+      EXCEL_COL_CHECKCOLS: "",
+      EXCEL_HEADERMERGE: "",
     },
   },
 ];
