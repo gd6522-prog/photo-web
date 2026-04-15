@@ -391,26 +391,43 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
   await tmsPage.click("text=노선-점포(배송처)매핑");
   await tmsPage.waitForTimeout(2_000);
 
-  log(`${label}: 배송그룹 입력 필드 대기 (최대 20초)...`);
+  log(`${label}: 배송그룹 입력 필드 대기 (최대 40초)...`);
   let groupInput = null;
 
-  // TmsPmMastRouteStop 콘텐츠 프레임 로드 완료 대기 후 waitForSelector
-  const contentFrame = tmsPage.frames().find((f) => f.url().includes("TmsPmMastRouteStop"));
+  // TmsPmMastRouteStop 프레임이 나타날 때까지 폴링 (최대 30초)
+  let contentFrame = null;
+  const frameDeadline = Date.now() + 30_000;
+  while (Date.now() < frameDeadline) {
+    contentFrame = tmsPage.frames().find((f) => f.url().includes("TmsPmMastRouteStop")) ?? null;
+    if (contentFrame) break;
+    await tmsPage.waitForTimeout(500);
+  }
+
   if (contentFrame) {
+    log(`${label}: TmsPmMastRouteStop 프레임 발견, 필드 로드 대기...`);
     try {
-      await contentFrame.waitForLoadState("domcontentloaded", { timeout: 10_000 }).catch(() => {});
-      await contentFrame.waitForSelector('#deli_seq_cd, [name="deli_seq_cd"]', {
+      await contentFrame.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => {});
+      await contentFrame.waitForSelector('#deli_seq_cd, [name="deli_seq_cd"], input[type="text"]', {
         state: "visible",
         timeout: 20_000,
       });
       groupInput = contentFrame.locator('#deli_seq_cd, [name="deli_seq_cd"]').first();
+      const cnt = await groupInput.count().catch(() => 0);
+      if (cnt === 0) {
+        // ID/name 없으면 첫번째 text input fallback
+        groupInput = contentFrame.locator('input[type="text"]').first();
+      }
       log(`${label}: 배송그룹 필드 발견 (TmsPmMastRouteStop 프레임)`);
     } catch {
-      log(`${label}: TmsPmMastRouteStop 프레임에서 waitForSelector 실패, 전체 프레임 탐색...`);
+      // 디버그: 프레임 내 input 목록 덤프
+      const inputs = await contentFrame.evaluate(() =>
+        [...document.querySelectorAll("input")].map(e => `id=${e.id} name=${e.name} type=${e.type}`).join(", ")
+      ).catch(() => "평가 실패");
+      log(`${label}: 필드 대기 실패. 프레임 내 inputs: ${inputs}`);
     }
   }
 
-  // 2) 전체 프레임 순회 fallback
+  // fallback: 전체 프레임 순회
   if (!groupInput) {
     for (const target of [tmsPage, ...tmsPage.frames()]) {
       const el = target.locator('#deli_seq_cd, [name="deli_seq_cd"]').first();
@@ -423,8 +440,6 @@ async function downloadTmsFile(mainPage, context, fileConfig, log) {
   }
 
   if (!groupInput) {
-    const frameUrls = tmsPage.frames().map((f) => f.url()).join("\n  ");
-    log(`[DEBUG] TMS 프레임 URL 목록:\n  ${frameUrls}`);
     await tmsPage.screenshot({ path: path.join(__dirname, "debug_점포마스터.png") }).catch(() => {});
     throw new Error("배송그룹 입력 필드를 찾을 수 없습니다.");
   }
