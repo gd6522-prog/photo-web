@@ -61,15 +61,16 @@ async function navigateViaMenu(page, menuPath, log) {
       const tabCnt = await tabEl.count().catch(() => 0);
       if (tabCnt > 0) {
         log(`메뉴 탭 발견 (${f.url ? f.url().slice(-50) : "main"}): ${menuItem}`);
-        // 부모 탭 요소 찾아서 클릭
+        // 부모 탭 요소 찾아서 실제 좌표로 클릭 (ExtJS 이벤트 정상 발화)
         const parentTab = f.locator("[role='tab']").filter({ hasText: menuItem }).first();
-        const parentCnt = await parentTab.count().catch(() => 0);
-        if (parentCnt > 0) {
-          await parentTab.click({ force: true }).catch(() => {});
+        const targetEl = (await parentTab.count().catch(() => 0)) > 0 ? parentTab : tabEl;
+        const box = await targetEl.boundingBox().catch(() => null);
+        if (box) {
+          await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
         } else {
-          await tabEl.click({ force: true }).catch(() => {});
+          await targetEl.click({ force: true }).catch(() => {});
         }
-        await page.waitForTimeout(500);
+        await page.waitForTimeout(800);
         clicked = true;
         break;
       }
