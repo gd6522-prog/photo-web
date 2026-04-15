@@ -239,6 +239,14 @@ async function fillSearchInputs(page, searchInputs, log) {
                 log(`조건 "${input.condition}" 선택 완료`);
                 await page.waitForTimeout(400);
               } else {
+                // dialog HTML 덤프
+                for (const f of [target, page, ...page.frames()]) {
+                  const html = await f.evaluate(() => {
+                    const win = document.querySelector('.x-window, [class*="x-window"]');
+                    return win ? win.outerHTML.slice(0, 3000) : null;
+                  }).catch(() => null);
+                  if (html) { log(`[DEBUG] dialog HTML (${f.url().slice(0,60)}):\n${html}`); break; }
+                }
                 log(`[경고] 조건 "${input.condition}" 버튼을 찾지 못했습니다.`);
               }
             } else {
