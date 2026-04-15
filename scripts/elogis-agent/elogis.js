@@ -69,16 +69,7 @@ async function navigateViaMenu(page, menuPath, log) {
         } else {
           await tabEl.click({ force: true }).catch(() => {});
         }
-        // 탭 전환 후 조회 버튼 클릭해서 해당 탭 데이터 로드
-        await page.waitForTimeout(800);
-        for (const af of [page, ...page.frames()]) {
-          const srchBtn = af.locator('.x-btn-inner').filter({ hasText: '조회' }).first();
-          if (await srchBtn.count().then(c => c > 0).catch(() => false)) {
-            await srchBtn.click({ force: true }).catch(() => {});
-            log(`메뉴 탭 조회 클릭: ${menuItem}`);
-            break;
-          }
-        }
+        await page.waitForTimeout(500);
         clicked = true;
         break;
       }
@@ -404,8 +395,7 @@ async function downloadWmsFile(page, context, fileConfig, log) {
   // 메뉴 네비게이션 (navigateViaMenu 내부에 3초 대기 포함)
   if (menuPath && menuPath.length > 0) {
     await navigateViaMenu(page, menuPath, log);
-    log(`${label}: 데이터 로드 대기...`);
-    await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
+    await page.waitForTimeout(1_000);
   }
 
   // 검색 입력이 있는 경우: 값만 입력 (조회 클릭 불필요)
