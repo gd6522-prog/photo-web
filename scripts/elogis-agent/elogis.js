@@ -243,6 +243,7 @@ async function clickExcelAndDownload(page, context, log, label) {
   if (requestLog.length > 0) log(`[DEBUG] 다운로드 요청:\n  ${requestLog.join("\n  ")}`);
   else log(`[DEBUG] 다운로드 관련 요청 없음`);
   const tmpPath = path.join(__dirname, `_tmp_${Date.now()}.xlsx`);
+  await download.saveAs(tmpPath);
   const buffer = fs.readFileSync(tmpPath);
   fs.unlinkSync(tmpPath);
 
@@ -365,7 +366,10 @@ async function downloadViaApi(page, fileConfig, log) {
   const downloadRes = await page.request.get(`${BASE_URL}/utilService/commonExcelDown`);
   const buffer = await downloadRes.body();
 
-  if (buffer.length < 200) throw new Error(`다운로드 파일이 비어 있습니다 (${buffer.length} bytes)`);
+  if (buffer.length < 200) {
+    log(`[DEBUG] commonExcelDown 응답 (${buffer.length} bytes): ${buffer.toString("utf8").slice(0, 300)}`);
+    throw new Error(`다운로드 파일이 비어 있습니다 (${buffer.length} bytes)`);
+  }
   log(`${label}: API 다운로드 완료 (${Math.round(buffer.length / 1024)} KB)`);
   return buffer;
 }
