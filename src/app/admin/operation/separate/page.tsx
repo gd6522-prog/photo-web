@@ -143,6 +143,42 @@ export default function SeparatePage() {
     }
   }
 
+  function handlePrint() {
+    window.onafterprint = () => {
+      window.onafterprint = null;
+      // 인쇄된 항목(출고완료 미체크) 전체를 출고완료 처리
+      const toPrint = printGroups.flatMap((g) => g.rows);
+      if (toPrint.length === 0) return;
+      // 낙관적 업데이트
+      setDoneMap((prev) => {
+        const next = { ...prev };
+        for (const e of toPrint) next[doneKey(e)] = true;
+        return next;
+      });
+      // 서버 저장 (순차 처리)
+      void (async () => {
+        try {
+          const token = await getAdminToken();
+          for (const e of toPrint) {
+            await fetch("/api/admin/separate-qty", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ date: e.date, store_code: e.store_code, product_code: e.product_code, done: true }),
+            });
+          }
+        } catch {
+          // 실패 시 롤백
+          setDoneMap((prev) => {
+            const next = { ...prev };
+            for (const e of toPrint) delete next[doneKey(e)];
+            return next;
+          });
+        }
+      })();
+    };
+    window.print();
+  }
+
   const sortedEntries = useMemo(() => {
     return [...entries].sort((a, b) => {
       let cmp = 0;
@@ -357,7 +393,7 @@ export default function SeparatePage() {
             <p style={{ fontSize: 13, color: "#64748B", marginTop: 6 }}>단품별 페이지에서 입력된 별도수량 내역입니다.</p>
           </div>
           <button
-            onClick={() => window.print()}
+            onClick={handlePrint}
             style={{
               padding: "8px 18px",
               background: "#1D4ED8",
