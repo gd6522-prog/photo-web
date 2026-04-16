@@ -532,6 +532,7 @@ const cargoColumns: Array<{ key: keyof CargoRow | "largeTotal" | "smallTotal" | 
 ];
 
 const stickyCargoColumnKeys = ["support", "car_no", "seq_no", "store_code", "store_name"] as const;
+const numericCargoKeys = new Set(["largeTotal", "large_box", "large_inner", "large_other", "large_day2l", "large_nb2l", "smallTotal", "small_low", "small_high", "event", "tobacco", "certificate"]);
 const reportMainColumnWidths = [
   42,   // 0  No
   180,  // 1  점포명
@@ -598,12 +599,14 @@ function getCargoHeaderStyle(key: string): React.CSSProperties {
   };
 }
 
-function getCargoGroupStyle(key: string) {
+function getCargoGroupStyle(key: string): React.CSSProperties {
   if (["largeTotal", "large_box", "large_inner", "large_other", "large_day2l", "large_nb2l"].includes(key)) {
     return {
       background: "#f8fcff",
       borderLeft: key === "largeTotal" ? "2px solid #d7e8f5" : undefined,
-      borderRight: key === "large_nb2l" ? "2px solid #d7e8f5" : undefined,
+      borderRight: key === "largeTotal" ? "2px solid #d7e8f5" : key === "large_nb2l" ? "2px solid #d7e8f5" : undefined,
+      textAlign: "right",
+      fontVariantNumeric: "tabular-nums",
     };
   }
 
@@ -611,8 +614,14 @@ function getCargoGroupStyle(key: string) {
     return {
       background: "#fbfcf7",
       borderLeft: key === "smallTotal" ? "2px solid #e4e8c7" : undefined,
-      borderRight: key === "small_high" ? "2px solid #e4e8c7" : undefined,
+      borderRight: key === "smallTotal" ? "2px solid #e4e8c7" : key === "small_high" ? "2px solid #e4e8c7" : undefined,
+      textAlign: "right",
+      fontVariantNumeric: "tabular-nums",
     };
+  }
+
+  if (numericCargoKeys.has(key)) {
+    return { textAlign: "right", fontVariantNumeric: "tabular-nums" };
   }
 
   return {};
@@ -4034,6 +4043,8 @@ export function VehiclePageScreen({
                               padding: 10,
                               borderBottom: `1px solid ${subtotalBorder}`,
                               fontWeight: 900,
+                              ...getCargoGroupStyle(String(column.key)),
+                              background: subtotalBackground,
                               ...getStickyCargoStyle(String(column.key), subtotalBackground),
                             }}
                           >
@@ -4099,10 +4110,10 @@ export function VehiclePageScreen({
                               key={`${row.id}-${String(column.key)}-${typeof value === "number" ? value : String(value ?? "")}`}
                               defaultValue={typeof value === "number" ? String(value) : String(value ?? "")}
                               onBlur={(event) => updateCargoRow(entry.sourceIndex, column.key as keyof CargoRow, event.target.value)}
-                              style={{ width: "100%", minWidth: 60, height: 32, borderRadius: 6, border: "1px solid #D1D9E0", padding: "0 8px", outline: "none", fontSize: 13 }}
+                              style={{ width: "100%", minWidth: 60, height: 32, borderRadius: 6, border: "1px solid #D1D9E0", padding: "0 8px", outline: "none", fontSize: 13, textAlign: numericCargoKeys.has(String(column.key)) ? "right" : "left", fontVariantNumeric: "tabular-nums" }}
                             />
                           ) : (
-                            <div style={{ padding: "0 4px", fontWeight: column.key === "largeTotal" || column.key === "smallTotal" ? 900 : 500 }}>
+                            <div style={{ padding: "0 4px", fontWeight: column.key === "largeTotal" || column.key === "smallTotal" ? 900 : 500, textAlign: numericCargoKeys.has(String(column.key)) ? "right" : "left", fontVariantNumeric: "tabular-nums" }}>
                               {typeof value === "number" ? formatNumber(value) : String(value ?? "")}
                             </div>
                           )}
