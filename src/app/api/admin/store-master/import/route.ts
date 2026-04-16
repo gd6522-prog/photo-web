@@ -23,7 +23,7 @@ function normalizeStoreCode(v: unknown) {
 }
 
 function normalizeHeader(v: unknown) {
-  return String(v ?? "").replace(/\s+/g, "").toLowerCase();
+  return String(v ?? "").trim().replace(/\s+/g, "").replace(/\*/g, "").toLowerCase();
 }
 
 function findHeaderIndex(headers: string[], candidates: string[]) {
