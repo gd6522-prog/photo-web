@@ -22,6 +22,7 @@ type SeparateEntry = {
   product_name: string;
   qty: number;
   center_unit: number;
+  done?: boolean;
 };
 type SeparateData = Record<string, SeparateEntry>;
 
@@ -88,8 +89,9 @@ export async function POST(req: NextRequest) {
     product_name?: string;
     qty?: number;
     center_unit?: number;
+    done?: boolean;
   };
-  const { date, store_code, store_name, product_code, product_name, qty, center_unit } = body;
+  const { date, store_code, store_name, product_code, product_name, qty, center_unit, done } = body;
 
   if (!date || !validateDate(date)) return json(false, "date 필드가 필요합니다 (YYYY-MM-DD)", null, 400);
   if (!store_code) return json(false, "store_code 필드가 필요합니다", null, 400);
@@ -99,6 +101,15 @@ export async function POST(req: NextRequest) {
   const key = r2Key(date);
   const existing = await getR2ObjectText(key);
   const data: SeparateData = existing ? (JSON.parse(existing) as SeparateData) : {};
+
+  // done 전용 업데이트: qty 없이 done만 전달된 경우
+  if (typeof done === "boolean" && typeof qty === "undefined") {
+    if (data[entryKey]) {
+      data[entryKey] = { ...data[entryKey], done };
+      await putR2Object(key, JSON.stringify(data), "application/json");
+    }
+    return json(true, undefined, { date, key: entryKey, done });
+  }
 
   const numQty = typeof qty === "number" ? Math.max(0, Math.floor(qty)) : 0;
 
@@ -112,6 +123,7 @@ export async function POST(req: NextRequest) {
       product_name: product_name ?? "",
       qty: numQty,
       center_unit: typeof center_unit === "number" ? center_unit : 0,
+      ...(typeof done === "boolean" ? { done } : {}),
     };
   }
 

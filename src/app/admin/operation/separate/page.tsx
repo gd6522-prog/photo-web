@@ -11,6 +11,7 @@ type SeparateEntry = {
   product_name: string;
   qty: number;
   center_unit: number;
+  done?: boolean;
 };
 
 type SortKey = "date" | "store_code" | "store_name" | "picking_cell" | "product_code" | "product_name" | "qty" | "separate_unit";
@@ -48,9 +49,14 @@ function formatUnit(val: number | null): string {
   return formatNumber(val);
 }
 
+function doneKey(entry: SeparateEntry) {
+  return `${entry.date}|${entry.store_code}|${entry.product_code}`;
+}
+
 export default function SeparatePage() {
   const [entries, setEntries] = useState<SeparateEntry[]>([]);
   const [cellMap, setCellMap] = useState<Record<string, string>>({});
+  const [doneMap, setDoneMap] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("date");
@@ -76,7 +82,15 @@ export default function SeparatePage() {
           return;
         }
         const payload = (await entriesRes.json()) as { ok: boolean; entries?: SeparateEntry[] };
-        setEntries(payload.entries ?? []);
+        const loaded = payload.entries ?? [];
+        setEntries(loaded);
+
+        // done 상태 초기화
+        const dm: Record<string, boolean> = {};
+        for (const e of loaded) {
+          if (e.done) dm[doneKey(e)] = true;
+        }
+        setDoneMap(dm);
 
         if (cellsRes.ok) {
           const cellPayload = (await cellsRes.json()) as { ok: boolean; cells?: Record<string, string> };
@@ -89,6 +103,28 @@ export default function SeparatePage() {
       }
     })();
   }, []);
+
+  async function toggleDone(entry: SeparateEntry) {
+    const key = doneKey(entry);
+    const next = !doneMap[key];
+    setDoneMap((prev) => ({ ...prev, [key]: next }));
+    try {
+      const token = await getAdminToken();
+      await fetch("/api/admin/separate-qty", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: entry.date,
+          store_code: entry.store_code,
+          product_code: entry.product_code,
+          done: next,
+        }),
+      });
+    } catch {
+      // 실패 시 롤백
+      setDoneMap((prev) => ({ ...prev, [key]: !next }));
+    }
+  }
 
   const sortedEntries = useMemo(() => {
     return [...entries].sort((a, b) => {
@@ -161,7 +197,7 @@ export default function SeparatePage() {
           </div>
 
           <div style={{ border: "1px solid #E8EDF2", borderRadius: 10, background: "#fff", overflow: "auto", boxShadow: "0 1px 4px rgba(15,23,42,0.06)" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 820 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 880 }}>
               <thead>
                 <tr style={{ background: "#F8FAFC" }}>
                   {COLS.map(({ key, label, align }) => (
@@ -184,12 +220,15 @@ export default function SeparatePage() {
                       <SortIcon col={key} />
                     </th>
                   ))}
+                  <th style={{ padding: "10px 16px", borderBottom: "2px solid #E8EDF2", fontSize: 12, fontWeight: 700, color: "#64748B", textAlign: "center", whiteSpace: "nowrap" }}>
+                    출고완료
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {sortedEntries.length === 0 ? (
                   <tr>
-                    <td colSpan={8} style={{ padding: 40, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>
+                    <td colSpan={9} style={{ padding: 40, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>
                       등록된 별도수량이 없습니다.
                     </td>
                   </tr>
@@ -198,31 +237,43 @@ export default function SeparatePage() {
                     const unitVal = separateUnit(entry);
                     const isDecimal = unitVal !== null && unitVal % 1 !== 0;
                     const pickingCell = cellMap[entry.product_code] ?? "";
+                    const isDone = doneMap[doneKey(entry)] ?? false;
                     return (
-                      <tr key={`${entry.date}-${entry.store_code}-${entry.product_code}-${i}`} style={{ background: i % 2 === 0 ? "#fff" : "#FAFBFC" }}>
-                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151", whiteSpace: "nowrap" }}>
+                      <tr
+                        key={`${entry.date}-${entry.store_code}-${entry.product_code}-${i}`}
+                        style={{ background: isDone ? "#F0FDF4" : i % 2 === 0 ? "#fff" : "#FAFBFC" }}
+                      >
+                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#6B7280" : "#374151", whiteSpace: "nowrap" }}>
                           {formatDate(entry.date)}
                         </td>
-                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#64748B" }}>
+                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#9CA3AF" : "#64748B" }}>
                           {entry.store_code}
                         </td>
-                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, fontWeight: 600, color: "#0F172A" }}>
+                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, fontWeight: 600, color: isDone ? "#6B7280" : "#0F172A" }}>
                           {entry.store_name}
                         </td>
-                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151", whiteSpace: "nowrap" }}>
+                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#9CA3AF" : "#374151", whiteSpace: "nowrap" }}>
                           {pickingCell || <span style={{ color: "#CBD5E1" }}>-</span>}
                         </td>
-                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#64748B" }}>
+                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#9CA3AF" : "#64748B" }}>
                           {entry.product_code}
                         </td>
-                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>
+                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#6B7280" : "#374151" }}>
                           {entry.product_name}
                         </td>
-                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, fontWeight: 700, color: "#1D4ED8", textAlign: "right" }}>
+                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, fontWeight: 700, color: isDone ? "#9CA3AF" : "#1D4ED8", textAlign: "right" }}>
                           {formatNumber(entry.qty)}
                         </td>
-                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, fontWeight: 700, color: isDecimal ? "#EF4444" : "#1D4ED8", textAlign: "right" }}>
+                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, fontWeight: 700, color: isDone ? "#9CA3AF" : isDecimal ? "#EF4444" : "#1D4ED8", textAlign: "right" }}>
                           {formatUnit(unitVal)}
+                        </td>
+                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", textAlign: "center" }}>
+                          <input
+                            type="checkbox"
+                            checked={isDone}
+                            onChange={() => void toggleDone(entry)}
+                            style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#16A34A" }}
+                          />
                         </td>
                       </tr>
                     );
