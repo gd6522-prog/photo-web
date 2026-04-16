@@ -3145,6 +3145,7 @@ export function VehiclePageScreen({
   const topCardStyle = cardStyle();
 
   const cargoOnly = allowedTabs.length === 1 && allowedTabs[0] === "cargo";
+  const inputOnly = allowedTabs.length === 1 && allowedTabs[0] === "input";
 
   useEffect(() => {
     if (!cargoOnly) return;
@@ -3280,8 +3281,8 @@ export function VehiclePageScreen({
           }
         }
       `}</style>
-      {/* cargoOnly: 타이틀 + 통계 뱃지 + 버튼 통합 행 */}
-      {cargoOnly ? (
+      {/* 단일탭(물동량/단품별): 타이틀 + 통계 뱃지 + 버튼 통합 행 */}
+      {(cargoOnly || inputOnly) ? (
         <div className="report-screen-only" style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
             <div style={{ fontSize: 24, fontWeight: 800, color: "#0F172A", letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>{title}</div>
@@ -3297,15 +3298,14 @@ export function VehiclePageScreen({
 
           <div style={{ display: "flex", gap: 10, flex: 1, justifyContent: "center" }}>
             {[
-              { label: "발주점포수", value: formatNumber(totals.stores), rightLine: false },
-              { label: "대 물동량",   value: formatNumber(totals.large),  rightLine: false },
-              { label: "소 물동량",   value: formatNumber(totals.small),  rightLine: false },
-              { label: "담배",        value: formatNumber(totals.tobacco), rightLine: false },
-              { label: "대생수",      value: formatNumber(totals.water),  rightLine: false },
+              { label: "발주점포수", value: formatNumber(totals.stores) },
+              { label: "대 물동량",   value: formatNumber(totals.large)  },
+              { label: "소 물동량",   value: formatNumber(totals.small)  },
+              { label: "담배",        value: formatNumber(totals.tobacco) },
+              { label: "대생수",      value: formatNumber(totals.water)  },
             ].map((card) => (
               <div key={card.label} style={{
                 border: "1px solid #E8EDF2",
-                borderRight: card.rightLine ? "2px solid #94A3B8" : "1px solid #E8EDF2",
                 borderRadius: 10,
                 background: "#fff",
                 padding: "8px 16px",
@@ -3323,13 +3323,26 @@ export function VehiclePageScreen({
           </div>
 
           <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-            <button
-              onClick={() => exportWorkbook(productRows, cargoRows, reportGroups, reportDate, reportFileDate, selectedReportGroup?.carNo, storeContactIndex)}
-              disabled={cargoRows.length === 0}
-              style={{ height: 38, padding: "0 16px", borderRadius: 7, border: "none", background: cargoRows.length === 0 ? "#CBD5E1" : "#1E293B", color: "#fff", fontWeight: 700, fontSize: 13, cursor: cargoRows.length === 0 ? "not-allowed" : "pointer" }}
-            >
-              운행일보 다운로드
-            </button>
+            {inputOnly ? (
+              <>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={busy}
+                  style={{ height: 38, padding: "0 16px", borderRadius: 7, border: "none", background: busy ? "#94A3B8" : "#0f766e", color: "#fff", fontWeight: 700, fontSize: 13, cursor: busy ? "not-allowed" : "pointer" }}
+                >
+                  {busy ? "불러오는 중..." : "단품별 파일 불러오기"}
+                </button>
+                <input ref={fileInputRef} type="file" accept=".xlsb,.xlsx,.xls" style={{ display: "none" }} onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; void loadRows(file); }} />
+              </>
+            ) : (
+              <button
+                onClick={() => exportWorkbook(productRows, cargoRows, reportGroups, reportDate, reportFileDate, selectedReportGroup?.carNo, storeContactIndex)}
+                disabled={cargoRows.length === 0}
+                style={{ height: 38, padding: "0 16px", borderRadius: 7, border: "none", background: cargoRows.length === 0 ? "#CBD5E1" : "#1E293B", color: "#fff", fontWeight: 700, fontSize: 13, cursor: cargoRows.length === 0 ? "not-allowed" : "pointer" }}
+              >
+                운행일보 다운로드
+              </button>
+            )}
             <button
               onClick={resetStoredData}
               disabled={productRows.length === 0 && cargoRows.length === 0}
