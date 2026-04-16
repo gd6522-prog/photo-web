@@ -333,7 +333,7 @@ export default function SeparatePage() {
                     })}
                   </tbody>
                   <tfoot>
-                    <tr style={{ borderTop: "2px solid #333", fontWeight: 700 }}>
+                    <tr style={{ borderTop: "2px solid #333", borderBottom: "2px solid #333", fontWeight: 700 }}>
                       <td colSpan={5} style={{ padding: "6px 8px", textAlign: "right" }}>합계</td>
                       <td style={{ padding: "6px 8px", textAlign: "center" }}>{totalQtyG > 0 ? formatNumber(totalQtyG) : "-"}</td>
                       <td style={{ padding: "6px 8px", textAlign: "center" }}>{totalBoxQty > 0 ? formatNumber(totalBoxQty) : "-"}</td>
