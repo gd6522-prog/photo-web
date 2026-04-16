@@ -284,21 +284,11 @@ export default function VehicleHistoryUploadPage() {
       const token = session?.session?.access_token;
       if (!token) { setRestoreMsg("로그인이 필요합니다."); return; }
 
-      // 1. 해당 날짜의 daily 스냅샷 읽기
-      const getRes = await fetch(`/api/admin/vehicles/current?date=${date}&includeSnapshot=1`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const getData = await getRes.json();
-      if (!getRes.ok || !getData.ok || !getData.snapshot) {
-        setRestoreMsg(getData.message ?? "스냅샷을 불러오지 못했습니다.");
-        return;
-      }
-
-      // 2. latest.json으로 저장
+      // 서버에서 직접 daily → latest.json 복사 (클라이언트 경유 없음)
       const putRes = await fetch("/api/admin/vehicles/current", {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ snapshot: getData.snapshot }),
+        body: JSON.stringify({ action: "restore-daily", date }),
       });
       const putData = await putRes.json();
       if (!putRes.ok || !putData.ok) {

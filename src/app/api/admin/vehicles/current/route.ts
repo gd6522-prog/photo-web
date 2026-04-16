@@ -639,6 +639,16 @@ export async function PUT(req: NextRequest) {
       limits?: VehicleLimitsSnapshot | null;
     };
 
+    // ── action: restore-daily — daily 파일을 latest.json으로 복원 ────────
+    if ((body as any).action === "restore-daily") {
+      const date = toText((body as any).date);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json(false, "날짜 형식이 잘못되었습니다.", null, 400);
+      const text = await getR2ObjectText(`${R2_PREFIX}/daily/${date}.json`);
+      if (!text) return json(false, "해당 날짜의 데이터가 없습니다.", null, 404);
+      await putR2Object(CURRENT_PATH, text, "application/json");
+      return json(true);
+    }
+
     // ── action: rebuild-daily — latest.json에서 daily 파일 재생성 ────────
     if ((body as any).action === "rebuild-daily") {
       const snapshot = await readCurrentSnapshot();
