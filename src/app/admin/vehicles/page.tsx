@@ -1994,6 +1994,7 @@ export function VehiclePageScreen({
   const [inputPage, setInputPage] = useState(1);
   const [inputSearched, setInputSearched] = useState(false);
   const [showSepOnly, setShowSepOnly] = useState(false);
+  const [cargoPage, setCargoPage] = useState(1);
   const [storageReady, setStorageReady] = useState(false);
   const [driverIndex, setDriverIndex] = useState<Map<string, DriverProfile>>(new Map());
   const [storeContactIndex, setStoreContactIndex] = useState<Map<string, string>>(new Map());
@@ -2783,6 +2784,18 @@ export function VehiclePageScreen({
 
     return rows;
   }, [filteredCargoRows, cargoRows, subtotalSettings, showSupportOnly]);
+
+  const CARGO_PAGE_SIZE = 50;
+  const cargoPageCount = Math.max(1, Math.ceil(cargoDisplayRows.length / CARGO_PAGE_SIZE));
+  const pagedCargoDisplayRows = useMemo(() => {
+    const start = (cargoPage - 1) * CARGO_PAGE_SIZE;
+    return cargoDisplayRows.slice(start, start + CARGO_PAGE_SIZE);
+  }, [cargoDisplayRows, cargoPage]);
+
+  // 필터 변경 시 첫 페이지로 이동
+  useEffect(() => {
+    setCargoPage(1);
+  }, [filteredCargoRows.length, showSupportOnly]);
 
   const resetStoredData = () => {
     setFileName("");
@@ -3920,7 +3933,7 @@ export function VehiclePageScreen({
               </tr>
             </thead>
             <tbody>
-              {cargoDisplayRows.map((entry, index) => {
+              {pagedCargoDisplayRows.map((entry, index) => {
                 if (entry.kind === "subtotal") {
                   const subSetting = subtotalSettings[entry.carNo] ?? { support_excluded: false, note: "" };
                   if (showSupportOnly && !subSetting.support_excluded) return null;
@@ -4066,6 +4079,23 @@ export function VehiclePageScreen({
               </tbody>
             </table>
           </div>
+          {cargoDisplayRows.length > CARGO_PAGE_SIZE && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 8 }}>
+              <div style={{ color: "#64748B", fontSize: 13, fontWeight: 700 }}>
+                {cargoPage} / {cargoPageCount} 페이지 &nbsp;·&nbsp; 전체 {cargoDisplayRows.length}행
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button onClick={() => setCargoPage(1)} disabled={cargoPage === 1}
+                  style={{ height: 34, padding: "0 12px", borderRadius: 6, border: "1px solid #D1D9E0", background: "#fff", color: "#374151", fontWeight: 700, fontSize: 13, cursor: cargoPage === 1 ? "not-allowed" : "pointer", opacity: cargoPage === 1 ? 0.5 : 1 }}>처음</button>
+                <button onClick={() => setCargoPage((p) => Math.max(1, p - 1))} disabled={cargoPage === 1}
+                  style={{ height: 34, padding: "0 14px", borderRadius: 6, border: "1px solid #D1D9E0", background: "#fff", color: "#374151", fontWeight: 700, fontSize: 13, cursor: cargoPage === 1 ? "not-allowed" : "pointer", opacity: cargoPage === 1 ? 0.5 : 1 }}>이전</button>
+                <button onClick={() => setCargoPage((p) => Math.min(cargoPageCount, p + 1))} disabled={cargoPage === cargoPageCount}
+                  style={{ height: 34, padding: "0 14px", borderRadius: 6, border: "1px solid #D1D9E0", background: "#fff", color: "#374151", fontWeight: 700, fontSize: 13, cursor: cargoPage === cargoPageCount ? "not-allowed" : "pointer", opacity: cargoPage === cargoPageCount ? 0.5 : 1 }}>다음</button>
+                <button onClick={() => setCargoPage(cargoPageCount)} disabled={cargoPage === cargoPageCount}
+                  style={{ height: 34, padding: "0 12px", borderRadius: 6, border: "1px solid #D1D9E0", background: "#fff", color: "#374151", fontWeight: 700, fontSize: 13, cursor: cargoPage === cargoPageCount ? "not-allowed" : "pointer", opacity: cargoPage === cargoPageCount ? 0.5 : 1 }}>마지막</button>
+              </div>
+            </div>
+          )}
         </div>
       ) : null}
 
