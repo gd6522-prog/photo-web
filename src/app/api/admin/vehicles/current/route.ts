@@ -721,6 +721,7 @@ export async function POST(req: NextRequest) {
     const contentType = req.headers.get("content-type") ?? "";
     let fileName = "";
     let buffer: ArrayBuffer | null = null;
+    let isHistorical = false;
 
     if (contentType.includes("multipart/form-data")) {
       const form = await req.formData();
@@ -729,9 +730,10 @@ export async function POST(req: NextRequest) {
       fileName = file.name;
       buffer = await file.arrayBuffer();
     } else {
-      const body = (await req.json().catch(() => null)) as { path?: string; fileName?: string } | null;
+      const body = (await req.json().catch(() => null)) as { path?: string; fileName?: string; historical?: boolean } | null;
       const path = toText(body?.path);
       fileName = toText(body?.fileName);
+      isHistorical = body?.historical === true;
       if (!path) return json(false, "업로드 경로가 없습니다.", null, 400);
 
       const r2Buffer = await getR2ObjectBuffer(path);
@@ -823,7 +825,10 @@ export async function POST(req: NextRequest) {
       await putR2Object(rawPath, new Uint8Array(buffer), "application/octet-stream");
     }
 
-    await putR2Object(CURRENT_PATH, snapshotJson, "application/json");
+    // 과거 데이터 업로드(historical)는 latest.json을 덮어쓰지 않음 — daily 파일만 저장
+    if (!isHistorical) {
+      await putR2Object(CURRENT_PATH, snapshotJson, "application/json");
+    }
     await putR2Object(archivePath, snapshotJson, "application/json");
 
     // 납품예정일별 daily 파일 저장 — delivery_date 기준으로 그룹핑 후 각 날짜별 저장

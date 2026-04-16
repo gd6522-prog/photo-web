@@ -243,7 +243,7 @@ export default function VehicleHistoryUploadPage() {
         const res = await fetch("/api/admin/vehicles/current", {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ path: urlData.path, fileName: file.name }),
+          body: JSON.stringify({ path: urlData.path, fileName: file.name, historical: true }),
         });
         const data = await res.json();
 
