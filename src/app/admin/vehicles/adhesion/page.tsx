@@ -153,13 +153,29 @@ export default function VehicleAdhesionPage() {
     })();
   }, []);
 
-  const counts = useMemo(
-    () => ({
-      drivers: snapshot?.driverStats.length ?? 0,
+  const counts = useMemo(() => {
+    const driverStats = snapshot?.driverStats ?? [];
+    const parseRate = (v: string) => parseFloat(v.replace(/[^0-9.]/g, ""));
+
+    const adhesionVals = driverStats.map((d) => parseRate(d.adhesionRate)).filter((n) => !isNaN(n));
+    const cumulativeVals = driverStats.map((d) => parseRate(d.cumulativeRate)).filter((n) => !isNaN(n));
+
+    const avg = (arr: number[]) => arr.length ? (arr.reduce((s, v) => s + v, 0) / arr.length) : null;
+    const fmt = (n: number | null, sample: string) => {
+      if (n === null) return "-";
+      return sample.includes("%") ? `${n.toFixed(1)}%` : n.toFixed(1);
+    };
+
+    const sampleAdh = driverStats[0]?.adhesionRate ?? "";
+    const sampleCum = driverStats[0]?.cumulativeRate ?? "";
+
+    return {
+      drivers: driverStats.length,
       stores: snapshot?.storeStats.length ?? 0,
-    }),
-    [snapshot]
-  );
+      avgAdhesion: fmt(avg(adhesionVals), sampleAdh),
+      avgCumulative: fmt(avg(cumulativeVals), sampleCum),
+    };
+  }, [snapshot]);
 
   const onPickFile = async (file: File | null) => {
     if (!file) return;
@@ -256,10 +272,10 @@ export default function VehicleAdhesionPage() {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
         {[
-          { label: "기사 점착률", value: `${counts.drivers}명` },
+          { label: "기사 수", value: `${counts.drivers}명` },
           { label: "점포 등급", value: `${counts.stores}건` },
-          { label: "업로드 파일", value: snapshot?.fileName || "-" },
-          { label: "업로드 시각", value: snapshot?.uploadedAt ? snapshot.uploadedAt.slice(0, 16).replace("T", " ") : "-" },
+          { label: "평균 점착률", value: counts.avgAdhesion },
+          { label: "평균 누계", value: counts.avgCumulative },
         ].map((item) => (
           <div key={item.label} style={cardStyle}>
             <div style={{ color: "#678092", fontSize: 12, fontWeight: 800 }}>{item.label}</div>
