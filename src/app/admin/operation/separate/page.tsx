@@ -258,8 +258,10 @@ export default function SeparatePage() {
               totalRemainQty += rq;
             }
             const isLast = gi === printGroups.length - 1;
-            const today = new Date().toISOString().slice(0, 10);
-            const printedAt = new Date().toLocaleString("ko-KR", { hour12: false }).replace(/\. /g, "-").replace(".", "");
+            const now = new Date();
+            const pad = (n: number) => String(n).padStart(2, "0");
+            const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+            const printedAt = `${today} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 
             return (
               <div
