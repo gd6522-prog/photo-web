@@ -73,9 +73,26 @@ export async function GET(req: NextRequest) {
   const date = searchParams.get("date");
 
   if (all === "1") {
-    // 집계 파일 1회 읽기 (없으면 재생성)
-    let aggregate = await readAggregate();
-    if (!aggregate) aggregate = await buildAndSaveAggregate();
+    const rebuild = searchParams.get("rebuild") === "1";
+    if (rebuild) {
+      // 수동 재생성 요청 — 전체 날짜 파일 스캔 후 저장
+      const aggregate = await buildAndSaveAggregate();
+      const results = Object.values(aggregate);
+      results.sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date);
+        if (a.store_code !== b.store_code) return a.store_code.localeCompare(b.store_code);
+        return a.product_name.localeCompare(b.product_name, "ko");
+      });
+      return json(true, undefined, { entries: results, rebuilt: true });
+    }
+
+    // 집계 파일 1회 읽기
+    const aggregate = await readAggregate();
+    if (!aggregate) {
+      // 집계 없음 → 백그라운드 재생성 트리거 후 즉시 빈 배열 반환 (클라이언트가 재요청)
+      void buildAndSaveAggregate();
+      return json(true, undefined, { entries: [], needsRebuild: true });
+    }
 
     const results = Object.values(aggregate);
     results.sort((a, b) => {
