@@ -682,6 +682,25 @@ function effectiveQty(row: ProductRow) {
   return qtyBase(row);
 }
 
+// 별도수량 차감 후 출고배수
+function adjustedEffectiveQty(row: ProductRow, sepQty: number) {
+  const adjustedAssigned = Math.max(0, row.assigned_qty - sepQty);
+  if (row.product_name.replace(/\s+/g, "").includes("공박스")) {
+    return Math.ceil(adjustedAssigned / 5);
+  }
+  if (row.center_unit > 0) return adjustedAssigned / row.center_unit;
+  return adjustedAssigned;
+}
+
+// 별도수량 적용 시 출고배수가 소수점이 되는지 여부
+function wouldBeDecimal(row: ProductRow, sepQty: number) {
+  if (sepQty <= 0) return false;
+  if (row.product_name.replace(/\s+/g, "").includes("공박스")) return false;
+  if (row.center_unit <= 0) return false;
+  const adjustedAssigned = Math.max(0, row.assigned_qty - sepQty);
+  return adjustedAssigned % row.center_unit !== 0;
+}
+
 function cargoTotals(row: CargoRow) {
   const largeTotal = row.large_box + row.large_inner + row.large_other + row.large_day2l + row.large_nb2l;
   const smallTotal = row.small_low + row.small_high;
@@ -3352,6 +3371,9 @@ export function VehiclePageScreen({
                   const sepQty = separateQtyMap[row.product_code] ?? 0;
                   const outQty = row.assigned_qty;
                   const adjustedOutQty = Math.max(0, outQty - sepQty);
+                  const origEffQty = effectiveQty(row);
+                  const adjEffQty = adjustedEffectiveQty(row, sepQty);
+                  const isDecimal = wouldBeDecimal(row, sepQty);
                   return (
                     <tr key={`${row.store_name}-${row.product_code}-${index}`} style={{ background: "#fff" }}>
                       <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{row.car_no}</td>
@@ -3370,7 +3392,16 @@ export function VehiclePageScreen({
                           </span>
                         ) : formatNumber(outQty)}
                       </td>
-                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{formatNumber(effectiveQty(row))}</td>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: sepQty > 0 && !isDecimal ? "#0F172A" : "#374151", fontWeight: sepQty > 0 && !isDecimal ? 700 : 400 }}>
+                        {sepQty > 0 && origEffQty !== adjEffQty ? (
+                          <span>
+                            <span style={{ color: "#94A3B8", textDecoration: "line-through", marginRight: 4, fontWeight: 400, fontSize: 12 }}>{formatNumber(origEffQty)}</span>
+                            {isDecimal
+                              ? <span style={{ color: "#EF4444" }}>{adjEffQty % 1 !== 0 ? adjEffQty.toFixed(2) : formatNumber(adjEffQty)}</span>
+                              : formatNumber(adjEffQty)}
+                          </span>
+                        ) : formatNumber(origEffQty)}
+                      </td>
                       <td style={{ padding: "7px 12px", borderBottom: "1px solid #F1F5F9" }}>
                         <input
                           type="number"
@@ -3382,9 +3413,11 @@ export function VehiclePageScreen({
                             const val = raw === "" ? 0 : parseInt(raw, 10);
                             if (isNaN(val) || val < 0) return;
                             setSeparateQtyMap((prev) => ({ ...prev, [row.product_code]: val }));
-                            void saveSeparateQty(row.product_code, row.product_name, val);
+                            if (!wouldBeDecimal(row, val)) {
+                              void saveSeparateQty(row.product_code, row.product_name, val);
+                            }
                           }}
-                          style={{ width: 72, padding: "4px 8px", border: "1px solid #D1D9E0", borderRadius: 5, fontSize: 13, textAlign: "right", outline: "none" }}
+                          style={{ width: 72, padding: "4px 8px", border: isDecimal ? "1px solid #EF4444" : "1px solid #D1D9E0", borderRadius: 5, fontSize: 13, textAlign: "right", outline: "none", background: isDecimal ? "#FEF2F2" : "#fff" }}
                         />
                       </td>
                     </tr>
