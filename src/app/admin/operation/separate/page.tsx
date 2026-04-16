@@ -267,28 +267,41 @@ export default function SeparatePage() {
                 style={{ pageBreakAfter: isLast ? "auto" : "always" }}
               >
                 {/* 타이틀 */}
-                <div style={{ position: "relative", textAlign: "center", marginBottom: 6 }}>
+                <div style={{ textAlign: "center", marginBottom: 6 }}>
                   <h1 style={{ fontSize: 22, fontWeight: 900, margin: 0 }}>별도작업 Picking List</h1>
-                  <span style={{ position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)", fontSize: 11, color: "#555" }}>일자: {printedAt}</span>
                 </div>
 
                 {/* 점포 헤더 */}
                 <div style={{
-                  display: "flex", gap: 28, alignItems: "center",
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
                   borderBottom: "2px solid #333",
                   padding: "6px 2px 8px", fontSize: 13, fontWeight: 700, marginBottom: 6,
                 }}>
-                  <span>출고일: {today}</span>
-                  <span>점포코드: {group.store_code}</span>
-                  <span>점포명: {group.store_name}</span>
+                  <div style={{ display: "flex", gap: 28 }}>
+                    <span>출고일: {today}</span>
+                    <span>점포코드: {group.store_code}</span>
+                    <span>점포명: {group.store_name}</span>
+                  </div>
+                  <span style={{ fontSize: 11, color: "#555", fontWeight: 400 }}>일자: {printedAt}</span>
                 </div>
 
                 {/* 상품 테이블 */}
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, tableLayout: "fixed" }}>
+                  <colgroup>
+                    <col style={{ width: "9%" }} />
+                    <col style={{ width: "13%" }} />
+                    <col style={{ width: "26%" }} />
+                    <col style={{ width: "7%" }} />
+                    <col style={{ width: "7%" }} />
+                    <col style={{ width: "9%" }} />
+                    <col style={{ width: "9%" }} />
+                    <col style={{ width: "9%" }} />
+                    <col style={{ width: "11%" }} />
+                  </colgroup>
                   <thead>
                     <tr style={{ borderBottom: "2px solid #333" }}>
                       {["피킹셀", "상품코드", "상품명", "박스입수", "피킹입수", "별도수량", "박스수량", "배수수량", "확인"].map((label) => (
-                        <th key={label} style={{ padding: "5px 8px", textAlign: "center", fontWeight: 700, whiteSpace: "nowrap" }}>
+                        <th key={label} style={{ padding: "5px 4px", textAlign: "center", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden" }}>
                           {label}
                         </th>
                       ))}
@@ -304,26 +317,26 @@ export default function SeparatePage() {
                       const pickingCell = cellMap[entry.product_code] ?? "";
                       return (
                         <tr key={`${entry.store_code}-${entry.product_code}-${i}`} style={{ borderBottom: "1px solid #ddd" }}>
-                          <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>{formatPickingCell(pickingCell)}</td>
-                          <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>{entry.product_code}</td>
-                          <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>{entry.product_name}</td>
-                          <td style={{ padding: "6px 8px", textAlign: "right", whiteSpace: "nowrap" }}>{boxUnit > 0 ? formatNumber(boxUnit) : "-"}</td>
-                          <td style={{ padding: "6px 8px", textAlign: "right", whiteSpace: "nowrap" }}>{pickingUnit > 0 ? formatNumber(pickingUnit) : "-"}</td>
-                          <td style={{ padding: "6px 8px", textAlign: "right", whiteSpace: "nowrap" }}>{entry.qty > 0 ? formatNumber(entry.qty) : "-"}</td>
-                          <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{boxUnit > 0 ? (boxQty > 0 ? formatNumber(boxQty) : "-") : "-"}</td>
-                          <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{boxUnit > 0 ? (remainQty > 0 ? formatNumber(remainQty) : "-") : "-"}</td>
-                          <td style={{ padding: "6px 8px", textAlign: "center", whiteSpace: "nowrap" }}></td>
+                          <td style={{ padding: "6px 4px", whiteSpace: "nowrap" }}>{formatPickingCell(pickingCell)}</td>
+                          <td style={{ padding: "6px 4px", whiteSpace: "nowrap" }}>{entry.product_code}</td>
+                          <td style={{ padding: "6px 4px", whiteSpace: "nowrap" }}>{entry.product_name}</td>
+                          <td style={{ padding: "6px 4px", textAlign: "right", whiteSpace: "nowrap" }}>{boxUnit > 0 ? formatNumber(boxUnit) : "-"}</td>
+                          <td style={{ padding: "6px 4px", textAlign: "right", whiteSpace: "nowrap" }}>{pickingUnit > 0 ? formatNumber(pickingUnit) : "-"}</td>
+                          <td style={{ padding: "6px 4px", textAlign: "right", whiteSpace: "nowrap" }}>{entry.qty > 0 ? formatNumber(entry.qty) : "-"}</td>
+                          <td style={{ padding: "6px 4px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{boxUnit > 0 ? (boxQty > 0 ? formatNumber(boxQty) : "-") : "-"}</td>
+                          <td style={{ padding: "6px 4px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{boxUnit > 0 ? (remainQty > 0 ? formatNumber(remainQty) : "-") : "-"}</td>
+                          <td style={{ padding: "6px 4px", textAlign: "center", whiteSpace: "nowrap" }}></td>
                         </tr>
                       );
                     })}
                   </tbody>
                   <tfoot>
                     <tr style={{ borderTop: "2px solid #333", fontWeight: 700 }}>
-                      <td colSpan={5} style={{ padding: "6px 8px", textAlign: "right" }}>합계</td>
-                      <td style={{ padding: "6px 8px", textAlign: "right" }}>{totalQtyG > 0 ? formatNumber(totalQtyG) : "-"}</td>
-                      <td style={{ padding: "6px 8px", textAlign: "right" }}>{totalBoxQty > 0 ? formatNumber(totalBoxQty) : "-"}</td>
-                      <td style={{ padding: "6px 8px", textAlign: "right" }}>{totalRemainQty > 0 ? formatNumber(totalRemainQty) : "-"}</td>
-                      <td style={{ padding: "6px 8px" }}></td>
+                      <td colSpan={5} style={{ padding: "6px 4px", textAlign: "right" }}>합계</td>
+                      <td style={{ padding: "6px 4px", textAlign: "right" }}>{totalQtyG > 0 ? formatNumber(totalQtyG) : "-"}</td>
+                      <td style={{ padding: "6px 4px", textAlign: "right" }}>{totalBoxQty > 0 ? formatNumber(totalBoxQty) : "-"}</td>
+                      <td style={{ padding: "6px 4px", textAlign: "right" }}>{totalRemainQty > 0 ? formatNumber(totalRemainQty) : "-"}</td>
+                      <td style={{ padding: "6px 4px" }}></td>
                     </tr>
                   </tfoot>
                 </table>
