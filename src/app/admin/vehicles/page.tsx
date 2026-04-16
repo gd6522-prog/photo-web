@@ -1952,6 +1952,10 @@ export function VehiclePageScreen({
   initialSupportAuto?: boolean;
   title?: string;
 }) {
+  const cargoOnly = allowedTabs.length === 1 && allowedTabs[0] === "cargo";
+  const inputOnly = allowedTabs.length === 1 && allowedTabs[0] === "input";
+  const reportOnly = allowedTabs.length === 1 && allowedTabs[0] === "report";
+
   const INPUT_PAGE_SIZE = 50;
   const REPORT_PREVIEW_BASE_WIDTH = 1620;
   const REPORT_PRINT_SCALE_X = 0.642;
@@ -2548,20 +2552,29 @@ export function VehiclePageScreen({
   useEffect(() => {
     const updatePreviewScale = () => {
       const containerWidth = reportPreviewContainerRef.current?.clientWidth ?? 0;
+      const containerHeight = reportPreviewContainerRef.current?.clientHeight ?? 0;
+      const contentHeight = reportPreviewContentRef.current?.offsetHeight ?? 0;
       if (!containerWidth) return;
 
-      const nextScale = Math.max(0.72, Math.min(1, containerWidth / REPORT_PREVIEW_BASE_WIDTH));
+      const widthScale = containerWidth / REPORT_PREVIEW_BASE_WIDTH;
+      const heightScale = (reportOnly && containerHeight && contentHeight)
+        ? containerHeight / contentHeight
+        : Infinity;
+      const nextScale = Math.max(0.3, Math.min(1, Math.min(widthScale, heightScale)));
       setReportPreviewScale(Number(nextScale.toFixed(3)));
     };
 
     updatePreviewScale();
 
-    const observer = typeof ResizeObserver !== "undefined" && reportPreviewContainerRef.current
+    const observer = typeof ResizeObserver !== "undefined"
       ? new ResizeObserver(() => updatePreviewScale())
       : null;
 
     if (observer && reportPreviewContainerRef.current) {
       observer.observe(reportPreviewContainerRef.current);
+    }
+    if (observer && reportPreviewContentRef.current) {
+      observer.observe(reportPreviewContentRef.current);
     }
 
     window.addEventListener("resize", updatePreviewScale);
@@ -2569,7 +2582,7 @@ export function VehiclePageScreen({
       observer?.disconnect();
       window.removeEventListener("resize", updatePreviewScale);
     };
-  }, [REPORT_PREVIEW_BASE_WIDTH]);
+  }, [REPORT_PREVIEW_BASE_WIDTH, reportOnly]);
 
   useEffect(() => {
     const contentHeight = reportPreviewContentRef.current?.offsetHeight ?? 0;
@@ -3144,10 +3157,6 @@ export function VehiclePageScreen({
 
   const topCardStyle = cardStyle();
 
-  const cargoOnly = allowedTabs.length === 1 && allowedTabs[0] === "cargo";
-  const inputOnly = allowedTabs.length === 1 && allowedTabs[0] === "input";
-  const reportOnly = allowedTabs.length === 1 && allowedTabs[0] === "report";
-
   useEffect(() => {
     if (!cargoOnly) return;
     document.body.style.overflow = "hidden";
@@ -3159,7 +3168,7 @@ export function VehiclePageScreen({
   }, [cargoOnly]);
 
   return (
-    <div style={cargoOnly
+    <div style={(cargoOnly || reportOnly)
       ? { display: "flex", flexDirection: "column", gap: 8, height: "calc(100vh - 82px)", overflow: "hidden" }
       : { display: "grid", gap: 16 }
     } className="vehicle-page">
@@ -4160,7 +4169,7 @@ export function VehiclePageScreen({
       ) : null}
 
       {tab === "report" ? (
-        <div ref={reportPrintListRef} className="report-print-list" style={{ display: "grid", gap: 20 }}>
+        <div ref={reportPrintListRef} className="report-print-list" style={reportOnly ? { display: "flex", flexDirection: "column", gap: 8, flex: 1, minHeight: 0, overflow: "hidden" } : { display: "grid", gap: 20 }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <input
               value={reportCarNoInput}
@@ -4322,11 +4331,15 @@ export function VehiclePageScreen({
               return sum + getCombinedCdcCount(cdcStoreMap, fullBoxStoreMap, row);
             }, 0);
             return (
-            <div key={group.carNo} className="report-print-shell" style={{ border: "2px solid #111", background: "#fff", overflow: "hidden", padding: 12 }}>
+            <div key={group.carNo} className="report-print-shell" style={reportOnly ? { flex: 1, minHeight: 0, border: "2px solid #111", background: "#fff", overflow: "hidden", padding: 12 } : { border: "2px solid #111", background: "#fff", overflow: "hidden", padding: 12 }}>
               <div
                 ref={reportPreviewContainerRef}
                 className="report-preview-viewport"
-                style={{
+                style={reportOnly ? {
+                  width: "100%",
+                  height: "100%",
+                  overflow: "hidden",
+                } : {
                   width: "100%",
                   overflow: "hidden",
                   minHeight: reportPreviewHeight ?? undefined,
