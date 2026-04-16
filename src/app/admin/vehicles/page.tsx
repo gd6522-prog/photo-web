@@ -2552,14 +2552,17 @@ export function VehiclePageScreen({
   useEffect(() => {
     const updatePreviewScale = () => {
       const containerWidth = reportPreviewContainerRef.current?.clientWidth ?? 0;
-      const containerHeight = reportPreviewContainerRef.current?.clientHeight ?? 0;
       const contentHeight = reportPreviewContentRef.current?.offsetHeight ?? 0;
       if (!containerWidth) return;
 
       const widthScale = containerWidth / REPORT_PREVIEW_BASE_WIDTH;
-      const heightScale = (reportOnly && containerHeight && contentHeight)
-        ? containerHeight / contentHeight
+
+      // reportOnly: 사용 가능한 화면 높이 기준으로 scale 제한
+      // (100vh - nav/padding 82 - 컴팩트헤더 60 - 컨트롤행 50 - 갭 20 ≈ 212)
+      const heightScale = (reportOnly && contentHeight)
+        ? Math.max(0, window.innerHeight - 212) / contentHeight
         : Infinity;
+
       const nextScale = Math.max(0.3, Math.min(1, Math.min(widthScale, heightScale)));
       setReportPreviewScale(Number(nextScale.toFixed(3)));
     };
@@ -4169,7 +4172,7 @@ export function VehiclePageScreen({
       ) : null}
 
       {tab === "report" ? (
-        <div ref={reportPrintListRef} className="report-print-list" style={reportOnly ? { display: "flex", flexDirection: "column", gap: 8, flex: 1, minHeight: 0, overflow: "hidden" } : { display: "grid", gap: 20 }}>
+        <div ref={reportPrintListRef} className="report-print-list" style={reportOnly ? { display: "grid", gap: 8 } : { display: "grid", gap: 20 }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <input
               value={reportCarNoInput}
@@ -4331,15 +4334,11 @@ export function VehiclePageScreen({
               return sum + getCombinedCdcCount(cdcStoreMap, fullBoxStoreMap, row);
             }, 0);
             return (
-            <div key={group.carNo} className="report-print-shell" style={reportOnly ? { flex: 1, minHeight: 0, border: "2px solid #111", background: "#fff", overflow: "hidden", padding: 12 } : { border: "2px solid #111", background: "#fff", overflow: "hidden", padding: 12 }}>
+            <div key={group.carNo} className="report-print-shell" style={{ border: "2px solid #111", background: "#fff", overflow: "hidden", padding: 12 }}>
               <div
                 ref={reportPreviewContainerRef}
                 className="report-preview-viewport"
-                style={reportOnly ? {
-                  width: "100%",
-                  height: "100%",
-                  overflow: "hidden",
-                } : {
+                style={{
                   width: "100%",
                   overflow: "hidden",
                   minHeight: reportPreviewHeight ?? undefined,
