@@ -43,6 +43,13 @@ function formatNumber(n: number) {
   return n.toLocaleString("ko-KR");
 }
 
+// 피킹셀 00-00-000 형식 포맷 (숫자만 추출 → 7자리 패딩 → XX-XX-XXX)
+function formatPickingCell(cell: string): string {
+  if (!cell) return "-";
+  const digits = cell.replace(/\D/g, "").padStart(7, "0");
+  return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4, 7)}`;
+}
+
 function separateUnit(entry: SeparateEntry): number | null {
   if (!entry.center_unit || entry.center_unit <= 0) return null;
   return entry.qty / entry.center_unit;
@@ -297,7 +304,7 @@ export default function SeparatePage() {
                       const pickingCell = cellMap[entry.product_code] ?? "";
                       return (
                         <tr key={`${entry.store_code}-${entry.product_code}-${i}`} style={{ borderBottom: "1px solid #ddd" }}>
-                          <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>{pickingCell || "-"}</td>
+                          <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>{formatPickingCell(pickingCell)}</td>
                           <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>{entry.product_code}</td>
                           <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>{entry.product_name}</td>
                           <td style={{ padding: "6px 8px", textAlign: "right", whiteSpace: "nowrap" }}>{boxUnit > 0 ? formatNumber(boxUnit) : "-"}</td>
