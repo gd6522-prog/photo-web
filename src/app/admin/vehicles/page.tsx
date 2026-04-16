@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
 
@@ -275,6 +275,16 @@ async function clearVehicleSnapshot() {
       db.close();
     };
   });
+}
+
+function toISODate(value: string): string {
+  if (!value) return "";
+  const digits = value.replace(/\D/g, "");
+  if (digits.length >= 8) {
+    const d = digits.slice(0, 8);
+    return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+  }
+  return "";
 }
 
 async function getVehicleAdminToken() {
@@ -1922,6 +1932,7 @@ export function VehiclePageScreen({
   const [batchPrintMode, setBatchPrintMode] = useState<"" | "today" | "previous" | "next" | "all">("");
   const [reportPreviewScale, setReportPreviewScale] = useState(1);
   const [reportPreviewHeight, setReportPreviewHeight] = useState<number | null>(null);
+  const [separateQtyMap, setSeparateQtyMap] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (allowedTabs.includes(tab)) return;
@@ -2334,6 +2345,53 @@ export function VehiclePageScreen({
       setInputPage(inputPageCount);
     }
   }, [inputPage, inputPageCount]);
+
+  const deliveryDateISO = useMemo(() => {
+    const baseDate = productRows.find((r) => r.delivery_date)?.delivery_date ?? "";
+    return toISODate(baseDate);
+  }, [productRows]);
+
+  useEffect(() => {
+    if (!deliveryDateISO) {
+      setSeparateQtyMap({});
+      return;
+    }
+    void (async () => {
+      try {
+        const token = await getVehicleAdminToken();
+        const res = await fetch(`/api/admin/separate-qty?date=${deliveryDateISO}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const payload = (await res.json()) as { data?: Record<string, { product_name: string; qty: number }> };
+        const qtyMap: Record<string, number> = {};
+        for (const [code, entry] of Object.entries(payload.data ?? {})) {
+          if ((entry.qty ?? 0) > 0) qtyMap[code] = entry.qty;
+        }
+        setSeparateQtyMap(qtyMap);
+      } catch {
+        // ignore
+      }
+    })();
+  }, [deliveryDateISO]);
+
+  const saveSeparateQty = useCallback(
+    async (productCode: string, productName: string, qty: number) => {
+      if (!deliveryDateISO) return;
+      try {
+        const token = await getVehicleAdminToken();
+        await fetch("/api/admin/separate-qty", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ date: deliveryDateISO, product_code: productCode, product_name: productName, qty }),
+        });
+      } catch {
+        // ignore
+      }
+    },
+    [deliveryDateISO],
+  );
 
   useEffect(() => {
     if (reportGroups.length === 0) {
@@ -3273,7 +3331,7 @@ export function VehiclePageScreen({
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 980 }}>
               <thead>
                 <tr style={{ background: "#F8FAFC" }}>
-                  {["호차", "순번", "점포코드", "점포명", "작업구분", "셀", "상품코드", "상품명", "출고수량", "출고배수"].map((header) => (
+                  {["호차", "순번", "점포코드", "점포명", "작업구분", "셀", "상품코드", "상품명", "출고수량", "출고배수", "별도수량"].map((header) => (
                     <th key={header} style={{ textAlign: "left", padding: "10px 12px", borderBottom: "2px solid #E8EDF2", fontSize: 12, fontWeight: 700, color: "#64748B" }}>
                       {header}
                     </th>
@@ -3281,23 +3339,51 @@ export function VehiclePageScreen({
                 </tr>
               </thead>
               <tbody>
-                {pagedProductRows.map((row, index) => (
-                  <tr key={`${row.store_name}-${row.product_code}-${index}`} style={{ background: "#fff" }}>
-                    <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{row.car_no}</td>
-                    <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{row.seq_no}</td>
-                    <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#64748B" }}>{row.store_code}</td>
-                    <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, fontWeight: 700, color: "#0F172A" }}>{row.store_name}</td>
-                    <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#64748B" }}>{row.work_type}</td>
-                    <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#64748B" }}>{row.cell_name}</td>
-                    <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#64748B" }}>{row.product_code}</td>
-                    <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{row.product_name}</td>
-                    <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{formatNumber(row.assigned_qty)}</td>
-                    <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{formatNumber(effectiveQty(row))}</td>
-                  </tr>
-                ))}
+                {pagedProductRows.map((row, index) => {
+                  const sepQty = separateQtyMap[row.product_code] ?? 0;
+                  const baseQty = effectiveQty(row);
+                  const adjustedQty = Math.max(0, baseQty - sepQty);
+                  return (
+                    <tr key={`${row.store_name}-${row.product_code}-${index}`} style={{ background: "#fff" }}>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{row.car_no}</td>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{row.seq_no}</td>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#64748B" }}>{row.store_code}</td>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, fontWeight: 700, color: "#0F172A" }}>{row.store_name}</td>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#64748B" }}>{row.work_type}</td>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#64748B" }}>{row.cell_name}</td>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#64748B" }}>{row.product_code}</td>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{row.product_name}</td>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{formatNumber(row.assigned_qty)}</td>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: sepQty > 0 ? "#0F172A" : "#374151", fontWeight: sepQty > 0 ? 700 : 400 }}>
+                        {sepQty > 0 ? (
+                          <span>
+                            <span style={{ color: "#94A3B8", textDecoration: "line-through", marginRight: 4, fontWeight: 400, fontSize: 12 }}>{formatNumber(baseQty)}</span>
+                            {formatNumber(adjustedQty)}
+                          </span>
+                        ) : formatNumber(baseQty)}
+                      </td>
+                      <td style={{ padding: "7px 12px", borderBottom: "1px solid #F1F5F9" }}>
+                        <input
+                          type="number"
+                          min={0}
+                          value={sepQty === 0 ? "" : sepQty}
+                          placeholder="0"
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            const val = raw === "" ? 0 : parseInt(raw, 10);
+                            if (isNaN(val) || val < 0) return;
+                            setSeparateQtyMap((prev) => ({ ...prev, [row.product_code]: val }));
+                            void saveSeparateQty(row.product_code, row.product_name, val);
+                          }}
+                          style={{ width: 72, padding: "4px 8px", border: "1px solid #D1D9E0", borderRadius: 5, fontSize: 13, textAlign: "right", outline: "none" }}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
                 {pagedProductRows.length === 0 ? (
                   <tr>
-                    <td colSpan={10} style={{ padding: 32, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>
+                    <td colSpan={11} style={{ padding: 32, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>
                       {productRows.length === 0 ? "아직 불러온 단품별 데이터가 없습니다." : "검색된 점포 발주현황이 없습니다."}
                     </td>
                   </tr>
