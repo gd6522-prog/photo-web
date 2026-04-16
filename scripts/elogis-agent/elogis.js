@@ -16,23 +16,33 @@ const LOGIN_URL = `${BASE_URL}/`;
 
 // ── elogis 로그인 ─────────────────────────────────────────────────────────────
 
-async function createSession(id, pw, log, { headless = true } = {}) {
+async function createSession(id, pw, log, { headless = true, useSystemChrome = false } = {}) {
   log("브라우저 시작...");
-  const browser = await chromium.launch({
+  const launchOptions = {
     headless,
     args: [
       "--disable-blink-features=AutomationControlled",
       "--no-sandbox",
       "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--window-size=1920,1080",
     ],
-  });
+  };
+  if (useSystemChrome) {
+    launchOptions.channel = "chrome";
+  }
+  const browser = await chromium.launch(launchOptions);
   const context = await browser.newContext({
     userAgent:
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    viewport: { width: 1920, height: 1080 },
   });
   const page = await context.newPage();
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "webdriver", { get: () => undefined });
+    Object.defineProperty(navigator, "plugins", { get: () => [1, 2, 3] });
+    Object.defineProperty(navigator, "languages", { get: () => ["ko-KR", "ko", "en-US", "en"] });
   });
 
   log("elogis 로그인 페이지 접속...");
@@ -709,9 +719,9 @@ async function downloadFile(page, context, fileConfig, log) {
   return downloadWmsFile(page, context, fileConfig, log);
 }
 
-// TMS는 headless 모드에서 iframe 콘텐츠가 로드되지 않아 headless: false 필수
+// TMS: 시스템 Chrome + headless 로 탐지 우회 시도
 async function createTmsSession(id, pw, log) {
-  return createSession(id, pw, log, { headless: false });
+  return createSession(id, pw, log, { headless: true, useSystemChrome: true });
 }
 
 module.exports = { createSession, createTmsSession, downloadFile };
