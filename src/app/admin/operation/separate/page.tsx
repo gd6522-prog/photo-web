@@ -303,7 +303,7 @@ export default function SeparatePage() {
                   <thead>
                     <tr style={{ borderBottom: "2px solid #333", height: 32 }}>
                       {["피킹셀", "상품코드", "상품명", "박스입수", "피킹입수", "출고수량", "박스수량", "배수수량", "확인"].map((label) => (
-                        <th key={label} style={{ padding: "5px 4px", textAlign: "center", verticalAlign: "middle", fontWeight: 700, whiteSpace: "nowrap" }}>
+                        <th key={label} style={{ padding: "5px 8px", textAlign: "center", verticalAlign: "middle", fontWeight: 700, whiteSpace: "nowrap" }}>
                           {label}
                         </th>
                       ))}
@@ -319,26 +319,26 @@ export default function SeparatePage() {
                       const pickingCell = cellMap[entry.product_code] ?? "";
                       return (
                         <tr key={`${entry.store_code}-${entry.product_code}-${i}`} style={{ borderBottom: "1px solid #ddd" }}>
-                          <td style={{ padding: "6px 4px", verticalAlign: "middle", whiteSpace: "nowrap" }}>{formatPickingCell(pickingCell)}</td>
-                          <td style={{ padding: "6px 4px", verticalAlign: "middle", whiteSpace: "nowrap" }}>{entry.product_code}</td>
-                          <td style={{ padding: "6px 4px", verticalAlign: "middle", whiteSpace: "nowrap" }}>{entry.product_name}</td>
-                          <td style={{ padding: "6px 4px", textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap" }}>{boxUnit > 0 ? formatNumber(boxUnit) : "-"}</td>
-                          <td style={{ padding: "6px 4px", textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap" }}>{pickingUnit > 0 ? formatNumber(pickingUnit) : "-"}</td>
-                          <td style={{ padding: "6px 4px", textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap" }}>{entry.qty > 0 ? formatNumber(entry.qty) : "-"}</td>
-                          <td style={{ padding: "6px 4px", textAlign: "right", verticalAlign: "middle", fontWeight: 700, whiteSpace: "nowrap" }}>{boxUnit > 0 ? (boxQty > 0 ? formatNumber(boxQty) : "-") : "-"}</td>
-                          <td style={{ padding: "6px 4px", textAlign: "right", verticalAlign: "middle", fontWeight: 700, whiteSpace: "nowrap" }}>{boxUnit > 0 ? (remainQty > 0 ? formatNumber(remainQty) : "-") : "-"}</td>
-                          <td style={{ padding: "6px 4px", textAlign: "center", verticalAlign: "middle", whiteSpace: "nowrap" }}></td>
+                          <td style={{ padding: "6px 8px", verticalAlign: "middle", whiteSpace: "nowrap" }}>{formatPickingCell(pickingCell)}</td>
+                          <td style={{ padding: "6px 8px", verticalAlign: "middle", whiteSpace: "nowrap" }}>{entry.product_code}</td>
+                          <td style={{ padding: "6px 8px", verticalAlign: "middle", whiteSpace: "nowrap" }}>{entry.product_name}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap" }}>{boxUnit > 0 ? formatNumber(boxUnit) : "-"}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap" }}>{pickingUnit > 0 ? formatNumber(pickingUnit) : "-"}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap" }}>{entry.qty > 0 ? formatNumber(entry.qty) : "-"}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "right", verticalAlign: "middle", fontWeight: 700, whiteSpace: "nowrap" }}>{boxUnit > 0 ? (boxQty > 0 ? formatNumber(boxQty) : "-") : "-"}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "right", verticalAlign: "middle", fontWeight: 700, whiteSpace: "nowrap" }}>{boxUnit > 0 ? (remainQty > 0 ? formatNumber(remainQty) : "-") : "-"}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "center", verticalAlign: "middle", whiteSpace: "nowrap" }}></td>
                         </tr>
                       );
                     })}
                   </tbody>
                   <tfoot>
                     <tr style={{ borderTop: "2px solid #333", fontWeight: 700 }}>
-                      <td colSpan={5} style={{ padding: "6px 4px", textAlign: "right" }}>합계</td>
-                      <td style={{ padding: "6px 4px", textAlign: "right" }}>{totalQtyG > 0 ? formatNumber(totalQtyG) : "-"}</td>
-                      <td style={{ padding: "6px 4px", textAlign: "right" }}>{totalBoxQty > 0 ? formatNumber(totalBoxQty) : "-"}</td>
-                      <td style={{ padding: "6px 4px", textAlign: "right" }}>{totalRemainQty > 0 ? formatNumber(totalRemainQty) : "-"}</td>
-                      <td style={{ padding: "6px 4px" }}></td>
+                      <td colSpan={5} style={{ padding: "6px 8px", textAlign: "right" }}>합계</td>
+                      <td style={{ padding: "6px 8px", textAlign: "right" }}>{totalQtyG > 0 ? formatNumber(totalQtyG) : "-"}</td>
+                      <td style={{ padding: "6px 8px", textAlign: "right" }}>{totalBoxQty > 0 ? formatNumber(totalBoxQty) : "-"}</td>
+                      <td style={{ padding: "6px 8px", textAlign: "right" }}>{totalRemainQty > 0 ? formatNumber(totalRemainQty) : "-"}</td>
+                      <td style={{ padding: "6px 8px" }}></td>
                     </tr>
                   </tfoot>
                 </table>
