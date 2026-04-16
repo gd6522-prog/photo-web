@@ -2558,9 +2558,9 @@ export function VehiclePageScreen({
       const widthScale = containerWidth / REPORT_PREVIEW_BASE_WIDTH;
 
       // reportOnly: 사용 가능한 화면 높이 기준으로 scale 제한
-      // (100vh - nav/padding 82 - 컴팩트헤더 60 - 컨트롤행 50 - 갭 20 ≈ 212)
+      // (100vh - nav/padding 82 - 컴팩트헤더 64 - 컨트롤행 46 - 쉘패딩/보더 28 - 갭 24 ≈ 244)
       const heightScale = (reportOnly && contentHeight)
-        ? Math.max(0, window.innerHeight - 212) / contentHeight
+        ? Math.max(0, window.innerHeight - 244) / contentHeight
         : Infinity;
 
       const nextScale = Math.max(0.3, Math.min(1, Math.min(widthScale, heightScale)));
@@ -3171,8 +3171,10 @@ export function VehiclePageScreen({
   }, [cargoOnly]);
 
   return (
-    <div style={(cargoOnly || reportOnly)
+    <div style={cargoOnly
       ? { display: "flex", flexDirection: "column", gap: 8, height: "calc(100vh - 82px)", overflow: "hidden" }
+      : reportOnly
+      ? { display: "flex", flexDirection: "column", gap: 8 }
       : { display: "grid", gap: 16 }
     } className="vehicle-page">
       <style jsx global>{`
