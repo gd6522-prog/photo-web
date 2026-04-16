@@ -7,6 +7,7 @@ import {
   listR2Keys,
   deleteR2Objects,
 } from "@/lib/r2";
+import { R2_CELLS_CACHE_KEY } from "../product-strategy-cells/route";
 
 export const runtime = "nodejs";
 
@@ -130,6 +131,11 @@ export async function POST(req: NextRequest) {
       const oldKeys = await listR2Keys(slotPrefix(slotKey));
       if (oldKeys.length > 0) {
         await deleteR2Objects(oldKeys);
+      }
+
+      // product-strategy 파일 교체 시 피킹셀 R2 캐시 무효화
+      if (slotKey === "product-strategy") {
+        void deleteR2Objects([R2_CELLS_CACHE_KEY]);
       }
 
       const r2Key = `${slotPrefix(slotKey)}${fileName}`;

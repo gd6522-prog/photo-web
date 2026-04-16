@@ -1,13 +1,15 @@
 import { NextRequest } from "next/server";
 import * as XLSX from "xlsx";
-import { getR2ObjectBuffer, listR2Keys } from "@/lib/r2";
+import { getR2ObjectBuffer, getR2ObjectText, putR2Object, listR2Keys } from "@/lib/r2";
 import { requireAdmin, json } from "../notices/_shared";
 
 export const runtime = "nodejs";
 
-// 인메모리 캐시 (10분 TTL) — 파일 재업로드 전까지 매 요청마다 Excel 파싱 방지
-const cache: { cells: Record<string, string>; expiresAt: number } = { cells: {}, expiresAt: 0 };
-const CACHE_TTL_MS = 10 * 60 * 1000;
+export const R2_CELLS_CACHE_KEY = "file-uploads/product-strategy-cells-cache.json";
+
+// 인메모리 캐시 (프로세스 내 중복 요청 방지)
+const memCache: { cells: Record<string, string>; expiresAt: number } = { cells: {}, expiresAt: 0 };
+const MEM_CACHE_TTL_MS = 10 * 60 * 1000;
 
 function normalizeHeader(value: unknown): string {
   return String(value ?? "")
@@ -22,10 +24,23 @@ export async function GET(req: NextRequest) {
   const guard = await requireAdmin(req);
   if (!guard.ok) return guard.res;
 
-  if (Date.now() < cache.expiresAt) {
-    return json(true, undefined, { cells: cache.cells });
+  // 1. 인메모리 캐시
+  if (Date.now() < memCache.expiresAt) {
+    return json(true, undefined, { cells: memCache.cells });
   }
 
+  // 2. R2 JSON 캐시 (Excel 파싱 없이 즉시 반환)
+  const cachedText = await getR2ObjectText(R2_CELLS_CACHE_KEY);
+  if (cachedText) {
+    try {
+      const cells = JSON.parse(cachedText) as Record<string, string>;
+      memCache.cells = cells;
+      memCache.expiresAt = Date.now() + MEM_CACHE_TTL_MS;
+      return json(true, undefined, { cells });
+    } catch { /* 손상 시 재파싱 */ }
+  }
+
+  // 3. Excel 파싱 (R2 캐시 없을 때만)
   const keys = await listR2Keys("file-uploads/product-strategy/");
   if (keys.length === 0) {
     return json(true, undefined, { cells: {} });
@@ -60,8 +75,10 @@ export async function GET(req: NextRequest) {
       if (code) cells[code] = cell;
     }
 
-    cache.cells = cells;
-    cache.expiresAt = Date.now() + CACHE_TTL_MS;
+    // R2 + 인메모리 캐시 저장 (백그라운드)
+    void putR2Object(R2_CELLS_CACHE_KEY, JSON.stringify(cells), "application/json");
+    memCache.cells = cells;
+    memCache.expiresAt = Date.now() + MEM_CACHE_TTL_MS;
 
     return json(true, undefined, { cells });
   } catch {
