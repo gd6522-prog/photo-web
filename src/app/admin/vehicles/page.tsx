@@ -1993,6 +1993,7 @@ export function VehiclePageScreen({
   const [cdcSnapshot, setCdcSnapshot] = useState<CdcSnapshot | null>(null);
   const [inputPage, setInputPage] = useState(1);
   const [inputSearched, setInputSearched] = useState(false);
+  const [showSepOnly, setShowSepOnly] = useState(false);
   const [storageReady, setStorageReady] = useState(false);
   const [driverIndex, setDriverIndex] = useState<Map<string, DriverProfile>>(new Map());
   const [storeContactIndex, setStoreContactIndex] = useState<Map<string, string>>(new Map());
@@ -2374,17 +2375,17 @@ export function VehiclePageScreen({
     const fProductName = n(filterProductName);
     const hasFilter = fCarNo || fStoreCode || fStoreName || fCell || fProductCode || fProductName;
 
-    const rows = hasFilter
-      ? productRows.filter((row) => {
-          if (fCarNo && !n(row.car_no).includes(fCarNo)) return false;
-          if (fStoreCode && !n(row.store_code).includes(fStoreCode)) return false;
-          if (fStoreName && !n(row.store_name).includes(fStoreName)) return false;
-          if (fCell && !n(row.cell_name).includes(fCell)) return false;
-          if (fProductCode && !n(row.product_code).includes(fProductCode)) return false;
-          if (fProductName && !n(row.product_name).includes(fProductName)) return false;
-          return true;
-        })
-      : productRows;
+    const rows = productRows.filter((row) => {
+      if (showSepOnly && (separateQtyMapRef.current[`${row.store_code}|${row.product_code}`] ?? 0) === 0) return false;
+      if (!hasFilter) return true;
+      if (fCarNo && !n(row.car_no).includes(fCarNo)) return false;
+      if (fStoreCode && !n(row.store_code).includes(fStoreCode)) return false;
+      if (fStoreName && !n(row.store_name).includes(fStoreName)) return false;
+      if (fCell && !n(row.cell_name).includes(fCell)) return false;
+      if (fProductCode && !n(row.product_code).includes(fProductCode)) return false;
+      if (fProductName && !n(row.product_name).includes(fProductName)) return false;
+      return true;
+    });
 
     const defaultSort = (a: ProductRow, b: ProductRow) => {
       const carDiff = a.car_no.localeCompare(b.car_no, "ko", { numeric: true });
@@ -2419,7 +2420,7 @@ export function VehiclePageScreen({
       return defaultSort(a, b);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productRows, inputSearched, filterCarNo, filterStoreCode, filterStoreName, filterCell, filterProductCode, filterProductName, inputSortKey, inputSortDir]);
+  }, [productRows, inputSearched, showSepOnly, filterCarNo, filterStoreCode, filterStoreName, filterCell, filterProductCode, filterProductName, inputSortKey, inputSortDir]);
 
   const filteredCargoRows = useMemo(() => {
     const carQ = normalizeStoreName(cargoQuery);
@@ -3464,6 +3465,7 @@ export function VehiclePageScreen({
                   setFilterCarNo(""); setFilterStoreCode(""); setFilterStoreName("");
                   setFilterCell(""); setFilterProductCode(""); setFilterProductName("");
                   setInputSearched(false);
+                  setShowSepOnly(false);
                   setInputPage(1);
                 }}
                 style={{
@@ -3481,10 +3483,33 @@ export function VehiclePageScreen({
               >
                 초기화
               </button>
+              <button
+                onClick={() => {
+                  const next = !showSepOnly;
+                  setShowSepOnly(next);
+                  if (next) setInputSearched(true);
+                  setInputPage(1);
+                }}
+                style={{
+                  height: 34,
+                  padding: "0 14px",
+                  borderRadius: 6,
+                  border: showSepOnly ? "none" : "1px solid #D1D9E0",
+                  background: showSepOnly ? "#1D4ED8" : "#fff",
+                  color: showSepOnly ? "#fff" : "#374151",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  alignSelf: "flex-end",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                별도수량만 보기
+              </button>
               <div style={{ color: "#64748B", fontSize: 13, fontWeight: 700, alignSelf: "flex-end", paddingBottom: 7 }}>
                 {!inputSearched
                   ? `전체 ${productRows.length}건 (조회 후 표시)`
-                  : (filterCarNo || filterStoreCode || filterStoreName || filterCell || filterProductCode || filterProductName)
+                  : (showSepOnly || filterCarNo || filterStoreCode || filterStoreName || filterCell || filterProductCode || filterProductName)
                     ? `검색 결과 ${filteredProductRows.length}건`
                     : `전체 ${filteredProductRows.length}건`}
               </div>
