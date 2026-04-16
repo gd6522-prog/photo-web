@@ -291,14 +291,14 @@ export default function SeparatePage() {
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, tableLayout: "fixed" }}>
                   <colgroup>
                     <col style={{ width: "9%" }} />
-                    <col style={{ width: "13%" }} />
-                    <col style={{ width: "22%" }} />
+                    <col style={{ width: "14%" }} />
+                    <col style={{ width: "27%" }} />
                     <col style={{ width: "10%" }} />
                     <col style={{ width: "10%" }} />
                     <col style={{ width: "9%" }} />
                     <col style={{ width: "9%" }} />
                     <col style={{ width: "9%" }} />
-                    <col style={{ width: "9%" }} />
+                    <col style={{ width: "3%" }} />
                   </colgroup>
                   <thead>
                     <tr style={{ borderBottom: "2px solid #333", height: 32 }}>
