@@ -4175,6 +4175,15 @@ export function VehiclePageScreen({
 
       {tab === "report" ? (
         <div ref={reportPrintListRef} className="report-print-list" style={reportOnly ? { display: "grid", gap: 8 } : { display: "grid", gap: 20 }}>
+          {activeReportGroup ? (
+            <div className="report-screen-only" style={{ color: "#486274", fontSize: 13, fontWeight: 700 }}>
+              현재 표시: {supportMode && supportAutoMode ? "지원 자동" : supportMode ? "지원 수동" : `${activeReportGroup.carNo}호차`}
+              {activeReportGroup.driver?.name ? ` / ${activeReportGroup.driver.name}` : ""}
+              {supportMode && supportMatchedRows.some((row) => Boolean(row))
+                ? ` / ${supportMatchedRows.filter((row): row is CargoRow => Boolean(row)).map((row) => row.store_name).join(", ")}`
+                : ""}
+            </div>
+          ) : null}
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <input
               value={reportCarNoInput}
@@ -4316,16 +4325,6 @@ export function VehiclePageScreen({
           {reportGroups.length === 0 ? (
             <div style={{ border: "1px solid #d6e4ee", borderRadius: 0, background: "#fff", padding: 18, color: "#6b7280" }}>
               운행일보를 만들 데이터가 없습니다. 점포마스터의 호차/순번을 확인해 주세요.
-            </div>
-          ) : null}
-
-          {activeReportGroup ? (
-            <div className="report-screen-only" style={{ color: "#486274", fontSize: 13, fontWeight: 700 }}>
-              현재 표시: {supportMode && supportAutoMode ? "지원 자동" : supportMode ? "지원 수동" : `${activeReportGroup.carNo}호차`}
-              {activeReportGroup.driver?.name ? ` / ${activeReportGroup.driver.name}` : ""}
-              {supportMode && supportMatchedRows.some((row) => Boolean(row))
-                ? ` / ${supportMatchedRows.filter((row): row is CargoRow => Boolean(row)).map((row) => row.store_name).join(", ")}`
-                : ""}
             </div>
           ) : null}
 
