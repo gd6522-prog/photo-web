@@ -197,11 +197,14 @@ export default function SeparatePage() {
   ];
 
   return (
-    <div style={{ padding: "32px 24px", maxWidth: 1100, margin: "0 auto" }} className="no-print-wrapper">
+    <>
       {/* ── 인쇄 스타일 ── */}
       <style>{`
         @media print {
           @page { size: A4 portrait; margin: 10mm; }
+
+          /* 레이아웃 네비게이션 숨김 */
+          .ha-admin-header { display: none !important; }
 
           /* 화면 UI 전체 숨김 */
           .no-print-wrapper { display: none !important; }
@@ -221,7 +224,7 @@ export default function SeparatePage() {
         .print-only { display: none; }
       `}</style>
 
-      {/* ── 인쇄 전용 레이아웃 ── */}
+      {/* ── 인쇄 전용 레이아웃 (no-print-wrapper 밖에 위치) ── */}
       <div className="print-only">
         <h1 style={{ fontSize: 20, fontWeight: 900, textAlign: "center", marginBottom: 16, marginTop: 0 }}>
           별도작업 피킹 리스트
@@ -312,6 +315,7 @@ export default function SeparatePage() {
       </div>
 
       {/* ── 화면 UI ── */}
+      <div style={{ padding: "32px 24px", maxWidth: 1100, margin: "0 auto" }} className="no-print-wrapper">
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
@@ -443,6 +447,7 @@ export default function SeparatePage() {
           </div>
         </>
       )}
-    </div>
+      </div>
+    </>
   );
 }
