@@ -1994,7 +1994,8 @@ export function VehiclePageScreen({
   const [inputPage, setInputPage] = useState(1);
   const [inputSearched, setInputSearched] = useState(false);
   const [showSepOnly, setShowSepOnly] = useState(false);
-  const [cargoPage, setCargoPage] = useState(1);
+  const [cargoVisibleCount, setCargoVisibleCount] = useState(50);
+  const cargoSentinelRef = useRef<HTMLDivElement>(null);
   const [storageReady, setStorageReady] = useState(false);
   const [driverIndex, setDriverIndex] = useState<Map<string, DriverProfile>>(new Map());
   const [storeContactIndex, setStoreContactIndex] = useState<Map<string, string>>(new Map());
@@ -2786,16 +2787,31 @@ export function VehiclePageScreen({
   }, [filteredCargoRows, cargoRows, subtotalSettings, showSupportOnly]);
 
   const CARGO_PAGE_SIZE = 50;
-  const cargoPageCount = Math.max(1, Math.ceil(cargoDisplayRows.length / CARGO_PAGE_SIZE));
-  const pagedCargoDisplayRows = useMemo(() => {
-    const start = (cargoPage - 1) * CARGO_PAGE_SIZE;
-    return cargoDisplayRows.slice(start, start + CARGO_PAGE_SIZE);
-  }, [cargoDisplayRows, cargoPage]);
+  const pagedCargoDisplayRows = useMemo(
+    () => cargoDisplayRows.slice(0, cargoVisibleCount),
+    [cargoDisplayRows, cargoVisibleCount],
+  );
 
-  // 필터 변경 시 첫 페이지로 이동
+  // 필터/검색 변경 시 표시 개수 초기화
   useEffect(() => {
-    setCargoPage(1);
+    setCargoVisibleCount(50);
   }, [filteredCargoRows.length, showSupportOnly]);
+
+  // 무한 스크롤: sentinel이 뷰포트에 들어오면 50개 추가
+  useEffect(() => {
+    const sentinel = cargoSentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setCargoVisibleCount((prev) => Math.min(prev + 50, cargoDisplayRows.length));
+        }
+      },
+      { threshold: 0.1 },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [cargoDisplayRows.length, cargoSentinelRef]);
 
   const resetStoredData = () => {
     setFileName("");
@@ -4079,21 +4095,9 @@ export function VehiclePageScreen({
               </tbody>
             </table>
           </div>
-          {cargoDisplayRows.length > CARGO_PAGE_SIZE && (
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 8 }}>
-              <div style={{ color: "#64748B", fontSize: 13, fontWeight: 700 }}>
-                {cargoPage} / {cargoPageCount} 페이지 &nbsp;·&nbsp; 전체 {cargoDisplayRows.length}행
-              </div>
-              <div style={{ display: "flex", gap: 6 }}>
-                <button onClick={() => setCargoPage(1)} disabled={cargoPage === 1}
-                  style={{ height: 34, padding: "0 12px", borderRadius: 6, border: "1px solid #D1D9E0", background: "#fff", color: "#374151", fontWeight: 700, fontSize: 13, cursor: cargoPage === 1 ? "not-allowed" : "pointer", opacity: cargoPage === 1 ? 0.5 : 1 }}>처음</button>
-                <button onClick={() => setCargoPage((p) => Math.max(1, p - 1))} disabled={cargoPage === 1}
-                  style={{ height: 34, padding: "0 14px", borderRadius: 6, border: "1px solid #D1D9E0", background: "#fff", color: "#374151", fontWeight: 700, fontSize: 13, cursor: cargoPage === 1 ? "not-allowed" : "pointer", opacity: cargoPage === 1 ? 0.5 : 1 }}>이전</button>
-                <button onClick={() => setCargoPage((p) => Math.min(cargoPageCount, p + 1))} disabled={cargoPage === cargoPageCount}
-                  style={{ height: 34, padding: "0 14px", borderRadius: 6, border: "1px solid #D1D9E0", background: "#fff", color: "#374151", fontWeight: 700, fontSize: 13, cursor: cargoPage === cargoPageCount ? "not-allowed" : "pointer", opacity: cargoPage === cargoPageCount ? 0.5 : 1 }}>다음</button>
-                <button onClick={() => setCargoPage(cargoPageCount)} disabled={cargoPage === cargoPageCount}
-                  style={{ height: 34, padding: "0 12px", borderRadius: 6, border: "1px solid #D1D9E0", background: "#fff", color: "#374151", fontWeight: 700, fontSize: 13, cursor: cargoPage === cargoPageCount ? "not-allowed" : "pointer", opacity: cargoPage === cargoPageCount ? 0.5 : 1 }}>마지막</button>
-              </div>
+          {cargoVisibleCount < cargoDisplayRows.length && (
+            <div ref={cargoSentinelRef} style={{ padding: "18px 0", textAlign: "center", color: "#94A3B8", fontSize: 13 }}>
+              스크롤하여 더 보기 ({cargoVisibleCount} / {cargoDisplayRows.length})
             </div>
           )}
         </div>
