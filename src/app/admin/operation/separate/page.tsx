@@ -279,7 +279,7 @@ export default function SeparatePage() {
                     <td style={{ padding: "4px 6px", border: "1px solid #ccc", whiteSpace: "nowrap" }}>
                       {entry.store_code}
                     </td>
-                    <td style={{ padding: "4px 6px", border: "1px solid #ccc" }}>
+                    <td style={{ padding: "4px 6px", border: "1px solid #ccc", whiteSpace: "nowrap" }}>
                       {entry.store_name}
                     </td>
                     <td style={{ padding: "4px 6px", border: "1px solid #ccc", whiteSpace: "nowrap" }}>
@@ -288,7 +288,7 @@ export default function SeparatePage() {
                     <td style={{ padding: "4px 6px", border: "1px solid #ccc", whiteSpace: "nowrap" }}>
                       {entry.product_code}
                     </td>
-                    <td style={{ padding: "4px 6px", border: "1px solid #ccc" }}>
+                    <td style={{ padding: "4px 6px", border: "1px solid #ccc", whiteSpace: "nowrap" }}>
                       {entry.product_name}
                     </td>
                     <td style={{ padding: "4px 6px", border: "1px solid #ccc", textAlign: "right", whiteSpace: "nowrap" }}>
@@ -298,13 +298,13 @@ export default function SeparatePage() {
                       {pickingUnit > 0 ? formatNumber(pickingUnit) : "-"}
                     </td>
                     <td style={{ padding: "4px 6px", border: "1px solid #ccc", textAlign: "right", whiteSpace: "nowrap" }}>
-                      {formatNumber(entry.qty)}
+                      {entry.qty > 0 ? formatNumber(entry.qty) : "-"}
                     </td>
                     <td style={{ padding: "4px 6px", border: "1px solid #ccc", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>
-                      {boxUnit > 0 ? formatNumber(boxQty) : "-"}
+                      {boxUnit > 0 ? (boxQty > 0 ? formatNumber(boxQty) : "-") : "-"}
                     </td>
                     <td style={{ padding: "4px 6px", border: "1px solid #ccc", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>
-                      {boxUnit > 0 ? formatNumber(remainQty) : "-"}
+                      {boxUnit > 0 ? (remainQty > 0 ? formatNumber(remainQty) : "-") : "-"}
                     </td>
                   </tr>
                 );
