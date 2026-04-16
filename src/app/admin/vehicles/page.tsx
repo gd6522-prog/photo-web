@@ -3473,14 +3473,12 @@ export function VehiclePageScreen({
                             const raw = e.target.value;
                             const val = raw === "" ? 0 : parseInt(raw, 10);
                             if (isNaN(val) || val < 0) return;
-                            // 별도수량은 출고수량보다 클 수 없음 → 초과 시 자동 삭제
-                            const safeVal = val >= row.assigned_qty ? 0 : val;
+                            // 출고수량 이상이거나 출고배수가 소수점이 되는 경우 → 0으로 리셋
+                            const safeVal = val >= row.assigned_qty || wouldBeDecimal(row, val) ? 0 : val;
                             setSeparateQtyMap((prev) => ({ ...prev, [sepKey]: safeVal }));
-                            if (!wouldBeDecimal(row, safeVal)) {
-                              void saveSeparateQty(row.store_code, row.store_name, row.product_code, row.product_name, safeVal, row.center_unit);
-                            }
+                            void saveSeparateQty(row.store_code, row.store_name, row.product_code, row.product_name, safeVal, row.center_unit);
                           }}
-                          style={{ width: 72, padding: "4px 8px", border: isDecimal ? "1px solid #EF4444" : "1px solid #D1D9E0", borderRadius: 5, fontSize: 13, textAlign: "right", outline: "none", background: isDecimal ? "#FEF2F2" : "#fff" }}
+                          style={{ width: 72, padding: "4px 8px", border: "1px solid #D1D9E0", borderRadius: 5, fontSize: 13, textAlign: "right", outline: "none", background: "#fff" }}
                         />
                       </td>
                     </tr>
