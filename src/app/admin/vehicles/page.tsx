@@ -1928,12 +1928,12 @@ export function VehiclePageScreen({
   const [filterCell, setFilterCell] = useState("");
   const [filterProductCode, setFilterProductCode] = useState("");
   const [filterProductName, setFilterProductName] = useState("");
-  const [inputCarNo, setInputCarNo] = useState("");
-  const [inputStoreCode, setInputStoreCode] = useState("");
-  const [inputStoreName, setInputStoreName] = useState("");
-  const [inputCell, setInputCell] = useState("");
-  const [inputProductCode, setInputProductCode] = useState("");
-  const [inputProductName, setInputProductName] = useState("");
+  const refCarNo = useRef<HTMLInputElement>(null);
+  const refStoreCode = useRef<HTMLInputElement>(null);
+  const refStoreName = useRef<HTMLInputElement>(null);
+  const refCell = useRef<HTMLInputElement>(null);
+  const refProductCode = useRef<HTMLInputElement>(null);
+  const refProductName = useRef<HTMLInputElement>(null);
   const [cargoQueryInput, setCargoQueryInput] = useState("");
   const [cargoQuery, setCargoQuery] = useState("");
   const [cargoStoreQueryInput, setCargoStoreQueryInput] = useState("");
@@ -3327,28 +3327,28 @@ export function VehiclePageScreen({
             <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
               {(
                 [
-                  { label: "호차",   value: inputCarNo,      setter: setInputCarNo,      width: 90 },
-                  { label: "점포코드", value: inputStoreCode,   setter: setInputStoreCode,   width: 100 },
-                  { label: "점포명",  value: inputStoreName,   setter: setInputStoreName,   width: 130 },
-                  { label: "셀",     value: inputCell,        setter: setInputCell,        width: 90 },
-                  { label: "상품코드", value: inputProductCode, setter: setInputProductCode, width: 110 },
-                  { label: "상품명",  value: inputProductName, setter: setInputProductName, width: 140 },
+                  { label: "호차",   ref: refCarNo,      width: 90 },
+                  { label: "점포코드", ref: refStoreCode,   width: 100 },
+                  { label: "점포명",  ref: refStoreName,   width: 130 },
+                  { label: "셀",     ref: refCell,        width: 90 },
+                  { label: "상품코드", ref: refProductCode, width: 110 },
+                  { label: "상품명",  ref: refProductName, width: 140 },
                 ] as const
-              ).map(({ label, value, setter, width }) => (
+              ).map(({ label, ref, width }) => (
                 <div key={label} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                   <span style={{ fontSize: 11, fontWeight: 700, color: "#64748B", paddingLeft: 2 }}>{label}</span>
                   <input
-                    value={value}
-                    onChange={(e) => setter(e.target.value)}
+                    ref={ref}
+                    defaultValue=""
                     onKeyDown={(e) => {
                       if (e.key !== "Enter") return;
                       e.preventDefault();
-                      setFilterCarNo(inputCarNo);
-                      setFilterStoreCode(inputStoreCode);
-                      setFilterStoreName(inputStoreName);
-                      setFilterCell(inputCell);
-                      setFilterProductCode(inputProductCode);
-                      setFilterProductName(inputProductName);
+                      setFilterCarNo(refCarNo.current?.value ?? "");
+                      setFilterStoreCode(refStoreCode.current?.value ?? "");
+                      setFilterStoreName(refStoreName.current?.value ?? "");
+                      setFilterCell(refCell.current?.value ?? "");
+                      setFilterProductCode(refProductCode.current?.value ?? "");
+                      setFilterProductName(refProductName.current?.value ?? "");
                       setInputPage(1);
                     }}
                     placeholder={label}
@@ -3356,10 +3356,10 @@ export function VehiclePageScreen({
                       width,
                       height: 34,
                       borderRadius: 6,
-                      border: value ? "1px solid #3B82F6" : "1px solid #D1D9E0",
+                      border: "1px solid #D1D9E0",
                       padding: "0 9px",
                       outline: "none",
-                      background: value ? "#EFF6FF" : "#fff",
+                      background: "#fff",
                       fontSize: 13,
                       color: "#1E293B",
                       boxSizing: "border-box" as const,
@@ -3369,12 +3369,12 @@ export function VehiclePageScreen({
               ))}
               <button
                 onClick={() => {
-                  setFilterCarNo(inputCarNo);
-                  setFilterStoreCode(inputStoreCode);
-                  setFilterStoreName(inputStoreName);
-                  setFilterCell(inputCell);
-                  setFilterProductCode(inputProductCode);
-                  setFilterProductName(inputProductName);
+                  setFilterCarNo(refCarNo.current?.value ?? "");
+                  setFilterStoreCode(refStoreCode.current?.value ?? "");
+                  setFilterStoreName(refStoreName.current?.value ?? "");
+                  setFilterCell(refCell.current?.value ?? "");
+                  setFilterProductCode(refProductCode.current?.value ?? "");
+                  setFilterProductName(refProductName.current?.value ?? "");
                   setInputPage(1);
                 }}
                 style={{
@@ -3394,12 +3394,11 @@ export function VehiclePageScreen({
               </button>
               <button
                 onClick={() => {
-                  setInputCarNo(""); setFilterCarNo("");
-                  setInputStoreCode(""); setFilterStoreCode("");
-                  setInputStoreName(""); setFilterStoreName("");
-                  setInputCell(""); setFilterCell("");
-                  setInputProductCode(""); setFilterProductCode("");
-                  setInputProductName(""); setFilterProductName("");
+                  [refCarNo, refStoreCode, refStoreName, refCell, refProductCode, refProductName].forEach((r) => {
+                    if (r.current) r.current.value = "";
+                  });
+                  setFilterCarNo(""); setFilterStoreCode(""); setFilterStoreName("");
+                  setFilterCell(""); setFilterProductCode(""); setFilterProductName("");
                   setInputPage(1);
                 }}
                 style={{
