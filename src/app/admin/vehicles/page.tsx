@@ -4572,5 +4572,5 @@ export function VehiclePageScreen({
 }
 
 export default function VehiclePage() {
-  return <VehiclePageScreen initialTab="cargo" allowedTabs={["cargo"]} />;
+  return <VehiclePageScreen initialTab="cargo" allowedTabs={["cargo"]} title="물동량" />;
 }
