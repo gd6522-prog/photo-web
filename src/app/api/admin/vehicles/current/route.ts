@@ -701,6 +701,21 @@ export async function PUT(req: NextRequest) {
         uploadedAt: new Date().toISOString(),
       };
       await putR2Object(CURRENT_PATH, JSON.stringify(merged), "application/json");
+
+      // 지원체크/기사 변경 시 daily 파일도 동기화
+      const byDeliveryDate = new Map<string, typeof merged.productRows>();
+      for (const row of merged.productRows ?? []) {
+        const dd = normDeliveryDate(row.delivery_date);
+        if (!dd) continue;
+        if (!byDeliveryDate.has(dd)) byDeliveryDate.set(dd, []);
+        byDeliveryDate.get(dd)!.push(row);
+      }
+      void Promise.all(
+        [...byDeliveryDate.entries()].map(async ([dd, rows]) => {
+          const dailySnap: VehicleSnapshot = { ...merged, productRows: rows };
+          await putR2Object(`${R2_PREFIX}/daily/${dd}.json`, JSON.stringify(dailySnap), "application/json");
+        })
+      );
     }
 
     if (body.limits) {
