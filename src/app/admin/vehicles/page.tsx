@@ -2394,10 +2394,10 @@ export function VehiclePageScreen({
           cache: "no-store",
         });
         if (!res.ok) return;
-        const payload = (await res.json()) as { data?: Record<string, { product_name: string; qty: number }> };
+        const payload = (await res.json()) as { data?: Record<string, { store_code: string; product_code: string; qty: number }> };
         const qtyMap: Record<string, number> = {};
-        for (const [code, entry] of Object.entries(payload.data ?? {})) {
-          if ((entry.qty ?? 0) > 0) qtyMap[code] = entry.qty;
+        for (const [entryKey, entry] of Object.entries(payload.data ?? {})) {
+          if ((entry.qty ?? 0) > 0) qtyMap[entryKey] = entry.qty;
         }
         setSeparateQtyMap(qtyMap);
       } catch {
@@ -2407,14 +2407,14 @@ export function VehiclePageScreen({
   }, [deliveryDateISO]);
 
   const saveSeparateQty = useCallback(
-    async (productCode: string, productName: string, qty: number) => {
+    async (storeCode: string, storeName: string, productCode: string, productName: string, qty: number, centerUnit: number) => {
       if (!deliveryDateISO) return;
       try {
         const token = await getVehicleAdminToken();
         await fetch("/api/admin/separate-qty", {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ date: deliveryDateISO, product_code: productCode, product_name: productName, qty }),
+          body: JSON.stringify({ date: deliveryDateISO, store_code: storeCode, store_name: storeName, product_code: productCode, product_name: productName, qty, center_unit: centerUnit }),
         });
       } catch {
         // ignore
@@ -3368,7 +3368,8 @@ export function VehiclePageScreen({
               </thead>
               <tbody>
                 {pagedProductRows.map((row, index) => {
-                  const sepQty = separateQtyMap[row.product_code] ?? 0;
+                  const sepKey = `${row.store_code}|${row.product_code}`;
+                  const sepQty = separateQtyMap[sepKey] ?? 0;
                   const outQty = row.assigned_qty;
                   const adjustedOutQty = Math.max(0, outQty - sepQty);
                   const origEffQty = effectiveQty(row);
@@ -3412,9 +3413,9 @@ export function VehiclePageScreen({
                             const raw = e.target.value;
                             const val = raw === "" ? 0 : parseInt(raw, 10);
                             if (isNaN(val) || val < 0) return;
-                            setSeparateQtyMap((prev) => ({ ...prev, [row.product_code]: val }));
+                            setSeparateQtyMap((prev) => ({ ...prev, [sepKey]: val }));
                             if (!wouldBeDecimal(row, val)) {
-                              void saveSeparateQty(row.product_code, row.product_name, val);
+                              void saveSeparateQty(row.store_code, row.store_name, row.product_code, row.product_name, val, row.center_unit);
                             }
                           }}
                           style={{ width: 72, padding: "4px 8px", border: isDecimal ? "1px solid #EF4444" : "1px solid #D1D9E0", borderRadius: 5, fontSize: 13, textAlign: "right", outline: "none", background: isDecimal ? "#FEF2F2" : "#fff" }}

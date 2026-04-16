@@ -551,15 +551,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         style={dropdownBoxStyle}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {OPERATION_ITEMS.filter((it) => canShow(it.key)).map((it) => {
-                          const base = it.href.split("?")[0];
-                          const active = pathname === base || pathname.startsWith(base + "/");
-                          return (
-                            <Link key={it.key} href={it.href} className="nav-dropdown-item" style={dropdownItemStyle(active)}>
-                              {it.label}
-                            </Link>
-                          );
-                        })}
+                        {(() => {
+                          const visibleItems = OPERATION_ITEMS.filter((it) => canShow(it.key));
+                          // 가장 긴 경로가 먼저 매칭되도록 best match 계산
+                          const bestBase = visibleItems.reduce<string | null>((best, it) => {
+                            const b = it.href.split("?")[0];
+                            if (pathname === b || pathname.startsWith(b + "/")) {
+                              if (!best || b.length > best.length) return b;
+                            }
+                            return best;
+                          }, null);
+                          return visibleItems.map((it) => {
+                            const base = it.href.split("?")[0];
+                            const active = base === bestBase;
+                            return (
+                              <Link key={it.key} href={it.href} className="nav-dropdown-item" style={dropdownItemStyle(active)}>
+                                {it.label}
+                              </Link>
+                            );
+                          });
+                        })()}
                       </div>
                     )}
                   </div>
