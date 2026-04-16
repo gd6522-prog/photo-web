@@ -267,7 +267,7 @@ export default function SeparatePage() {
                 style={{ pageBreakAfter: isLast ? "auto" : "always" }}
               >
                 {/* 타이틀 */}
-                <div style={{ textAlign: "center", marginBottom: 18 }}>
+                <div style={{ textAlign: "center", marginBottom: 36 }}>
                   <h1 style={{ fontSize: 22, fontWeight: 900, margin: 0 }}>별도작업 Picking List</h1>
                 </div>
 
