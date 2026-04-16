@@ -260,9 +260,9 @@ export default function SeparatePage() {
                 style={{ pageBreakAfter: isLast ? "auto" : "always" }}
               >
                 {/* 타이틀 */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                <div style={{ position: "relative", textAlign: "center", marginBottom: 6 }}>
                   <h1 style={{ fontSize: 22, fontWeight: 900, margin: 0 }}>별도작업 Picking List</h1>
-                  <span style={{ fontSize: 11, color: "#555" }}>일자: {printedAt}</span>
+                  <span style={{ position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)", fontSize: 11, color: "#555" }}>일자: {printedAt}</span>
                 </div>
 
                 {/* 점포 헤더 */}
@@ -280,18 +280,8 @@ export default function SeparatePage() {
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                   <thead>
                     <tr style={{ borderBottom: "2px solid #333" }}>
-                      {[
-                        { label: "피킹셀",   align: "left"   as const },
-                        { label: "상품코드", align: "left"   as const },
-                        { label: "상품명",   align: "left"   as const },
-                        { label: "박스입수", align: "right"  as const },
-                        { label: "피킹입수", align: "right"  as const },
-                        { label: "별도수량", align: "right"  as const },
-                        { label: "박스수량", align: "right"  as const },
-                        { label: "배수수량", align: "right"  as const },
-                        { label: "확인",     align: "center" as const },
-                      ].map(({ label, align }) => (
-                        <th key={label} style={{ padding: "5px 8px", textAlign: align, fontWeight: 700, whiteSpace: "nowrap" }}>
+                      {["피킹셀", "상품코드", "상품명", "박스입수", "피킹입수", "별도수량", "박스수량", "배수수량", "확인"].map((label) => (
+                        <th key={label} style={{ padding: "5px 8px", textAlign: "center", fontWeight: 700, whiteSpace: "nowrap" }}>
                           {label}
                         </th>
                       ))}
