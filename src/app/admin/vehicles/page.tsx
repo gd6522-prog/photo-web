@@ -2233,9 +2233,10 @@ export function VehiclePageScreen({
       .catch(() => setStoreContactIndex(new Map()));
   }, [tab]);
 
+  // 별도수량과 무관하게 productRows 원본 기준으로 계산 (cargoRows는 별도수량 차감 후라 변동됨)
   const totals = useMemo(
     () =>
-      cargoRows.reduce(
+      buildCargoDraftWithSep(productRows, {}).reduce(
         (acc, row) => {
           const sum = cargoTotals(row);
           acc.stores += 1;
@@ -2247,7 +2248,7 @@ export function VehiclePageScreen({
         },
         { stores: 0, large: 0, small: 0, tobacco: 0, water: 0 }
       ),
-    [cargoRows]
+    [productRows]
   );
 
   const reportDate = useMemo(() => {
