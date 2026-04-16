@@ -3154,6 +3154,7 @@ export function VehiclePageScreen({
 
   const printAllReports = (mode: "today" | "previous" | "next" | "all") => {
     if (reportGroups.length === 0) return;
+    setSupportMode(false);
     batchPrintRequestedRef.current = true;
     setBatchPrintMode(mode);
   };
