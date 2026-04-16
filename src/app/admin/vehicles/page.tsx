@@ -1928,6 +1928,12 @@ export function VehiclePageScreen({
   const [filterCell, setFilterCell] = useState("");
   const [filterProductCode, setFilterProductCode] = useState("");
   const [filterProductName, setFilterProductName] = useState("");
+  const [inputCarNo, setInputCarNo] = useState("");
+  const [inputStoreCode, setInputStoreCode] = useState("");
+  const [inputStoreName, setInputStoreName] = useState("");
+  const [inputCell, setInputCell] = useState("");
+  const [inputProductCode, setInputProductCode] = useState("");
+  const [inputProductName, setInputProductName] = useState("");
   const [cargoQueryInput, setCargoQueryInput] = useState("");
   const [cargoQuery, setCargoQuery] = useState("");
   const [cargoStoreQueryInput, setCargoStoreQueryInput] = useState("");
@@ -3321,12 +3327,12 @@ export function VehiclePageScreen({
             <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
               {(
                 [
-                  { label: "호차", value: filterCarNo, setter: setFilterCarNo, width: 90 },
-                  { label: "점포코드", value: filterStoreCode, setter: setFilterStoreCode, width: 100 },
-                  { label: "점포명", value: filterStoreName, setter: setFilterStoreName, width: 130 },
-                  { label: "셀", value: filterCell, setter: setFilterCell, width: 90 },
-                  { label: "상품코드", value: filterProductCode, setter: setFilterProductCode, width: 110 },
-                  { label: "상품명", value: filterProductName, setter: setFilterProductName, width: 140 },
+                  { label: "호차",   value: inputCarNo,      setter: setInputCarNo,      width: 90 },
+                  { label: "점포코드", value: inputStoreCode,   setter: setInputStoreCode,   width: 100 },
+                  { label: "점포명",  value: inputStoreName,   setter: setInputStoreName,   width: 130 },
+                  { label: "셀",     value: inputCell,        setter: setInputCell,        width: 90 },
+                  { label: "상품코드", value: inputProductCode, setter: setInputProductCode, width: 110 },
+                  { label: "상품명",  value: inputProductName, setter: setInputProductName, width: 140 },
                 ] as const
               ).map(({ label, value, setter, width }) => (
                 <div key={label} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
@@ -3334,6 +3340,17 @@ export function VehiclePageScreen({
                   <input
                     value={value}
                     onChange={(e) => setter(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter") return;
+                      e.preventDefault();
+                      setFilterCarNo(inputCarNo);
+                      setFilterStoreCode(inputStoreCode);
+                      setFilterStoreName(inputStoreName);
+                      setFilterCell(inputCell);
+                      setFilterProductCode(inputProductCode);
+                      setFilterProductName(inputProductName);
+                      setInputPage(1);
+                    }}
                     placeholder={label}
                     style={{
                       width,
@@ -3352,12 +3369,37 @@ export function VehiclePageScreen({
               ))}
               <button
                 onClick={() => {
-                  setFilterCarNo("");
-                  setFilterStoreCode("");
-                  setFilterStoreName("");
-                  setFilterCell("");
-                  setFilterProductCode("");
-                  setFilterProductName("");
+                  setFilterCarNo(inputCarNo);
+                  setFilterStoreCode(inputStoreCode);
+                  setFilterStoreName(inputStoreName);
+                  setFilterCell(inputCell);
+                  setFilterProductCode(inputProductCode);
+                  setFilterProductName(inputProductName);
+                  setInputPage(1);
+                }}
+                style={{
+                  height: 34,
+                  padding: "0 16px",
+                  borderRadius: 6,
+                  border: "none",
+                  background: "#1E293B",
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  alignSelf: "flex-end",
+                }}
+              >
+                조회
+              </button>
+              <button
+                onClick={() => {
+                  setInputCarNo(""); setFilterCarNo("");
+                  setInputStoreCode(""); setFilterStoreCode("");
+                  setInputStoreName(""); setFilterStoreName("");
+                  setInputCell(""); setFilterCell("");
+                  setInputProductCode(""); setFilterProductCode("");
+                  setInputProductName(""); setFilterProductName("");
                   setInputPage(1);
                 }}
                 style={{
