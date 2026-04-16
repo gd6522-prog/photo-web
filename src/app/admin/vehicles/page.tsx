@@ -3515,7 +3515,13 @@ export function VehiclePageScreen({
                             const raw = e.target.value;
                             const val = raw === "" ? 0 : parseInt(raw, 10);
                             if (isNaN(val) || val < 0) return;
-                            // 출고수량 이상이거나 출고배수가 소수점이 되는 경우 → 0으로 리셋
+                            setSeparateQtyMap((prev) => ({ ...prev, [sepKey]: val }));
+                          }}
+                          onBlur={(e) => {
+                            const raw = e.target.value;
+                            const val = raw === "" ? 0 : parseInt(raw, 10);
+                            if (isNaN(val) || val < 0) return;
+                            // 포커스 벗어날 때 검증: 출고수량 이상 또는 소수점 → 0으로 리셋
                             const safeVal = val >= row.assigned_qty || wouldBeDecimal(row, val) ? 0 : val;
                             setSeparateQtyMap((prev) => ({ ...prev, [sepKey]: safeVal }));
                             void saveSeparateQty(row.store_code, row.store_name, row.product_code, row.product_name, safeVal, row.center_unit);
