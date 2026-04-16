@@ -1409,7 +1409,9 @@ function WorkTypeOutboundCard() {
 
                     return (
                       <tr key={row.label} style={{ borderTop, borderBottom, background }}>
-                        <td style={{ padding: "9px 10px", fontSize: row.label === "올데이2L생수" || row.label === "노브랜드2L생수" ? 11.5 : 13, fontWeight: row.isSubtotal ? 950 : 800, color: "#0f2940", whiteSpace: "nowrap" }}>{row.label}</td>
+                        <td style={{ padding: "9px 10px", fontSize: row.label === "올데이2L생수" || row.label === "노브랜드2L생수" ? 11.5 : 13, fontWeight: row.isSubtotal ? 950 : 800, color: "#0f2940", whiteSpace: row.label === "올데이2L생수" || row.label === "노브랜드2L생수" ? "normal" : "nowrap" }}>
+                          {row.label === "올데이2L생수" ? <><span style={{ whiteSpace: "nowrap" }}>올데이</span><br /><span style={{ whiteSpace: "nowrap" }}>2L생수</span></> : row.label === "노브랜드2L생수" ? <><span style={{ whiteSpace: "nowrap" }}>노브랜드</span><br /><span style={{ whiteSpace: "nowrap" }}>2L생수</span></> : row.label}
+                        </td>
                         <td style={{ padding: "9px 8px", fontSize: 12.5, textAlign: "right", color: "#113247", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontWeight: row.isSubtotal ? 900 : 500 }}>{formatOutboundCount(row.general)}</td>
                         <td style={{ padding: "9px 8px", fontSize: 12.5, textAlign: "right", color: "#113247", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontWeight: row.isSubtotal ? 900 : 500 }}>{formatOutboundCount(row.newStore)}</td>
                         <td style={{ padding: "9px 8px", fontSize: 12.5, textAlign: "right", color: "#113247", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontWeight: row.isSubtotal ? 900 : 500 }}>{formatOutboundCount(row.campus)}</td>

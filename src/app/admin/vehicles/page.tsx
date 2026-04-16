@@ -3992,7 +3992,7 @@ export function VehiclePageScreen({
                       ...getCargoHeaderStyle(String(column.key)),
                     }}
                   >
-                    {column.label}
+                    {column.label === "올데이 2L생수" ? <><span style={{ whiteSpace: "nowrap" }}>올데이</span><br /><span style={{ whiteSpace: "nowrap" }}>2L생수</span></> : column.label === "노브랜드2L생수" ? <><span style={{ whiteSpace: "nowrap" }}>노브랜드</span><br /><span style={{ whiteSpace: "nowrap" }}>2L생수</span></> : column.label}
                   </th>
                 ))}
               </tr>
