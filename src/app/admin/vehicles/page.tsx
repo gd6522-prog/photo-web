@@ -3936,7 +3936,7 @@ export function VehiclePageScreen({
           </div>
 
           <div ref={cargoTableRef} style={cargoOnly
-            ? { border: "1px solid #E8EDF2", borderRadius: 10, background: "#fff", overflow: "auto", flex: 1, minHeight: 0, boxShadow: "0 1px 4px rgba(15,23,42,0.06)" }
+            ? { border: "1px solid #E8EDF2", borderRadius: 10, background: "transparent", overflow: "auto", flex: 1, minHeight: 0, boxShadow: "0 1px 4px rgba(15,23,42,0.06)" }
             : { border: "1px solid #E8EDF2", borderRadius: 10, background: "#fff", overflow: "auto", maxHeight: "70vh", boxShadow: "0 1px 4px rgba(15,23,42,0.06)" }
           }>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1600 }}>
@@ -4099,7 +4099,7 @@ export function VehiclePageScreen({
                   </tr>
                 );
               })}
-              {filteredCargoRows.length === 0 ? (
+              {cargoRows.length === 0 ? (
                 <tr>
                   <td colSpan={cargoColumns.length} style={{ padding: 32, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>
                     단품별 데이터를 먼저 불러와 주세요.
