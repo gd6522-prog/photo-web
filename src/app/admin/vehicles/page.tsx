@@ -1992,6 +1992,7 @@ export function VehiclePageScreen({
   const [adhesionSnapshot, setAdhesionSnapshot] = useState<AdhesionSnapshot | null>(null);
   const [cdcSnapshot, setCdcSnapshot] = useState<CdcSnapshot | null>(null);
   const [inputPage, setInputPage] = useState(1);
+  const [inputSearched, setInputSearched] = useState(false);
   const [storageReady, setStorageReady] = useState(false);
   const [driverIndex, setDriverIndex] = useState<Map<string, DriverProfile>>(new Map());
   const [storeContactIndex, setStoreContactIndex] = useState<Map<string, string>>(new Map());
@@ -2363,6 +2364,7 @@ export function VehiclePageScreen({
   }, [batchPrintMode, visibleReportGroups]);
 
   const filteredProductRows = useMemo(() => {
+    if (!inputSearched) return [];
     const n = normalizeStoreName;
     const fCarNo = n(filterCarNo);
     const fStoreCode = n(filterStoreCode);
@@ -2417,7 +2419,7 @@ export function VehiclePageScreen({
       return defaultSort(a, b);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productRows, filterCarNo, filterStoreCode, filterStoreName, filterCell, filterProductCode, filterProductName, inputSortKey, inputSortDir]);
+  }, [productRows, inputSearched, filterCarNo, filterStoreCode, filterStoreName, filterCell, filterProductCode, filterProductName, inputSortKey, inputSortDir]);
 
   const filteredCargoRows = useMemo(() => {
     const carQ = normalizeStoreName(cargoQuery);
@@ -2578,6 +2580,7 @@ export function VehiclePageScreen({
       setProductRows(mappedRows);
       setCargoRows(draft);
       setFileName(snapshot.fileName || file.name);
+      setInputSearched(false);
       setStoreQuery("");
       setStoreQueryInput("");
       setCargoQuery("");
@@ -3408,6 +3411,7 @@ export function VehiclePageScreen({
                       setFilterCell(refCell.current?.value ?? "");
                       setFilterProductCode(refProductCode.current?.value ?? "");
                       setFilterProductName(refProductName.current?.value ?? "");
+                      setInputSearched(true);
                       setInputPage(1);
                     }}
                     placeholder={label}
@@ -3434,6 +3438,7 @@ export function VehiclePageScreen({
                   setFilterCell(refCell.current?.value ?? "");
                   setFilterProductCode(refProductCode.current?.value ?? "");
                   setFilterProductName(refProductName.current?.value ?? "");
+                  setInputSearched(true);
                   setInputPage(1);
                 }}
                 style={{
@@ -3458,6 +3463,7 @@ export function VehiclePageScreen({
                   });
                   setFilterCarNo(""); setFilterStoreCode(""); setFilterStoreName("");
                   setFilterCell(""); setFilterProductCode(""); setFilterProductName("");
+                  setInputSearched(false);
                   setInputPage(1);
                 }}
                 style={{
@@ -3476,9 +3482,11 @@ export function VehiclePageScreen({
                 초기화
               </button>
               <div style={{ color: "#64748B", fontSize: 13, fontWeight: 700, alignSelf: "flex-end", paddingBottom: 7 }}>
-                {(filterCarNo || filterStoreCode || filterStoreName || filterCell || filterProductCode || filterProductName)
-                  ? `검색 결과 ${filteredProductRows.length}건`
-                  : `전체 ${filteredProductRows.length}건`}
+                {!inputSearched
+                  ? `전체 ${productRows.length}건 (조회 후 표시)`
+                  : (filterCarNo || filterStoreCode || filterStoreName || filterCell || filterProductCode || filterProductName)
+                    ? `검색 결과 ${filteredProductRows.length}건`
+                    : `전체 ${filteredProductRows.length}건`}
               </div>
             </div>
           </div>
@@ -3587,7 +3595,11 @@ export function VehiclePageScreen({
                 {pagedProductRows.length === 0 ? (
                   <tr>
                     <td colSpan={11} style={{ padding: 32, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>
-                      {productRows.length === 0 ? "아직 불러온 단품별 데이터가 없습니다." : "검색된 점포 발주현황이 없습니다."}
+                      {productRows.length === 0
+                        ? "아직 불러온 단품별 데이터가 없습니다."
+                        : !inputSearched
+                          ? "검색 조건 입력 후 조회 버튼을 눌러주세요."
+                          : "검색된 점포 발주현황이 없습니다."}
                     </td>
                   </tr>
                 ) : null}
