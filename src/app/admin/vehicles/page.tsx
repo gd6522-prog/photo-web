@@ -3341,8 +3341,8 @@ export function VehiclePageScreen({
               <tbody>
                 {pagedProductRows.map((row, index) => {
                   const sepQty = separateQtyMap[row.product_code] ?? 0;
-                  const baseQty = effectiveQty(row);
-                  const adjustedQty = Math.max(0, baseQty - sepQty);
+                  const outQty = row.assigned_qty;
+                  const adjustedOutQty = Math.max(0, outQty - sepQty);
                   return (
                     <tr key={`${row.store_name}-${row.product_code}-${index}`} style={{ background: "#fff" }}>
                       <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{row.car_no}</td>
@@ -3353,15 +3353,15 @@ export function VehiclePageScreen({
                       <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#64748B" }}>{row.cell_name}</td>
                       <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#64748B" }}>{row.product_code}</td>
                       <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{row.product_name}</td>
-                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{formatNumber(row.assigned_qty)}</td>
                       <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: sepQty > 0 ? "#0F172A" : "#374151", fontWeight: sepQty > 0 ? 700 : 400 }}>
                         {sepQty > 0 ? (
                           <span>
-                            <span style={{ color: "#94A3B8", textDecoration: "line-through", marginRight: 4, fontWeight: 400, fontSize: 12 }}>{formatNumber(baseQty)}</span>
-                            {formatNumber(adjustedQty)}
+                            <span style={{ color: "#94A3B8", textDecoration: "line-through", marginRight: 4, fontWeight: 400, fontSize: 12 }}>{formatNumber(outQty)}</span>
+                            {formatNumber(adjustedOutQty)}
                           </span>
-                        ) : formatNumber(baseQty)}
+                        ) : formatNumber(outQty)}
                       </td>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{formatNumber(effectiveQty(row))}</td>
                       <td style={{ padding: "7px 12px", borderBottom: "1px solid #F1F5F9" }}>
                         <input
                           type="number"
