@@ -1995,6 +1995,8 @@ export function VehiclePageScreen({
   const [inputSearched, setInputSearched] = useState(false);
   const [showSepOnly, setShowSepOnly] = useState(false);
   const [cargoVisibleCount, setCargoVisibleCount] = useState(50);
+  const [cargoLoadingMore, setCargoLoadingMore] = useState(false);
+  const cargoLoadingLockRef = useRef(false);
   const cargoSentinelRef = useRef<HTMLDivElement>(null);
   const [storageReady, setStorageReady] = useState(false);
   const [driverIndex, setDriverIndex] = useState<Map<string, DriverProfile>>(new Map());
@@ -2795,15 +2797,20 @@ export function VehiclePageScreen({
   // 필터/검색 변경 시 표시 개수 초기화
   useEffect(() => {
     setCargoVisibleCount(50);
+    setCargoLoadingMore(false);
+    cargoLoadingLockRef.current = false;
   }, [filteredCargoRows.length, showSupportOnly]);
 
   // 무한 스크롤: sentinel이 뷰포트에 들어오면 50개 추가
+  // lock ref로 연속 트리거 방지, 렌더 완료 후 lock 해제
   useEffect(() => {
     const sentinel = cargoSentinelRef.current;
     if (!sentinel) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting) {
+        if (entries[0]?.isIntersecting && !cargoLoadingLockRef.current) {
+          cargoLoadingLockRef.current = true;
+          setCargoLoadingMore(true);
           setCargoVisibleCount((prev) => Math.min(prev + 50, cargoDisplayRows.length));
         }
       },
@@ -2811,7 +2818,14 @@ export function VehiclePageScreen({
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [cargoDisplayRows.length, cargoSentinelRef]);
+  // cargoDisplayRows.length가 바뀔 때만 observer 재설정
+  }, [cargoDisplayRows.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 새 행이 실제로 렌더된 뒤 lock 해제 → 다음 스크롤 감지 가능
+  useEffect(() => {
+    cargoLoadingLockRef.current = false;
+    setCargoLoadingMore(false);
+  }, [cargoVisibleCount]);
 
   const resetStoredData = () => {
     setFileName("");
@@ -4096,8 +4110,10 @@ export function VehiclePageScreen({
             </table>
           </div>
           {cargoVisibleCount < cargoDisplayRows.length && (
-            <div ref={cargoSentinelRef} style={{ padding: "18px 0", textAlign: "center", color: "#94A3B8", fontSize: 13 }}>
-              스크롤하여 더 보기 ({cargoVisibleCount} / {cargoDisplayRows.length})
+            <div ref={cargoSentinelRef} style={{ padding: "18px 0", textAlign: "center", color: "#94A3B8", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+              {cargoLoadingMore
+                ? <><span className="ha-spinner" /><span>불러오는 중...</span></>
+                : <span>{cargoVisibleCount} / {cargoDisplayRows.length} · 스크롤하여 더 보기</span>}
             </div>
           )}
         </div>

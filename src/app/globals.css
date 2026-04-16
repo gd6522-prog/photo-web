@@ -26,8 +26,21 @@ body {
 .ha-surface {
   background:
     radial-gradient(32rem 32rem at -10% -10%, rgba(15, 118, 110, 0.18), transparent 60%),
-    radial-gradient(34rem 34rem at 110% 0%, rgba(22, 78, 99, 0.18), transparent 62%),
+    radial-gradient(34rem 34rem at 110% 0%, rgba(22, 78, 109, 0.18), transparent 62%),
     linear-gradient(180deg, #eef4f9 0%, #e8f0f6 100%);
+}
+
+@keyframes ha-spin {
+  to { transform: rotate(360deg); }
+}
+.ha-spinner {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  border: 3px solid #E2E8F0;
+  border-top-color: #64748B;
+  border-radius: 50%;
+  animation: ha-spin 0.75s linear infinite;
 }
 
 .ha-card {
