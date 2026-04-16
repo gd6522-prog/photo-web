@@ -290,18 +290,18 @@ export default function SeparatePage() {
                   <colgroup>
                     <col style={{ width: "9%" }} />
                     <col style={{ width: "13%" }} />
-                    <col style={{ width: "26%" }} />
-                    <col style={{ width: "7%" }} />
-                    <col style={{ width: "7%" }} />
+                    <col style={{ width: "22%" }} />
+                    <col style={{ width: "10%" }} />
+                    <col style={{ width: "10%" }} />
                     <col style={{ width: "9%" }} />
                     <col style={{ width: "9%" }} />
                     <col style={{ width: "9%" }} />
-                    <col style={{ width: "11%" }} />
+                    <col style={{ width: "9%" }} />
                   </colgroup>
                   <thead>
-                    <tr style={{ borderBottom: "2px solid #333" }}>
-                      {["피킹셀", "상품코드", "상품명", "박스입수", "피킹입수", "별도수량", "박스수량", "배수수량", "확인"].map((label) => (
-                        <th key={label} style={{ padding: "5px 4px", textAlign: "center", verticalAlign: "middle", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden" }}>
+                    <tr style={{ borderBottom: "2px solid #333", height: 32 }}>
+                      {["피킹셀", "상품코드", "상품명", "박스입수", "피킹입수", "출고수량", "박스수량", "배수수량", "확인"].map((label) => (
+                        <th key={label} style={{ padding: "5px 4px", textAlign: "center", verticalAlign: "middle", fontWeight: 700, whiteSpace: "nowrap" }}>
                           {label}
                         </th>
                       ))}
