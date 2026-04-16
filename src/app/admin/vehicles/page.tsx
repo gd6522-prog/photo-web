@@ -4161,8 +4161,7 @@ export function VehiclePageScreen({
 
       {tab === "report" ? (
         <div ref={reportPrintListRef} className="report-print-list" style={{ display: "grid", gap: 20 }}>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <div style={{ color: "#28485d", fontSize: 13, fontWeight: 800 }}>호차</div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <input
               value={reportCarNoInput}
               onChange={(event) => {
@@ -4187,28 +4186,30 @@ export function VehiclePageScreen({
               placeholder="호차 입력"
               inputMode="numeric"
               style={{
-                width: 120,
-                height: 40,
-                borderRadius: 0,
-                border: "1px solid #c7d6e3",
-                padding: "0 14px",
+                width: 110,
+                height: 38,
+                borderRadius: 7,
+                border: "1px solid #D1D9E0",
+                padding: "0 12px",
                 outline: "none",
                 background: "#fff",
                 fontWeight: 800,
-                color: "#28485d",
+                fontSize: 13,
+                color: "#0F172A",
               }}
             />
             <button
               onClick={printSelectedReport}
               disabled={!activeReportGroup || (supportMode && !supportAutoMode && !supportDriverNameInput.trim())}
               style={{
-                height: 40,
+                height: 38,
                 padding: "0 16px",
-                borderRadius: 0,
-                border: "1px solid #0f766e",
-                background: !activeReportGroup || (supportMode && !supportAutoMode && !supportDriverNameInput.trim()) ? "#cbd5e1" : "#0f766e",
+                borderRadius: 7,
+                border: "none",
+                background: !activeReportGroup || (supportMode && !supportAutoMode && !supportDriverNameInput.trim()) ? "#CBD5E1" : "#0f766e",
                 color: "#fff",
-                fontWeight: 900,
+                fontWeight: 700,
+                fontSize: 13,
                 cursor: !activeReportGroup || (supportMode && !supportAutoMode && !supportDriverNameInput.trim()) ? "not-allowed" : "pointer",
               }}
             >
@@ -4225,13 +4226,14 @@ export function VehiclePageScreen({
                 onClick={() => printAllReports(option.key as "today" | "previous" | "next" | "all")}
                 disabled={reportGroups.length === 0}
                 style={{
-                  height: 40,
+                  height: 38,
                   padding: "0 14px",
-                  borderRadius: 0,
-                  border: "1px solid #113247",
-                  background: reportGroups.length === 0 ? "#cbd5e1" : "#fff",
-                  color: "#113247",
-                  fontWeight: 900,
+                  borderRadius: 7,
+                  border: "1px solid #D1D9E0",
+                  background: reportGroups.length === 0 ? "#CBD5E1" : "#fff",
+                  color: reportGroups.length === 0 ? "#fff" : "#374151",
+                  fontWeight: 700,
+                  fontSize: 13,
                   cursor: reportGroups.length === 0 ? "not-allowed" : "pointer",
                 }}
               >
@@ -4258,13 +4260,14 @@ export function VehiclePageScreen({
               }}
               disabled={cargoRows.length === 0}
               style={{
-                height: 40,
+                height: 38,
                 padding: "0 16px",
-                borderRadius: 0,
-                border: "1px solid #0f766e",
-                background: cargoRows.length === 0 ? "#cbd5e1" : (supportMode && supportAutoMode) ? "#0f766e" : "#134e4a",
+                borderRadius: 7,
+                border: "none",
+                background: cargoRows.length === 0 ? "#CBD5E1" : (supportMode && supportAutoMode) ? "#0f766e" : "#134e4a",
                 color: "#fff",
-                fontWeight: 900,
+                fontWeight: 700,
+                fontSize: 13,
                 cursor: cargoRows.length === 0 ? "not-allowed" : "pointer",
               }}
             >
@@ -4281,13 +4284,14 @@ export function VehiclePageScreen({
               }}
               disabled={cargoRows.length === 0}
               style={{
-                height: 40,
+                height: 38,
                 padding: "0 16px",
-                borderRadius: 0,
-                border: "1px solid #113247",
-                background: cargoRows.length === 0 ? "#cbd5e1" : (supportMode && !supportAutoMode) ? "#0f766e" : "#113247",
+                borderRadius: 7,
+                border: "none",
+                background: cargoRows.length === 0 ? "#CBD5E1" : (supportMode && !supportAutoMode) ? "#0f766e" : "#1E293B",
                 color: "#fff",
-                fontWeight: 900,
+                fontWeight: 700,
+                fontSize: 13,
                 cursor: cargoRows.length === 0 ? "not-allowed" : "pointer",
               }}
             >
