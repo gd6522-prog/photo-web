@@ -3285,7 +3285,7 @@ export function VehiclePageScreen({
             ) : null}
           </div>
 
-          <div style={{ display: "flex", gap: 10, flex: 1 }}>
+          <div style={{ display: "flex", gap: 10, flex: 1, justifyContent: "center" }}>
             {[
               { label: "발주점포수", value: formatNumber(totals.stores) },
               { label: "대 물동량", value: formatNumber(totals.large) },
@@ -3293,7 +3293,7 @@ export function VehiclePageScreen({
               { label: "담배", value: formatNumber(totals.tobacco) },
               { label: "대생수", value: formatNumber(totals.water) },
             ].map((card) => (
-              <div key={card.label} style={{ border: "1px solid #E8EDF2", borderRadius: 10, background: "#fff", padding: "10px 20px", boxShadow: "0 1px 4px rgba(15,23,42,0.06)", minWidth: 90 }}>
+              <div key={card.label} style={{ border: "1px solid #E8EDF2", borderRadius: 10, background: "#fff", padding: "10px 0", boxShadow: "0 1px 4px rgba(15,23,42,0.06)", width: 110, textAlign: "center", flexShrink: 0 }}>
                 <div style={{ fontSize: 11, color: "#64748B", fontWeight: 700, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{card.label}</div>
                 <div style={{ fontSize: 22, color: "#0F172A", fontWeight: 800, marginTop: 4 }}>{card.value}</div>
               </div>
