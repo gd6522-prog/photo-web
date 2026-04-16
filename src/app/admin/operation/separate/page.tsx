@@ -292,13 +292,13 @@ export default function SeparatePage() {
                   <colgroup>
                     <col style={{ width: "9%" }} />
                     <col style={{ width: "14%" }} />
-                    <col style={{ width: "27%" }} />
+                    <col style={{ width: "24%" }} />
                     <col style={{ width: "10%" }} />
                     <col style={{ width: "10%" }} />
                     <col style={{ width: "9%" }} />
                     <col style={{ width: "9%" }} />
                     <col style={{ width: "9%" }} />
-                    <col style={{ width: "3%" }} />
+                    <col style={{ width: "6%" }} />
                   </colgroup>
                   <thead>
                     <tr style={{ borderBottom: "2px solid #333", height: 32 }}>
