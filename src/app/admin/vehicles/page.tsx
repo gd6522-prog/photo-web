@@ -528,7 +528,7 @@ const cargoColumns: Array<{ key: keyof CargoRow | "largeTotal" | "smallTotal" | 
   { key: "event", label: "행사", width: 80 },
   { key: "tobacco", label: "담배", width: 80 },
   { key: "certificate", label: "유가증권", width: 90 },
-  { key: "note", label: "지원기사", width: 180 },
+  { key: "note", label: "지원기사", width: 100 },
 ];
 
 const stickyCargoColumnKeys = ["support", "car_no", "seq_no", "store_code", "store_name"] as const;
@@ -765,7 +765,7 @@ const CargoDriverInput = React.memo(function CargoDriverInput({
           if (e.key === "Enter") { e.preventDefault(); commit(draft); e.currentTarget.blur(); }
           if (e.key === "Escape") { setOpen(false); }
         }}
-        style={{ width: "100%", minWidth: 120, height: 34, borderRadius: 0, border: "1px solid #d6e4ee", padding: "0 8px", outline: "none", boxSizing: "border-box" }}
+        style={{ width: "100%", minWidth: 60, height: 34, borderRadius: 0, border: "1px solid #d6e4ee", padding: "0 6px", outline: "none", boxSizing: "border-box", fontSize: 12 }}
       />
       {open && filtered.length > 0 && (
         <div style={{
