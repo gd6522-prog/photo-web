@@ -160,13 +160,23 @@ export default function SeparatePage() {
     });
   }, [entries, cellMap, sortKey, sortDir]);
 
-  // 인쇄 대상: 출고완료 제외, 피킹셀 오름차순
-  const printEntries = useMemo(() => {
-    return [...entries]
+  // 인쇄 대상: 출고완료 제외, 점포코드 오름차순 → 피킹셀 오름차순
+  const printGroups = useMemo(() => {
+    const filtered = [...entries]
       .filter((e) => !(doneMap[doneKey(e)] ?? false))
-      .sort((a, b) =>
-        (cellMap[a.product_code] ?? "").localeCompare(cellMap[b.product_code] ?? "", "ko", { numeric: true })
-      );
+      .sort((a, b) => {
+        const sc = a.store_code.localeCompare(b.store_code);
+        if (sc !== 0) return sc;
+        return (cellMap[a.product_code] ?? "").localeCompare(cellMap[b.product_code] ?? "", "ko", { numeric: true });
+      });
+
+    // 점포별 그룹핑 (삽입 순서 유지)
+    const map = new Map<string, { store_code: string; store_name: string; rows: typeof filtered }>();
+    for (const e of filtered) {
+      if (!map.has(e.store_code)) map.set(e.store_code, { store_code: e.store_code, store_name: e.store_name, rows: [] });
+      map.get(e.store_code)!.rows.push(e);
+    }
+    return Array.from(map.values());
   }, [entries, doneMap, cellMap]);
 
   function handleSort(key: SortKey) {
@@ -226,95 +236,104 @@ export default function SeparatePage() {
 
       {/* ── 인쇄 전용 레이아웃 (no-print-wrapper 밖에 위치) ── */}
       <div className="print-only">
-        <h1 style={{ fontSize: 20, fontWeight: 900, textAlign: "center", marginBottom: 8, marginTop: 0 }}>
-          별도작업 피킹 리스트
-        </h1>
-        <p style={{ textAlign: "center", fontSize: 12, marginTop: 0, marginBottom: 14 }}>
-          출고일: {new Date().toISOString().slice(0, 10)}
-        </p>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-          <thead>
-            <tr style={{ background: "#f0f0f0" }}>
-              {[
-                { label: "점포코드", align: "left" as const },
-                { label: "점포명",   align: "left" as const },
-                { label: "피킹셀",   align: "left" as const },
-                { label: "상품코드", align: "left" as const },
-                { label: "상품명",   align: "left" as const },
-                { label: "박스입수", align: "right" as const },
-                { label: "피킹입수", align: "right" as const },
-                { label: "출고수량", align: "right" as const },
-                { label: "박스수량", align: "right" as const },
-                { label: "배수수량", align: "right" as const },
-              ].map(({ label, align }) => (
-                <th
-                  key={label}
-                  style={{
-                    padding: "5px 6px",
-                    border: "1px solid #999",
-                    textAlign: align,
-                    fontWeight: 700,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {printEntries.length === 0 ? (
-              <tr>
-                <td colSpan={10} style={{ padding: 16, textAlign: "center", border: "1px solid #ccc" }}>
-                  출력할 데이터가 없습니다.
-                </td>
-              </tr>
-            ) : (
-              printEntries.map((entry, i) => {
-                const units = unitsMap[entry.product_code];
-                const boxUnit = units?.box_unit ?? 0;
-                const pickingUnit = units?.picking_unit ?? entry.center_unit ?? 0;
-                const boxQty = boxUnit > 0 ? Math.floor(entry.qty / boxUnit) : 0;
-                const remainQty = boxUnit > 0 ? entry.qty - boxQty * boxUnit : entry.qty;
-                const pickingCell = cellMap[entry.product_code] ?? "";
-                return (
-                  <tr key={`${entry.date}-${entry.store_code}-${entry.product_code}-${i}`}>
-                    <td style={{ padding: "4px 6px", border: "1px solid #ccc", whiteSpace: "nowrap" }}>
-                      {entry.store_code}
-                    </td>
-                    <td style={{ padding: "4px 6px", border: "1px solid #ccc", whiteSpace: "nowrap" }}>
-                      {entry.store_name}
-                    </td>
-                    <td style={{ padding: "4px 6px", border: "1px solid #ccc", whiteSpace: "nowrap" }}>
-                      {pickingCell || "-"}
-                    </td>
-                    <td style={{ padding: "4px 6px", border: "1px solid #ccc", whiteSpace: "nowrap" }}>
-                      {entry.product_code}
-                    </td>
-                    <td style={{ padding: "4px 6px", border: "1px solid #ccc", whiteSpace: "nowrap" }}>
-                      {entry.product_name}
-                    </td>
-                    <td style={{ padding: "4px 6px", border: "1px solid #ccc", textAlign: "right", whiteSpace: "nowrap" }}>
-                      {boxUnit > 0 ? formatNumber(boxUnit) : "-"}
-                    </td>
-                    <td style={{ padding: "4px 6px", border: "1px solid #ccc", textAlign: "right", whiteSpace: "nowrap" }}>
-                      {pickingUnit > 0 ? formatNumber(pickingUnit) : "-"}
-                    </td>
-                    <td style={{ padding: "4px 6px", border: "1px solid #ccc", textAlign: "right", whiteSpace: "nowrap" }}>
-                      {entry.qty > 0 ? formatNumber(entry.qty) : "-"}
-                    </td>
-                    <td style={{ padding: "4px 6px", border: "1px solid #ccc", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>
-                      {boxUnit > 0 ? (boxQty > 0 ? formatNumber(boxQty) : "-") : "-"}
-                    </td>
-                    <td style={{ padding: "4px 6px", border: "1px solid #ccc", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>
-                      {boxUnit > 0 ? (remainQty > 0 ? formatNumber(remainQty) : "-") : "-"}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+        {printGroups.length === 0 ? (
+          <p style={{ textAlign: "center", fontSize: 13 }}>출력할 데이터가 없습니다.</p>
+        ) : (
+          printGroups.map((group, gi) => {
+            // 점포 합계
+            let totalQtyG = 0, totalBoxQty = 0, totalRemainQty = 0;
+            for (const e of group.rows) {
+              const bu = unitsMap[e.product_code]?.box_unit ?? 0;
+              const bq = bu > 0 ? Math.floor(e.qty / bu) : 0;
+              const rq = bu > 0 ? e.qty - bq * bu : 0;
+              totalQtyG += e.qty;
+              totalBoxQty += bq;
+              totalRemainQty += rq;
+            }
+            const isLast = gi === printGroups.length - 1;
+            const today = new Date().toISOString().slice(0, 10);
+            const printedAt = new Date().toLocaleString("ko-KR", { hour12: false }).replace(/\. /g, "-").replace(".", "");
+
+            return (
+              <div
+                key={group.store_code}
+                style={{ pageBreakAfter: isLast ? "auto" : "always" }}
+              >
+                {/* 타이틀 */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+                  <h1 style={{ fontSize: 18, fontWeight: 900, margin: 0 }}>별도작업 Picking List</h1>
+                  <span style={{ fontSize: 10, color: "#555" }}>일자: {printedAt}</span>
+                </div>
+
+                {/* 점포 헤더 */}
+                <div style={{
+                  display: "flex", gap: 24, alignItems: "center",
+                  border: "1px solid #999", borderBottom: "none",
+                  background: "#f5f5f5", padding: "5px 8px", fontSize: 11, fontWeight: 700,
+                }}>
+                  <span>출고일: {today}</span>
+                  <span>점포코드: {group.store_code}</span>
+                  <span>점포명: {group.store_name}</span>
+                </div>
+
+                {/* 상품 테이블 */}
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                  <thead>
+                    <tr style={{ background: "#e8e8e8" }}>
+                      {[
+                        { label: "피킹셀",   align: "left"  as const },
+                        { label: "상품코드", align: "left"  as const },
+                        { label: "상품명",   align: "left"  as const },
+                        { label: "박스입수", align: "right" as const },
+                        { label: "피킹입수", align: "right" as const },
+                        { label: "별도수량", align: "right" as const },
+                        { label: "박스수량", align: "right" as const },
+                        { label: "배수수량", align: "right" as const },
+                        { label: "확인",     align: "center" as const },
+                      ].map(({ label, align }) => (
+                        <th key={label} style={{ padding: "4px 6px", border: "1px solid #999", textAlign: align, fontWeight: 700, whiteSpace: "nowrap" }}>
+                          {label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {group.rows.map((entry, i) => {
+                      const units = unitsMap[entry.product_code];
+                      const boxUnit = units?.box_unit ?? 0;
+                      const pickingUnit = units?.picking_unit ?? entry.center_unit ?? 0;
+                      const boxQty = boxUnit > 0 ? Math.floor(entry.qty / boxUnit) : 0;
+                      const remainQty = boxUnit > 0 ? entry.qty - boxQty * boxUnit : 0;
+                      const pickingCell = cellMap[entry.product_code] ?? "";
+                      return (
+                        <tr key={`${entry.store_code}-${entry.product_code}-${i}`} style={{ background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
+                          <td style={{ padding: "4px 6px", border: "1px solid #ccc", whiteSpace: "nowrap" }}>{pickingCell || "-"}</td>
+                          <td style={{ padding: "4px 6px", border: "1px solid #ccc", whiteSpace: "nowrap" }}>{entry.product_code}</td>
+                          <td style={{ padding: "4px 6px", border: "1px solid #ccc", whiteSpace: "nowrap" }}>{entry.product_name}</td>
+                          <td style={{ padding: "4px 6px", border: "1px solid #ccc", textAlign: "right", whiteSpace: "nowrap" }}>{boxUnit > 0 ? formatNumber(boxUnit) : "-"}</td>
+                          <td style={{ padding: "4px 6px", border: "1px solid #ccc", textAlign: "right", whiteSpace: "nowrap" }}>{pickingUnit > 0 ? formatNumber(pickingUnit) : "-"}</td>
+                          <td style={{ padding: "4px 6px", border: "1px solid #ccc", textAlign: "right", whiteSpace: "nowrap" }}>{entry.qty > 0 ? formatNumber(entry.qty) : "-"}</td>
+                          <td style={{ padding: "4px 6px", border: "1px solid #ccc", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{boxUnit > 0 ? (boxQty > 0 ? formatNumber(boxQty) : "-") : "-"}</td>
+                          <td style={{ padding: "4px 6px", border: "1px solid #ccc", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{boxUnit > 0 ? (remainQty > 0 ? formatNumber(remainQty) : "-") : "-"}</td>
+                          <td style={{ padding: "4px 6px", border: "1px solid #ccc", textAlign: "center", whiteSpace: "nowrap" }}></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ background: "#f0f0f0", fontWeight: 700 }}>
+                      <td colSpan={5} style={{ padding: "4px 6px", border: "1px solid #999", textAlign: "right" }}>합계</td>
+                      <td style={{ padding: "4px 6px", border: "1px solid #999", textAlign: "right" }}>{totalQtyG > 0 ? formatNumber(totalQtyG) : "-"}</td>
+                      <td style={{ padding: "4px 6px", border: "1px solid #999", textAlign: "right" }}>{totalBoxQty > 0 ? formatNumber(totalBoxQty) : "-"}</td>
+                      <td style={{ padding: "4px 6px", border: "1px solid #999", textAlign: "right" }}>{totalRemainQty > 0 ? formatNumber(totalRemainQty) : "-"}</td>
+                      <td style={{ padding: "4px 6px", border: "1px solid #999" }}></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* ── 화면 UI ── */}
