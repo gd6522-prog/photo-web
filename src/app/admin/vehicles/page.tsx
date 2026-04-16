@@ -1958,6 +1958,8 @@ export function VehiclePageScreen({
   const [reportPreviewScale, setReportPreviewScale] = useState(1);
   const [reportPreviewHeight, setReportPreviewHeight] = useState<number | null>(null);
   const [separateQtyMap, setSeparateQtyMap] = useState<Record<string, number>>({});
+  const [inputSortKey, setInputSortKey] = useState<string | null>(null);
+  const [inputSortDir, setInputSortDir] = useState<"asc" | "desc">("asc");
 
   useEffect(() => {
     if (allowedTabs.includes(tab)) return;
@@ -2329,18 +2331,39 @@ export function VehiclePageScreen({
         })
       : productRows;
 
-    return [...rows].sort((a, b) => {
+    const defaultSort = (a: ProductRow, b: ProductRow) => {
       const carDiff = a.car_no.localeCompare(b.car_no, "ko", { numeric: true });
       if (carDiff !== 0) return carDiff;
-
       if (a.seq_no !== b.seq_no) return a.seq_no - b.seq_no;
-
       const storeDiff = a.store_name.localeCompare(b.store_name, "ko");
       if (storeDiff !== 0) return storeDiff;
-
       return a.cell_name.localeCompare(b.cell_name, "ko", { numeric: true });
+    };
+
+    if (!inputSortKey) return [...rows].sort(defaultSort);
+
+    const dir = inputSortDir === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      let cmp = 0;
+      if (inputSortKey === "car_no") cmp = a.car_no.localeCompare(b.car_no, "ko", { numeric: true });
+      else if (inputSortKey === "seq_no") cmp = a.seq_no - b.seq_no;
+      else if (inputSortKey === "store_code") cmp = a.store_code.localeCompare(b.store_code, "ko");
+      else if (inputSortKey === "store_name") cmp = a.store_name.localeCompare(b.store_name, "ko");
+      else if (inputSortKey === "work_type") cmp = a.work_type.localeCompare(b.work_type, "ko");
+      else if (inputSortKey === "cell_name") cmp = a.cell_name.localeCompare(b.cell_name, "ko", { numeric: true });
+      else if (inputSortKey === "product_code") cmp = a.product_code.localeCompare(b.product_code, "ko");
+      else if (inputSortKey === "product_name") cmp = a.product_name.localeCompare(b.product_name, "ko");
+      else if (inputSortKey === "assigned_qty") cmp = a.assigned_qty - b.assigned_qty;
+      else if (inputSortKey === "effective_qty") cmp = effectiveQty(a) - effectiveQty(b);
+      else if (inputSortKey === "separate_qty") {
+        const ka = `${a.store_code}|${a.product_code}`;
+        const kb = `${b.store_code}|${b.product_code}`;
+        cmp = (separateQtyMap[ka] ?? 0) - (separateQtyMap[kb] ?? 0);
+      }
+      if (cmp !== 0) return cmp * dir;
+      return defaultSort(a, b);
     });
-  }, [productRows, filterCarNo, filterStoreCode, filterStoreName, filterCell, filterProductCode, filterProductName]);
+  }, [productRows, filterCarNo, filterStoreCode, filterStoreName, filterCell, filterProductCode, filterProductName, inputSortKey, inputSortDir, separateQtyMap]);
 
   const filteredCargoRows = useMemo(() => {
     const carQ = normalizeStoreName(cargoQuery);
@@ -2369,6 +2392,11 @@ export function VehiclePageScreen({
   useEffect(() => {
     setInputPage(1);
   }, [storeQuery, fileName, filterCarNo, filterStoreCode, filterStoreName, filterCell, filterProductCode, filterProductName]);
+
+  useEffect(() => {
+    setInputSortKey(null);
+    setInputSortDir("asc");
+  }, [fileName]);
 
   useEffect(() => {
     if (inputPage > inputPageCount) {
@@ -3359,11 +3387,43 @@ export function VehiclePageScreen({
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 980 }}>
               <thead>
                 <tr style={{ background: "#F8FAFC" }}>
-                  {["호차", "순번", "점포코드", "점포명", "작업구분", "셀", "상품코드", "상품명", "출고수량", "출고배수", "별도수량"].map((header) => (
-                    <th key={header} style={{ textAlign: "left", padding: "10px 12px", borderBottom: "2px solid #E8EDF2", fontSize: 12, fontWeight: 700, color: "#64748B" }}>
-                      {header}
-                    </th>
-                  ))}
+                  {(
+                    [
+                      { label: "호차",   key: "car_no" },
+                      { label: "순번",   key: "seq_no" },
+                      { label: "점포코드", key: "store_code" },
+                      { label: "점포명",  key: "store_name" },
+                      { label: "작업구분", key: "work_type" },
+                      { label: "셀",     key: "cell_name" },
+                      { label: "상품코드", key: "product_code" },
+                      { label: "상품명",  key: "product_name" },
+                      { label: "출고수량", key: "assigned_qty" },
+                      { label: "출고배수", key: "effective_qty" },
+                      { label: "별도수량", key: "separate_qty" },
+                    ] as const
+                  ).map(({ label, key }) => {
+                    const isActive = inputSortKey === key;
+                    return (
+                      <th
+                        key={key}
+                        onClick={() => {
+                          if (isActive) {
+                            setInputSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                          } else {
+                            setInputSortKey(key);
+                            setInputSortDir("asc");
+                          }
+                          setInputPage(1);
+                        }}
+                        style={{ textAlign: "left", padding: "10px 12px", borderBottom: "2px solid #E8EDF2", fontSize: 12, fontWeight: 700, color: isActive ? "#1E293B" : "#64748B", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
+                      >
+                        {label}
+                        <span style={{ marginLeft: 3, color: isActive ? "#3B82F6" : "#CBD5E1" }}>
+                          {isActive ? (inputSortDir === "asc" ? "↑" : "↓") : "↕"}
+                        </span>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
@@ -3413,9 +3473,11 @@ export function VehiclePageScreen({
                             const raw = e.target.value;
                             const val = raw === "" ? 0 : parseInt(raw, 10);
                             if (isNaN(val) || val < 0) return;
-                            setSeparateQtyMap((prev) => ({ ...prev, [sepKey]: val }));
-                            if (!wouldBeDecimal(row, val)) {
-                              void saveSeparateQty(row.store_code, row.store_name, row.product_code, row.product_name, val, row.center_unit);
+                            // 별도수량은 출고수량보다 클 수 없음 → 초과 시 자동 삭제
+                            const safeVal = val >= row.assigned_qty ? 0 : val;
+                            setSeparateQtyMap((prev) => ({ ...prev, [sepKey]: safeVal }));
+                            if (!wouldBeDecimal(row, safeVal)) {
+                              void saveSeparateQty(row.store_code, row.store_name, row.product_code, row.product_name, safeVal, row.center_unit);
                             }
                           }}
                           style={{ width: 72, padding: "4px 8px", border: isDecimal ? "1px solid #EF4444" : "1px solid #D1D9E0", borderRadius: 5, fontSize: 13, textAlign: "right", outline: "none", background: isDecimal ? "#FEF2F2" : "#fff" }}
