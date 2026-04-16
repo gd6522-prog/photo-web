@@ -4040,8 +4040,9 @@ export function VehiclePageScreen({
                             />
                           ) : editable ? (
                             <input
-                              value={typeof value === "number" ? formatNumber(value) : String(value ?? "")}
-                              onChange={(event) => updateCargoRow(entry.sourceIndex, column.key as keyof CargoRow, event.target.value)}
+                              key={`${row.id}-${String(column.key)}-${typeof value === "number" ? value : String(value ?? "")}`}
+                              defaultValue={typeof value === "number" ? String(value) : String(value ?? "")}
+                              onBlur={(event) => updateCargoRow(entry.sourceIndex, column.key as keyof CargoRow, event.target.value)}
                               style={{ width: "100%", minWidth: 60, height: 32, borderRadius: 6, border: "1px solid #D1D9E0", padding: "0 8px", outline: "none", fontSize: 13 }}
                             />
                           ) : (
