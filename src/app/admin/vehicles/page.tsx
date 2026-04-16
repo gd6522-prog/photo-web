@@ -1934,10 +1934,10 @@ export function VehiclePageScreen({
   const refCell = useRef<HTMLInputElement>(null);
   const refProductCode = useRef<HTMLInputElement>(null);
   const refProductName = useRef<HTMLInputElement>(null);
-  const [cargoQueryInput, setCargoQueryInput] = useState("");
   const [cargoQuery, setCargoQuery] = useState("");
-  const [cargoStoreQueryInput, setCargoStoreQueryInput] = useState("");
   const [storeSearchQuery, setStoreSearchQuery] = useState("");
+  const refCargoQuery = useRef<HTMLInputElement>(null);
+  const refCargoStoreQuery = useRef<HTMLInputElement>(null);
   const [showSupportOnly, setShowSupportOnly] = useState(false);
   const [largeLimit, setLargeLimit] = useState("");
   const [smallLimit, setSmallLimit] = useState("");
@@ -2524,7 +2524,8 @@ export function VehiclePageScreen({
       setStoreQuery("");
       setStoreQueryInput("");
       setCargoQuery("");
-      setCargoQueryInput("");
+      if (refCargoQuery.current) refCargoQuery.current.value = "";
+      if (refCargoStoreQuery.current) refCargoStoreQuery.current.value = "";
       setInputPage(1);
       setTab("cargo");
       setCargoDirty(false);
@@ -2730,7 +2731,8 @@ export function VehiclePageScreen({
     setStoreQuery("");
     setStoreQueryInput("");
     setCargoQuery("");
-    setCargoQueryInput("");
+    if (refCargoQuery.current) refCargoQuery.current.value = "";
+    if (refCargoStoreQuery.current) refCargoStoreQuery.current.value = "";
     setInputPage(1);
     setTab("input");
     setCargoDirty(false);
@@ -3624,12 +3626,13 @@ export function VehiclePageScreen({
         <div style={{ display: "grid", gap: 16 }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <input
-              value={cargoQueryInput}
-              onChange={(event) => setCargoQueryInput(event.target.value)}
+              ref={refCargoQuery}
+              defaultValue=""
               onKeyDown={(event) => {
                 if (event.key !== "Enter") return;
                 event.preventDefault();
-                setCargoQuery(cargoQueryInput);
+                setCargoQuery(refCargoQuery.current?.value ?? "");
+                setStoreSearchQuery(refCargoStoreQuery.current?.value ?? "");
               }}
               placeholder="호차 검색"
               style={{
@@ -3646,12 +3649,13 @@ export function VehiclePageScreen({
               }}
             />
             <input
-              value={cargoStoreQueryInput}
-              onChange={(e) => setCargoStoreQueryInput(e.target.value)}
+              ref={refCargoStoreQuery}
+              defaultValue=""
               onKeyDown={(e) => {
                 if (e.key !== "Enter") return;
                 e.preventDefault();
-                setStoreSearchQuery(cargoStoreQueryInput);
+                setCargoQuery(refCargoQuery.current?.value ?? "");
+                setStoreSearchQuery(refCargoStoreQuery.current?.value ?? "");
               }}
               placeholder="점포코드/점포명 검색"
               style={{
@@ -3668,7 +3672,10 @@ export function VehiclePageScreen({
               }}
             />
             <button
-              onClick={() => setStoreSearchQuery(cargoStoreQueryInput)}
+              onClick={() => {
+                setCargoQuery(refCargoQuery.current?.value ?? "");
+                setStoreSearchQuery(refCargoStoreQuery.current?.value ?? "");
+              }}
               style={{
                 height: 38,
                 padding: "0 16px",
@@ -3685,9 +3692,9 @@ export function VehiclePageScreen({
             </button>
             <button
               onClick={() => {
-                setCargoQueryInput("");
+                if (refCargoQuery.current) refCargoQuery.current.value = "";
+                if (refCargoStoreQuery.current) refCargoStoreQuery.current.value = "";
                 setCargoQuery("");
-                setCargoStoreQueryInput("");
                 setStoreSearchQuery("");
               }}
               style={{
