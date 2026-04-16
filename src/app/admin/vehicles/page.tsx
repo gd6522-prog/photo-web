@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
 
@@ -2008,6 +2008,9 @@ export function VehiclePageScreen({
   const [reportPreviewScale, setReportPreviewScale] = useState(1);
   const [reportPreviewHeight, setReportPreviewHeight] = useState<number | null>(null);
   const [separateQtyMap, setSeparateQtyMap] = useState<Record<string, number>>({});
+  const separateQtyMapRef = useRef(separateQtyMap);
+  separateQtyMapRef.current = separateQtyMap;
+  const [, startSepTransition] = useTransition();
   const [inputSortKey, setInputSortKey] = useState<string | null>(null);
   const [inputSortDir, setInputSortDir] = useState<"asc" | "desc">("asc");
 
@@ -2408,12 +2411,13 @@ export function VehiclePageScreen({
       else if (inputSortKey === "separate_qty") {
         const ka = `${a.store_code}|${a.product_code}`;
         const kb = `${b.store_code}|${b.product_code}`;
-        cmp = (separateQtyMap[ka] ?? 0) - (separateQtyMap[kb] ?? 0);
+        cmp = (separateQtyMapRef.current[ka] ?? 0) - (separateQtyMapRef.current[kb] ?? 0);
       }
       if (cmp !== 0) return cmp * dir;
       return defaultSort(a, b);
     });
-  }, [productRows, filterCarNo, filterStoreCode, filterStoreName, filterCell, filterProductCode, filterProductName, inputSortKey, inputSortDir, separateQtyMap]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productRows, filterCarNo, filterStoreCode, filterStoreName, filterCell, filterProductCode, filterProductName, inputSortKey, inputSortDir]);
 
   const filteredCargoRows = useMemo(() => {
     const carQ = normalizeStoreName(cargoQuery);
@@ -2460,15 +2464,17 @@ export function VehiclePageScreen({
   }, [productRows]);
 
   // separateQtyMap 또는 productRows가 바뀌면 cargoRows 재계산 (note/support_excluded 보존)
+  // 단품별 전용 페이지(cargo 탭 없음)에서는 불필요한 재계산 생략
   useEffect(() => {
     if (productRows.length === 0) return;
+    if (!allowedTabs.includes("cargo")) return;
     setCargoRows((prev) => mergeCargoPreserve(prev, buildCargoDraftWithSep(productRows, separateQtyMap)));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [separateQtyMap, productRows]);
 
   useEffect(() => {
     if (!deliveryDateISO) {
-      setSeparateQtyMap({});
+      startSepTransition(() => setSeparateQtyMap({}));
       return;
     }
     void (async () => {
@@ -2484,7 +2490,7 @@ export function VehiclePageScreen({
         for (const [entryKey, entry] of Object.entries(payload.data ?? {})) {
           if ((entry.qty ?? 0) > 0) qtyMap[entryKey] = entry.qty;
         }
-        setSeparateQtyMap(qtyMap);
+        startSepTransition(() => setSeparateQtyMap(qtyMap));
       } catch {
         // ignore
       }
