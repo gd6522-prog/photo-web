@@ -1997,7 +1997,7 @@ export function VehiclePageScreen({
   const [cargoVisibleCount, setCargoVisibleCount] = useState(50);
   const [cargoLoadingMore, setCargoLoadingMore] = useState(false);
   const cargoLoadingLockRef = useRef(false);
-  const cargoSentinelRef = useRef<HTMLDivElement>(null);
+  const cargoTableRef = useRef<HTMLDivElement>(null);
   const [storageReady, setStorageReady] = useState(false);
   const [driverIndex, setDriverIndex] = useState<Map<string, DriverProfile>>(new Map());
   const [storeContactIndex, setStoreContactIndex] = useState<Map<string, string>>(new Map());
@@ -2801,27 +2801,28 @@ export function VehiclePageScreen({
     cargoLoadingLockRef.current = false;
   }, [filteredCargoRows.length, showSupportOnly]);
 
-  // 무한 스크롤: sentinel이 뷰포트에 들어오면 50개 추가
-  // lock ref로 연속 트리거 방지, 렌더 완료 후 lock 해제
+  // 무한 스크롤: 테이블 wrapper 스크롤 이벤트로 하단 200px 진입 시 50개 추가
   useEffect(() => {
-    const sentinel = cargoSentinelRef.current;
-    if (!sentinel) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting && !cargoLoadingLockRef.current) {
-          cargoLoadingLockRef.current = true;
-          setCargoLoadingMore(true);
-          setCargoVisibleCount((prev) => Math.min(prev + 50, cargoDisplayRows.length));
-        }
-      },
-      { threshold: 0.1 },
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  // cargoDisplayRows.length가 바뀔 때만 observer 재설정
-  }, [cargoDisplayRows.length]); // eslint-disable-line react-hooks/exhaustive-deps
+    const div = cargoTableRef.current;
+    if (!div) return;
+    const onScroll = () => {
+      if (cargoLoadingLockRef.current) return;
+      if (cargoVisibleCount >= cargoDisplayRows.length) return;
+      const { scrollTop, scrollHeight, clientHeight } = div;
+      if (scrollHeight - scrollTop - clientHeight < 200) {
+        cargoLoadingLockRef.current = true;
+        setCargoLoadingMore(true);
+        setCargoVisibleCount((prev) => {
+          const next = Math.min(prev + 50, cargoDisplayRows.length);
+          return next;
+        });
+      }
+    };
+    div.addEventListener("scroll", onScroll);
+    return () => div.removeEventListener("scroll", onScroll);
+  }, [cargoDisplayRows.length, cargoVisibleCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 새 행이 실제로 렌더된 뒤 lock 해제 → 다음 스크롤 감지 가능
+  // 새 행 렌더 완료 후 lock 해제
   useEffect(() => {
     cargoLoadingLockRef.current = false;
     setCargoLoadingMore(false);
@@ -3135,9 +3136,19 @@ export function VehiclePageScreen({
 
   const cargoOnly = allowedTabs.length === 1 && allowedTabs[0] === "cargo";
 
+  useEffect(() => {
+    if (!cargoOnly) return;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+    };
+  }, [cargoOnly]);
+
   return (
     <div style={cargoOnly
-      ? { display: "flex", flexDirection: "column", gap: 8, height: "calc(100vh - 56px)", overflow: "hidden" }
+      ? { display: "flex", flexDirection: "column", gap: 8, height: "calc(100vh - 82px)", overflow: "hidden" }
       : { display: "grid", gap: 16 }
     } className="vehicle-page">
       <style jsx global>{`
@@ -3959,7 +3970,7 @@ export function VehiclePageScreen({
             </div>
           </div>
 
-          <div style={cargoOnly
+          <div ref={cargoTableRef} style={cargoOnly
             ? { border: "1px solid #E8EDF2", borderRadius: 10, background: "#fff", overflow: "auto", flex: 1, minHeight: 0, boxShadow: "0 1px 4px rgba(15,23,42,0.06)" }
             : { border: "1px solid #E8EDF2", borderRadius: 10, background: "#fff", overflow: "auto", maxHeight: "70vh", boxShadow: "0 1px 4px rgba(15,23,42,0.06)" }
           }>
@@ -4134,7 +4145,7 @@ export function VehiclePageScreen({
             </table>
           </div>
           {cargoVisibleCount < cargoDisplayRows.length && (
-            <div ref={cargoSentinelRef} style={{ padding: "18px 0", textAlign: "center", color: "#94A3B8", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+            <div style={{ padding: "18px 0", textAlign: "center", color: "#94A3B8", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
               {cargoLoadingMore
                 ? <><span className="ha-spinner" /><span>불러오는 중...</span></>
                 : <span>{cargoVisibleCount} / {cargoDisplayRows.length} · 스크롤하여 더 보기</span>}
