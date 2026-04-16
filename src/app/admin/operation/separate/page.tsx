@@ -14,6 +14,11 @@ type SeparateEntry = {
   done?: boolean;
 };
 
+type ProductUnits = {
+  box_unit: number;    // 센터발주입수 (박스입수)
+  picking_unit: number; // 센터피킹입수 (피킹입수)
+};
+
 type SortKey = "date" | "store_code" | "store_name" | "picking_cell" | "product_code" | "product_name" | "qty" | "separate_unit";
 type SortDir = "asc" | "desc";
 
@@ -56,6 +61,7 @@ function doneKey(entry: SeparateEntry) {
 export default function SeparatePage() {
   const [entries, setEntries] = useState<SeparateEntry[]>([]);
   const [cellMap, setCellMap] = useState<Record<string, string>>({});
+  const [unitsMap, setUnitsMap] = useState<Record<string, ProductUnits>>({});
   const [doneMap, setDoneMap] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -68,27 +74,35 @@ export default function SeparatePage() {
         setLoading(true);
         const token = await getAdminToken();
 
-        // 집계 + 셀 한 번에 읽기
-        let entriesRes = await fetch("/api/admin/separate-qty?all=1", {
+        // 집계 + 셀 + 마스터입수 병렬 읽기
+        let entriesRes = fetch("/api/admin/separate-qty?all=1", {
           headers: { Authorization: `Bearer ${token}` },
           cache: "no-store",
         });
-        if (!entriesRes.ok) { setError("데이터를 불러오지 못했습니다."); return; }
+        const unitsRes = fetch("/api/admin/workcenter-product-units", {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
 
-        let payload = (await entriesRes.json()) as { ok: boolean; entries?: SeparateEntry[]; cells?: Record<string, string>; needsRebuild?: boolean };
+        const [eRes, uRes] = await Promise.all([entriesRes, unitsRes]);
+        if (!eRes.ok) { setError("데이터를 불러오지 못했습니다."); return; }
+
+        let payload = (await eRes.json()) as { ok: boolean; entries?: SeparateEntry[]; cells?: Record<string, string>; needsRebuild?: boolean };
+        const unitsPayload = uRes.ok ? (await uRes.json()) as { units?: Record<string, ProductUnits> } : { units: {} };
 
         // 집계 없음 → rebuild 요청 (한 번만)
         if (payload.needsRebuild) {
-          entriesRes = await fetch("/api/admin/separate-qty?all=1&rebuild=1", {
+          const rebuildRes = await fetch("/api/admin/separate-qty?all=1&rebuild=1", {
             headers: { Authorization: `Bearer ${token}` },
             cache: "no-store",
           });
-          if (entriesRes.ok) payload = (await entriesRes.json()) as typeof payload;
+          if (rebuildRes.ok) payload = (await rebuildRes.json()) as typeof payload;
         }
 
         const loaded = payload.entries ?? [];
         setEntries(loaded);
         setCellMap(payload.cells ?? {});
+        setUnitsMap(unitsPayload.units ?? {});
         const dm: Record<string, boolean> = {};
         for (const e of loaded) { if (e.done) dm[doneKey(e)] = true; }
         setDoneMap(dm);
@@ -146,6 +160,15 @@ export default function SeparatePage() {
     });
   }, [entries, cellMap, sortKey, sortDir]);
 
+  // 인쇄 대상: 출고완료 제외, 피킹셀 오름차순
+  const printEntries = useMemo(() => {
+    return [...entries]
+      .filter((e) => !(doneMap[doneKey(e)] ?? false))
+      .sort((a, b) =>
+        (cellMap[a.product_code] ?? "").localeCompare(cellMap[b.product_code] ?? "", "ko", { numeric: true })
+      );
+  }, [entries, doneMap, cellMap]);
+
   function handleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
@@ -174,10 +197,145 @@ export default function SeparatePage() {
   ];
 
   return (
-    <div style={{ padding: "32px 24px", maxWidth: 1100, margin: "0 auto" }}>
+    <div style={{ padding: "32px 24px", maxWidth: 1100, margin: "0 auto" }} className="no-print-wrapper">
+      {/* ── 인쇄 스타일 ── */}
+      <style>{`
+        @media print {
+          @page { size: A4 portrait; margin: 10mm; }
+
+          /* 화면 UI 전체 숨김 */
+          .no-print-wrapper { display: none !important; }
+
+          /* 인쇄 전용 테이블 표시 */
+          .print-only { display: block !important; }
+
+          /* 행 잘림 방지 */
+          tr { page-break-inside: avoid; }
+
+          /* 헤더 페이지마다 반복 */
+          thead { display: table-header-group; }
+
+          body { margin: 0; padding: 0; }
+        }
+
+        .print-only { display: none; }
+      `}</style>
+
+      {/* ── 인쇄 전용 레이아웃 ── */}
+      <div className="print-only">
+        <h1 style={{ fontSize: 20, fontWeight: 900, textAlign: "center", marginBottom: 16, marginTop: 0 }}>
+          별도작업 피킹 리스트
+        </h1>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+          <thead>
+            <tr style={{ background: "#f0f0f0" }}>
+              {[
+                { label: "점포코드", align: "left" as const },
+                { label: "점포명",   align: "left" as const },
+                { label: "피킹셀",   align: "left" as const },
+                { label: "상품코드", align: "left" as const },
+                { label: "상품명",   align: "left" as const },
+                { label: "박스입수", align: "right" as const },
+                { label: "피킹입수", align: "right" as const },
+                { label: "출고수량", align: "right" as const },
+                { label: "박스수량", align: "right" as const },
+                { label: "배수수량", align: "right" as const },
+              ].map(({ label, align }) => (
+                <th
+                  key={label}
+                  style={{
+                    padding: "5px 6px",
+                    border: "1px solid #999",
+                    textAlign: align,
+                    fontWeight: 700,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {printEntries.length === 0 ? (
+              <tr>
+                <td colSpan={10} style={{ padding: 16, textAlign: "center", border: "1px solid #ccc" }}>
+                  출력할 데이터가 없습니다.
+                </td>
+              </tr>
+            ) : (
+              printEntries.map((entry, i) => {
+                const units = unitsMap[entry.product_code];
+                const boxUnit = units?.box_unit ?? 0;
+                const pickingUnit = units?.picking_unit ?? entry.center_unit ?? 0;
+                const boxQty = boxUnit > 0 ? Math.floor(entry.qty / boxUnit) : 0;
+                const remainQty = boxUnit > 0 ? entry.qty - boxQty * boxUnit : entry.qty;
+                const pickingCell = cellMap[entry.product_code] ?? "";
+                return (
+                  <tr key={`${entry.date}-${entry.store_code}-${entry.product_code}-${i}`}>
+                    <td style={{ padding: "4px 6px", border: "1px solid #ccc", whiteSpace: "nowrap" }}>
+                      {entry.store_code}
+                    </td>
+                    <td style={{ padding: "4px 6px", border: "1px solid #ccc" }}>
+                      {entry.store_name}
+                    </td>
+                    <td style={{ padding: "4px 6px", border: "1px solid #ccc", whiteSpace: "nowrap" }}>
+                      {pickingCell || "-"}
+                    </td>
+                    <td style={{ padding: "4px 6px", border: "1px solid #ccc", whiteSpace: "nowrap" }}>
+                      {entry.product_code}
+                    </td>
+                    <td style={{ padding: "4px 6px", border: "1px solid #ccc" }}>
+                      {entry.product_name}
+                    </td>
+                    <td style={{ padding: "4px 6px", border: "1px solid #ccc", textAlign: "right", whiteSpace: "nowrap" }}>
+                      {boxUnit > 0 ? formatNumber(boxUnit) : "-"}
+                    </td>
+                    <td style={{ padding: "4px 6px", border: "1px solid #ccc", textAlign: "right", whiteSpace: "nowrap" }}>
+                      {pickingUnit > 0 ? formatNumber(pickingUnit) : "-"}
+                    </td>
+                    <td style={{ padding: "4px 6px", border: "1px solid #ccc", textAlign: "right", whiteSpace: "nowrap" }}>
+                      {formatNumber(entry.qty)}
+                    </td>
+                    <td style={{ padding: "4px 6px", border: "1px solid #ccc", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>
+                      {boxUnit > 0 ? formatNumber(boxQty) : "-"}
+                    </td>
+                    <td style={{ padding: "4px 6px", border: "1px solid #ccc", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>
+                      {boxUnit > 0 ? formatNumber(remainQty) : "-"}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ── 화면 UI ── */}
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0F172A", margin: 0 }}>별도작업</h1>
-        <p style={{ fontSize: 13, color: "#64748B", marginTop: 6 }}>단품별 페이지에서 입력된 별도수량 내역입니다.</p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0F172A", margin: 0 }}>별도작업</h1>
+            <p style={{ fontSize: 13, color: "#64748B", marginTop: 6 }}>단품별 페이지에서 입력된 별도수량 내역입니다.</p>
+          </div>
+          <button
+            onClick={() => window.print()}
+            style={{
+              padding: "8px 18px",
+              background: "#1D4ED8",
+              color: "#fff",
+              border: "none",
+              borderRadius: 7,
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+              marginTop: 4,
+            }}
+          >
+            인쇄
+          </button>
+        </div>
       </div>
 
       {loading ? (
