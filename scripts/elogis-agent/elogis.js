@@ -30,7 +30,7 @@ async function createSession(id, pw, log, { headless = true, useSystemChrome = f
     ],
   };
   if (useSystemChrome) {
-    launchOptions.channel = "chrome";
+    launchOptions.executablePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
   }
   const browser = await chromium.launch(launchOptions);
   const context = await browser.newContext({
