@@ -274,6 +274,45 @@ export default function VehicleHistoryUploadPage() {
 
   const handleStop  = () => { abortRef.current = true; };
 
+  // 선택 날짜의 daily 스냅샷을 현재(latest.json)로 복원
+  const handleRestoreAsCurrent = async (date: string) => {
+    if (!confirm(`${date} 데이터를 현재 단품별/물동량 데이터로 복원할까요?`)) return;
+    setRestoring(true);
+    setRestoreMsg("");
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session?.session?.access_token;
+      if (!token) { setRestoreMsg("로그인이 필요합니다."); return; }
+
+      // 1. 해당 날짜의 daily 스냅샷 읽기
+      const getRes = await fetch(`/api/admin/vehicles/current?date=${date}&includeSnapshot=1`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const getData = await getRes.json();
+      if (!getRes.ok || !getData.ok || !getData.data?.snapshot) {
+        setRestoreMsg(getData.message ?? "스냅샷을 불러오지 못했습니다.");
+        return;
+      }
+
+      // 2. latest.json으로 저장
+      const putRes = await fetch("/api/admin/vehicles/current", {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ snapshot: getData.data.snapshot }),
+      });
+      const putData = await putRes.json();
+      if (!putRes.ok || !putData.ok) {
+        setRestoreMsg(putData.message ?? "복원에 실패했습니다.");
+      } else {
+        setRestoreMsg(`✅ ${date} 데이터로 복원 완료`);
+      }
+    } catch (e: any) {
+      setRestoreMsg(e?.message ?? "오류 발생");
+    } finally {
+      setRestoring(false);
+    }
+  };
+
   const handleReset = () => {
     setFiles([]);
     if (inputRef.current) {
@@ -289,6 +328,8 @@ export default function VehicleHistoryUploadPage() {
   // ── 현재 latest.json → daily 재생성 ──────────────────────────────────
   const [rebuilding, setRebuilding] = useState(false);
   const [rebuildMsg, setRebuildMsg] = useState("");
+  const [restoring, setRestoring] = useState(false);
+  const [restoreMsg, setRestoreMsg] = useState("");
 
   const handleRebuildDaily = async () => {
     setRebuilding(true);
@@ -478,20 +519,41 @@ export default function VehicleHistoryUploadPage() {
                 marginTop: 16, padding: "14px 16px", borderRadius: 10,
                 background: "#f0fdf4", border: "1.5px solid #bbf7d0",
               }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: "#0f766e", marginBottom: 4 }}>{selectedDate}</div>
-                {dateInfoLoading ? (
-                  <div style={{ fontSize: 12, color: "#64748b" }}>파일명 조회 중...</div>
-                ) : dateInfo ? (
-                  <>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", wordBreak: "break-all" }}>{dateInfo.fileName || "파일명 없음"}</div>
-                    {dateInfo.uploadedAt && (
-                      <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
-                        업로드: {new Date(dateInfo.uploadedAt).toLocaleString("ko-KR")}
-                      </div>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: "#0f766e", marginBottom: 4 }}>{selectedDate}</div>
+                    {dateInfoLoading ? (
+                      <div style={{ fontSize: 12, color: "#64748b" }}>파일명 조회 중...</div>
+                    ) : dateInfo ? (
+                      <>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", wordBreak: "break-all" }}>{dateInfo.fileName || "파일명 없음"}</div>
+                        {dateInfo.uploadedAt && (
+                          <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
+                            업로드: {new Date(dateInfo.uploadedAt).toLocaleString("ko-KR")}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div style={{ fontSize: 12, color: "#ef4444" }}>정보를 불러올 수 없습니다.</div>
                     )}
-                  </>
-                ) : (
-                  <div style={{ fontSize: 12, color: "#ef4444" }}>정보를 불러올 수 없습니다.</div>
+                  </div>
+                  <button
+                    onClick={() => void handleRestoreAsCurrent(selectedDate)}
+                    disabled={restoring || dateInfoLoading || !dateInfo}
+                    style={{
+                      flexShrink: 0, padding: "8px 16px", borderRadius: 8,
+                      border: "none", background: restoring ? "#cbd5e1" : "#1E293B",
+                      color: "#fff", fontWeight: 700, fontSize: 13,
+                      cursor: restoring || dateInfoLoading || !dateInfo ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {restoring ? "복원 중..." : "현재 데이터로 복원"}
+                  </button>
+                </div>
+                {restoreMsg && (
+                  <div style={{ marginTop: 8, fontSize: 12, fontWeight: 700, color: restoreMsg.startsWith("✅") ? "#0f766e" : "#ef4444" }}>
+                    {restoreMsg}
+                  </div>
                 )}
               </div>
             )}
