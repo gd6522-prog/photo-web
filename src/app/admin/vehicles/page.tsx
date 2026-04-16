@@ -1488,8 +1488,7 @@ function buildSupportReportGroups(
     });
 }
 
-function updateCargoByProduct(target: CargoRow, row: ProductRow) {
-  const qty = effectiveQty(row);
+function applyQtyToCargoField(target: CargoRow, row: ProductRow, qty: number) {
   if (qty <= 0) return;
 
   const workType = row.work_type.replace(/\s+/g, "").toLowerCase();
@@ -1557,6 +1556,51 @@ function updateCargoByProduct(target: CargoRow, row: ProductRow) {
   }
 
   target.large_other += qty;
+}
+
+function updateCargoByProduct(target: CargoRow, row: ProductRow) {
+  applyQtyToCargoField(target, row, effectiveQty(row));
+}
+
+function buildCargoDraftWithSep(rows: ProductRow[], sepMap: Record<string, number>) {
+  const grouped = new Map<string, CargoRow>();
+  for (const row of rows) {
+    const key = `${row.car_no}__${row.seq_no}__${row.store_name}`;
+    const current =
+      grouped.get(key) ??
+      {
+        id: key,
+        support_excluded: false,
+        note: "",
+        car_no: row.car_no,
+        seq_no: row.seq_no,
+        store_code: row.store_code,
+        store_name: row.store_name,
+        large_box: 0, large_inner: 0, large_other: 0, large_day2l: 0, large_nb2l: 0,
+        small_low: 0, small_high: 0, event: 0, tobacco: 0, certificate: 0, cdc: 0, pbox: 0,
+        standard_time: row.delivery_due_time || "",
+        address: row.address || "",
+      };
+    const sepQty = sepMap[`${row.store_code}|${row.product_code}`] ?? 0;
+    applyQtyToCargoField(current, row, adjustedEffectiveQty(row, sepQty));
+    grouped.set(key, current);
+  }
+  return [...grouped.values()].sort((a, b) => {
+    const carDiff = a.car_no.localeCompare(b.car_no, "ko", { numeric: true });
+    if (carDiff !== 0) return carDiff;
+    if (a.seq_no !== b.seq_no) return a.seq_no - b.seq_no;
+    return a.store_name.localeCompare(b.store_name, "ko");
+  });
+}
+
+// cargoRows 재계산 후 note/support_excluded 등 사용자 편집 필드 보존
+function mergeCargoPreserve(existing: CargoRow[], rebuilt: CargoRow[]): CargoRow[] {
+  const existingMap = new Map(existing.map((r) => [r.id, r]));
+  return rebuilt.map((newRow) => {
+    const ex = existingMap.get(newRow.id);
+    if (!ex) return newRow;
+    return { ...newRow, note: ex.note, support_excluded: ex.support_excluded };
+  });
 }
 
 function buildCargoDraft(rows: ProductRow[]) {
@@ -2414,6 +2458,13 @@ export function VehiclePageScreen({
     const baseDate = productRows.find((r) => r.delivery_date)?.delivery_date ?? "";
     return toISODate(baseDate);
   }, [productRows]);
+
+  // separateQtyMap 또는 productRows가 바뀌면 cargoRows 재계산 (note/support_excluded 보존)
+  useEffect(() => {
+    if (productRows.length === 0) return;
+    setCargoRows((prev) => mergeCargoPreserve(prev, buildCargoDraftWithSep(productRows, separateQtyMap)));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [separateQtyMap, productRows]);
 
   useEffect(() => {
     if (!deliveryDateISO) {
