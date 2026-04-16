@@ -3133,8 +3133,13 @@ export function VehiclePageScreen({
 
   const topCardStyle = cardStyle();
 
+  const cargoOnly = allowedTabs.length === 1 && allowedTabs[0] === "cargo";
+
   return (
-    <div style={{ display: "grid", gap: 16 }} className="vehicle-page">
+    <div style={cargoOnly
+      ? { display: "flex", flexDirection: "column", gap: 8, height: "calc(100vh - 56px)", overflow: "hidden" }
+      : { display: "grid", gap: 16 }
+    } className="vehicle-page">
       <style jsx global>{`
         @keyframes vehicle-spin {
           from {
@@ -3267,9 +3272,11 @@ export function VehiclePageScreen({
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
           <div>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#0F172A", letterSpacing: "-0.02em" }}>{title}</div>
-            <div style={{ marginTop: 4, color: "#94A3B8", lineHeight: 1.6, fontSize: 13 }}>
-              단품별 파일을 올리면 점포명 기준으로 점포마스터의 호차와 순번을 먼저 반영한 뒤 물동량과 운행일보를 만듭니다.
-            </div>
+            {!cargoOnly && (
+              <div style={{ marginTop: 4, color: "#94A3B8", lineHeight: 1.6, fontSize: 13 }}>
+                단품별 파일을 올리면 점포명 기준으로 점포마스터의 호차와 순번을 먼저 반영한 뒤 물동량과 운행일보를 만듭니다.
+              </div>
+            )}
           </div>
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -3343,9 +3350,11 @@ export function VehiclePageScreen({
           </div>
         </div>
 
-        <div style={{ marginTop: 12, color: "#475569", fontSize: 13, fontWeight: 700 }}>
-          {fileName ? `현재 데이터: ${fileName}` : "단품별 파일만 올리면 됩니다."}
-        </div>
+        {!cargoOnly && (
+          <div style={{ marginTop: 12, color: "#475569", fontSize: 13, fontWeight: 700 }}>
+            {fileName ? `현재 데이터: ${fileName}` : "단품별 파일만 올리면 됩니다."}
+          </div>
+        )}
         {loadingState ? (
           <div
             style={{
@@ -3379,7 +3388,10 @@ export function VehiclePageScreen({
         {message ? <div style={{ marginTop: 8, color: "#374151", fontSize: 13, fontWeight: 700 }}>{message}</div> : null}
       </div>
 
-      <div className="report-screen-only" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+      <div className="report-screen-only" style={cargoOnly
+        ? { display: "flex", gap: 8, flexWrap: "wrap" }
+        : { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }
+      }>
         {[
           { label: "발주점포수", value: formatNumber(totals.stores) },
           { label: "대 물동량", value: formatNumber(totals.large) },
@@ -3387,9 +3399,15 @@ export function VehiclePageScreen({
           { label: "담배", value: formatNumber(totals.tobacco) },
           { label: "대생수", value: formatNumber(totals.water) },
         ].map((card) => (
-          <div key={card.label} style={topCardStyle}>
-            <div style={{ fontSize: 12, color: "#64748B", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" as const }}>{card.label}</div>
-            <div style={{ marginTop: 8, fontSize: 22, color: "#0F172A", fontWeight: 800 }}>{card.value}</div>
+          <div key={card.label} style={cargoOnly
+            ? { border: "1px solid #E8EDF2", borderRadius: 8, background: "#fff", padding: "6px 14px", boxShadow: "0 1px 3px rgba(15,23,42,0.05)", display: "flex", alignItems: "center", gap: 8 }
+            : topCardStyle
+          }>
+            <div style={{ fontSize: 11, color: "#64748B", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" as const, whiteSpace: "nowrap" as const }}>{card.label}</div>
+            {cargoOnly
+              ? <div style={{ fontSize: 16, color: "#0F172A", fontWeight: 800 }}>{card.value}</div>
+              : <div style={{ marginTop: 8, fontSize: 22, color: "#0F172A", fontWeight: 800 }}>{card.value}</div>
+            }
           </div>
         ))}
       </div>
@@ -3760,7 +3778,10 @@ export function VehiclePageScreen({
       ) : null}
 
       {tab === "cargo" ? (
-        <div style={{ display: "grid", gap: 16 }}>
+        <div style={cargoOnly
+          ? { display: "flex", flexDirection: "column", gap: 8, flex: 1, minHeight: 0 }
+          : { display: "grid", gap: 16 }
+        }>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <input
               ref={refCargoQuery}
@@ -3938,7 +3959,10 @@ export function VehiclePageScreen({
             </div>
           </div>
 
-          <div style={{ border: "1px solid #E8EDF2", borderRadius: 10, background: "#fff", overflow: "auto", maxHeight: "70vh", boxShadow: "0 1px 4px rgba(15,23,42,0.06)" }}>
+          <div style={cargoOnly
+            ? { border: "1px solid #E8EDF2", borderRadius: 10, background: "#fff", overflow: "auto", flex: 1, minHeight: 0, boxShadow: "0 1px 4px rgba(15,23,42,0.06)" }
+            : { border: "1px solid #E8EDF2", borderRadius: 10, background: "#fff", overflow: "auto", maxHeight: "70vh", boxShadow: "0 1px 4px rgba(15,23,42,0.06)" }
+          }>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1600 }}>
             <thead>
               <tr style={{ background: "#F8FAFC" }}>
