@@ -35,26 +35,29 @@ export async function GET(req: NextRequest) {
 
   if (all === "1") {
     const keys = await listR2Keys(R2_PREFIX + "/");
-    const results: Array<{ date: string } & SeparateEntry> = [];
+    const matched = keys
+      .map((key) => {
+        const m = key.match(/^separate\/(\d{4}-\d{2}-\d{2})\/all\.json$/);
+        return m ? { key, date: m[1] } : null;
+      })
+      .filter(Boolean) as { key: string; date: string }[];
 
-    for (const key of keys) {
-      const dateMatch = key.match(/^separate\/(\d{4}-\d{2}-\d{2})\/all\.json$/);
-      if (!dateMatch) continue;
-      const d = dateMatch[1];
-      const text = await getR2ObjectText(key);
-      if (!text) continue;
-      try {
-        const data = JSON.parse(text) as SeparateData;
-        for (const entry of Object.values(data)) {
-          if ((entry.qty ?? 0) > 0) {
-            results.push({ date: d, ...entry });
-          }
+    const chunks = await Promise.all(
+      matched.map(async ({ key, date: d }) => {
+        const text = await getR2ObjectText(key);
+        if (!text) return [];
+        try {
+          const data = JSON.parse(text) as SeparateData;
+          return Object.values(data)
+            .filter((entry) => (entry.qty ?? 0) > 0)
+            .map((entry) => ({ date: d, ...entry }));
+        } catch {
+          return [];
         }
-      } catch {
-        // skip malformed
-      }
-    }
+      }),
+    );
 
+    const results = chunks.flat();
     results.sort((a, b) => {
       if (a.date !== b.date) return a.date.localeCompare(b.date);
       if (a.store_code !== b.store_code) return a.store_code.localeCompare(b.store_code);

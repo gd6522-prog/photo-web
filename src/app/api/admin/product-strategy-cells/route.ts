@@ -5,6 +5,10 @@ import { requireAdmin, json } from "../notices/_shared";
 
 export const runtime = "nodejs";
 
+// 인메모리 캐시 (10분 TTL) — 파일 재업로드 전까지 매 요청마다 Excel 파싱 방지
+const cache: { cells: Record<string, string>; expiresAt: number } = { cells: {}, expiresAt: 0 };
+const CACHE_TTL_MS = 10 * 60 * 1000;
+
 function normalizeHeader(value: unknown): string {
   return String(value ?? "")
     .trim()
@@ -17,6 +21,10 @@ function normalizeHeader(value: unknown): string {
 export async function GET(req: NextRequest) {
   const guard = await requireAdmin(req);
   if (!guard.ok) return guard.res;
+
+  if (Date.now() < cache.expiresAt) {
+    return json(true, undefined, { cells: cache.cells });
+  }
 
   const keys = await listR2Keys("file-uploads/product-strategy/");
   if (keys.length === 0) {
@@ -51,6 +59,9 @@ export async function GET(req: NextRequest) {
       const cell = String(row[pickingCellIdx] ?? "").trim();
       if (code) cells[code] = cell;
     }
+
+    cache.cells = cells;
+    cache.expiresAt = Date.now() + CACHE_TTL_MS;
 
     return json(true, undefined, { cells });
   } catch {
