@@ -60,7 +60,7 @@ export default function SeparatePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("date");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [sortDir, setSortDir] = useState<SortDir>("desc"); // 기본: 일자 내림차순
 
   useEffect(() => {
     void (async () => {
@@ -140,6 +140,10 @@ export default function SeparatePage() {
         const av = separateUnit(a) ?? 0;
         const bv = separateUnit(b) ?? 0;
         cmp = av - bv;
+      }
+      // 1순위 동일 시 피킹셀 오름차순 보조 정렬
+      if (cmp === 0 && sortKey !== "picking_cell") {
+        cmp = (cellMap[a.product_code] ?? "").localeCompare(cellMap[b.product_code] ?? "", "ko", { numeric: true });
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
