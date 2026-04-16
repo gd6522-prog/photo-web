@@ -3270,158 +3270,123 @@ export function VehiclePageScreen({
           }
         }
       `}</style>
-      <div
-        className="report-screen-only"
-        style={{
-          border: "1px solid #E8EDF2",
-          borderRadius: 10,
-          padding: 20,
-          background: "#fff",
-          boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#0F172A", letterSpacing: "-0.02em" }}>{title}</div>
-            {!cargoOnly && (
-              <div style={{ marginTop: 4, color: "#94A3B8", lineHeight: 1.6, fontSize: 13 }}>
-                단품별 파일을 올리면 점포명 기준으로 점포마스터의 호차와 순번을 먼저 반영한 뒤 물동량과 운행일보를 만듭니다.
+      {/* cargoOnly: 타이틀 + 통계 뱃지 + 버튼 통합 행 */}
+      {cargoOnly ? (
+        <div className="report-screen-only" style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: "#0F172A", letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>{title}</div>
+            {loadingState ? (
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#1D4ED8", fontSize: 12, fontWeight: 700 }}>
+                <span style={{ width: 12, height: 12, borderRadius: "50%", border: "2px solid rgba(29,78,216,0.25)", borderTopColor: "#1d4ed8", display: "inline-block", animation: "vehicle-spin 0.8s linear infinite" }} />
+                {loadingState === "restore" ? "불러오는 중..." : "업로드 중..."}
               </div>
-            )}
+            ) : message ? (
+              <div style={{ fontSize: 12, color: "#374151", fontWeight: 700 }}>{message}</div>
+            ) : null}
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {allowedTabs.includes("input") ? (
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={busy}
-              style={{
-                height: 38,
-                padding: "0 16px",
-                borderRadius: 7,
-                border: "none",
-                background: busy ? "#94A3B8" : "#0f766e",
-                color: "#fff",
-                fontWeight: 700,
-                fontSize: 13,
-                cursor: busy ? "not-allowed" : "pointer",
-              }}
-            >
-              {busy ? "불러오는 중..." : "단품별 파일 불러오기"}
-            </button>
-            ) : null}
+          <div style={{ display: "flex", gap: 10, flex: 1 }}>
+            {[
+              { label: "발주점포수", value: formatNumber(totals.stores) },
+              { label: "대 물동량", value: formatNumber(totals.large) },
+              { label: "소 물동량", value: formatNumber(totals.small) },
+              { label: "담배", value: formatNumber(totals.tobacco) },
+              { label: "대생수", value: formatNumber(totals.water) },
+            ].map((card) => (
+              <div key={card.label} style={{ border: "1px solid #E8EDF2", borderRadius: 10, background: "#fff", padding: "10px 20px", boxShadow: "0 1px 4px rgba(15,23,42,0.06)", minWidth: 90 }}>
+                <div style={{ fontSize: 11, color: "#64748B", fontWeight: 700, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{card.label}</div>
+                <div style={{ fontSize: 22, color: "#0F172A", fontWeight: 800, marginTop: 4 }}>{card.value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
             <button
               onClick={() => exportWorkbook(productRows, cargoRows, reportGroups, reportDate, reportFileDate, selectedReportGroup?.carNo, storeContactIndex)}
               disabled={cargoRows.length === 0}
-              style={{
-                height: 38,
-                padding: "0 16px",
-                borderRadius: 7,
-                border: "none",
-                background: cargoRows.length === 0 ? "#CBD5E1" : "#1E293B",
-                color: "#fff",
-                fontWeight: 700,
-                fontSize: 13,
-                cursor: cargoRows.length === 0 ? "not-allowed" : "pointer",
-              }}
+              style={{ height: 38, padding: "0 16px", borderRadius: 7, border: "none", background: cargoRows.length === 0 ? "#CBD5E1" : "#1E293B", color: "#fff", fontWeight: 700, fontSize: 13, cursor: cargoRows.length === 0 ? "not-allowed" : "pointer" }}
             >
               운행일보 다운로드
             </button>
             <button
               onClick={resetStoredData}
               disabled={productRows.length === 0 && cargoRows.length === 0}
-              style={{
-                height: 38,
-                padding: "0 16px",
-                borderRadius: 7,
-                border: "1px solid #D1D9E0",
-                background: "#fff",
-                color: "#374151",
-                fontWeight: 700,
-                fontSize: 13,
-                cursor: productRows.length === 0 && cargoRows.length === 0 ? "not-allowed" : "pointer",
-                opacity: productRows.length === 0 && cargoRows.length === 0 ? 0.5 : 1,
-              }}
+              style={{ height: 38, padding: "0 16px", borderRadius: 7, border: "1px solid #D1D9E0", background: "#fff", color: "#374151", fontWeight: 700, fontSize: 13, cursor: productRows.length === 0 && cargoRows.length === 0 ? "not-allowed" : "pointer", opacity: productRows.length === 0 && cargoRows.length === 0 ? 0.5 : 1 }}
             >
               초기화
             </button>
-            {allowedTabs.includes("input") ? (
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsb,.xlsx,.xls"
-              style={{ display: "none" }}
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (!file) return;
-                void loadRows(file);
-              }}
-            />
-            ) : null}
           </div>
         </div>
-
-        {!cargoOnly && (
-          <div style={{ marginTop: 12, color: "#475569", fontSize: 13, fontWeight: 700 }}>
-            {fileName ? `현재 데이터: ${fileName}` : "단품별 파일만 올리면 됩니다."}
-          </div>
-        )}
-        {loadingState ? (
+      ) : (
+        <>
           <div
-            style={{
-              marginTop: 10,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "10px 14px",
-              borderRadius: 8,
-              border: "1px solid #BFDBFE",
-              background: "#EFF6FF",
-              color: "#1D4ED8",
-              fontSize: 13,
-              fontWeight: 700,
-            }}
+            className="report-screen-only"
+            style={{ border: "1px solid #E8EDF2", borderRadius: 10, padding: 20, background: "#fff", boxShadow: "0 1px 4px rgba(15,23,42,0.06)" }}
           >
-            <span
-              style={{
-                width: 14,
-                height: 14,
-                borderRadius: "50%",
-                border: "2px solid rgba(29,78,216,0.25)",
-                borderTopColor: "#1d4ed8",
-                display: "inline-block",
-                animation: "vehicle-spin 0.8s linear infinite",
-              }}
-            />
-            {loadingState === "restore" ? "서버 저장 데이터를 불러오는 중입니다..." : "파일을 서버에 업로드하고 정리하는 중입니다..."}
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#0F172A", letterSpacing: "-0.02em" }}>{title}</div>
+                <div style={{ marginTop: 4, color: "#94A3B8", lineHeight: 1.6, fontSize: 13 }}>
+                  단품별 파일을 올리면 점포명 기준으로 점포마스터의 호차와 순번을 먼저 반영한 뒤 물동량과 운행일보를 만듭니다.
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {allowedTabs.includes("input") ? (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={busy}
+                    style={{ height: 38, padding: "0 16px", borderRadius: 7, border: "none", background: busy ? "#94A3B8" : "#0f766e", color: "#fff", fontWeight: 700, fontSize: 13, cursor: busy ? "not-allowed" : "pointer" }}
+                  >
+                    {busy ? "불러오는 중..." : "단품별 파일 불러오기"}
+                  </button>
+                ) : null}
+                <button
+                  onClick={() => exportWorkbook(productRows, cargoRows, reportGroups, reportDate, reportFileDate, selectedReportGroup?.carNo, storeContactIndex)}
+                  disabled={cargoRows.length === 0}
+                  style={{ height: 38, padding: "0 16px", borderRadius: 7, border: "none", background: cargoRows.length === 0 ? "#CBD5E1" : "#1E293B", color: "#fff", fontWeight: 700, fontSize: 13, cursor: cargoRows.length === 0 ? "not-allowed" : "pointer" }}
+                >
+                  운행일보 다운로드
+                </button>
+                <button
+                  onClick={resetStoredData}
+                  disabled={productRows.length === 0 && cargoRows.length === 0}
+                  style={{ height: 38, padding: "0 16px", borderRadius: 7, border: "1px solid #D1D9E0", background: "#fff", color: "#374151", fontWeight: 700, fontSize: 13, cursor: productRows.length === 0 && cargoRows.length === 0 ? "not-allowed" : "pointer", opacity: productRows.length === 0 && cargoRows.length === 0 ? 0.5 : 1 }}
+                >
+                  초기화
+                </button>
+                {allowedTabs.includes("input") ? (
+                  <input ref={fileInputRef} type="file" accept=".xlsb,.xlsx,.xls" style={{ display: "none" }} onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; void loadRows(file); }} />
+                ) : null}
+              </div>
+            </div>
+            <div style={{ marginTop: 12, color: "#475569", fontSize: 13, fontWeight: 700 }}>
+              {fileName ? `현재 데이터: ${fileName}` : "단품별 파일만 올리면 됩니다."}
+            </div>
+            {loadingState ? (
+              <div style={{ marginTop: 10, display: "inline-flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 8, border: "1px solid #BFDBFE", background: "#EFF6FF", color: "#1D4ED8", fontSize: 13, fontWeight: 700 }}>
+                <span style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid rgba(29,78,216,0.25)", borderTopColor: "#1d4ed8", display: "inline-block", animation: "vehicle-spin 0.8s linear infinite" }} />
+                {loadingState === "restore" ? "서버 저장 데이터를 불러오는 중입니다..." : "파일을 서버에 업로드하고 정리하는 중입니다..."}
+              </div>
+            ) : null}
+            {message ? <div style={{ marginTop: 8, color: "#374151", fontSize: 13, fontWeight: 700 }}>{message}</div> : null}
           </div>
-        ) : null}
-        {message ? <div style={{ marginTop: 8, color: "#374151", fontSize: 13, fontWeight: 700 }}>{message}</div> : null}
-      </div>
 
-      <div className="report-screen-only" style={cargoOnly
-        ? { display: "flex", gap: 8, flexWrap: "wrap" }
-        : { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }
-      }>
-        {[
-          { label: "발주점포수", value: formatNumber(totals.stores) },
-          { label: "대 물동량", value: formatNumber(totals.large) },
-          { label: "소 물동량", value: formatNumber(totals.small) },
-          { label: "담배", value: formatNumber(totals.tobacco) },
-          { label: "대생수", value: formatNumber(totals.water) },
-        ].map((card) => (
-          <div key={card.label} style={cargoOnly
-            ? { border: "1px solid #E8EDF2", borderRadius: 8, background: "#fff", padding: "6px 14px", boxShadow: "0 1px 3px rgba(15,23,42,0.05)", display: "flex", alignItems: "center", gap: 8 }
-            : topCardStyle
-          }>
-            <div style={{ fontSize: 11, color: "#64748B", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" as const, whiteSpace: "nowrap" as const }}>{card.label}</div>
-            {cargoOnly
-              ? <div style={{ fontSize: 16, color: "#0F172A", fontWeight: 800 }}>{card.value}</div>
-              : <div style={{ marginTop: 8, fontSize: 22, color: "#0F172A", fontWeight: 800 }}>{card.value}</div>
-            }
+          <div className="report-screen-only" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+            {[
+              { label: "발주점포수", value: formatNumber(totals.stores) },
+              { label: "대 물동량", value: formatNumber(totals.large) },
+              { label: "소 물동량", value: formatNumber(totals.small) },
+              { label: "담배", value: formatNumber(totals.tobacco) },
+              { label: "대생수", value: formatNumber(totals.water) },
+            ].map((card) => (
+              <div key={card.label} style={topCardStyle}>
+                <div style={{ fontSize: 11, color: "#64748B", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" as const, whiteSpace: "nowrap" as const }}>{card.label}</div>
+                <div style={{ marginTop: 8, fontSize: 22, color: "#0F172A", fontWeight: 800 }}>{card.value}</div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </>
+      )}
 
       {allowedTabs.length > 1 ? (
       <div className="report-screen-only" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
