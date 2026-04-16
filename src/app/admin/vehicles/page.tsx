@@ -3146,6 +3146,7 @@ export function VehiclePageScreen({
 
   const cargoOnly = allowedTabs.length === 1 && allowedTabs[0] === "cargo";
   const inputOnly = allowedTabs.length === 1 && allowedTabs[0] === "input";
+  const reportOnly = allowedTabs.length === 1 && allowedTabs[0] === "report";
 
   useEffect(() => {
     if (!cargoOnly) return;
@@ -3281,8 +3282,8 @@ export function VehiclePageScreen({
           }
         }
       `}</style>
-      {/* 단일탭(물동량/단품별): 타이틀 + 통계 뱃지 + 버튼 통합 행 */}
-      {(cargoOnly || inputOnly) ? (
+      {/* 단일탭(물동량/단품별/운행일보): 타이틀 + 통계 뱃지 + 버튼 통합 행 */}
+      {(cargoOnly || inputOnly || reportOnly) ? (
         <div className="report-screen-only" style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
             <div style={{ fontSize: 24, fontWeight: 800, color: "#0F172A", letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>{title}</div>
@@ -3343,13 +3344,15 @@ export function VehiclePageScreen({
                 운행일보 다운로드
               </button>
             )}
-            <button
-              onClick={resetStoredData}
-              disabled={productRows.length === 0 && cargoRows.length === 0}
-              style={{ height: 38, padding: "0 16px", borderRadius: 7, border: "1px solid #D1D9E0", background: "#fff", color: "#374151", fontWeight: 700, fontSize: 13, cursor: productRows.length === 0 && cargoRows.length === 0 ? "not-allowed" : "pointer", opacity: productRows.length === 0 && cargoRows.length === 0 ? 0.5 : 1 }}
-            >
-              초기화
-            </button>
+            {!reportOnly && (
+              <button
+                onClick={resetStoredData}
+                disabled={productRows.length === 0 && cargoRows.length === 0}
+                style={{ height: 38, padding: "0 16px", borderRadius: 7, border: "1px solid #D1D9E0", background: "#fff", color: "#374151", fontWeight: 700, fontSize: 13, cursor: productRows.length === 0 && cargoRows.length === 0 ? "not-allowed" : "pointer", opacity: productRows.length === 0 && cargoRows.length === 0 ? 0.5 : 1 }}
+              >
+                초기화
+              </button>
+            )}
           </div>
         </div>
       ) : (
