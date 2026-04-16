@@ -5,6 +5,7 @@ import { requireAdmin, json } from "../notices/_shared";
 export const runtime = "nodejs";
 
 const R2_PREFIX = "separate";
+const AGGREGATE_KEY = `${R2_PREFIX}/_aggregate.json`;
 
 function validateDate(date: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(date);
@@ -25,6 +26,43 @@ type SeparateEntry = {
   done?: boolean;
 };
 type SeparateData = Record<string, SeparateEntry>;
+type AggregateEntry = SeparateEntry & { date: string };
+type AggregateData = Record<string, AggregateEntry>; // key: "date|store_code|product_code"
+
+async function readAggregate(): Promise<AggregateData | null> {
+  const text = await getR2ObjectText(AGGREGATE_KEY);
+  if (!text) return null;
+  try { return JSON.parse(text) as AggregateData; } catch { return null; }
+}
+
+// 집계 파일이 없으면 전체 날짜 파일을 읽어 재생성
+async function buildAndSaveAggregate(): Promise<AggregateData> {
+  const keys = await listR2Keys(R2_PREFIX + "/");
+  const matched = keys
+    .map((key) => {
+      const m = key.match(/^separate\/(\d{4}-\d{2}-\d{2})\/all\.json$/);
+      return m ? { key, date: m[1] } : null;
+    })
+    .filter(Boolean) as { key: string; date: string }[];
+
+  const aggregate: AggregateData = {};
+  await Promise.all(
+    matched.map(async ({ key, date: d }) => {
+      const text = await getR2ObjectText(key);
+      if (!text) return;
+      try {
+        const data = JSON.parse(text) as SeparateData;
+        for (const entry of Object.values(data)) {
+          if ((entry.qty ?? 0) <= 0) continue;
+          const aggKey = `${d}|${entry.store_code}|${entry.product_code}`;
+          aggregate[aggKey] = { date: d, ...entry };
+        }
+      } catch { /* skip */ }
+    }),
+  );
+  await putR2Object(AGGREGATE_KEY, JSON.stringify(aggregate), "application/json");
+  return aggregate;
+}
 
 export async function GET(req: NextRequest) {
   const guard = await requireAdmin(req);
@@ -35,36 +73,16 @@ export async function GET(req: NextRequest) {
   const date = searchParams.get("date");
 
   if (all === "1") {
-    const keys = await listR2Keys(R2_PREFIX + "/");
-    const matched = keys
-      .map((key) => {
-        const m = key.match(/^separate\/(\d{4}-\d{2}-\d{2})\/all\.json$/);
-        return m ? { key, date: m[1] } : null;
-      })
-      .filter(Boolean) as { key: string; date: string }[];
+    // 집계 파일 1회 읽기 (없으면 재생성)
+    let aggregate = await readAggregate();
+    if (!aggregate) aggregate = await buildAndSaveAggregate();
 
-    const chunks = await Promise.all(
-      matched.map(async ({ key, date: d }) => {
-        const text = await getR2ObjectText(key);
-        if (!text) return [];
-        try {
-          const data = JSON.parse(text) as SeparateData;
-          return Object.values(data)
-            .filter((entry) => (entry.qty ?? 0) > 0)
-            .map((entry) => ({ date: d, ...entry }));
-        } catch {
-          return [];
-        }
-      }),
-    );
-
-    const results = chunks.flat();
+    const results = Object.values(aggregate);
     results.sort((a, b) => {
       if (a.date !== b.date) return a.date.localeCompare(b.date);
       if (a.store_code !== b.store_code) return a.store_code.localeCompare(b.store_code);
       return a.product_name.localeCompare(b.product_name, "ko");
     });
-
     return json(true, undefined, { entries: results });
   }
 
@@ -102,11 +120,21 @@ export async function POST(req: NextRequest) {
   const existing = await getR2ObjectText(key);
   const data: SeparateData = existing ? (JSON.parse(existing) as SeparateData) : {};
 
+  const aggKey = `${date}|${store_code}|${product_code}`;
+
   // done 전용 업데이트: qty 없이 done만 전달된 경우
   if (typeof done === "boolean" && typeof qty === "undefined") {
     if (data[entryKey]) {
       data[entryKey] = { ...data[entryKey], done };
       await putR2Object(key, JSON.stringify(data), "application/json");
+      // 집계 파일도 업데이트 (백그라운드)
+      void (async () => {
+        const agg = (await readAggregate()) ?? {};
+        if (agg[aggKey]) {
+          agg[aggKey] = { ...agg[aggKey], done };
+          await putR2Object(AGGREGATE_KEY, JSON.stringify(agg), "application/json");
+        }
+      })();
     }
     return json(true, undefined, { date, key: entryKey, done });
   }
@@ -128,5 +156,17 @@ export async function POST(req: NextRequest) {
   }
 
   await putR2Object(key, JSON.stringify(data), "application/json");
+
+  // 집계 파일 업데이트 (백그라운드)
+  void (async () => {
+    const agg = (await readAggregate()) ?? {};
+    if (numQty === 0) {
+      delete agg[aggKey];
+    } else {
+      agg[aggKey] = { date, ...data[entryKey] };
+    }
+    await putR2Object(AGGREGATE_KEY, JSON.stringify(agg), "application/json");
+  })();
+
   return json(true, undefined, { date, key: entryKey, qty: numQty });
 }
