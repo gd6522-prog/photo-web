@@ -289,7 +289,7 @@ export default function VehicleHistoryUploadPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const getData = await getRes.json();
-      if (!getRes.ok || !getData.ok || !getData.data?.snapshot) {
+      if (!getRes.ok || !getData.ok || !getData.snapshot) {
         setRestoreMsg(getData.message ?? "스냅샷을 불러오지 못했습니다.");
         return;
       }
@@ -298,7 +298,7 @@ export default function VehicleHistoryUploadPage() {
       const putRes = await fetch("/api/admin/vehicles/current", {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ snapshot: getData.data.snapshot }),
+        body: JSON.stringify({ snapshot: getData.snapshot }),
       });
       const putData = await putRes.json();
       if (!putRes.ok || !putData.ok) {
