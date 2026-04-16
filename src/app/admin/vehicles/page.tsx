@@ -1903,6 +1903,12 @@ export function VehiclePageScreen({
   const [tab, setTab] = useState<VehicleTab>(initialTab);
   const [storeQueryInput, setStoreQueryInput] = useState("");
   const [storeQuery, setStoreQuery] = useState("");
+  const [filterCarNo, setFilterCarNo] = useState("");
+  const [filterStoreCode, setFilterStoreCode] = useState("");
+  const [filterStoreName, setFilterStoreName] = useState("");
+  const [filterCell, setFilterCell] = useState("");
+  const [filterProductCode, setFilterProductCode] = useState("");
+  const [filterProductName, setFilterProductName] = useState("");
   const [cargoQueryInput, setCargoQueryInput] = useState("");
   const [cargoQuery, setCargoQuery] = useState("");
   const [cargoStoreQueryInput, setCargoStoreQueryInput] = useState("");
@@ -2283,19 +2289,24 @@ export function VehiclePageScreen({
   }, [batchPrintMode, visibleReportGroups]);
 
   const filteredProductRows = useMemo(() => {
-    const query = normalizeStoreName(storeQuery);
-    const rows = query
-      ? productRows.filter((row) => {
-          const targets = [
-            row.car_no,
-            row.store_code,
-            row.store_name,
-            row.cell_name,
-            row.product_code,
-            row.product_name,
-          ].map((value) => normalizeStoreName(value));
+    const n = normalizeStoreName;
+    const fCarNo = n(filterCarNo);
+    const fStoreCode = n(filterStoreCode);
+    const fStoreName = n(filterStoreName);
+    const fCell = n(filterCell);
+    const fProductCode = n(filterProductCode);
+    const fProductName = n(filterProductName);
+    const hasFilter = fCarNo || fStoreCode || fStoreName || fCell || fProductCode || fProductName;
 
-          return targets.some((value) => value.includes(query));
+    const rows = hasFilter
+      ? productRows.filter((row) => {
+          if (fCarNo && !n(row.car_no).includes(fCarNo)) return false;
+          if (fStoreCode && !n(row.store_code).includes(fStoreCode)) return false;
+          if (fStoreName && !n(row.store_name).includes(fStoreName)) return false;
+          if (fCell && !n(row.cell_name).includes(fCell)) return false;
+          if (fProductCode && !n(row.product_code).includes(fProductCode)) return false;
+          if (fProductName && !n(row.product_name).includes(fProductName)) return false;
+          return true;
         })
       : productRows;
 
@@ -2310,7 +2321,7 @@ export function VehiclePageScreen({
 
       return a.cell_name.localeCompare(b.cell_name, "ko", { numeric: true });
     });
-  }, [productRows, storeQuery]);
+  }, [productRows, filterCarNo, filterStoreCode, filterStoreName, filterCell, filterProductCode, filterProductName]);
 
   const filteredCargoRows = useMemo(() => {
     const carQ = normalizeStoreName(cargoQuery);
@@ -2338,7 +2349,7 @@ export function VehiclePageScreen({
 
   useEffect(() => {
     setInputPage(1);
-  }, [storeQuery, fileName]);
+  }, [storeQuery, fileName, filterCarNo, filterStoreCode, filterStoreName, filterCell, filterProductCode, filterProductName]);
 
   useEffect(() => {
     if (inputPage > inputPageCount) {
@@ -3259,71 +3270,69 @@ export function VehiclePageScreen({
 
       {tab === "input" ? (
         <div style={{ display: "grid", gap: 16 }}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <input
-              value={storeQueryInput}
-              onChange={(event) => setStoreQueryInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter") return;
-                event.preventDefault();
-                setStoreQuery(storeQueryInput);
-                setInputPage(1);
-              }}
-              placeholder="호차, 점포코드, 점포명, 셀, 상품코드 검색"
-              style={{
-                width: 280,
-                height: 38,
-                borderRadius: 7,
-                border: "1px solid #D1D9E0",
-                padding: "0 11px",
-                outline: "none",
-                background: "#fff",
-                fontSize: 13,
-                color: "#1E293B",
-                boxSizing: "border-box" as const,
-              }}
-            />
-            <button
-              onClick={() => {
-                setStoreQuery(storeQueryInput);
-                setInputPage(1);
-              }}
-              style={{
-                height: 38,
-                padding: "0 16px",
-                borderRadius: 7,
-                border: "none",
-                background: "#1E293B",
-                color: "#fff",
-                fontWeight: 700,
-                fontSize: 13,
-                cursor: "pointer",
-              }}
-            >
-              조회
-            </button>
-            <button
-              onClick={() => {
-                setStoreQueryInput("");
-                setStoreQuery("");
-                setInputPage(1);
-              }}
-              style={{
-                height: 38,
-                padding: "0 16px",
-                borderRadius: 7,
-                border: "1px solid #D1D9E0",
-                background: "#fff",
-                color: "#374151",
-                fontWeight: 700,
-                fontSize: 13,
-                cursor: "pointer",
-              }}
-            >
-              전체
-            </button>
-            <div style={{ color: "#64748B", fontSize: 13, fontWeight: 700 }}>
-              {storeQuery ? `검색 결과 ${filteredProductRows.length}건` : `전체 ${filteredProductRows.length}건`}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+              {(
+                [
+                  { label: "호차", value: filterCarNo, setter: setFilterCarNo, width: 90 },
+                  { label: "점포코드", value: filterStoreCode, setter: setFilterStoreCode, width: 100 },
+                  { label: "점포명", value: filterStoreName, setter: setFilterStoreName, width: 130 },
+                  { label: "셀", value: filterCell, setter: setFilterCell, width: 90 },
+                  { label: "상품코드", value: filterProductCode, setter: setFilterProductCode, width: 110 },
+                  { label: "상품명", value: filterProductName, setter: setFilterProductName, width: 140 },
+                ] as const
+              ).map(({ label, value, setter, width }) => (
+                <div key={label} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#64748B", paddingLeft: 2 }}>{label}</span>
+                  <input
+                    value={value}
+                    onChange={(e) => setter(e.target.value)}
+                    placeholder={label}
+                    style={{
+                      width,
+                      height: 34,
+                      borderRadius: 6,
+                      border: value ? "1px solid #3B82F6" : "1px solid #D1D9E0",
+                      padding: "0 9px",
+                      outline: "none",
+                      background: value ? "#EFF6FF" : "#fff",
+                      fontSize: 13,
+                      color: "#1E293B",
+                      boxSizing: "border-box" as const,
+                    }}
+                  />
+                </div>
+              ))}
+              <button
+                onClick={() => {
+                  setFilterCarNo("");
+                  setFilterStoreCode("");
+                  setFilterStoreName("");
+                  setFilterCell("");
+                  setFilterProductCode("");
+                  setFilterProductName("");
+                  setInputPage(1);
+                }}
+                style={{
+                  height: 34,
+                  padding: "0 14px",
+                  borderRadius: 6,
+                  border: "1px solid #D1D9E0",
+                  background: "#fff",
+                  color: "#374151",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  alignSelf: "flex-end",
+                }}
+              >
+                초기화
+              </button>
+              <div style={{ color: "#64748B", fontSize: 13, fontWeight: 700, alignSelf: "flex-end", paddingBottom: 7 }}>
+                {(filterCarNo || filterStoreCode || filterStoreName || filterCell || filterProductCode || filterProductName)
+                  ? `검색 결과 ${filteredProductRows.length}건`
+                  : `전체 ${filteredProductRows.length}건`}
+              </div>
             </div>
           </div>
 
