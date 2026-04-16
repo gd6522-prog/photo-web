@@ -1,6 +1,13 @@
 import { NextRequest } from "next/server";
 import { getR2ObjectText, putR2Object, listR2Keys } from "@/lib/r2";
 import { requireAdmin, json } from "../notices/_shared";
+import { R2_CELLS_CACHE_KEY } from "../product-strategy-cells/route";
+
+async function readCellsCache(): Promise<Record<string, string>> {
+  const text = await getR2ObjectText(R2_CELLS_CACHE_KEY);
+  if (!text) return {};
+  try { return JSON.parse(text) as Record<string, string>; } catch { return {}; }
+}
 
 export const runtime = "nodejs";
 
@@ -75,23 +82,23 @@ export async function GET(req: NextRequest) {
   if (all === "1") {
     const rebuild = searchParams.get("rebuild") === "1";
     if (rebuild) {
-      // 수동 재생성 요청 — 전체 날짜 파일 스캔 후 저장
-      const aggregate = await buildAndSaveAggregate();
+      // 수동 재생성 요청 — 전체 날짜 파일 스캔 + 셀 캐시 병렬 읽기
+      const [aggregate, cells] = await Promise.all([buildAndSaveAggregate(), readCellsCache()]);
       const results = Object.values(aggregate);
       results.sort((a, b) => {
         if (a.date !== b.date) return a.date.localeCompare(b.date);
         if (a.store_code !== b.store_code) return a.store_code.localeCompare(b.store_code);
         return a.product_name.localeCompare(b.product_name, "ko");
       });
-      return json(true, undefined, { entries: results, rebuilt: true });
+      return json(true, undefined, { entries: results, cells, rebuilt: true });
     }
 
-    // 집계 파일 1회 읽기
-    const aggregate = await readAggregate();
+    // 집계 파일 + 셀 캐시 병렬 읽기 (1 round-trip)
+    const [aggregate, cells] = await Promise.all([readAggregate(), readCellsCache()]);
     if (!aggregate) {
       // 집계 없음 → 백그라운드 재생성 트리거 후 즉시 빈 배열 반환 (클라이언트가 재요청)
       void buildAndSaveAggregate();
-      return json(true, undefined, { entries: [], needsRebuild: true });
+      return json(true, undefined, { entries: [], cells, needsRebuild: true });
     }
 
     const results = Object.values(aggregate);
@@ -100,7 +107,7 @@ export async function GET(req: NextRequest) {
       if (a.store_code !== b.store_code) return a.store_code.localeCompare(b.store_code);
       return a.product_name.localeCompare(b.product_name, "ko");
     });
-    return json(true, undefined, { entries: results });
+    return json(true, undefined, { entries: results, cells });
   }
 
   if (!date || !validateDate(date)) {

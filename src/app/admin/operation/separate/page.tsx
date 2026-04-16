@@ -68,24 +68,14 @@ export default function SeparatePage() {
         setLoading(true);
         const token = await getAdminToken();
 
-        // 셀 맵은 별도로 비동기 로드 (entries 대기 없음)
-        fetch("/api/admin/product-strategy-cells", {
-          headers: { Authorization: `Bearer ${token}` },
-          cache: "no-store",
-        }).then(async (res) => {
-          if (!res.ok) return;
-          const cellPayload = (await res.json()) as { ok: boolean; cells?: Record<string, string> };
-          setCellMap(cellPayload.cells ?? {});
-        }).catch(() => {/* 무시 */});
-
-        // 집계 파일 읽기
+        // 집계 + 셀 한 번에 읽기
         let entriesRes = await fetch("/api/admin/separate-qty?all=1", {
           headers: { Authorization: `Bearer ${token}` },
           cache: "no-store",
         });
         if (!entriesRes.ok) { setError("데이터를 불러오지 못했습니다."); return; }
 
-        let payload = (await entriesRes.json()) as { ok: boolean; entries?: SeparateEntry[]; needsRebuild?: boolean };
+        let payload = (await entriesRes.json()) as { ok: boolean; entries?: SeparateEntry[]; cells?: Record<string, string>; needsRebuild?: boolean };
 
         // 집계 없음 → rebuild 요청 (한 번만)
         if (payload.needsRebuild) {
@@ -98,6 +88,7 @@ export default function SeparatePage() {
 
         const loaded = payload.entries ?? [];
         setEntries(loaded);
+        setCellMap(payload.cells ?? {});
         const dm: Record<string, boolean> = {};
         for (const e of loaded) { if (e.done) dm[doneKey(e)] = true; }
         setDoneMap(dm);
