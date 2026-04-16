@@ -3298,8 +3298,8 @@ export function VehiclePageScreen({
           <div style={{ display: "flex", gap: 10, flex: 1, justifyContent: "center" }}>
             {[
               { label: "발주점포수", value: formatNumber(totals.stores), rightLine: false },
-              { label: "대 물동량",   value: formatNumber(totals.large),  rightLine: true  },
-              { label: "소 물동량",   value: formatNumber(totals.small),  rightLine: true  },
+              { label: "대 물동량",   value: formatNumber(totals.large),  rightLine: false },
+              { label: "소 물동량",   value: formatNumber(totals.small),  rightLine: false },
               { label: "담배",        value: formatNumber(totals.tobacco), rightLine: false },
               { label: "대생수",      value: formatNumber(totals.water),  rightLine: false },
             ].map((card) => (
