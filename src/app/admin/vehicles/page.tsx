@@ -3968,7 +3968,6 @@ export function VehiclePageScreen({
                   <th
                     key={String(column.key)}
                     style={{
-                      textAlign: "left",
                       padding: "10px 12px",
                       borderBottom: "2px solid #E8EDF2",
                       fontSize: 12,
@@ -3977,6 +3976,7 @@ export function VehiclePageScreen({
                       minWidth: column.width ?? 80,
                       ...getCargoGroupStyle(String(column.key)),
                       ...getCargoHeaderStyle(String(column.key)),
+                      textAlign: "center",
                     }}
                   >
                     {column.label === "올데이 2L생수" ? <><span style={{ whiteSpace: "nowrap" }}>올데이</span><br /><span style={{ whiteSpace: "nowrap" }}>2L생수</span></> : column.label === "노브랜드2L생수" ? <><span style={{ whiteSpace: "nowrap" }}>노브랜드</span><br /><span style={{ whiteSpace: "nowrap" }}>2L생수</span></> : column.label}
