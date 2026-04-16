@@ -226,9 +226,12 @@ export default function SeparatePage() {
 
       {/* ── 인쇄 전용 레이아웃 (no-print-wrapper 밖에 위치) ── */}
       <div className="print-only">
-        <h1 style={{ fontSize: 20, fontWeight: 900, textAlign: "center", marginBottom: 16, marginTop: 0 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 900, textAlign: "center", marginBottom: 8, marginTop: 0 }}>
           별도작업 피킹 리스트
         </h1>
+        <p style={{ textAlign: "center", fontSize: 12, marginTop: 0, marginBottom: 14 }}>
+          출고일: {new Date().toISOString().slice(0, 10)}
+        </p>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
           <thead>
             <tr style={{ background: "#f0f0f0" }}>
