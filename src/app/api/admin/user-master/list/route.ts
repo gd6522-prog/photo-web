@@ -66,6 +66,7 @@ export async function GET(req: NextRequest) {
       "phone",
       "birthdate",
       "work_part",
+      "center",
       "company_name",
       "work_table",
       "join_date",

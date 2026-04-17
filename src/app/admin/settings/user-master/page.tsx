@@ -10,6 +10,7 @@ type ProfileRow = {
   phone: string | null;
   birthdate: string | null;
   work_part: string | null;
+  center: string | null;
   company_name: string | null;
   work_table: string | null;
   join_date: string | null;
@@ -219,6 +220,7 @@ export default function UserMasterPage() {
     phone: "",
     birthdate: "",
     work_part: "",
+    center: "",
     company_name: "",
     work_table: "",
     join_date: "",
@@ -335,6 +337,7 @@ export default function UserMasterPage() {
       phone: toKRLocalDigits(r.phone ?? ""),
       birthdate: r.birthdate ?? "",
       work_part: r.work_part ?? "",
+      center: r.center ?? "",
       company_name: r.company_name ?? "",
       work_table: r.work_table ?? "",
       join_date: r.join_date ?? "",
@@ -393,6 +396,7 @@ export default function UserMasterPage() {
         phone: phoneToSave,
         birthdate: f.birthdate || null,
         work_part: f.work_part.trim() || null,
+        center: f.center.trim() || null,
         company_name: f.company_name.trim() || null,
         work_table: f.work_table.trim() || null,
         join_date: f.join_date || null,
@@ -642,7 +646,7 @@ export default function UserMasterPage() {
                 <th style={{ ...TD, padding: "10px 12px", fontWeight: 700, color: "#64748B", borderBottom: "2px solid #E8EDF2", width: 44 }}>
                   <input type="checkbox" checked={allChecked} onChange={toggleAll} />
                 </th>
-                {["회사명", "파트", "이름", "전화번호", "나이", "근무테이블", "입사일", "퇴사일", "근속", "상태", ""].map((h, i) => (
+                {["센터", "회사명", "파트", "이름", "전화번호", "나이", "근무테이블", "입사일", "퇴사일", "근속", "상태", ""].map((h, i) => (
                   <th key={i} style={{ ...TD, padding: "10px 12px", fontWeight: 700, color: "#64748B", fontSize: 12, textAlign: "left", borderBottom: "2px solid #E8EDF2" }}>{h}</th>
                 ))}
               </tr>
@@ -667,6 +671,7 @@ export default function UserMasterPage() {
                   return (
                     <tr key={r.id} style={{ background: isSelected ? "#FFFBF5" : "#fff" }}>
                       <td style={TD}><input type="checkbox" checked={isSelected} onChange={() => toggleOne(r.id)} /></td>
+                      <td style={{ ...TD, color: "#64748B" }}>{r.center ?? "-"}</td>
                       <td style={{ ...TD, color: "#64748B" }}>{r.company_name ?? "-"}</td>
                       <td style={{ ...TD, color: "#64748B" }}>{r.work_part ?? "-"}</td>
                       <td style={{ ...TD, fontWeight: 700, color: "#0F172A" }}>{r.name ?? "-"}</td>
@@ -775,6 +780,10 @@ export default function UserMasterPage() {
               <section style={sectionStyle()}>
                 <div style={{ fontSize: 12, fontWeight: 800, color: "#64748B", marginBottom: 12, letterSpacing: "0.06em", textTransform: "uppercase" }}>근무 정보</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <div style={fieldLabelStyle()}>센터 <span style={{ fontSize: 10, color: "#94A3B8", fontWeight: 400 }}>(회원가입 시 입력)</span></div>
+                    <input value={f.center} onChange={(e) => setF((p) => ({ ...p, center: e.target.value }))} style={inputStyle()} placeholder="-" />
+                  </div>
                   <div>
                     <div style={fieldLabelStyle()}>회사명</div>
                     <select value={f.company_name} onChange={(e) => setF((p) => ({ ...p, company_name: e.target.value }))} style={inputStyle()}>

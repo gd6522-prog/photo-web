@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
     phone: body.phone ?? null,
     birthdate: body.birthdate ?? null,
     work_part: body.work_part ?? null,
+    center: body.center ?? null,
     company_name: body.company_name ?? null,
     work_table: body.work_table ?? null,
     join_date: body.join_date ?? null,
