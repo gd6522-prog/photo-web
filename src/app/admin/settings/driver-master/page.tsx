@@ -163,10 +163,11 @@ function sectionStyle(): React.CSSProperties {
   return { border: "1px solid #EEF2F7", borderRadius: 8, padding: 16, background: "#FAFBFC" };
 }
 
-function normalizeApproval(v: string | null): "pending" | "approved" | "rejected" {
+function normalizeApproval(v: string | null): "pending" | "approved" | "rejected" | "resigned" {
   const s = String(v ?? "").toLowerCase();
   if (s === "approved") return "approved";
   if (s === "rejected") return "rejected";
+  if (s === "resigned") return "resigned";
   return "pending";
 }
 
@@ -269,6 +270,7 @@ export default function DriverMasterPage() {
   const [qDelivery, setQDelivery] = useState<string>("");
   const [qVehicle, setQVehicle] = useState<string>("");
   const [qCarrier, setQCarrier] = useState("");
+  const [showResigned, setShowResigned] = useState(false);
 
   // list & selection
   const [rows, setRows] = useState<ProfileRow[]>([]);
@@ -305,21 +307,26 @@ export default function DriverMasterPage() {
     hipass: "",
     vehicle_number: "",
 
-    approval_status: "pending" as "pending" | "approved" | "rejected",
+    approval_status: "pending" as "pending" | "approved" | "rejected" | "resigned",
   });
 
   const age = useMemo(() => calcAge(f.birthdate || null), [f.birthdate]);
   const tenureDays = useMemo(() => calcTenureDays(f.join_date || null, f.leave_date || null), [f.join_date, f.leave_date]);
   const tenureText = useMemo(() => tenurePretty(tenureDays), [tenureDays]);
 
+  const displayedRows = useMemo(
+    () => showResigned ? rows : rows.filter((r) => normalizeApproval(r.approval_status) !== "resigned"),
+    [rows, showResigned]
+  );
+
   const selectedCount = selectedIds.size;
-  const allChecked = useMemo(() => rows.length > 0 && rows.every((r) => selectedIds.has(r.id)), [rows, selectedIds]);
+  const allChecked = useMemo(() => displayedRows.length > 0 && displayedRows.every((r) => selectedIds.has(r.id)), [displayedRows, selectedIds]);
 
   const toggleAll = () => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (allChecked) rows.forEach((r) => next.delete(r.id));
-      else rows.forEach((r) => next.add(r.id));
+      if (allChecked) displayedRows.forEach((r) => next.delete(r.id));
+      else displayedRows.forEach((r) => next.add(r.id));
       return next;
     });
   };
@@ -459,15 +466,24 @@ export default function DriverMasterPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const updateApprovalInline = async (id: string, next: "pending" | "approved" | "rejected") => {
+  const updateApprovalInline = async (id: string, next: "pending" | "approved" | "rejected" | "resigned") => {
     setErr(null);
     try {
       if (next === "rejected") {
         await rejectAndDeleteUser(id);
-      } else {
-        const { error } = await supabase.from("profiles").update({ approval_status: next }).eq("id", id);
-        if (error) throw error;
+        await load();
+        return;
       }
+      const { data: authData } = await supabase.auth.getSession();
+      const token = authData.session?.access_token;
+      if (!token) throw new Error("로그인 세션이 없습니다.");
+      const res = await fetch("/api/admin/user-master/set-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ userId: id, approval_status: next }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || !payload?.ok) throw new Error(payload?.message || "상태 변경에 실패했습니다.");
       await load();
     } catch (e: any) {
       setErr(String(e?.message ?? e ?? "상태 변경 실패"));
@@ -539,6 +555,17 @@ export default function DriverMasterPage() {
 
       const { error } = await supabase.from("profiles").update(payload).eq("id", selected.id);
       if (error) throw error;
+
+      // 퇴사 → 앱 로그인 차단 / 그 외 → 해제
+      const { data: authData } = await supabase.auth.getSession();
+      const token = authData.session?.access_token;
+      if (token) {
+        await fetch("/api/admin/user-master/set-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ userId: selected.id, approval_status: payload.approval_status }),
+        });
+      }
 
       await load();
       closeEdit();
@@ -629,6 +656,12 @@ export default function DriverMasterPage() {
             </select>
           </div>
           <button onClick={load} style={buttonStyle(false, true)}>조회</button>
+          <button
+            onClick={() => setShowResigned((v) => !v)}
+            style={{ height: 38, padding: "0 14px", borderRadius: 7, border: `1px solid ${showResigned ? "#6B7280" : "#D1D9E0"}`, background: showResigned ? "#6B7280" : "#F8FAFC", color: showResigned ? "#fff" : "#6B7280", fontWeight: 700, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" }}
+          >
+            퇴사자 포함
+          </button>
         </div>
       </div>
 
@@ -693,9 +726,10 @@ export default function DriverMasterPage() {
                   </td>
                 </tr>
               ) : (
-                rows.map((r) => {
+                displayedRows.map((r) => {
                   const ap = normalizeApproval(r.approval_status);
                   const approved = ap === "approved";
+                  const resigned = ap === "resigned";
                   const working = approved ? isWorkingNow(todayShiftMap[r.id]) : false;
                   const isSelected = selectedIds.has(r.id);
                   return (
@@ -709,10 +743,13 @@ export default function DriverMasterPage() {
                       <td style={{ ...TD, color: "#475569" }}>{formatKRPhone(r.phone)}</td>
                       <td style={{ ...TD, color: "#64748B" }}>{r.garage ?? "-"}</td>
                       <td style={TD}>
-                        {!approved ? (
-                          <select value={ap} onChange={(e) => updateApprovalInline(r.id, e.target.value as "pending" | "approved" | "rejected")} style={{ height: 30, padding: "0 8px", borderRadius: 6, border: "1px solid #D1D9E0", fontSize: 12, fontWeight: 700, background: "#FFF9F0", color: "#92400E", cursor: "pointer" }}>
+                        {resigned ? (
+                          <span style={{ display: "inline-block", padding: "3px 9px", borderRadius: 20, background: "#F3F4F6", color: "#6B7280", fontSize: 11, fontWeight: 800 }}>퇴사</span>
+                        ) : !approved ? (
+                          <select value={ap} onChange={(e) => updateApprovalInline(r.id, e.target.value as "pending" | "approved" | "rejected" | "resigned")} style={{ height: 30, padding: "0 8px", borderRadius: 6, border: "1px solid #D1D9E0", fontSize: 12, fontWeight: 700, background: "#FFF9F0", color: "#92400E", cursor: "pointer" }}>
                             <option value="pending">확인대기</option>
                             <option value="approved">승인</option>
+                            <option value="resigned">퇴사</option>
                             <option value="rejected">반려</option>
                           </select>
                         ) : working ? (
@@ -733,9 +770,9 @@ export default function DriverMasterPage() {
             </tbody>
           </table>
         </div>
-        {rows.length > 0 && (
+        {displayedRows.length > 0 && (
           <div style={{ padding: "10px 16px", borderTop: "1px solid #F1F5F9", fontSize: 12, color: "#94A3B8", textAlign: "right" }}>
-            총 {rows.length.toLocaleString()}명
+            총 {displayedRows.length.toLocaleString()}명{showResigned ? " (퇴사자 포함)" : ""}
           </div>
         )}
       </div>
@@ -849,9 +886,10 @@ export default function DriverMasterPage() {
                   </div>
                   <div>
                     <div style={fieldLabelStyle()}>승인 상태</div>
-                    <select value={f.approval_status} onChange={(e) => setF((p) => ({ ...p, approval_status: e.target.value as "pending" | "approved" | "rejected" }))} style={inputStyle()}>
+                    <select value={f.approval_status} onChange={(e) => setF((p) => ({ ...p, approval_status: e.target.value as "pending" | "approved" | "rejected" | "resigned" }))} style={inputStyle()}>
                       <option value="pending">확인대기</option>
                       <option value="approved">승인</option>
+                      <option value="resigned">퇴사</option>
                       <option value="rejected">반려</option>
                     </select>
                   </div>
