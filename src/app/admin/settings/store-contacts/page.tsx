@@ -109,6 +109,10 @@ export default function StoreContactsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  // ── 인라인 수정 ──
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<DraftRow>({ store_code: "", store_name: "", phone: "", memo: "" });
+
   const load = useCallback(async () => {
     setLoading(true);
     setErr(null);
@@ -145,6 +149,32 @@ export default function StoreContactsPage() {
     setSaving(false);
     if (error) { setErr(error.message); return; }
     setDraft({ store_code: "", store_name: "", phone: "", memo: "" });
+    await load();
+  };
+
+  // ── 수정 시작 ──
+  const startEdit = (r: ContactRow) => {
+    setEditingId(r.id);
+    setEditDraft({ store_code: r.store_code ?? "", store_name: r.store_name, phone: r.phone, memo: r.memo ?? "" });
+  };
+
+  // ── 수정 저장 ──
+  const saveEdit = async () => {
+    if (!editingId) return;
+    const name = editDraft.store_name.trim();
+    const phone = editDraft.phone.trim();
+    if (!name || !phone) { setErr("점포명과 전화번호는 필수입니다."); return; }
+    setSaving(true);
+    setErr(null);
+    const { error } = await supabase.from("store_contacts").update({
+      store_code: editDraft.store_code.trim() || null,
+      store_name: name,
+      phone: phone.replace(/\D/g, ""),
+      memo: editDraft.memo.trim() || null,
+    }).eq("id", editingId);
+    setSaving(false);
+    if (error) { setErr(error.message); return; }
+    setEditingId(null);
     await load();
   };
 
@@ -367,27 +397,95 @@ export default function StoreContactsPage() {
                   <th style={{ padding: "10px 12px", textAlign: "left", borderBottom: "1px solid #E2E8F0" }}>점포명</th>
                   <th style={{ padding: "10px 12px", textAlign: "left", borderBottom: "1px solid #E2E8F0", width: 170 }}>전화번호</th>
                   <th style={{ padding: "10px 12px", textAlign: "left", borderBottom: "1px solid #E2E8F0" }}>메모</th>
+                  <th style={{ padding: "10px 12px", textAlign: "center", borderBottom: "1px solid #E2E8F0", width: 110 }}></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={5} style={{ padding: 20, textAlign: "center", opacity: 0.5 }}>
+                    <td colSpan={6} style={{ padding: 20, textAlign: "center", opacity: 0.5 }}>
                       {search ? "검색 결과 없음" : "등록된 연락처가 없습니다."}
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((r) => (
-                    <tr key={r.id} style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
-                      <td style={{ padding: "9px 12px", textAlign: "center" }}>
-                        <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleOne(r.id)} />
-                      </td>
-                      <td style={{ padding: "9px 12px", color: "#64748B" }}>{r.store_code || "-"}</td>
-                      <td style={{ padding: "9px 12px", fontWeight: 800 }}>{r.store_name}</td>
-                      <td style={{ padding: "9px 12px", fontFamily: "monospace", letterSpacing: 0.5 }}>{formatPhone(r.phone)}</td>
-                      <td style={{ padding: "9px 12px", color: "#64748B" }}>{r.memo || "-"}</td>
-                    </tr>
-                  ))
+                  filtered.map((r) => {
+                    const isEditing = editingId === r.id;
+                    return (
+                      <tr key={r.id} style={{ borderBottom: "1px solid rgba(0,0,0,0.05)", background: isEditing ? "#F0F9FF" : undefined }}>
+                        <td style={{ padding: "9px 12px", textAlign: "center" }}>
+                          <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleOne(r.id)} disabled={isEditing} />
+                        </td>
+                        {isEditing ? (
+                          <>
+                            <td style={{ padding: "6px 8px" }}>
+                              <input
+                                value={editDraft.store_code}
+                                onChange={(e) => setEditDraft((p) => ({ ...p, store_code: e.target.value }))}
+                                style={{ ...inputStyle(), height: 32, fontSize: 12 }}
+                                placeholder="점포코드"
+                              />
+                            </td>
+                            <td style={{ padding: "6px 8px" }}>
+                              <input
+                                value={editDraft.store_name}
+                                onChange={(e) => setEditDraft((p) => ({ ...p, store_name: e.target.value }))}
+                                style={{ ...inputStyle(), height: 32, fontSize: 12 }}
+                                placeholder="점포명"
+                              />
+                            </td>
+                            <td style={{ padding: "6px 8px" }}>
+                              <input
+                                value={editDraft.phone}
+                                onChange={(e) => setEditDraft((p) => ({ ...p, phone: e.target.value }))}
+                                style={{ ...inputStyle(), height: 32, fontSize: 12, fontFamily: "monospace" }}
+                                placeholder="전화번호"
+                                inputMode="tel"
+                              />
+                            </td>
+                            <td style={{ padding: "6px 8px" }}>
+                              <input
+                                value={editDraft.memo}
+                                onChange={(e) => setEditDraft((p) => ({ ...p, memo: e.target.value }))}
+                                style={{ ...inputStyle(), height: 32, fontSize: 12 }}
+                                placeholder="메모"
+                              />
+                            </td>
+                            <td style={{ padding: "6px 8px", textAlign: "center", whiteSpace: "nowrap" }}>
+                              <button
+                                onClick={saveEdit}
+                                disabled={saving}
+                                style={{ height: 30, padding: "0 12px", borderRadius: 0, border: "none", background: "#0284C7", color: "white", fontWeight: 800, fontSize: 12, cursor: saving ? "default" : "pointer", opacity: saving ? 0.6 : 1, marginRight: 4 }}
+                              >
+                                저장
+                              </button>
+                              <button
+                                onClick={() => setEditingId(null)}
+                                disabled={saving}
+                                style={{ height: 30, padding: "0 10px", borderRadius: 0, border: "1px solid #CBD5E1", background: "white", fontWeight: 800, fontSize: 12, cursor: "pointer" }}
+                              >
+                                취소
+                              </button>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td style={{ padding: "9px 12px", color: "#64748B" }}>{r.store_code || "-"}</td>
+                            <td style={{ padding: "9px 12px", fontWeight: 800 }}>{r.store_name}</td>
+                            <td style={{ padding: "9px 12px", fontFamily: "monospace", letterSpacing: 0.5 }}>{formatPhone(r.phone)}</td>
+                            <td style={{ padding: "9px 12px", color: "#64748B" }}>{r.memo || "-"}</td>
+                            <td style={{ padding: "9px 12px", textAlign: "center" }}>
+                              <button
+                                onClick={() => startEdit(r)}
+                                style={{ height: 28, padding: "0 12px", borderRadius: 0, border: "1px solid #CBD5E1", background: "white", fontWeight: 700, fontSize: 12, cursor: "pointer", color: "#374151" }}
+                              >
+                                수정
+                              </button>
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
