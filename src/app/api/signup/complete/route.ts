@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     return json(false, "Invalid JSON", null, 400);
   }
 
-  const { phone, name, work_part, birthdate, nationality, language } = body ?? {};
+  const { phone, name, work_part, center, company_name, birthdate, nationality, language } = body ?? {};
   if (!phone || !name || !work_part || !birthdate || !nationality) {
     return json(false, "필수 항목이 누락되었습니다.", null, 400);
   }
@@ -44,6 +44,8 @@ export async function POST(req: NextRequest) {
       phone,
       name,
       work_part,
+      ...(center ? { center } : {}),
+      ...(company_name ? { company_name } : {}),
       birthdate,
       nationality,
       language: language ?? "ko",
