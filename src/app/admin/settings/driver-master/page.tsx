@@ -315,7 +315,9 @@ export default function DriverMasterPage() {
   const tenureText = useMemo(() => tenurePretty(tenureDays), [tenureDays]);
 
   const displayedRows = useMemo(
-    () => showResigned ? rows : rows.filter((r) => normalizeApproval(r.approval_status) !== "resigned"),
+    () => showResigned
+      ? rows.filter((r) => normalizeApproval(r.approval_status) === "resigned")
+      : rows.filter((r) => normalizeApproval(r.approval_status) !== "resigned"),
     [rows, showResigned]
   );
 
@@ -660,7 +662,7 @@ export default function DriverMasterPage() {
             onClick={() => setShowResigned((v) => !v)}
             style={{ height: 38, padding: "0 14px", borderRadius: 7, border: `1px solid ${showResigned ? "#6B7280" : "#D1D9E0"}`, background: showResigned ? "#6B7280" : "#F8FAFC", color: showResigned ? "#fff" : "#6B7280", fontWeight: 700, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" }}
           >
-            퇴사자 포함
+            퇴사자만
           </button>
         </div>
       </div>
@@ -772,7 +774,7 @@ export default function DriverMasterPage() {
         </div>
         {displayedRows.length > 0 && (
           <div style={{ padding: "10px 16px", borderTop: "1px solid #F1F5F9", fontSize: 12, color: "#94A3B8", textAlign: "right" }}>
-            총 {displayedRows.length.toLocaleString()}명{showResigned ? " (퇴사자 포함)" : ""}
+            총 {displayedRows.length.toLocaleString()}명{showResigned ? " (퇴사자만)" : ""}
           </div>
         )}
       </div>

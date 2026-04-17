@@ -497,7 +497,8 @@ export default function UserMasterPage() {
 
   const displayedRows = useMemo(() => {
     let result = rows;
-    if (!showResigned) result = result.filter((r) => normalizeApproval(r.approval_status) !== "resigned");
+    if (showResigned) result = result.filter((r) => normalizeApproval(r.approval_status) === "resigned");
+    else result = result.filter((r) => normalizeApproval(r.approval_status) !== "resigned");
     if (qForeigner) result = result.filter((r) => {
       const nat = (r.nationality ?? "").trim().toUpperCase();
       return nat !== "" && nat !== "KR" && nat !== "한국";
@@ -578,7 +579,7 @@ export default function UserMasterPage() {
 
       {/* ── 검색 필터 ── */}
       <div style={{ ...card, padding: "16px 18px", marginBottom: 12 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1.3fr auto auto", gap: 10, alignItems: "flex-end" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr auto auto auto", gap: 10, alignItems: "flex-end" }}>
           <div>
             <div style={fieldLabelStyle()}>이름</div>
             <input value={qName} onChange={(e) => setQName(e.target.value)} placeholder="이름 검색" style={inputStyle()} onKeyDown={(e) => e.key === "Enter" && load()} />
@@ -615,7 +616,7 @@ export default function UserMasterPage() {
             onClick={() => setShowResigned((v) => !v)}
             style={{ ...buttonStyle(false, false), background: showResigned ? "#6B7280" : "#F1F5F9", color: showResigned ? "#fff" : "#6B7280", border: "1px solid " + (showResigned ? "#6B7280" : "#D1D9E0") }}
           >
-            퇴사자 포함
+            퇴사자만
           </button>
         </div>
       </div>
@@ -726,7 +727,7 @@ export default function UserMasterPage() {
         </div>
         {displayedRows.length > 0 && (
           <div style={{ padding: "10px 16px", borderTop: "1px solid #F1F5F9", fontSize: 12, color: "#94A3B8", textAlign: "right" }}>
-            총 {displayedRows.length.toLocaleString()}명{qForeigner ? " (외국인 필터 적용)" : ""}{showResigned ? " (퇴사자 포함)" : ""}
+            총 {displayedRows.length.toLocaleString()}명{showResigned ? " (퇴사자만)" : ""}{qForeigner ? " (외국인 필터 적용)" : ""}
           </div>
         )}
       </div>
