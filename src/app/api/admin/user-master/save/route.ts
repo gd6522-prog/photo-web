@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
     visa: body.visa ?? null,
     is_admin: !!body.is_admin,
     is_general_admin: !!body.is_general_admin,
+    is_center_admin: !!body.is_center_admin,
     is_company_admin: !!body.is_company_admin,
     approval_status: body.approval_status ?? null,
   };
@@ -50,6 +51,20 @@ export async function POST(req: NextRequest) {
 
   if (isMissingColumnError(error, "is_general_admin")) {
     const { is_general_admin: _g, ...p2 } = payload;
+    ({ error } = await guard.sbAdmin.from("profiles").update(p2).eq("id", userId));
+    if (isMissingColumnError(error, "is_center_admin")) {
+      const { is_center_admin: _ct, ...p3 } = p2;
+      ({ error } = await guard.sbAdmin.from("profiles").update(p3).eq("id", userId));
+      if (isMissingColumnError(error, "is_company_admin")) {
+        const { is_company_admin: _c, ...p4 } = p3;
+        ({ error } = await guard.sbAdmin.from("profiles").update(p4).eq("id", userId));
+      }
+    } else if (isMissingColumnError(error, "is_company_admin")) {
+      const { is_company_admin: _c, ...p3 } = p2;
+      ({ error } = await guard.sbAdmin.from("profiles").update(p3).eq("id", userId));
+    }
+  } else if (isMissingColumnError(error, "is_center_admin")) {
+    const { is_center_admin: _ct, ...p2 } = payload;
     ({ error } = await guard.sbAdmin.from("profiles").update(p2).eq("id", userId));
     if (isMissingColumnError(error, "is_company_admin")) {
       const { is_company_admin: _c, ...p3 } = p2;

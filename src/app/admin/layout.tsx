@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { AdminAccessProvider, AccessLevel, MenuAccessMap } from "@/lib/admin-access";
 import { getSettingsItems, getSubItems, findMenuKeyByPath } from "@/lib/menu-registry";
-import { isGeneralAdminWorkPart, isMainAdminIdentity, isCompanyAdminFlag } from "@/lib/admin-role";
+import { isGeneralAdminWorkPart, isMainAdminIdentity, isCompanyAdminFlag, isCenterAdminFlag } from "@/lib/admin-role";
 
 const MAX_W = 1700;
 const AUTO_LOGOUT_MS = 60 * 60 * 1000;
@@ -18,6 +18,7 @@ type Profile = {
   is_admin: boolean | null;
   work_part: string | null;
   is_company_admin: boolean | null;
+  is_center_admin: boolean | null;
 };
 
 type PermRow = {
@@ -41,7 +42,7 @@ async function readProfileWithRetry(uid: string, retry = 6, delayMs = 500) {
   for (let i = 0; i < retry; i++) {
     const { data, error } = await supabase
       .from("profiles")
-      .select("name,approval_status,is_admin,work_part,is_company_admin")
+      .select("name,approval_status,is_admin,work_part,is_company_admin,is_center_admin")
       .eq("id", uid)
       .single();
 
@@ -70,6 +71,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [checking, setChecking] = useState<boolean>(isAdminPath);
   const [isMainAdmin, setIsMainAdmin] = useState(false);
   const [isGeneralAdmin, setIsGeneralAdmin] = useState(false);
+  const [isCenterAdmin, setIsCenterAdmin] = useState(false);
   const [isCompanyAdmin, setIsCompanyAdmin] = useState(false);
   const [menuAccess, setMenuAccess] = useState<MenuAccessMap>({});
   const [loginUserName, setLoginUserName] = useState("");
@@ -277,9 +279,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         const hardMain = isMainAdminIdentity(uid, session.user.email ?? "");
         const main = hardMain || !!p?.is_admin;
         const general = isGeneralAdminWorkPart(p?.work_part);
+        const center = isCenterAdminFlag(p?.is_center_admin);
         const company = isCompanyAdminFlag(p?.is_company_admin);
 
-        if (!main && !general && !company) {
+        if (!main && !general && !center && !company) {
           try {
             await supabase.auth.signOut();
           } catch {}
@@ -291,7 +294,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         setIsMainAdmin(main);
         setIsGeneralAdmin(!main && general);
-        setIsCompanyAdmin(!main && !general && company);
+        setIsCenterAdmin(!main && !general && center);
+        setIsCompanyAdmin(!main && !general && !center && company);
         setLoginUserName(String(p?.name ?? "").trim());
 
         if (main) {
@@ -445,7 +449,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <AdminAccessProvider isMainAdmin={isMainAdmin} isGeneralAdmin={isGeneralAdmin} isCompanyAdmin={isCompanyAdmin} menuAccess={menuAccess}>
+    <AdminAccessProvider isMainAdmin={isMainAdmin} isGeneralAdmin={isGeneralAdmin} isCenterAdmin={isCenterAdmin} isCompanyAdmin={isCompanyAdmin} menuAccess={menuAccess}>
       <style>{`
         @keyframes dropdownFadeIn {
           from { opacity: 0; transform: translateX(-50%) translateY(-6px); }

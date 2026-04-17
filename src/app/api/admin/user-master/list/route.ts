@@ -19,6 +19,7 @@ type ProfileRow = {
   nationality: string | null;
   is_admin?: boolean | null;
   is_general_admin?: boolean | null;
+  is_center_admin?: boolean | null;
   is_company_admin?: boolean | null;
 };
 
@@ -75,7 +76,7 @@ export async function GET(req: NextRequest) {
       "is_admin",
     ];
     if (includeRoleFlags) {
-      columns.push("is_general_admin", "is_company_admin");
+      columns.push("is_general_admin", "is_center_admin", "is_company_admin");
     }
 
     let q = guard.sbAdmin
@@ -101,7 +102,7 @@ export async function GET(req: NextRequest) {
 
   // profiles 목록과 오늘 출퇴근을 병렬로 실행
   let [{ data, error }, shiftsResult, nationalityResult] = await Promise.all([loadProfiles(true), shiftsPromise, nationalityOptionsPromise]);
-  if (isMissingColumnError(error, "is_general_admin") || isMissingColumnError(error, "is_company_admin")) {
+  if (isMissingColumnError(error, "is_general_admin") || isMissingColumnError(error, "is_center_admin") || isMissingColumnError(error, "is_company_admin")) {
     ({ data, error } = await loadProfiles(false));
   }
   if (isMissingColumnError(error, "nationality")) {

@@ -19,6 +19,7 @@ type ProfileRow = {
   visa: string | null;
   is_admin?: boolean | null;
   is_general_admin?: boolean | null;
+  is_center_admin?: boolean | null;
   is_company_admin?: boolean | null;
 };
 
@@ -229,6 +230,7 @@ export default function UserMasterPage() {
     visa: "",
     is_admin: false,
     is_general_admin: false,
+    is_center_admin: false,
     is_company_admin: false,
     approval_status: "pending" as "pending" | "approved" | "rejected",
   });
@@ -346,6 +348,7 @@ export default function UserMasterPage() {
       visa: r.visa ?? "",
       is_admin: !!r.is_admin,
       is_general_admin: !!r.is_general_admin,
+      is_center_admin: !!r.is_center_admin,
       is_company_admin: !!r.is_company_admin,
       approval_status: ap,
     });
@@ -405,6 +408,7 @@ export default function UserMasterPage() {
         visa: (nat && nat.toUpperCase() !== "KR" && nat !== "한국") ? (f.visa.trim() || null) : null,
         is_admin: lockedIsAdmin,
         is_general_admin: f.is_general_admin,
+        is_center_admin: f.is_center_admin,
         is_company_admin: f.is_company_admin,
         approval_status: f.approval_status,
       };
@@ -833,6 +837,7 @@ export default function UserMasterPage() {
                     {[
                       { label: "메인관리자", key: "is_admin" as const, disabled: isCompanyAdminRole },
                       { label: "일반관리자 (웹사이트 권한)", key: "is_general_admin" as const },
+                      { label: "센터관리자", key: "is_center_admin" as const },
                       { label: "업체관리자 (조회 권한 구분)", key: "is_company_admin" as const },
                     ].map(({ label, key, disabled }) => (
                       <label key={key} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, fontWeight: 600, color: "#374151", cursor: disabled ? "not-allowed" : "pointer" }}>
@@ -844,8 +849,7 @@ export default function UserMasterPage() {
                             const v = e.target.checked;
                             setF((p) => ({
                               ...p,
-                              [key]: v,
-                              ...(v ? { is_admin: false, is_general_admin: false, is_company_admin: false } : {}),
+                              ...(v ? { is_admin: false, is_general_admin: false, is_center_admin: false, is_company_admin: false } : {}),
                               [key]: v,
                             }));
                           }}

@@ -19,6 +19,7 @@ type AdminAccessState = {
 
   isMainAdmin: boolean;
   isGeneralAdmin: boolean;
+  isCenterAdmin: boolean;
   isCompanyAdmin: boolean;
 
   // 편의 플래그
@@ -33,6 +34,7 @@ const DEFAULT_STATE: AdminAccessState = {
   email: "",
   isMainAdmin: false,
   isGeneralAdmin: false,
+  isCenterAdmin: false,
   isCompanyAdmin: false,
   isAdmin: false,
   menuAccess: {},
@@ -45,6 +47,7 @@ export function AdminAccessProvider({
   menuAccess,
   isMainAdmin,
   isGeneralAdmin,
+  isCenterAdmin,
   isCompanyAdmin,
 }: {
   children: React.ReactNode;
@@ -53,6 +56,7 @@ export function AdminAccessProvider({
   menuAccess?: MenuAccessMap;
   isMainAdmin?: boolean;
   isGeneralAdmin?: boolean;
+  isCenterAdmin?: boolean;
   isCompanyAdmin?: boolean;
 }) {
   const [state, setState] = useState<AdminAccessState>(() => ({
@@ -60,8 +64,9 @@ export function AdminAccessProvider({
     menuAccess: menuAccess ?? {},
     isMainAdmin: !!isMainAdmin,
     isGeneralAdmin: !!isGeneralAdmin,
+    isCenterAdmin: !!isCenterAdmin,
     isCompanyAdmin: !!isCompanyAdmin,
-    isAdmin: !!isMainAdmin || !!isGeneralAdmin || !!isCompanyAdmin,
+    isAdmin: !!isMainAdmin || !!isGeneralAdmin || !!isCenterAdmin || !!isCompanyAdmin,
   }));
 
   // ✅ layout에서 내려주는 값이 바뀌면 반영(훅 규칙 준수)
@@ -69,17 +74,19 @@ export function AdminAccessProvider({
     setState((prev) => {
       const main = !!isMainAdmin;
       const general = !!isGeneralAdmin;
+      const center = !!isCenterAdmin;
       const company = !!isCompanyAdmin;
       return {
         ...prev,
         menuAccess: menuAccess ?? {},
         isMainAdmin: main,
         isGeneralAdmin: general,
+        isCenterAdmin: center,
         isCompanyAdmin: company,
-        isAdmin: main || general || company,
+        isAdmin: main || general || center || company,
       };
     });
-  }, [menuAccess, isMainAdmin, isGeneralAdmin, isCompanyAdmin]);
+  }, [menuAccess, isMainAdmin, isGeneralAdmin, isCenterAdmin, isCompanyAdmin]);
 
   // ✅ 세션 정보는 Provider가 자체로도 유지(혹시 다른 곳에서 직접 쓸 때)
   useEffect(() => {
@@ -117,6 +124,7 @@ export function AdminAccessProvider({
         const main = hardMain || dbMain;
 
         const general = isGeneralAdminWorkPart((prof as any)?.work_part);
+        const center = false;
         const company = false;
 
         if (!alive) return;
@@ -128,8 +136,9 @@ export function AdminAccessProvider({
           // layout에서 주는 값이 우선이지만, 최소한 true 유지
           isMainAdmin: prev.isMainAdmin || main,
           isGeneralAdmin: prev.isGeneralAdmin || (!main && general),
-          isCompanyAdmin: prev.isCompanyAdmin || (!main && company),
-          isAdmin: prev.isAdmin || main || general || company,
+          isCenterAdmin: prev.isCenterAdmin || (!main && !general && center),
+          isCompanyAdmin: prev.isCompanyAdmin || (!main && !general && !center && company),
+          isAdmin: prev.isAdmin || main || general || center || company,
         }));
       } catch {
         if (!alive) return;

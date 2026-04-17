@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { isGeneralAdminWorkPart, isCompanyAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
+import { isGeneralAdminWorkPart, isCompanyAdminWorkPart, isCenterAdminWorkPart, isCenterAdminFlag, isMainAdminIdentity } from "@/lib/admin-role";
 
 export const runtime = "nodejs";
 
@@ -23,6 +23,7 @@ type CachedProfile = {
   isMainAdmin: boolean;
   myWorkPart: string | null;
   myIsCompanyAdmin: boolean | null;
+  myIsCenterAdmin: boolean | null;
   expiresAt: number;
 };
 
@@ -66,7 +67,7 @@ function getSbAdmin(): SupabaseClient {
 
 export async function requireAdmin(req: NextRequest): Promise<
   | { ok: false; res: NextResponse }
-  | { ok: true; sbAdmin: SupabaseClient; uid: string; email: string; isMainAdmin: boolean; myWorkPart: string | null; myIsCompanyAdmin: boolean | null }
+  | { ok: true; sbAdmin: SupabaseClient; uid: string; email: string; isMainAdmin: boolean; myWorkPart: string | null; myIsCompanyAdmin: boolean | null; myIsCenterAdmin: boolean | null }
 > {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return { ok: false, res: json(false, "Missing Supabase env", null, 500) };
   if (!SUPABASE_SERVICE_ROLE_KEY) return { ok: false, res: json(false, "Missing SUPABASE_SERVICE_ROLE_KEY", null, 500) };
@@ -87,13 +88,13 @@ export async function requireAdmin(req: NextRequest): Promise<
   // 2) 캐시 히트 시 DB 조회 스킵
   const cached = getCachedProfile(uid);
   if (cached) {
-    return { ok: true, sbAdmin, uid, email, isMainAdmin: cached.isMainAdmin, myWorkPart: cached.myWorkPart, myIsCompanyAdmin: cached.myIsCompanyAdmin };
+    return { ok: true, sbAdmin, uid, email, isMainAdmin: cached.isMainAdmin, myWorkPart: cached.myWorkPart, myIsCompanyAdmin: cached.myIsCompanyAdmin, myIsCenterAdmin: cached.myIsCenterAdmin };
   }
 
   // 3) 캐시 미스: 프로필 1회 조회
   const { data: prof, error: pErr } = await sbAdmin
     .from("profiles")
-    .select("id, work_part, is_admin, is_company_admin, approval_status")
+    .select("id, work_part, is_admin, is_company_admin, is_center_admin, approval_status")
     .eq("id", uid)
     .maybeSingle();
 
@@ -107,8 +108,10 @@ export async function requireAdmin(req: NextRequest): Promise<
   const main = hardMain || dbMain;
   const general = isGeneralAdminWorkPart((prof as { work_part?: string } | null)?.work_part ?? null);
   const company = isCompanyAdminWorkPart((prof as { work_part?: string } | null)?.work_part ?? null);
+  const center = isCenterAdminWorkPart((prof as { work_part?: string } | null)?.work_part ?? null)
+    || isCenterAdminFlag((prof as { is_center_admin?: boolean } | null)?.is_center_admin ?? null);
 
-  if (!main && !general && !company) return { ok: false, res: json(false, "Forbidden", null, 403) };
+  if (!main && !general && !company && !center) return { ok: false, res: json(false, "Forbidden", null, 403) };
 
   const result = {
     uid,
@@ -116,6 +119,7 @@ export async function requireAdmin(req: NextRequest): Promise<
     isMainAdmin: main,
     myWorkPart: (prof as { work_part?: string } | null)?.work_part ?? null,
     myIsCompanyAdmin: (prof as { is_company_admin?: boolean } | null)?.is_company_admin ?? null,
+    myIsCenterAdmin: (prof as { is_center_admin?: boolean } | null)?.is_center_admin ?? null,
   };
 
   setCachedProfile(result);

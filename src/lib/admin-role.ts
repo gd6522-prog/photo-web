@@ -21,11 +21,20 @@ export function isGeneralAdminFlag(value: unknown) {
   return value === true;
 }
 
+export function isCenterAdminWorkPart(workPart: unknown) {
+  return compact(workPart) === "센터관리자";
+}
+
+export function isCenterAdminFlag(value: unknown) {
+  return value === true;
+}
+
 export function isGeneralAdminWorkPart(workPart: unknown) {
   const c = compact(workPart);
   if (!c || c === "비관리자") return false;
   if (c === "관리자" || c === "일반관리자") return true;
   if (c.includes("업체관리자")) return false;
+  if (c.includes("센터관리자")) return false;
   return c.includes("관리자");
 }
 
