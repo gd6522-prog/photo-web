@@ -402,7 +402,16 @@ export default function SeparatePage() {
       </div>
 
       {loading ? (
-        <div style={{ padding: 48, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>불러오는 중...</div>
+        <div style={{ padding: 64, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+          <style>{`@keyframes sep-spin { to { transform: rotate(360deg); } }`}</style>
+          <div style={{
+            width: 40, height: 40, borderRadius: "50%",
+            border: "4px solid #E2E8F0",
+            borderTopColor: "#1D4ED8",
+            animation: "sep-spin 0.8s linear infinite",
+          }} />
+          <div style={{ fontSize: 14, color: "#64748B", fontWeight: 600 }}>데이터 불러오는 중...</div>
+        </div>
       ) : error ? (
         <div style={{ padding: 48, textAlign: "center", color: "#EF4444", fontSize: 14 }}>{error}</div>
       ) : (
