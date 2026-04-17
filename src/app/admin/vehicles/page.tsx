@@ -1982,6 +1982,7 @@ export function VehiclePageScreen({
   const [filterCarNo, setFilterCarNo] = useState("");
   const [filterStoreCode, setFilterStoreCode] = useState("");
   const [filterStoreName, setFilterStoreName] = useState("");
+  const [filterWorkType, setFilterWorkType] = useState("");
   const [filterCell, setFilterCell] = useState("");
   const [filterProductCode, setFilterProductCode] = useState("");
   const [filterProductName, setFilterProductName] = useState("");
@@ -2395,10 +2396,11 @@ export function VehiclePageScreen({
     const fCarNo = n(filterCarNo);
     const fStoreCode = n(filterStoreCode);
     const fStoreName = n(filterStoreName);
+    const fWorkType = filterWorkType.trim();
     const fCell = n(filterCell);
     const fProductCode = n(filterProductCode);
     const fProductName = n(filterProductName);
-    const hasFilter = fCarNo || fStoreCode || fStoreName || fCell || fProductCode || fProductName;
+    const hasFilter = fCarNo || fStoreCode || fStoreName || fWorkType || fCell || fProductCode || fProductName;
 
     const rows = productRows.filter((row) => {
       if (showSepOnly && (separateQtyMapRef.current[`${row.store_code}|${row.product_code}`] ?? 0) === 0) return false;
@@ -2406,6 +2408,7 @@ export function VehiclePageScreen({
       if (fCarNo && !n(row.car_no).includes(fCarNo)) return false;
       if (fStoreCode && !n(row.store_code).includes(fStoreCode)) return false;
       if (fStoreName && !n(row.store_name).includes(fStoreName)) return false;
+      if (fWorkType && row.work_type !== fWorkType) return false;
       if (fCell && !n(row.cell_name).includes(fCell)) return false;
       if (fProductCode && !n(row.product_code).includes(fProductCode)) return false;
       if (fProductName && !n(row.product_name).includes(fProductName)) return false;
@@ -2445,7 +2448,7 @@ export function VehiclePageScreen({
       return defaultSort(a, b);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productRows, inputSearched, showSepOnly, filterCarNo, filterStoreCode, filterStoreName, filterCell, filterProductCode, filterProductName, inputSortKey, inputSortDir]);
+  }, [productRows, inputSearched, showSepOnly, filterCarNo, filterStoreCode, filterStoreName, filterWorkType, filterCell, filterProductCode, filterProductName, inputSortKey, inputSortDir]);
 
   const filteredCargoRows = useMemo(() => {
     const carQ = normalizeStoreName(cargoQuery);
@@ -2473,7 +2476,7 @@ export function VehiclePageScreen({
 
   useEffect(() => {
     setInputPage(1);
-  }, [storeQuery, fileName, filterCarNo, filterStoreCode, filterStoreName, filterCell, filterProductCode, filterProductName]);
+  }, [storeQuery, fileName, filterCarNo, filterStoreCode, filterStoreName, filterWorkType, filterCell, filterProductCode, filterProductName]);
 
   useEffect(() => {
     setInputSortKey(null);
@@ -3490,6 +3493,68 @@ export function VehiclePageScreen({
                   { label: "호차",   ref: refCarNo,      width: 90 },
                   { label: "점포코드", ref: refStoreCode,   width: 100 },
                   { label: "점포명",  ref: refStoreName,   width: 130 },
+                ] as const
+              ).map(({ label, ref, width }) => (
+                <div key={label} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#64748B", paddingLeft: 2 }}>{label}</span>
+                  <input
+                    ref={ref}
+                    defaultValue=""
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter") return;
+                      e.preventDefault();
+                      setFilterCarNo(refCarNo.current?.value ?? "");
+                      setFilterStoreCode(refStoreCode.current?.value ?? "");
+                      setFilterStoreName(refStoreName.current?.value ?? "");
+                      setFilterCell(refCell.current?.value ?? "");
+                      setFilterProductCode(refProductCode.current?.value ?? "");
+                      setFilterProductName(refProductName.current?.value ?? "");
+                      setInputSearched(true);
+                      setInputPage(1);
+                    }}
+                    placeholder={label}
+                    style={{
+                      width,
+                      height: 34,
+                      borderRadius: 6,
+                      border: "1px solid #D1D9E0",
+                      padding: "0 9px",
+                      outline: "none",
+                      background: "#fff",
+                      fontSize: 13,
+                      color: "#1E293B",
+                      boxSizing: "border-box" as const,
+                    }}
+                  />
+                </div>
+              ))}
+              {/* 작업구분 select */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#64748B", paddingLeft: 2 }}>작업구분</span>
+                <select
+                  value={filterWorkType}
+                  onChange={(e) => { setFilterWorkType(e.target.value); setInputSearched(true); setInputPage(1); }}
+                  style={{
+                    width: 120,
+                    height: 34,
+                    borderRadius: 6,
+                    border: "1px solid #D1D9E0",
+                    padding: "0 6px",
+                    outline: "none",
+                    background: "#fff",
+                    fontSize: 13,
+                    color: "#1E293B",
+                    boxSizing: "border-box" as const,
+                  }}
+                >
+                  <option value="">전체</option>
+                  {[...new Set(productRows.map((r) => r.work_type).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ko")).map((wt) => (
+                    <option key={wt} value={wt}>{wt}</option>
+                  ))}
+                </select>
+              </div>
+              {(
+                [
                   { label: "셀",     ref: refCell,        width: 90 },
                   { label: "상품코드", ref: refProductCode, width: 110 },
                   { label: "상품명",  ref: refProductName, width: 140 },
@@ -3560,7 +3625,7 @@ export function VehiclePageScreen({
                     if (r.current) r.current.value = "";
                   });
                   setFilterCarNo(""); setFilterStoreCode(""); setFilterStoreName("");
-                  setFilterCell(""); setFilterProductCode(""); setFilterProductName("");
+                  setFilterWorkType(""); setFilterCell(""); setFilterProductCode(""); setFilterProductName("");
                   setInputSearched(false);
                   setShowSepOnly(false);
                   setInputPage(1);
@@ -3606,7 +3671,7 @@ export function VehiclePageScreen({
               <div style={{ color: "#64748B", fontSize: 13, fontWeight: 700, alignSelf: "flex-end", paddingBottom: 7 }}>
                 {!inputSearched
                   ? `전체 ${productRows.length}건 (조회 후 표시)`
-                  : (showSepOnly || filterCarNo || filterStoreCode || filterStoreName || filterCell || filterProductCode || filterProductName)
+                  : (showSepOnly || filterCarNo || filterStoreCode || filterStoreName || filterWorkType || filterCell || filterProductCode || filterProductName)
                     ? `검색 결과 ${filteredProductRows.length}건`
                     : `전체 ${filteredProductRows.length}건`}
               </div>
