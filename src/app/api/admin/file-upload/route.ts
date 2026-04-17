@@ -7,7 +7,7 @@ import {
   listR2Keys,
   deleteR2Objects,
 } from "@/lib/r2";
-import { R2_CELLS_CACHE_KEY } from "../product-strategy-cells/route";
+import { triggerCacheWarm, invalidateCache } from "@/lib/cache-warm";
 
 export const runtime = "nodejs";
 
@@ -133,10 +133,8 @@ export async function POST(req: NextRequest) {
         await deleteR2Objects(oldKeys);
       }
 
-      // product-strategy 파일 교체 시 피킹셀 R2 캐시 무효화
-      if (slotKey === "product-strategy") {
-        void deleteR2Objects([R2_CELLS_CACHE_KEY]);
-      }
+      // 파일 교체 시 관련 R2 JSON 캐시 무효화
+      await invalidateCache(slotKey);
 
       const r2Key = `${slotPrefix(slotKey)}${fileName}`;
       const uploadUrl = await getUploadPresignedUrl(r2Key, contentType);
@@ -151,6 +149,8 @@ export async function POST(req: NextRequest) {
       }
       const meta = { fileName, uploadedAt: new Date().toISOString(), ...(uploaderName ? { uploaderName } : {}), ...(fileSize != null ? { fileSize } : {}) };
       await putR2Object(metaKey(slotKey), JSON.stringify(meta), "application/json");
+      // 업로드 완료 즉시 캐시 워밍 (백그라운드)
+      triggerCacheWarm(slotKey);
       return NextResponse.json({ ok: true });
     }
 
