@@ -66,7 +66,9 @@
       "mcp__claude_ai_Vercel__list_deployments",
       "mcp__claude_ai_Vercel__get_project",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Skill(schedule)",
+      "Skill(schedule:*)"
     ]
   }
 }
