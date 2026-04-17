@@ -2219,7 +2219,14 @@ export function VehiclePageScreen({
     })();
   }, [tab]);
 
-  const reportSourceRows = useMemo(() => (cargoRows.length > 0 ? cargoRows : reportBaseRows), [cargoRows, reportBaseRows]);
+  const reportSourceRows = useMemo(() => {
+    if (cargoRows.length === 0) return reportBaseRows;
+    // cargoRows에 없는 점포마스터 점포도 포함 (발주 없는 점포도 운행일보에 표시)
+    const cargoNameSet = new Set(cargoRows.map((r) => normalizeStoreName(r.store_name)));
+    const missingFromBase = reportBaseRows.filter((r) => !cargoNameSet.has(normalizeStoreName(r.store_name)));
+    if (missingFromBase.length === 0) return cargoRows;
+    return [...cargoRows, ...missingFromBase];
+  }, [cargoRows, reportBaseRows]);
 
   useEffect(() => {
     if (tab !== "report") return;
