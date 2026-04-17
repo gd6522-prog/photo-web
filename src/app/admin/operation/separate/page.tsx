@@ -82,25 +82,22 @@ export default function SeparatePage() {
         const token = await getAdminToken();
 
         // 집계 + 셀 + 마스터입수 병렬 읽기
-        let entriesRes = fetch("/api/admin/separate-qty?all=1", {
-          headers: { Authorization: `Bearer ${token}` },
-          cache: "no-store",
-        });
-        const unitsRes = fetch("/api/admin/workcenter-product-units", {
-          headers: { Authorization: `Bearer ${token}` },
-          cache: "no-store",
-        });
+        const authHeaders = { Authorization: `Bearer ${token}` };
+        let entriesRes = fetch("/api/admin/separate-qty?all=1", { headers: authHeaders, cache: "no-store" });
+        const unitsRes  = fetch("/api/admin/workcenter-product-units", { headers: authHeaders, cache: "no-store" });
+        const cellsRes  = fetch("/api/admin/product-strategy-cells", { headers: authHeaders, cache: "no-store" });
 
-        const [eRes, uRes] = await Promise.all([entriesRes, unitsRes]);
+        const [eRes, uRes, cRes] = await Promise.all([entriesRes, unitsRes, cellsRes]);
         if (!eRes.ok) { setError("데이터를 불러오지 못했습니다."); return; }
 
-        let payload = (await eRes.json()) as { ok: boolean; entries?: SeparateEntry[]; cells?: Record<string, string>; needsRebuild?: boolean };
+        let payload = (await eRes.json()) as { ok: boolean; entries?: SeparateEntry[]; needsRebuild?: boolean };
         const unitsPayload = uRes.ok ? (await uRes.json()) as { units?: Record<string, ProductUnits> } : { units: {} };
+        const cellsPayload = cRes.ok ? (await cRes.json()) as { cells?: Record<string, string> } : { cells: {} };
 
         // 집계 없음 → rebuild 요청 (한 번만)
         if (payload.needsRebuild) {
           const rebuildRes = await fetch("/api/admin/separate-qty?all=1&rebuild=1", {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: authHeaders,
             cache: "no-store",
           });
           if (rebuildRes.ok) payload = (await rebuildRes.json()) as typeof payload;
@@ -108,7 +105,7 @@ export default function SeparatePage() {
 
         const loaded = payload.entries ?? [];
         setEntries(loaded);
-        setCellMap(payload.cells ?? {});
+        setCellMap(cellsPayload.cells ?? {});
         setUnitsMap(unitsPayload.units ?? {});
         const dm: Record<string, boolean> = {};
         for (const e of loaded) { if (e.done) dm[doneKey(e)] = true; }
