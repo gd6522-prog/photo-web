@@ -150,15 +150,12 @@ export async function POST(req: NextRequest) {
   if (typeof done === "boolean" && typeof qty === "undefined") {
     if (data[entryKey]) {
       data[entryKey] = { ...data[entryKey], done };
-      await putR2Object(key, JSON.stringify(data), "application/json");
-      // 집계 파일도 업데이트 (백그라운드)
-      void (async () => {
-        const agg = (await readAggregate()) ?? {};
-        if (agg[aggKey]) {
-          agg[aggKey] = { ...agg[aggKey], done };
-          await putR2Object(AGGREGATE_KEY, JSON.stringify(agg), "application/json");
-        }
-      })();
+      const agg = (await readAggregate()) ?? {};
+      if (agg[aggKey]) agg[aggKey] = { ...agg[aggKey], done };
+      await Promise.all([
+        putR2Object(key, JSON.stringify(data), "application/json"),
+        putR2Object(AGGREGATE_KEY, JSON.stringify(agg), "application/json"),
+      ]);
     }
     return json(true, undefined, { date, key: entryKey, done });
   }
@@ -179,18 +176,16 @@ export async function POST(req: NextRequest) {
     };
   }
 
-  await putR2Object(key, JSON.stringify(data), "application/json");
-
-  // 집계 파일 업데이트 (백그라운드)
-  void (async () => {
-    const agg = (await readAggregate()) ?? {};
-    if (numQty === 0) {
-      delete agg[aggKey];
-    } else {
-      agg[aggKey] = { date, ...data[entryKey] };
-    }
-    await putR2Object(AGGREGATE_KEY, JSON.stringify(agg), "application/json");
-  })();
+  const agg = (await readAggregate()) ?? {};
+  if (numQty === 0) {
+    delete agg[aggKey];
+  } else {
+    agg[aggKey] = { date, ...data[entryKey] };
+  }
+  await Promise.all([
+    putR2Object(key, JSON.stringify(data), "application/json"),
+    putR2Object(AGGREGATE_KEY, JSON.stringify(agg), "application/json"),
+  ]);
 
   return json(true, undefined, { date, key: entryKey, qty: numQty });
 }
