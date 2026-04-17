@@ -61,7 +61,9 @@
       "mcp__claude_ai_Supabase__list_organizations",
       "mcp__claude_ai_Supabase__get_project",
       "mcp__claude_ai_Supabase__get_organization",
-      "mcp__claude_ai_Vercel__get_runtime_logs"
+      "mcp__claude_ai_Vercel__get_runtime_logs",
+      "mcp__claude_ai_Vercel__list_projects",
+      "mcp__claude_ai_Vercel__list_deployments"
     ]
   }
 }
