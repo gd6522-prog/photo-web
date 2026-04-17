@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
       company: req.nextUrl.searchParams.get("company") ?? "",
       workPart: req.nextUrl.searchParams.get("workPart") ?? "",
       workTable: req.nextUrl.searchParams.get("workTable") ?? "",
+      includeResigned: req.nextUrl.searchParams.get("includeResigned") === "1",
     });
 
     const ids = profiles.map((p) => p.id);

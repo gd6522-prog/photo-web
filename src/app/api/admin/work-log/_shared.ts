@@ -34,12 +34,13 @@ export async function getWorkLogScope(sbAdmin: SupabaseClient, uid: string) {
 export async function getWorkLogProfiles(
   sbAdmin: SupabaseClient,
   scope: { isCompanyAdminRole: boolean },
-  filters: { nameQ?: string; company?: string; workPart?: string; workTable?: string }
+  filters: { nameQ?: string; company?: string; workPart?: string; workTable?: string; includeResigned?: boolean }
 ) {
   const qName = String(filters.nameQ ?? "").trim();
   const qCompany = String(filters.company ?? "").trim();
   const qWorkPart = String(filters.workPart ?? "").trim();
   const qWorkTable = String(filters.workTable ?? "").trim();
+  const includeResigned = !!filters.includeResigned;
   const effectiveCompany = scope.isCompanyAdminRole && qCompany === BLOCKED_COMPANY ? "" : qCompany;
 
   const load = async (includeWorkTable: boolean, includeJoinDate: boolean) => {
@@ -53,6 +54,7 @@ export async function getWorkLogProfiles(
       .or(`work_part.is.null,work_part.not.ilike.%${EXCLUDED_WORK_PART_KEYWORD}%`)
       .order("name", { ascending: true });
 
+    if (!includeResigned) q = q.neq("approval_status", "resigned");
     if (qName) q = q.ilike("name", `%${qName}%`);
     if (scope.isCompanyAdminRole) q = q.neq("company_name", BLOCKED_COMPANY);
     if (effectiveCompany) q = q.eq("company_name", effectiveCompany);

@@ -206,6 +206,7 @@ export default function UserMasterPage() {
   const [qCompany, setQCompany] = useState("");
   const [qWorkTable, setQWorkTable] = useState("");
   const [qForeigner, setQForeigner] = useState(false);
+  const [showResigned, setShowResigned] = useState(false);
 
   const [rows, setRows] = useState<ProfileRow[]>([]);
   const [selected, setSelected] = useState<ProfileRow | null>(null);
@@ -495,12 +496,14 @@ export default function UserMasterPage() {
   };
 
   const displayedRows = useMemo(() => {
-    if (!qForeigner) return rows;
-    return rows.filter((r) => {
+    let result = rows;
+    if (!showResigned) result = result.filter((r) => normalizeApproval(r.approval_status) !== "resigned");
+    if (qForeigner) result = result.filter((r) => {
       const nat = (r.nationality ?? "").trim().toUpperCase();
       return nat !== "" && nat !== "KR" && nat !== "한국";
     });
-  }, [rows, qForeigner]);
+    return result;
+  }, [rows, qForeigner, showResigned]);
 
   const partOptions = useMemo(() => {
     const arr = uniq(rows.map((r) => String(r.work_part ?? "")));
@@ -607,6 +610,12 @@ export default function UserMasterPage() {
             style={{ ...buttonStyle(false, false), background: qForeigner ? "#1E293B" : "#F1F5F9", color: qForeigner ? "#fff" : "#475569", border: "1px solid " + (qForeigner ? "#1E293B" : "#D1D9E0") }}
           >
             외국인만
+          </button>
+          <button
+            onClick={() => setShowResigned((v) => !v)}
+            style={{ ...buttonStyle(false, false), background: showResigned ? "#6B7280" : "#F1F5F9", color: showResigned ? "#fff" : "#6B7280", border: "1px solid " + (showResigned ? "#6B7280" : "#D1D9E0") }}
+          >
+            퇴사자 포함
           </button>
         </div>
       </div>
@@ -717,7 +726,7 @@ export default function UserMasterPage() {
         </div>
         {displayedRows.length > 0 && (
           <div style={{ padding: "10px 16px", borderTop: "1px solid #F1F5F9", fontSize: 12, color: "#94A3B8", textAlign: "right" }}>
-            총 {displayedRows.length.toLocaleString()}명{qForeigner ? " (외국인 필터 적용)" : ""}
+            총 {displayedRows.length.toLocaleString()}명{qForeigner ? " (외국인 필터 적용)" : ""}{showResigned ? " (퇴사자 포함)" : ""}
           </div>
         )}
       </div>

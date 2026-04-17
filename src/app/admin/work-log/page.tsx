@@ -382,7 +382,6 @@ export default function WorkLogPage() {
     if (company.trim()) params.set("company", company.trim());
     if (workPart.trim()) params.set("workPart", workPart.trim());
     if (workTable.trim()) params.set("workTable", workTable.trim());
-
     const res = await fetch(`/api/admin/work-log/basic?${params.toString()}`, {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
@@ -414,7 +413,6 @@ export default function WorkLogPage() {
     if (company.trim()) params.set("company", company.trim());
     if (workPart.trim()) params.set("workPart", workPart.trim());
     if (workTable.trim()) params.set("workTable", workTable.trim());
-
     const res = await fetch(`/api/admin/work-log/detail?${params.toString()}`, {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
