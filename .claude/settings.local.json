@@ -30,7 +30,8 @@
       "Bash(grep -l \"support_rounds\\\\|support_notices\\\\|support_excluded\" /c/Users/wals741/webphoto/han-admin/supabase/migrations/*.sql)",
       "Bash(git stash:*)",
       "Bash(git show:*)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(npx eas *)"
     ]
   }
 }
