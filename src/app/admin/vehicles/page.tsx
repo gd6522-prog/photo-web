@@ -3558,7 +3558,7 @@ export function VehiclePageScreen({
                         }}
                       >
                         <div
-                          onClick={() => { setFilterWorkTypes(new Set()); setInputSearched(true); setInputPage(1); }}
+                          onClick={() => { setFilterWorkTypes(new Set()); }}
                           style={{ padding: "6px 12px", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
                             background: filterWorkTypes.size === 0 ? "#EFF6FF" : undefined, color: filterWorkTypes.size === 0 ? "#1D4ED8" : "#374151", fontWeight: filterWorkTypes.size === 0 ? 700 : 400 }}
                         >
@@ -3575,8 +3575,6 @@ export function VehiclePageScreen({
                                   next.has(wt) ? next.delete(wt) : next.add(wt);
                                   return next;
                                 });
-                                setInputSearched(true);
-                                setInputPage(1);
                               }}
                               style={{ padding: "6px 12px", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
                                 background: checked ? "#EFF6FF" : undefined, color: checked ? "#1D4ED8" : "#374151" }}
