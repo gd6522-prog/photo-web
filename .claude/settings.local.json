@@ -42,7 +42,8 @@
       "Bash(git -C \"C:/Users/황교득/app/photo-app\" status --short)",
       "Bash(git -C \"C:/Users/황교득/app/photo-app\" add \"app/\\(tabs\\)/photo-list.tsx\")",
       "Bash(git -C C:/Users/황교득/app/photo-app commit -m 'fix: 사진조회 기종별 레이아웃 통일 및 hint 텍스트 제거 *)",
-      "Bash(git -C \"C:/Users/황교득/app/photo-app\" push origin main)"
+      "Bash(git -C \"C:/Users/황교득/app/photo-app\" push origin main)",
+      "mcp__claude_ai_Supabase__execute_sql"
     ]
   }
 }
