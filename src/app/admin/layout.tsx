@@ -349,10 +349,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       if (!mounted) return;
       if (!isAdminPath) return;
 
-      if (event === "SIGNED_OUT" || !session) {
+      if (event === "SIGNED_OUT") {
         hardToLogin();
         return;
       }
+
+      // INITIAL_SESSION은 runGuard에서 이미 처리하므로 여기선 무시
+      if (event === "INITIAL_SESSION") return;
+
+      // 토큰 갱신 중 일시적으로 세션이 null일 수 있으므로 무시
+      if (!session) return;
 
       if (event === "TOKEN_REFRESHED") {
         return;

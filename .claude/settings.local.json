@@ -57,7 +57,10 @@
       "Bash(grep -h \"from.*profiles.*select\" c:/Users/황교득/app/photo-web/src/app/api/admin/user-master/*.ts c:/Users/황교득/app/photo-web/src/app/api/signup/*.ts -A 1)",
       "Bash(git -C c:/Users/황교득/app/photo-web log --oneline --all -- \"*/migrations/*\")",
       "Bash(git -C C:/Users/황교득/app/photo-app commit -m 'fix: 사진조회 미리보기 상단 여백 수정 \\(상태바 겹침 방지\\) *)",
-      "Bash(grep -r \"SUPABASE_URL\\\\|supabase.co\" .env*)"
+      "Bash(grep -r \"SUPABASE_URL\\\\|supabase.co\" .env*)",
+      "mcp__claude_ai_Supabase__list_organizations",
+      "mcp__claude_ai_Supabase__get_project",
+      "mcp__claude_ai_Supabase__get_organization"
     ]
   }
 }
