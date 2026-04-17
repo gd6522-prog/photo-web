@@ -35,7 +35,9 @@
       "Bash(grep -rn \"autoRefreshToken\\\\|persistSession\" /c/Users/황교득/app/photo-web/src/lib/supabase*)",
       "Bash(xargs cat *)",
       "Bash(find \"/c/Users/황교득/app/photo-web\" -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" \\\\\\) ! -path \"*/node_modules/*\" ! -path \"*/.next/*\" -exec grep -l \"store_contacts\" {} \\\\;)",
-      "Bash(xargs head *)"
+      "Bash(xargs head *)",
+      "mcp__claude_ai_Supabase__list_edge_functions",
+      "mcp__claude_ai_Supabase__get_edge_function"
     ]
   }
 }
