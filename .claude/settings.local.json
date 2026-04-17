@@ -37,7 +37,9 @@
       "Bash(find \"/c/Users/황교득/app/photo-web\" -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" \\\\\\) ! -path \"*/node_modules/*\" ! -path \"*/.next/*\" -exec grep -l \"store_contacts\" {} \\\\;)",
       "Bash(xargs head *)",
       "mcp__claude_ai_Supabase__list_edge_functions",
-      "mcp__claude_ai_Supabase__get_edge_function"
+      "mcp__claude_ai_Supabase__get_edge_function",
+      "Bash(git -C \"C:/Users/황교득/app/photo-app\" log --oneline origin/main..HEAD)",
+      "Bash(git -C \"C:/Users/황교득/app/photo-app\" status --short)"
     ]
   }
 }
