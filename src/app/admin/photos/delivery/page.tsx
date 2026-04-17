@@ -6,18 +6,25 @@ import type { AccessLevel } from "@/lib/admin-access";
 import { isGeneralAdminWorkPart, isMainAdminIdentity } from "@/lib/admin-role";
 import { copyCompressedImageUrlToClipboard } from "@/lib/clipboard-image";
 
-// ✅ 같은 날짜(KST) + 같은 점포 기준으로 사진을 묶은 그룹 타입
+// ✅ 같은 날짜(KST) + 같은 점포(또는 세차: 호차+차수) 기준으로 사진을 묶은 그룹 타입
 type GroupedPhoto = {
-  key: string; // "YYYY-MM-DD|store_code"
+  key: string;
   dateKST: string; // "YYYY-MM-DD"
   store_code: string;
   store_name: string | null;
   car_no: string | null;
+  washRound?: "1차" | "2차"; // 세차 전용
   photos: DeliveryPhotoRow[]; // 가장 최신 순
 };
 
-// ✅ photos 배열을 날짜(KST) + 점포 기준으로 그룹핑
-function groupPhotosByDateAndStore(photos: DeliveryPhotoRow[]): GroupedPhoto[] {
+function getWashRound(path: string): "1차" | "2차" {
+  if (path.startsWith("wash1/")) return "1차";
+  if (path.startsWith("wash2/")) return "2차";
+  return "1차";
+}
+
+// ✅ photos 배열을 날짜(KST) + 점포 기준으로 그룹핑 (세차는 호차+차수 기준)
+function groupPhotosByDateAndStore(photos: DeliveryPhotoRow[], category?: DriverCategory): GroupedPhoto[] {
   const map = new Map<string, GroupedPhoto>();
 
   for (const p of photos) {
@@ -25,7 +32,15 @@ function groupPhotosByDateAndStore(photos: DeliveryPhotoRow[]): GroupedPhoto[] {
     const d = new Date(p.created_at);
     const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
     const dateKST = `${kst.getUTCFullYear()}-${String(kst.getUTCMonth() + 1).padStart(2, "0")}-${String(kst.getUTCDate()).padStart(2, "0")}`;
-    const key = `${dateKST}|${p.store_code}`;
+
+    let key: string;
+    let washRound: "1차" | "2차" | undefined;
+    if (category === "wash") {
+      washRound = getWashRound(p.path);
+      key = `${dateKST}|${p.car_no ?? ""}|${washRound}|${p.created_by}`;
+    } else {
+      key = `${dateKST}|${p.store_code}`;
+    }
 
     if (!map.has(key)) {
       map.set(key, {
@@ -34,6 +49,7 @@ function groupPhotosByDateAndStore(photos: DeliveryPhotoRow[]): GroupedPhoto[] {
         store_code: p.store_code,
         store_name: p.store_name ?? null,
         car_no: p.car_no ?? null,
+        washRound,
         photos: [],
       });
     }
@@ -204,6 +220,7 @@ export default function AdminDeliveryPhotosPage() {
     damage: false,
     other: false,
   });
+  const [washRoundFilter, setWashRoundFilter] = useState<"ALL" | "1차" | "2차">("ALL");
 
   const [carNo, setCarNo] = useState<string>("ALL");
   const [searchText, setSearchText] = useState<string>("");
@@ -307,6 +324,13 @@ export default function AdminDeliveryPhotosPage() {
     fetchFirstPage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [driverCategory]);
+
+  const washFilterMounted = useRef(false);
+  useEffect(() => {
+    if (!washFilterMounted.current) { washFilterMounted.current = true; return; }
+    if (driverCategory === "wash") fetchFirstPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [washRoundFilter]);
 
   // ✅ 날짜 유효성 보정: from > to면 to를 from으로 맞춤
   useEffect(() => {
@@ -413,7 +437,13 @@ export default function AdminDeliveryPhotosPage() {
   // 서버 쿼리에 카테고리 + 점포(store_code/store_name) 필터 적용
   const applyServerFilters = (q: any) => {
     if (driverCategory === "wash") {
-      q = q.or("path.ilike.wash1/%,path.ilike.wash2/%");
+      if (washRoundFilter === "1차") {
+        q = q.ilike("path", "wash1/%");
+      } else if (washRoundFilter === "2차") {
+        q = q.ilike("path", "wash2/%");
+      } else {
+        q = q.or("path.ilike.wash1/%,path.ilike.wash2/%");
+      }
     } else {
       q = q.ilike("path", `${driverCategory}/%`);
     }
@@ -654,7 +684,7 @@ export default function AdminDeliveryPhotosPage() {
   };
 
   // ✅ 그룹핑된 사진 목록
-  const groupedPhotos = useMemo(() => groupPhotosByDateAndStore(photos), [photos]);
+  const groupedPhotos = useMemo(() => groupPhotosByDateAndStore(photos, driverCategory), [photos, driverCategory]);
 
   // 화면에 표시할 그룹 (21개씩)
   const displayedGroups = useMemo(() => groupedPhotos.slice(0, visibleGroupCount), [groupedPhotos, visibleGroupCount]);
@@ -821,7 +851,8 @@ export default function AdminDeliveryPhotosPage() {
                         setDriverCategory(c);
                         if (c !== "miochul") setMiochulFlags({ redelivery: false, damage: false, other: false });
                         if (c === "bottle" || c === "tobacco") { setDateFrom(today); setDateTo(today); }
-                        if (c === "wash") { const { firstDay, lastDay } = kstCurrentMonthRange(); setDateFrom(firstDay); setDateTo(lastDay); }
+                        if (c === "wash") { const { firstDay, lastDay } = kstCurrentMonthRange(); setDateFrom(firstDay); setDateTo(lastDay); setWashRoundFilter("ALL"); }
+                        if (c !== "wash") setWashRoundFilter("ALL");
                         if (c === "miochul") { setDateFrom(defaultDateFrom); setDateTo(today); }
                         setCarNo("ALL");
                         setSearchText("");
@@ -844,6 +875,28 @@ export default function AdminDeliveryPhotosPage() {
                 })}
               </div>
             </div>
+
+            {/* 세차 차수 필터 */}
+            {driverCategory === "wash" && (
+              <div style={{ marginBottom: 18, background: "#F0FDF4", borderRadius: 10, padding: "11px 12px", border: "1px solid #BBF7D0" }}>
+                <div style={{ fontSize: 10, fontWeight: 900, color: "#059669", letterSpacing: 1, marginBottom: 9 }}>차수 선택</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {(["ALL", "1차", "2차"] as const).map((r) => {
+                    const on = washRoundFilter === r;
+                    return (
+                      <button
+                        key={r}
+                        className="category-btn"
+                        onClick={() => setWashRoundFilter(r)}
+                        style={{ flex: 1, height: 34, borderRadius: 7, border: `1.5px solid ${on ? "#059669" : "#A7F3D0"}`, background: on ? "#059669" : "white", fontWeight: 900, fontSize: 13, cursor: "pointer", color: on ? "white" : "#059669", boxShadow: on ? "0 3px 8px rgba(5,150,105,0.3)" : "none" }}
+                      >
+                        {r === "ALL" ? "전체" : r}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* 미오출 상세 */}
             {driverCategory === "miochul" && (
@@ -992,39 +1045,66 @@ export default function AdminDeliveryPhotosPage() {
 
                         {/* 메타 */}
                         <div style={{ padding: "9px 10px 10px" }}>
-                          <div style={{ fontSize: 11, fontWeight: 900, color: "#0F172A" }}>{group.dateKST}</div>
-                          <div style={{ marginTop: 2, fontSize: 11, color: "#475569", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                            <span style={{ color: "#94A3B8" }}>[{group.store_code}]</span> {group.store_name ?? ""}{group.car_no ? ` · ${group.car_no}호` : ""}
-                          </div>
-                          <div style={{ marginTop: 1, fontSize: 10, color: "#94A3B8", fontWeight: 700 }}>{uploader}</div>
+                          {driverCategory === "wash" ? (
+                            // 세차 전용: 세차일 / 호차 / 차수 / 기사명 4개만 표시
+                            <>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 6px" }}>
+                                <div>
+                                  <div style={{ fontSize: 9, fontWeight: 900, color: "#94A3B8", letterSpacing: 0.5 }}>세차일</div>
+                                  <div style={{ fontSize: 11, fontWeight: 900, color: "#0F172A" }}>{group.dateKST}</div>
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: 9, fontWeight: 900, color: "#94A3B8", letterSpacing: 0.5 }}>호차</div>
+                                  <div style={{ fontSize: 11, fontWeight: 900, color: "#0F172A" }}>{group.car_no ? `${group.car_no}호` : "-"}</div>
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: 9, fontWeight: 900, color: "#94A3B8", letterSpacing: 0.5 }}>차수</div>
+                                  <div style={{ fontSize: 11, fontWeight: 900, color: group.washRound === "1차" ? "#2563EB" : "#059669" }}>{group.washRound ?? "-"}</div>
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: 9, fontWeight: 900, color: "#94A3B8", letterSpacing: 0.5 }}>기사명</div>
+                                  <div style={{ fontSize: 11, fontWeight: 800, color: "#374151", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{uploader}</div>
+                                </div>
+                              </div>
+                              {/* 버튼 */}
+                              <div style={{ marginTop: 9, display: "flex", gap: 5 }}>
+                                <button className="btn-primary" onClick={() => onDownloadPhoto(rep)} style={{ flex: 1, height: 30, borderRadius: 7, border: "none", background: "#1E293B", color: "white", fontWeight: 900, fontSize: 11, cursor: "pointer", boxShadow: "0 2px 7px rgba(30,41,59,0.28)" }}>다운</button>
+                                <button className="btn-secondary" onClick={() => onCopyPhoto(rep)} style={{ flex: 1, height: 30, borderRadius: 7, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 900, fontSize: 11, cursor: "pointer", color: "#374151" }}>복사</button>
+                                <button className="btn-danger" onClick={() => onDeletePhoto(rep)} style={{ height: 30, padding: "0 10px", borderRadius: 7, border: "none", background: "#EF4444", color: "white", fontWeight: 900, fontSize: 11, cursor: "pointer", boxShadow: "0 2px 7px rgba(239,68,68,0.30)" }}>삭제</button>
+                              </div>
+                            </>
+                          ) : (
+                            // 기존 레이아웃
+                            <>
+                              <div style={{ fontSize: 11, fontWeight: 900, color: "#0F172A" }}>{group.dateKST}</div>
+                              <div style={{ marginTop: 2, fontSize: 11, color: "#475569", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                <span style={{ color: "#94A3B8" }}>[{group.store_code}]</span> {group.store_name ?? ""}{group.car_no ? ` · ${group.car_no}호` : ""}
+                              </div>
+                              <div style={{ marginTop: 1, fontSize: 10, color: "#94A3B8", fontWeight: 700 }}>{uploader}</div>
 
-                          {isRedelivery && (
-                            <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
-                              <button className={doneRow ? "btn-success" : "btn-danger"} onClick={() => toggleRedeliveryDone(rep)} style={{ height: 24, padding: "0 8px", borderRadius: 5, border: "none", background: doneRow ? "#DCFCE7" : "#FEE2E2", fontWeight: 900, cursor: "pointer", color: doneRow ? "#16A34A" : "#DC2626", fontSize: 10, boxShadow: "none" }}>
-                                {doneRow ? "✅ 완료" : "⬜ 미처리"}
-                              </button>
-                              {doneRow && <div style={{ fontSize: 10, color: "#64748B", fontWeight: 700 }}>{doneByName}</div>}
-                            </div>
+                              {isRedelivery && (
+                                <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+                                  <button className={doneRow ? "btn-success" : "btn-danger"} onClick={() => toggleRedeliveryDone(rep)} style={{ height: 24, padding: "0 8px", borderRadius: 5, border: "none", background: doneRow ? "#DCFCE7" : "#FEE2E2", fontWeight: 900, cursor: "pointer", color: doneRow ? "#16A34A" : "#DC2626", fontSize: 10, boxShadow: "none" }}>
+                                    {doneRow ? "✅ 완료" : "⬜ 미처리"}
+                                  </button>
+                                  {doneRow && <div style={{ fontSize: 10, color: "#64748B", fontWeight: 700 }}>{doneByName}</div>}
+                                </div>
+                              )}
+
+                              {rep.memo && (
+                                <div style={{ marginTop: 5, fontSize: 10, color: "#475569", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", background: "#F8FAFC", borderRadius: 5, padding: "3px 7px" }} title={rep.memo}>
+                                  {rep.memo}
+                                </div>
+                              )}
+
+                              {/* 버튼 */}
+                              <div style={{ marginTop: 9, display: "flex", gap: 5 }}>
+                                <button className="btn-primary" onClick={() => onDownloadPhoto(rep)} style={{ flex: 1, height: 30, borderRadius: 7, border: "none", background: "#1E293B", color: "white", fontWeight: 900, fontSize: 11, cursor: "pointer", boxShadow: "0 2px 7px rgba(30,41,59,0.28)" }}>다운</button>
+                                <button className="btn-secondary" onClick={() => onCopyPhoto(rep)} style={{ flex: 1, height: 30, borderRadius: 7, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 900, fontSize: 11, cursor: "pointer", color: "#374151" }}>복사</button>
+                                <button className="btn-danger" onClick={() => onDeletePhoto(rep)} style={{ height: 30, padding: "0 10px", borderRadius: 7, border: "none", background: "#EF4444", color: "white", fontWeight: 900, fontSize: 11, cursor: "pointer", boxShadow: "0 2px 7px rgba(239,68,68,0.30)" }}>삭제</button>
+                              </div>
+                            </>
                           )}
-
-                          {rep.memo && (
-                            <div style={{ marginTop: 5, fontSize: 10, color: "#475569", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", background: "#F8FAFC", borderRadius: 5, padding: "3px 7px" }} title={rep.memo}>
-                              {rep.memo}
-                            </div>
-                          )}
-
-                          {/* 버튼 */}
-                          <div style={{ marginTop: 9, display: "flex", gap: 5 }}>
-                            <button className="btn-primary" onClick={() => onDownloadPhoto(rep)} style={{ flex: 1, height: 30, borderRadius: 7, border: "none", background: "#1E293B", color: "white", fontWeight: 900, fontSize: 11, cursor: "pointer", boxShadow: "0 2px 7px rgba(30,41,59,0.28)" }}>
-                              다운
-                            </button>
-                            <button className="btn-secondary" onClick={() => onCopyPhoto(rep)} style={{ flex: 1, height: 30, borderRadius: 7, border: "1.5px solid #E2E8F0", background: "white", fontWeight: 900, fontSize: 11, cursor: "pointer", color: "#374151" }}>
-                              복사
-                            </button>
-                            <button className="btn-danger" onClick={() => onDeletePhoto(rep)} style={{ height: 30, padding: "0 10px", borderRadius: 7, border: "none", background: "#EF4444", color: "white", fontWeight: 900, fontSize: 11, cursor: "pointer", boxShadow: "0 2px 7px rgba(239,68,68,0.30)" }}>
-                              삭제
-                            </button>
-                          </div>
                         </div>
                       </div>
                     );
