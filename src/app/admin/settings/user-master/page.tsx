@@ -834,9 +834,9 @@ export default function UserMasterPage() {
                     <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", gap: "6px 20px", paddingBottom: 6 }}>
                       {[
                         { label: "메인관리자", key: "is_admin" as const, disabled: isCompanyAdminRole },
-                        { label: "일반관리자", key: "is_general_admin" as const },
                         { label: "센터관리자", key: "is_center_admin" as const },
                         { label: "업체관리자", key: "is_company_admin" as const },
+                        { label: "일반관리자", key: "is_general_admin" as const },
                       ].map(({ label, key, disabled }) => (
                         <label key={key} style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, fontWeight: 600, color: "#374151", cursor: disabled ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
                           <input
