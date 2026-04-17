@@ -24,6 +24,7 @@ type Profile = {
 type PermRow = {
   menu_key: string;
   general_access: AccessLevel;
+  center_access: AccessLevel;
   company_access: AccessLevel;
 };
 
@@ -304,12 +305,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         } else {
           const { data: perms, error: permErr } = await supabase
             .from("admin_menu_permissions")
-            .select("menu_key,general_access,company_access");
+            .select("menu_key,general_access,center_access,company_access");
           if (permErr) throw permErr;
 
           const map: MenuAccessMap = {};
           for (const r of (perms as PermRow[]) ?? []) {
-            map[r.menu_key] = company ? r.company_access : r.general_access;
+            map[r.menu_key] = company ? r.company_access : center ? r.center_access : r.general_access;
           }
 
           if (!mounted || runId !== my) return;

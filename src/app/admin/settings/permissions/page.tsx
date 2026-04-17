@@ -282,7 +282,7 @@ export default function PermissionsPage() {
   // 행 공통 레이아웃 (grid)
   const ROW_GRID: React.CSSProperties = {
     display: "grid",
-    gridTemplateColumns: "1fr 90px 220px 220px",
+    gridTemplateColumns: "1fr 90px 180px 180px 180px",
     alignItems: "center",
     gap: 12,
   };
@@ -292,6 +292,7 @@ export default function PermissionsPage() {
       <div />
       <div style={{ fontSize: 11, fontWeight: 900, color: "#475569", textAlign: "center" }}>메인관리자</div>
       <div style={{ fontSize: 11, fontWeight: 900, color: "#475569" }}>업체관리자</div>
+      <div style={{ fontSize: 11, fontWeight: 900, color: "#475569" }}>센터관리자</div>
       <div style={{ fontSize: 11, fontWeight: 900, color: "#475569" }}>일반관리자</div>
     </div>
   );
@@ -363,6 +364,7 @@ export default function PermissionsPage() {
                     <AccessBadge value="full" />
                   </div>
                   <AccessSelect row={parent} field="company_access" />
+                  <AccessSelect row={parent} field="center_access" />
                   <AccessSelect row={parent} field="general_access" />
                 </div>
                 {/* 하위 메뉴 행 */}
@@ -384,6 +386,7 @@ export default function PermissionsPage() {
                       <AccessBadge value="full" />
                     </div>
                     <AccessSelect row={child} field="company_access" />
+                    <AccessSelect row={child} field="center_access" />
                     <AccessSelect row={child} field="general_access" />
                   </div>
                 ))}
@@ -415,6 +418,7 @@ export default function PermissionsPage() {
                   <AccessBadge value="full" />
                 </div>
                 <AccessSelect row={row} field="company_access" />
+                <AccessSelect row={row} field="center_access" />
                 <AccessSelect row={row} field="general_access" />
               </div>
             ))}

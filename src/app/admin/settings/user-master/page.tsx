@@ -821,43 +821,45 @@ export default function UserMasterPage() {
               {/* 승인 및 권한 */}
               <section style={sectionStyle()}>
                 <div style={{ fontSize: 12, fontWeight: 800, color: "#64748B", marginBottom: 12, letterSpacing: "0.06em", textTransform: "uppercase" }}>승인 및 권한</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div>
-                    <div style={fieldLabelStyle()}>승인 상태</div>
-                    <select value={f.approval_status} onChange={(e) => setF((p) => ({ ...p, approval_status: e.target.value as "pending" | "approved" | "rejected" }))} style={inputStyle()}>
-                      <option value="pending">확인대기</option>
-                      <option value="approved">승인</option>
-                      <option value="rejected">반려</option>
-                    </select>
-                    {f.approval_status === "approved" && (!f.name.trim() || !toKRLocalDigits(f.phone) || !f.birthdate || !f.work_part.trim()) && (
-                      <div style={{ marginTop: 6, fontSize: 12, color: "#DC2626", fontWeight: 700 }}>이름·전화번호·생년월일·작업파트를 모두 입력해야 승인됩니다.</div>
-                    )}
+                <div>
+                  <div style={{ display: "flex", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
+                    <div style={{ minWidth: 160 }}>
+                      <div style={fieldLabelStyle()}>승인 상태</div>
+                      <select value={f.approval_status} onChange={(e) => setF((p) => ({ ...p, approval_status: e.target.value as "pending" | "approved" | "rejected" }))} style={inputStyle()}>
+                        <option value="pending">확인대기</option>
+                        <option value="approved">승인</option>
+                        <option value="rejected">반려</option>
+                      </select>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", gap: "6px 20px", paddingBottom: 6 }}>
+                      {[
+                        { label: "메인관리자", key: "is_admin" as const, disabled: isCompanyAdminRole },
+                        { label: "일반관리자", key: "is_general_admin" as const },
+                        { label: "센터관리자", key: "is_center_admin" as const },
+                        { label: "업체관리자", key: "is_company_admin" as const },
+                      ].map(({ label, key, disabled }) => (
+                        <label key={key} style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, fontWeight: 600, color: "#374151", cursor: disabled ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
+                          <input
+                            type="checkbox"
+                            checked={!!f[key]}
+                            disabled={disabled}
+                            onChange={(e) => {
+                              const v = e.target.checked;
+                              setF((p) => ({
+                                ...p,
+                                ...(v ? { is_admin: false, is_general_admin: false, is_center_admin: false, is_company_admin: false } : {}),
+                                [key]: v,
+                              }));
+                            }}
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 22 }}>
-                    {[
-                      { label: "메인관리자", key: "is_admin" as const, disabled: isCompanyAdminRole },
-                      { label: "일반관리자 (웹사이트 권한)", key: "is_general_admin" as const },
-                      { label: "센터관리자", key: "is_center_admin" as const },
-                      { label: "업체관리자 (조회 권한 구분)", key: "is_company_admin" as const },
-                    ].map(({ label, key, disabled }) => (
-                      <label key={key} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, fontWeight: 600, color: "#374151", cursor: disabled ? "not-allowed" : "pointer" }}>
-                        <input
-                          type="checkbox"
-                          checked={!!f[key]}
-                          disabled={disabled}
-                          onChange={(e) => {
-                            const v = e.target.checked;
-                            setF((p) => ({
-                              ...p,
-                              ...(v ? { is_admin: false, is_general_admin: false, is_center_admin: false, is_company_admin: false } : {}),
-                              [key]: v,
-                            }));
-                          }}
-                        />
-                        {label}
-                      </label>
-                    ))}
-                  </div>
+                  {f.approval_status === "approved" && (!f.name.trim() || !toKRLocalDigits(f.phone) || !f.birthdate || !f.work_part.trim()) && (
+                    <div style={{ marginTop: 6, fontSize: 12, color: "#DC2626", fontWeight: 700 }}>이름·전화번호·생년월일·작업파트를 모두 입력해야 승인됩니다.</div>
+                  )}
                 </div>
               </section>
             </div>
