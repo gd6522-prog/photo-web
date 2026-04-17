@@ -29,16 +29,6 @@ type SyncStatus = {
 
 // ─── 슬롯별 자동 실행 스케줄 ──────────────────────────────────────────────────
 type SlotSchedule = { enabled: boolean; hour: number; minute: number };
-const SCHEDULE_LS_KEY = "elogis_slot_schedules";
-
-function loadSchedules(): Record<string, SlotSchedule> {
-  try {
-    return JSON.parse(localStorage.getItem(SCHEDULE_LS_KEY) ?? "{}");
-  } catch { return {}; }
-}
-function saveSchedules(s: Record<string, SlotSchedule>) {
-  localStorage.setItem(SCHEDULE_LS_KEY, JSON.stringify(s));
-}
 
 // 슬롯별 예상 소요 시간 (초) — 실제 완료 시점보다 약간 크게 설정해 0초 조기 도달 방지
 const SLOT_ESTIMATED_SEC: Record<string, number> = {
@@ -432,19 +422,34 @@ export default function FileUploadPage() {
   );
   const [serverFiles, setServerFiles] = useState<Record<string, ServerSlotInfo>>({});
   const [currentUserName, setCurrentUserName] = useState<string>("");
+  const [isMainAdmin, setIsMainAdmin] = useState(false);
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  // ── 슬롯별 자동 실행 스케줄 ─────────────────────────────────────────────────
+  // ── 슬롯별 자동 실행 스케줄 (R2 저장) ──────────────────────────────────────
   const [schedules, setSchedules] = useState<Record<string, SlotSchedule>>({});
-  useEffect(() => { setSchedules(loadSchedules()); }, []);
+  const [schedulesLoaded, setSchedulesLoaded] = useState(false);
+
+  const saveSchedulesToServer = useCallback(async (next: Record<string, SlotSchedule>) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return;
+      await fetch("/api/admin/slot-schedules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ schedules: next }),
+      });
+    } catch {}
+  }, []);
+
   const updateSchedule = useCallback((key: string, patch: Partial<SlotSchedule>) => {
     setSchedules((prev) => {
       const defaults: SlotSchedule = { enabled: false, hour: 6, minute: 0 };
       const next = { ...prev, [key]: { ...defaults, ...prev[key], ...patch } };
-      saveSchedules(next);
+      void saveSchedulesToServer(next);
       return next;
     });
-  }, []);
+  }, [saveSchedulesToServer]);
 
   // ── elogis 동기화 상태 (page 레벨 — SlotCard와 공유) ─────────────────────
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
@@ -534,18 +539,27 @@ export default function FileUploadPage() {
     return () => clearTimeout(initTimer);
   }, [handleSyncTrigger]);
 
-  // 현재 로그인 사용자 이름 조회
+  // 현재 로그인 사용자 이름 + 권한 + 스케줄 조회
   useEffect(() => {
     (async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) return;
-        const { data } = await supabase
-          .from("profiles")
-          .select("name")
-          .eq("id", session.user.id)
-          .maybeSingle();
-        if (data?.name) setCurrentUserName(data.name);
+        const token = session.access_token;
+
+        const [profileRes, scheduleRes] = await Promise.all([
+          supabase.from("profiles").select("name").eq("id", session.user.id).maybeSingle(),
+          fetch("/api/admin/slot-schedules", { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
+
+        if (profileRes.data?.name) setCurrentUserName(profileRes.data.name);
+
+        if (scheduleRes.ok) {
+          const body = await scheduleRes.json() as { schedules?: Record<string, SlotSchedule>; isMainAdmin?: boolean };
+          if (body.schedules) setSchedules(body.schedules);
+          setIsMainAdmin(body.isMainAdmin ?? false);
+        }
+        setSchedulesLoaded(true);
       } catch {}
     })();
   }, []);
@@ -877,6 +891,7 @@ export default function FileUploadPage() {
               dragHandlers={dragHandlers(config)}
               schedule={schedules[config.key] ?? { enabled: false, hour: 6, minute: 0 }}
               onScheduleChange={(patch) => updateSchedule(config.key, patch)}
+              canEditSchedule={isMainAdmin && schedulesLoaded}
             />
           );
         })}
@@ -956,6 +971,7 @@ function SlotCard({
   dragHandlers,
   schedule,
   onScheduleChange,
+  canEditSchedule,
 }: {
   config: SlotConfig;
   state: SlotState;
@@ -970,6 +986,7 @@ function SlotCard({
   dragHandlers: DragHandlers;
   schedule: SlotSchedule;
   onScheduleChange: (patch: Partial<SlotSchedule>) => void;
+  canEditSchedule: boolean;
 }) {
   const localInputRef = useRef<HTMLInputElement | null>(null);
   const [running, setRunning] = React.useState(false);
@@ -1134,40 +1151,50 @@ function SlotCard({
       {/* 자동 실행 스케줄 — 카드명과 실행 버튼 사이 */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: 11, color: "#9CA3AF", whiteSpace: "nowrap" }}>자동</span>
-        <label style={{ display: "flex", alignItems: "center", gap: 3, cursor: "pointer" }}>
-          <input
-            type="checkbox"
-            checked={schedule.enabled}
-            onChange={(e) => onScheduleChange({ enabled: e.target.checked })}
-            style={{ cursor: "pointer", margin: 0 }}
-          />
+        {canEditSchedule ? (
+          <>
+            <label style={{ display: "flex", alignItems: "center", gap: 3, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={schedule.enabled}
+                onChange={(e) => onScheduleChange({ enabled: e.target.checked })}
+                style={{ cursor: "pointer", margin: 0 }}
+              />
+              <span style={{ fontSize: 11, color: schedule.enabled ? "#2563EB" : "#9CA3AF" }}>
+                {schedule.enabled ? "켜짐" : "꺼짐"}
+              </span>
+            </label>
+            <select
+              value={schedule.hour}
+              onChange={(e) => onScheduleChange({ hour: Number(e.target.value) })}
+              style={{ fontSize: 11, padding: "1px 2px", border: "1px solid #D1D5DB", borderRadius: 3, background: "#fff" }}
+            >
+              {Array.from({ length: 24 }, (_, i) => (
+                <option key={i} value={i}>{String(i).padStart(2, "0")}</option>
+              ))}
+            </select>
+            <span style={{ fontSize: 11, color: "#374151" }}>:</span>
+            <select
+              value={schedule.minute}
+              onChange={(e) => onScheduleChange({ minute: Number(e.target.value) })}
+              style={{ fontSize: 11, padding: "1px 2px", border: "1px solid #D1D5DB", borderRadius: 3, background: "#fff" }}
+            >
+              {Array.from({ length: 60 }, (_, i) => (
+                <option key={i} value={i}>{String(i).padStart(2, "0")}</option>
+              ))}
+            </select>
+            {schedule.enabled && (
+              <span style={{ fontSize: 11, color: "#2563EB" }}>
+                매일 {String(schedule.hour).padStart(2, "0")}:{String(schedule.minute).padStart(2, "0")}
+                {nextRunLabel && <span style={{ color: "#6B7280", marginLeft: 4 }}>({nextRunLabel})</span>}
+              </span>
+            )}
+          </>
+        ) : (
           <span style={{ fontSize: 11, color: schedule.enabled ? "#2563EB" : "#9CA3AF" }}>
-            {schedule.enabled ? "켜짐" : "꺼짐"}
-          </span>
-        </label>
-        <select
-          value={schedule.hour}
-          onChange={(e) => onScheduleChange({ hour: Number(e.target.value) })}
-          style={{ fontSize: 11, padding: "1px 2px", border: "1px solid #D1D5DB", borderRadius: 3, background: "#fff" }}
-        >
-          {Array.from({ length: 24 }, (_, i) => (
-            <option key={i} value={i}>{String(i).padStart(2, "0")}</option>
-          ))}
-        </select>
-        <span style={{ fontSize: 11, color: "#374151" }}>:</span>
-        <select
-          value={schedule.minute}
-          onChange={(e) => onScheduleChange({ minute: Number(e.target.value) })}
-          style={{ fontSize: 11, padding: "1px 2px", border: "1px solid #D1D5DB", borderRadius: 3, background: "#fff" }}
-        >
-          {Array.from({ length: 60 }, (_, i) => (
-            <option key={i} value={i}>{String(i).padStart(2, "0")}</option>
-          ))}
-        </select>
-        {schedule.enabled && (
-          <span style={{ fontSize: 11, color: "#2563EB" }}>
-            매일 {String(schedule.hour).padStart(2, "0")}:{String(schedule.minute).padStart(2, "0")}
-            {nextRunLabel && <span style={{ color: "#6B7280", marginLeft: 4 }}>({nextRunLabel})</span>}
+            {schedule.enabled
+              ? `켜짐 · 매일 ${String(schedule.hour).padStart(2, "0")}:${String(schedule.minute).padStart(2, "0")}${nextRunLabel ? ` (${nextRunLabel})` : ""}`
+              : "꺼짐"}
           </span>
         )}
       </div>
