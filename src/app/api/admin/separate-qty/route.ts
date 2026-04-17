@@ -1,12 +1,54 @@
 import { NextRequest } from "next/server";
-import { getR2ObjectText, putR2Object, listR2Keys } from "@/lib/r2";
+import * as XLSX from "xlsx";
+import { getR2ObjectText, getR2ObjectBuffer, putR2Object, listR2Keys } from "@/lib/r2";
 import { requireAdmin, json } from "../notices/_shared";
 import { R2_CELLS_CACHE_KEY } from "../product-strategy-cells/route";
 
+function normalizeHeader(value: unknown): string {
+  return String(value ?? "").trim().replace(/\s+/g, "").replace(/\*/g, "").toLowerCase();
+}
+
+// R2 캐시 → 없으면 Excel 직접 파싱하여 캐시 재생성
 async function readCellsCache(): Promise<Record<string, string>> {
   const text = await getR2ObjectText(R2_CELLS_CACHE_KEY);
-  if (!text) return {};
-  try { return JSON.parse(text) as Record<string, string>; } catch { return {}; }
+  if (text) {
+    try { return JSON.parse(text) as Record<string, string>; } catch { /* 손상 시 재파싱 */ }
+  }
+
+  // 캐시 없음 → product-strategy Excel 직접 파싱
+  const keys = await listR2Keys("file-uploads/product-strategy/");
+  if (keys.length === 0) return {};
+
+  const buffer = await getR2ObjectBuffer(keys[0]);
+  if (!buffer) return {};
+
+  try {
+    const workbook = XLSX.read(buffer, { type: "buffer" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    if (!sheet) return {};
+
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" }) as string[][];
+    if (rows.length < 2) return {};
+
+    const headers = rows[0].map(normalizeHeader);
+    const productCodeIdx = headers.indexOf("상품코드");
+    const pickingCellIdx = headers.indexOf("피킹셀");
+    if (productCodeIdx === -1 || pickingCellIdx === -1) return {};
+
+    const cells: Record<string, string> = {};
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const code = String(row[productCodeIdx] ?? "").trim();
+      const cell = String(row[pickingCellIdx] ?? "").trim();
+      if (code) cells[code] = cell;
+    }
+
+    // 재생성한 캐시를 R2에 저장 (백그라운드)
+    void putR2Object(R2_CELLS_CACHE_KEY, JSON.stringify(cells), "application/json");
+    return cells;
+  } catch {
+    return {};
+  }
 }
 
 export const runtime = "nodejs";
