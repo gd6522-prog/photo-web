@@ -1982,7 +1982,8 @@ export function VehiclePageScreen({
   const [filterCarNo, setFilterCarNo] = useState("");
   const [filterStoreCode, setFilterStoreCode] = useState("");
   const [filterStoreName, setFilterStoreName] = useState("");
-  const [filterWorkType, setFilterWorkType] = useState("");
+  const [filterWorkTypes, setFilterWorkTypes] = useState<Set<string>>(new Set());
+  const [workTypeDropOpen, setWorkTypeDropOpen] = useState(false);
   const [filterCell, setFilterCell] = useState("");
   const [filterProductCode, setFilterProductCode] = useState("");
   const [filterProductName, setFilterProductName] = useState("");
@@ -2396,11 +2397,10 @@ export function VehiclePageScreen({
     const fCarNo = n(filterCarNo);
     const fStoreCode = n(filterStoreCode);
     const fStoreName = n(filterStoreName);
-    const fWorkType = filterWorkType.trim();
     const fCell = n(filterCell);
     const fProductCode = n(filterProductCode);
     const fProductName = n(filterProductName);
-    const hasFilter = fCarNo || fStoreCode || fStoreName || fWorkType || fCell || fProductCode || fProductName;
+    const hasFilter = fCarNo || fStoreCode || fStoreName || filterWorkTypes.size > 0 || fCell || fProductCode || fProductName;
 
     const rows = productRows.filter((row) => {
       if (showSepOnly && (separateQtyMapRef.current[`${row.store_code}|${row.product_code}`] ?? 0) === 0) return false;
@@ -2408,7 +2408,7 @@ export function VehiclePageScreen({
       if (fCarNo && !n(row.car_no).includes(fCarNo)) return false;
       if (fStoreCode && !n(row.store_code).includes(fStoreCode)) return false;
       if (fStoreName && !n(row.store_name).includes(fStoreName)) return false;
-      if (fWorkType && row.work_type !== fWorkType) return false;
+      if (filterWorkTypes.size > 0 && !filterWorkTypes.has(row.work_type)) return false;
       if (fCell && !n(row.cell_name).includes(fCell)) return false;
       if (fProductCode && !n(row.product_code).includes(fProductCode)) return false;
       if (fProductName && !n(row.product_name).includes(fProductName)) return false;
@@ -2448,7 +2448,7 @@ export function VehiclePageScreen({
       return defaultSort(a, b);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productRows, inputSearched, showSepOnly, filterCarNo, filterStoreCode, filterStoreName, filterWorkType, filterCell, filterProductCode, filterProductName, inputSortKey, inputSortDir]);
+  }, [productRows, inputSearched, showSepOnly, filterCarNo, filterStoreCode, filterStoreName, filterWorkTypes, filterCell, filterProductCode, filterProductName, inputSortKey, inputSortDir]);
 
   const filteredCargoRows = useMemo(() => {
     const carQ = normalizeStoreName(cargoQuery);
@@ -2476,7 +2476,7 @@ export function VehiclePageScreen({
 
   useEffect(() => {
     setInputPage(1);
-  }, [storeQuery, fileName, filterCarNo, filterStoreCode, filterStoreName, filterWorkType, filterCell, filterProductCode, filterProductName]);
+  }, [storeQuery, fileName, filterCarNo, filterStoreCode, filterStoreName, filterWorkTypes, filterCell, filterProductCode, filterProductName]);
 
   useEffect(() => {
     setInputSortKey(null);
@@ -3528,31 +3528,72 @@ export function VehiclePageScreen({
                   />
                 </div>
               ))}
-              {/* 작업구분 select */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#64748B", paddingLeft: 2 }}>작업구분</span>
-                <select
-                  value={filterWorkType}
-                  onChange={(e) => { setFilterWorkType(e.target.value); setInputSearched(true); setInputPage(1); }}
-                  style={{
-                    width: 120,
-                    height: 34,
-                    borderRadius: 6,
-                    border: "1px solid #D1D9E0",
-                    padding: "0 6px",
-                    outline: "none",
-                    background: "#fff",
-                    fontSize: 13,
-                    color: "#1E293B",
-                    boxSizing: "border-box" as const,
-                  }}
-                >
-                  <option value="">전체</option>
-                  {[...new Set(productRows.map((r) => r.work_type).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ko")).map((wt) => (
-                    <option key={wt} value={wt}>{wt}</option>
-                  ))}
-                </select>
-              </div>
+              {/* 작업구분 멀티 선택 드롭다운 */}
+              {(() => {
+                const workTypeOptions = [...new Set(productRows.map((r) => r.work_type).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ko"));
+                const label = filterWorkTypes.size === 0 ? "전체" : filterWorkTypes.size === 1 ? [...filterWorkTypes][0] : `${filterWorkTypes.size}개 선택`;
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 3, position: "relative" }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#64748B", paddingLeft: 2 }}>작업구분</span>
+                    <button
+                      onClick={() => setWorkTypeDropOpen((v) => !v)}
+                      style={{
+                        width: 130, height: 34, borderRadius: 6, border: "1px solid #D1D9E0",
+                        padding: "0 8px", background: filterWorkTypes.size > 0 ? "#EFF6FF" : "#fff",
+                        fontSize: 13, color: filterWorkTypes.size > 0 ? "#1D4ED8" : "#1E293B",
+                        fontWeight: filterWorkTypes.size > 0 ? 700 : 400,
+                        cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between",
+                        boxSizing: "border-box" as const,
+                      }}
+                    >
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+                      <span style={{ fontSize: 10, opacity: 0.5, marginLeft: 4 }}>▼</span>
+                    </button>
+                    {workTypeDropOpen && workTypeOptions.length > 0 && (
+                      <div
+                        style={{
+                          position: "absolute", top: 58, left: 0, zIndex: 200,
+                          background: "#fff", border: "1px solid #D1D9E0", borderRadius: 8,
+                          boxShadow: "0 4px 16px rgba(15,23,42,0.12)", minWidth: 160, padding: "6px 0",
+                        }}
+                      >
+                        <div
+                          onClick={() => { setFilterWorkTypes(new Set()); setInputSearched(true); setInputPage(1); }}
+                          style={{ padding: "6px 12px", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
+                            background: filterWorkTypes.size === 0 ? "#EFF6FF" : undefined, color: filterWorkTypes.size === 0 ? "#1D4ED8" : "#374151", fontWeight: filterWorkTypes.size === 0 ? 700 : 400 }}
+                        >
+                          전체
+                        </div>
+                        {workTypeOptions.map((wt) => {
+                          const checked = filterWorkTypes.has(wt);
+                          return (
+                            <div
+                              key={wt}
+                              onClick={() => {
+                                setFilterWorkTypes((prev) => {
+                                  const next = new Set(prev);
+                                  next.has(wt) ? next.delete(wt) : next.add(wt);
+                                  return next;
+                                });
+                                setInputSearched(true);
+                                setInputPage(1);
+                              }}
+                              style={{ padding: "6px 12px", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
+                                background: checked ? "#EFF6FF" : undefined, color: checked ? "#1D4ED8" : "#374151" }}
+                            >
+                              <input type="checkbox" checked={checked} onChange={() => {}} style={{ margin: 0, accentColor: "#1D4ED8" }} />
+                              {wt}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {workTypeDropOpen && (
+                      <div style={{ position: "fixed", inset: 0, zIndex: 199 }} onClick={() => setWorkTypeDropOpen(false)} />
+                    )}
+                  </div>
+                );
+              })()}
               {(
                 [
                   { label: "셀",     ref: refCell,        width: 90 },
@@ -3625,7 +3666,7 @@ export function VehiclePageScreen({
                     if (r.current) r.current.value = "";
                   });
                   setFilterCarNo(""); setFilterStoreCode(""); setFilterStoreName("");
-                  setFilterWorkType(""); setFilterCell(""); setFilterProductCode(""); setFilterProductName("");
+                  setFilterWorkTypes(new Set()); setFilterCell(""); setFilterProductCode(""); setFilterProductName("");
                   setInputSearched(false);
                   setShowSepOnly(false);
                   setInputPage(1);
@@ -3671,7 +3712,7 @@ export function VehiclePageScreen({
               <div style={{ color: "#64748B", fontSize: 13, fontWeight: 700, alignSelf: "flex-end", paddingBottom: 7 }}>
                 {!inputSearched
                   ? `전체 ${productRows.length}건 (조회 후 표시)`
-                  : (showSepOnly || filterCarNo || filterStoreCode || filterStoreName || filterWorkType || filterCell || filterProductCode || filterProductName)
+                  : (showSepOnly || filterCarNo || filterStoreCode || filterStoreName || filterWorkTypes.size > 0 || filterCell || filterProductCode || filterProductName)
                     ? `검색 결과 ${filteredProductRows.length}건`
                     : `전체 ${filteredProductRows.length}건`}
               </div>
