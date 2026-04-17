@@ -44,7 +44,14 @@
       "Bash(git -C C:/Users/황교득/app/photo-app commit -m 'fix: 사진조회 기종별 레이아웃 통일 및 hint 텍스트 제거 *)",
       "Bash(git -C \"C:/Users/황교득/app/photo-app\" push origin main)",
       "mcp__claude_ai_Supabase__execute_sql",
-      "mcp__claude_ai_Supabase__apply_migration"
+      "mcp__claude_ai_Supabase__apply_migration",
+      "Bash(git -C \"C:/Users/황교득/app/photo-web\" add \"src/app/api/signup/complete/route.ts\")",
+      "Bash(git -C C:/Users/황교득/app/photo-web commit -m 'feat: 회원가입 완료 API에 센터/회사 저장 추가 *)",
+      "Bash(grep -E \"\\\\.\\(tsx?|jsx?\\)$\")",
+      "Bash(git -C \"C:/Users/황교득/app/photo-web\" push origin main)",
+      "Bash(git -C \"C:/Users/황교득/app/photo-app\" add \"app/\\(auth\\)/signup.tsx\")",
+      "Bash(git -C C:/Users/황교득/app/photo-app commit -m 'feat: 회원가입에 센터/회사 선택 필드 추가 *)",
+      "Bash(grep -l \"CREATE TABLE.*profiles\" c:/Users/황교득/app/photo-web/supabase/migrations/*.sql)"
     ]
   }
 }
