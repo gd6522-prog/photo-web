@@ -10,6 +10,7 @@ type DbRow = {
   menu_key: string;
   label: string | null;
   general_access: AccessLevel | null;
+  center_access: AccessLevel | null;
   company_access: AccessLevel | null;
   updated_at: string | null;
 };
@@ -18,6 +19,7 @@ type UiRow = {
   menu_key: string;
   label: string;
   general_access: AccessLevel;
+  center_access: AccessLevel;
   company_access: AccessLevel;
   parent?: string;
   mainOnly?: boolean;
@@ -70,10 +72,12 @@ export default function PermissionsPage() {
 
   const buildUiRows = (db: DbRow[]): UiRow[] => {
     const gMap: Record<string, AccessLevel> = {};
+    const ctMap: Record<string, AccessLevel> = {};
     const cMap: Record<string, AccessLevel> = {};
     for (const r of db ?? []) {
       if (r?.menu_key) {
         gMap[r.menu_key] = (r.general_access ?? "full") as AccessLevel;
+        ctMap[r.menu_key] = (r.center_access ?? "full") as AccessLevel;
         cMap[r.menu_key] = (r.company_access ?? "full") as AccessLevel;
       }
     }
@@ -81,6 +85,7 @@ export default function PermissionsPage() {
       menu_key: m.key,
       label: m.label,
       general_access: (gMap[m.key] ?? "full") as AccessLevel,
+      center_access: (ctMap[m.key] ?? "full") as AccessLevel,
       company_access: (cMap[m.key] ?? "full") as AccessLevel,
       parent: m.parent,
       mainOnly: m.mainOnly,
@@ -103,6 +108,7 @@ export default function PermissionsPage() {
         menu_key: m.key,
         label: m.label,
         general_access: "full" as AccessLevel,
+        center_access: "full" as AccessLevel,
         company_access: "full" as AccessLevel,
         updated_at: new Date().toISOString(),
       }))
@@ -130,7 +136,7 @@ export default function PermissionsPage() {
 
       const { data, error } = await supabase
         .from("admin_menu_permissions")
-        .select("menu_key,label,general_access,company_access,updated_at");
+        .select("menu_key,label,general_access,center_access,company_access,updated_at");
       if (error) throw error;
 
       const dbRows = (data as DbRow[]) ?? [];
@@ -140,7 +146,7 @@ export default function PermissionsPage() {
 
       const { data: fresh, error: e2 } = await supabase
         .from("admin_menu_permissions")
-        .select("menu_key,label,general_access,company_access,updated_at");
+        .select("menu_key,label,general_access,center_access,company_access,updated_at");
       if (e2) throw e2;
 
       setRows(buildUiRows((fresh as DbRow[]) ?? []));
@@ -153,7 +159,7 @@ export default function PermissionsPage() {
 
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const onChange = async (menu_key: string, field: "general_access" | "company_access", next: AccessLevel) => {
+  const onChange = async (menu_key: string, field: "general_access" | "center_access" | "company_access", next: AccessLevel) => {
     setMsg(null);
     setSavingKey(`${menu_key}__${field}`);
     try {
@@ -190,6 +196,7 @@ export default function PermissionsPage() {
           menu_key: m.key,
           label: m.label,
           general_access: "full" as AccessLevel,
+          center_access: "full" as AccessLevel,
           company_access: "full" as AccessLevel,
           updated_at: new Date().toISOString(),
         })),
@@ -197,7 +204,7 @@ export default function PermissionsPage() {
       );
       await pruneDb();
 
-      const { data, error } = await supabase.from("admin_menu_permissions").select("menu_key,label,general_access,company_access,updated_at");
+      const { data, error } = await supabase.from("admin_menu_permissions").select("menu_key,label,general_access,center_access,company_access,updated_at");
       if (error) throw error;
       setRows(buildUiRows((data as DbRow[]) ?? []));
       setMsg({ text: "동기화/정리 완료 (모든 권한이 FULL로 초기화됨)", ok: true });
@@ -241,7 +248,7 @@ export default function PermissionsPage() {
     field,
   }: {
     row: UiRow;
-    field: "general_access" | "company_access";
+    field: "general_access" | "center_access" | "company_access";
   }) => {
     if (row.mainOnly) {
       return <span style={{ fontSize: 11, color: "#9CA3AF" }}>메인전용</span>;
