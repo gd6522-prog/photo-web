@@ -132,10 +132,11 @@ function uniq(arr: string[]) {
   return Array.from(new Set(arr.map((x) => x.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "ko"));
 }
 
-function normalizeApproval(v: string | null): "pending" | "approved" | "rejected" {
+function normalizeApproval(v: string | null): "pending" | "approved" | "rejected" | "resigned" {
   const s = String(v ?? "").toLowerCase();
   if (s === "approved") return "approved";
   if (s === "rejected") return "rejected";
+  if (s === "resigned") return "resigned";
   return "pending";
 }
 
@@ -232,7 +233,7 @@ export default function UserMasterPage() {
     is_general_admin: false,
     is_center_admin: false,
     is_company_admin: false,
-    approval_status: "pending" as "pending" | "approved" | "rejected",
+    approval_status: "pending" as "pending" | "approved" | "rejected" | "resigned",
   });
 
   const age = useMemo(() => calcAge(f.birthdate || null), [f.birthdate]);
@@ -469,15 +470,24 @@ export default function UserMasterPage() {
     }
   };
 
-  const updateApprovalInline = async (id: string, next: "pending" | "approved" | "rejected") => {
+  const updateApprovalInline = async (id: string, next: "pending" | "approved" | "rejected" | "resigned") => {
     setErr(null);
     try {
       if (next === "rejected") {
         await rejectAndDeleteUser(id);
-      } else {
-        const { error } = await supabase.from("profiles").update({ approval_status: next }).eq("id", id);
-        if (error) throw error;
+        await load();
+        return;
       }
+      const { data: authData } = await supabase.auth.getSession();
+      const token = authData.session?.access_token;
+      if (!token) throw new Error("로그인 세션이 없습니다.");
+      const res = await fetch("/api/admin/user-master/set-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ userId: id, approval_status: next }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || !payload?.ok) throw new Error(payload?.message || "상태 변경에 실패했습니다.");
       await load();
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "상태 변경에 실패했습니다.");
@@ -523,16 +533,20 @@ export default function UserMasterPage() {
     });
   };
 
-  const statusBadge = (ap: "pending" | "approved" | "rejected", working: boolean, missingInfo: boolean, r: ProfileRow) => {
+  const statusBadge = (ap: "pending" | "approved" | "rejected" | "resigned", working: boolean, missingInfo: boolean, r: ProfileRow) => {
+    if (ap === "resigned") {
+      return <span style={{ display: "inline-block", padding: "3px 9px", borderRadius: 20, background: "#F3F4F6", color: "#6B7280", fontSize: 11, fontWeight: 800 }}>퇴사</span>;
+    }
     if (ap !== "approved") {
       return (
         <select
           value={ap}
-          onChange={(e) => updateApprovalInline(r.id, e.target.value as "pending" | "approved" | "rejected")}
+          onChange={(e) => updateApprovalInline(r.id, e.target.value as "pending" | "approved" | "rejected" | "resigned")}
           style={{ height: 30, padding: "0 8px", borderRadius: 6, border: "1px solid #D1D9E0", fontSize: 12, fontWeight: 700, background: "#FFF9F0", color: "#92400E", cursor: "pointer" }}
         >
           <option value="pending">확인대기</option>
           <option value="approved">승인</option>
+          <option value="resigned">퇴사</option>
           <option value="rejected">반려</option>
         </select>
       );
@@ -825,9 +839,10 @@ export default function UserMasterPage() {
                   <div style={{ display: "flex", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
                     <div style={{ minWidth: 160 }}>
                       <div style={fieldLabelStyle()}>승인 상태</div>
-                      <select value={f.approval_status} onChange={(e) => setF((p) => ({ ...p, approval_status: e.target.value as "pending" | "approved" | "rejected" }))} style={inputStyle()}>
+                      <select value={f.approval_status} onChange={(e) => setF((p) => ({ ...p, approval_status: e.target.value as "pending" | "approved" | "rejected" | "resigned" }))} style={inputStyle()}>
                         <option value="pending">확인대기</option>
                         <option value="approved">승인</option>
+                        <option value="resigned">퇴사</option>
                         <option value="rejected">반려</option>
                       </select>
                     </div>

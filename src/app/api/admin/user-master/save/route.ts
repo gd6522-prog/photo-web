@@ -76,5 +76,14 @@ export async function POST(req: NextRequest) {
   }
 
   if (error) return json(false, error.message, null, 500);
+
+  // 퇴사 시 앱 로그인 차단 / 복직 시 해제
+  const status = String(body.approval_status ?? "");
+  if (status === "resigned") {
+    await guard.sbAdmin.auth.admin.updateUserById(userId, { ban_duration: "876600h" }); // ~100년
+  } else {
+    await guard.sbAdmin.auth.admin.updateUserById(userId, { ban_duration: "none" });
+  }
+
   return json(true, undefined, null);
 }
