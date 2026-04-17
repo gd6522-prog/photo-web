@@ -301,6 +301,13 @@ export default function AdminDeliveryPhotosPage() {
     })();
   }, []);
 
+  const categoryMounted = useRef(false);
+  useEffect(() => {
+    if (!categoryMounted.current) { categoryMounted.current = true; return; }
+    fetchFirstPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [driverCategory]);
+
   // ✅ 날짜 유효성 보정: from > to면 to를 from으로 맞춤
   useEffect(() => {
     if (dateFrom && dateTo && dateFrom > dateTo) setDateTo(dateFrom);
