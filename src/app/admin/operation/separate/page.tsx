@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type SeparateEntry = {
@@ -75,6 +75,12 @@ export default function SeparatePage() {
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc"); // 기본: 일자 내림차순
 
+  // ── 인쇄 선택 상태 — 출고완료(done) 행은 선택 불가 ────────────────────────
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+
+  // 전체선택 체크박스 indeterminate 제어용 ref
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     void (async () => {
       try {
@@ -102,6 +108,8 @@ export default function SeparatePage() {
         const dm: Record<string, boolean> = {};
         for (const e of loaded) { if (e.done) dm[doneKey(e)] = true; }
         setDoneMap(dm);
+        // 로드 시 선택 초기화
+        setSelectedKeys(new Set());
       } catch (e) {
         setError(e instanceof Error ? e.message : "오류가 발생했습니다.");
       } finally {
@@ -110,10 +118,19 @@ export default function SeparatePage() {
     })();
   }, []);
 
+  // 출고완료 토글: 완료 처리 시 선택에서도 제거
   async function toggleDone(entry: SeparateEntry) {
     const key = doneKey(entry);
     const next = !doneMap[key];
     setDoneMap((prev) => ({ ...prev, [key]: next }));
+    if (next) {
+      // 출고완료가 되면 인쇄 선택에서 제거
+      setSelectedKeys((prev) => {
+        const s = new Set(prev);
+        s.delete(key);
+        return s;
+      });
+    }
     try {
       const token = await getAdminToken();
       await fetch("/api/admin/separate-qty", {
@@ -132,10 +149,49 @@ export default function SeparatePage() {
     }
   }
 
+  // ── 선택 가능한 행 목록 (출고완료 제외) ─────────────────────────────────────
+  const selectableKeys = useMemo(
+    () => entries.filter((e) => !(doneMap[doneKey(e)] ?? false)).map(doneKey),
+    [entries, doneMap]
+  );
+
+  const allSelected = selectableKeys.length > 0 && selectableKeys.every((k) => selectedKeys.has(k));
+  const someSelected = selectableKeys.some((k) => selectedKeys.has(k));
+
+  // 전체선택 체크박스 indeterminate(부분선택) 상태 동기화
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someSelected && !allSelected;
+    }
+  }, [someSelected, allSelected]);
+
+  function toggleSelectAll() {
+    if (allSelected) {
+      setSelectedKeys(new Set());
+    } else {
+      setSelectedKeys(new Set(selectableKeys));
+    }
+  }
+
+  function toggleSelect(entry: SeparateEntry) {
+    const isDone = doneMap[doneKey(entry)] ?? false;
+    if (isDone) return; // 출고완료 행은 선택 차단
+    const key = doneKey(entry);
+    setSelectedKeys((prev) => {
+      const s = new Set(prev);
+      if (s.has(key)) s.delete(key);
+      else s.add(key);
+      return s;
+    });
+  }
+
+  // ── 인쇄: 선택된 항목만, 아무것도 없으면 실행 안 함 ──────────────────────
   function handlePrint() {
+    if (selectedKeys.size === 0) return; // 선택 없으면 인쇄 차단
+
     window.onafterprint = () => {
       window.onafterprint = null;
-      // 인쇄된 항목(출고완료 미체크) 전체를 출고완료 처리
+      // 인쇄 완료 후 선택된 항목 → 출고완료 처리
       const toPrint = printGroups.flatMap((g) => g.rows);
       if (toPrint.length === 0) return;
       // 낙관적 업데이트
@@ -144,6 +200,8 @@ export default function SeparatePage() {
         for (const e of toPrint) next[doneKey(e)] = true;
         return next;
       });
+      // 인쇄 후 선택 초기화
+      setSelectedKeys(new Set());
       // 서버 저장 (순차 처리)
       void (async () => {
         try {
@@ -192,10 +250,10 @@ export default function SeparatePage() {
     });
   }, [entries, cellMap, sortKey, sortDir]);
 
-  // 인쇄 대상: 출고완료 제외, 점포코드 오름차순 → 피킹셀 오름차순
+  // 인쇄 대상: 선택된 항목만, 점포코드 오름차순 → 피킹셀 오름차순
   const printGroups = useMemo(() => {
     const filtered = [...entries]
-      .filter((e) => !(doneMap[doneKey(e)] ?? false))
+      .filter((e) => selectedKeys.has(doneKey(e)))
       .sort((a, b) => {
         const sc = a.store_code.localeCompare(b.store_code);
         if (sc !== 0) return sc;
@@ -209,7 +267,7 @@ export default function SeparatePage() {
       map.get(e.store_code)!.rows.push(e);
     }
     return Array.from(map.values());
-  }, [entries, doneMap, cellMap]);
+  }, [entries, selectedKeys, cellMap]);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -375,146 +433,218 @@ export default function SeparatePage() {
 
       {/* ── 화면 UI ── */}
       <div style={{ padding: "32px 24px", maxWidth: 1100, margin: "0 auto" }} className="no-print-wrapper">
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0F172A", margin: 0 }}>별도작업</h1>
-            <p style={{ fontSize: 13, color: "#64748B", marginTop: 6 }}>단품별 페이지에서 입력된 별도수량 내역입니다.</p>
-          </div>
-          <button
-            onClick={handlePrint}
-            style={{
-              padding: "8px 18px",
-              background: "#1D4ED8",
-              color: "#fff",
-              border: "none",
-              borderRadius: 7,
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-              marginTop: 4,
-            }}
-          >
-            인쇄
-          </button>
-        </div>
-      </div>
-
-      {loading ? (
-        <div style={{ padding: 64, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-          <style>{`@keyframes sep-spin { to { transform: rotate(360deg); } }`}</style>
-          <div style={{
-            width: 40, height: 40, borderRadius: "50%",
-            border: "4px solid #E2E8F0",
-            borderTopColor: "#1D4ED8",
-            animation: "sep-spin 0.8s linear infinite",
-          }} />
-          <div style={{ fontSize: 14, color: "#64748B", fontWeight: 600 }}>데이터 불러오는 중...</div>
-        </div>
-      ) : error ? (
-        <div style={{ padding: 48, textAlign: "center", color: "#EF4444", fontSize: 14 }}>{error}</div>
-      ) : (
-        <>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <div style={{ fontSize: 13, color: "#64748B", fontWeight: 700 }}>
-              전체 {sortedEntries.length}건 &middot; 별도수량 합계 {formatNumber(totalQty)}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0F172A", margin: 0 }}>별도작업</h1>
+              <p style={{ fontSize: 13, color: "#64748B", marginTop: 6 }}>단품별 페이지에서 입력된 별도수량 내역입니다.</p>
             </div>
-            {Object.keys(cellMap).length === 0 && (
-              <div style={{ fontSize: 12, color: "#F59E0B", fontWeight: 600 }}>
-                ⚠ 상품별 전략관리 파일이 없어 피킹셀을 표시할 수 없습니다.
-              </div>
-            )}
+            {/* 인쇄 버튼: 선택된 항목이 없으면 비활성화 */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, marginTop: 4 }}>
+              <button
+                onClick={handlePrint}
+                disabled={selectedKeys.size === 0}
+                title={selectedKeys.size === 0 ? "인쇄할 항목을 먼저 선택해주세요" : `선택된 ${selectedKeys.size}건 인쇄`}
+                style={{
+                  padding: "8px 18px",
+                  background: selectedKeys.size === 0 ? "#E2E8F0" : "#1D4ED8",
+                  color: selectedKeys.size === 0 ? "#94A3B8" : "#fff",
+                  border: "none",
+                  borderRadius: 7,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: selectedKeys.size === 0 ? "not-allowed" : "pointer",
+                  whiteSpace: "nowrap",
+                  transition: "background 0.15s",
+                }}
+              >
+                {selectedKeys.size === 0 ? "인쇄 (미선택)" : `인쇄 (${selectedKeys.size}건 선택됨)`}
+              </button>
+              {someSelected && (
+                <button
+                  onClick={() => setSelectedKeys(new Set())}
+                  style={{
+                    padding: "4px 10px",
+                    background: "transparent",
+                    color: "#64748B",
+                    border: "1px solid #CBD5E1",
+                    borderRadius: 5,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  선택 해제
+                </button>
+              )}
+            </div>
           </div>
+        </div>
 
-          <div style={{ border: "1px solid #E8EDF2", borderRadius: 10, background: "#fff", overflow: "auto", boxShadow: "0 1px 4px rgba(15,23,42,0.06)" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 880 }}>
-              <thead>
-                <tr style={{ background: "#F8FAFC" }}>
-                  {COLS.map(({ key, label, align }) => (
-                    <th
-                      key={key}
-                      onClick={() => handleSort(key)}
-                      style={{
-                        textAlign: align ?? "left",
-                        padding: "10px 16px",
-                        borderBottom: "2px solid #E8EDF2",
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: sortKey === key ? "#1E293B" : "#64748B",
-                        cursor: "pointer",
-                        userSelect: "none",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {label}
-                      <SortIcon col={key} />
-                    </th>
-                  ))}
-                  <th style={{ padding: "10px 16px", borderBottom: "2px solid #E8EDF2", fontSize: 12, fontWeight: 700, color: "#64748B", textAlign: "center", whiteSpace: "nowrap" }}>
-                    출고완료
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedEntries.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} style={{ padding: 40, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>
-                      등록된 별도수량이 없습니다.
-                    </td>
-                  </tr>
-                ) : (
-                  sortedEntries.map((entry, i) => {
-                    const unitVal = separateUnit(entry);
-                    const isDecimal = unitVal !== null && unitVal % 1 !== 0;
-                    const pickingCell = cellMap[entry.product_code] ?? "";
-                    const isDone = doneMap[doneKey(entry)] ?? false;
-                    return (
-                      <tr
-                        key={`${entry.date}-${entry.store_code}-${entry.product_code}-${i}`}
-                        style={{ background: isDone ? "#F0FDF4" : i % 2 === 0 ? "#fff" : "#FAFBFC" }}
-                      >
-                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#6B7280" : "#374151", whiteSpace: "nowrap" }}>
-                          {formatDate(entry.date)}
-                        </td>
-                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#9CA3AF" : "#64748B" }}>
-                          {entry.store_code}
-                        </td>
-                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, fontWeight: 600, color: isDone ? "#6B7280" : "#0F172A" }}>
-                          {entry.store_name}
-                        </td>
-                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#9CA3AF" : "#374151", whiteSpace: "nowrap" }}>
-                          {pickingCell || <span style={{ color: "#CBD5E1" }}>-</span>}
-                        </td>
-                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#9CA3AF" : "#64748B" }}>
-                          {entry.product_code}
-                        </td>
-                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#6B7280" : "#374151" }}>
-                          {entry.product_name}
-                        </td>
-                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, fontWeight: 700, color: isDone ? "#9CA3AF" : "#1D4ED8", textAlign: "right" }}>
-                          {formatNumber(entry.qty)}
-                        </td>
-                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, fontWeight: 700, color: isDone ? "#9CA3AF" : isDecimal ? "#EF4444" : "#1D4ED8", textAlign: "right" }}>
-                          {formatUnit(unitVal)}
-                        </td>
-                        <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", textAlign: "center" }}>
-                          <input
-                            type="checkbox"
-                            checked={isDone}
-                            onChange={() => void toggleDone(entry)}
-                            style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#16A34A" }}
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+        {loading ? (
+          <div style={{ padding: 64, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+            <style>{`@keyframes sep-spin { to { transform: rotate(360deg); } }`}</style>
+            <div style={{
+              width: 40, height: 40, borderRadius: "50%",
+              border: "4px solid #E2E8F0",
+              borderTopColor: "#1D4ED8",
+              animation: "sep-spin 0.8s linear infinite",
+            }} />
+            <div style={{ fontSize: 14, color: "#64748B", fontWeight: 600 }}>데이터 불러오는 중...</div>
           </div>
-        </>
-      )}
+        ) : error ? (
+          <div style={{ padding: 48, textAlign: "center", color: "#EF4444", fontSize: 14 }}>{error}</div>
+        ) : (
+          <>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div style={{ fontSize: 13, color: "#64748B", fontWeight: 700 }}>
+                전체 {sortedEntries.length}건 &middot; 별도수량 합계 {formatNumber(totalQty)}
+                {someSelected && (
+                  <span style={{ marginLeft: 12, color: "#1D4ED8", fontWeight: 700 }}>
+                    &middot; {selectedKeys.size}건 선택됨
+                  </span>
+                )}
+              </div>
+              {Object.keys(cellMap).length === 0 && (
+                <div style={{ fontSize: 12, color: "#F59E0B", fontWeight: 600 }}>
+                  ⚠ 상품별 전략관리 파일이 없어 피킹셀을 표시할 수 없습니다.
+                </div>
+              )}
+            </div>
+
+            <div style={{ border: "1px solid #E8EDF2", borderRadius: 10, background: "#fff", overflow: "auto", boxShadow: "0 1px 4px rgba(15,23,42,0.06)" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 940 }}>
+                <thead>
+                  <tr style={{ background: "#F8FAFC" }}>
+                    {/* 전체선택 체크박스 — 헤더 맨 왼쪽 */}
+                    <th
+                      style={{
+                        padding: "10px 14px",
+                        borderBottom: "2px solid #E8EDF2",
+                        textAlign: "center",
+                        width: 44,
+                        cursor: selectableKeys.length > 0 ? "pointer" : "default",
+                      }}
+                      onClick={toggleSelectAll}
+                      title={allSelected ? "전체 해제" : "전체 선택 (출고완료 제외)"}
+                    >
+                      <input
+                        ref={selectAllRef}
+                        type="checkbox"
+                        readOnly
+                        checked={allSelected}
+                        style={{ width: 15, height: 15, cursor: selectableKeys.length > 0 ? "pointer" : "default", accentColor: "#1D4ED8" }}
+                      />
+                    </th>
+                    {COLS.map(({ key, label, align }) => (
+                      <th
+                        key={key}
+                        onClick={() => handleSort(key)}
+                        style={{
+                          textAlign: align ?? "left",
+                          padding: "10px 16px",
+                          borderBottom: "2px solid #E8EDF2",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: sortKey === key ? "#1E293B" : "#64748B",
+                          cursor: "pointer",
+                          userSelect: "none",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {label}
+                        <SortIcon col={key} />
+                      </th>
+                    ))}
+                    <th style={{ padding: "10px 16px", borderBottom: "2px solid #E8EDF2", fontSize: 12, fontWeight: 700, color: "#64748B", textAlign: "center", whiteSpace: "nowrap" }}>
+                      출고완료
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedEntries.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} style={{ padding: 40, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>
+                        등록된 별도수량이 없습니다.
+                      </td>
+                    </tr>
+                  ) : (
+                    sortedEntries.map((entry, i) => {
+                      const unitVal = separateUnit(entry);
+                      const isDecimal = unitVal !== null && unitVal % 1 !== 0;
+                      const pickingCell = cellMap[entry.product_code] ?? "";
+                      const isDone = doneMap[doneKey(entry)] ?? false;
+                      const isSelected = selectedKeys.has(doneKey(entry));
+                      return (
+                        <tr
+                          key={`${entry.date}-${entry.store_code}-${entry.product_code}-${i}`}
+                          style={{
+                            background: isDone
+                              ? "#F0FDF4"
+                              : isSelected
+                              ? "#EFF6FF"
+                              : i % 2 === 0 ? "#fff" : "#FAFBFC",
+                          }}
+                        >
+                          {/* 인쇄 선택 체크박스 — 출고완료 행은 🔒으로 선택 차단 */}
+                          <td style={{ padding: "11px 14px", borderBottom: "1px solid #F1F5F9", textAlign: "center" }}>
+                            {isDone ? (
+                              <span
+                                title="출고완료 항목은 선택할 수 없습니다"
+                                style={{ fontSize: 13, color: "#CBD5E1", userSelect: "none", cursor: "not-allowed" }}
+                              >
+                                🔒
+                              </span>
+                            ) : (
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleSelect(entry)}
+                                style={{ width: 15, height: 15, cursor: "pointer", accentColor: "#1D4ED8" }}
+                              />
+                            )}
+                          </td>
+                          <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#6B7280" : "#374151", whiteSpace: "nowrap" }}>
+                            {formatDate(entry.date)}
+                          </td>
+                          <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#9CA3AF" : "#64748B" }}>
+                            {entry.store_code}
+                          </td>
+                          <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, fontWeight: 600, color: isDone ? "#6B7280" : "#0F172A" }}>
+                            {entry.store_name}
+                          </td>
+                          <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#9CA3AF" : "#374151", whiteSpace: "nowrap" }}>
+                            {pickingCell || <span style={{ color: "#CBD5E1" }}>-</span>}
+                          </td>
+                          <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#9CA3AF" : "#64748B" }}>
+                            {entry.product_code}
+                          </td>
+                          <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#6B7280" : "#374151" }}>
+                            {entry.product_name}
+                          </td>
+                          <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, fontWeight: 700, color: isDone ? "#9CA3AF" : "#1D4ED8", textAlign: "right" }}>
+                            {formatNumber(entry.qty)}
+                          </td>
+                          <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, fontWeight: 700, color: isDone ? "#9CA3AF" : isDecimal ? "#EF4444" : "#1D4ED8", textAlign: "right" }}>
+                            {formatUnit(unitVal)}
+                          </td>
+                          <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", textAlign: "center" }}>
+                            <input
+                              type="checkbox"
+                              checked={isDone}
+                              onChange={() => void toggleDone(entry)}
+                              style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#16A34A" }}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
     </>
   );
