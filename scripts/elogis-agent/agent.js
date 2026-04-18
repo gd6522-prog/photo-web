@@ -5,27 +5,28 @@
  *   1. Supabase 에 heartbeat 전송 (30초마다)
  *   2. elogis_sync_log 테이블을 폴링 (10초마다)
  *      → pending 작업 발견 시 즉시 처리
- *   3. node-cron 으로 매일 지정 시각에 자동 실행
- *      (CRON_SCHEDULE 환경변수, 기본: 매일 오전 6시)
+ *   3. 매분 서버에서 슬롯 스케줄을 직접 읽어 해당 시각에 자동 실행
+ *      (브라우저가 닫혀 있어도 동작, ADMIN_URL + INTERNAL_API_SECRET 필요)
  */
 
 require("dotenv").config({ path: require("path").join(__dirname, ".env") });
 
 const { createClient } = require("@supabase/supabase-js");
-const cron = require("node-cron");
 const { FILE_CONFIGS } = require("./config");
 const { createSession, createTmsSession, downloadFile } = require("./elogis");
 const { uploadToAdmin } = require("./upload");
 
 // ── 환경변수 ──────────────────────────────────────────────────────────────────
 
-const ELOGIS_ID      = process.env.ELOGIS_ID;
-const ELOGIS_PW      = process.env.ELOGIS_PW;
-const SUPABASE_URL   = process.env.SUPABASE_URL;
-const SUPABASE_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ADMIN_URL      = (process.env.ADMIN_URL || "").replace(/\/$/, "");
-const CRON_SCHEDULE  = process.env.CRON_SCHEDULE || "0 6 * * *";
+const ELOGIS_ID           = process.env.ELOGIS_ID;
+const ELOGIS_PW           = process.env.ELOGIS_PW;
+const SUPABASE_URL        = process.env.SUPABASE_URL;
+const SUPABASE_KEY        = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const ADMIN_URL           = (process.env.ADMIN_URL || "").replace(/\/$/, "");
+// 내부 스케줄 API 인증 시크릿 (.env.local의 MIGRATION_SECRET과 동일)
+const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET;
 
+// 하위 호환: INTERNAL_API_SECRET이 없으면 경고 출력 후 스케줄 기능만 비활성화
 if (!ELOGIS_ID || !ELOGIS_PW || !SUPABASE_URL || !SUPABASE_KEY || !ADMIN_URL) {
   console.error("[ERROR] .env 파일을 확인하세요. 필수값: ELOGIS_ID, ELOGIS_PW, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ADMIN_URL");
   process.exit(1);
@@ -101,28 +102,83 @@ async function runSync(jobId) {
   // 각 슬롯을 독립적인 브라우저 세션으로 병렬 실행
   const activeBrowsers = new Set();
 
+  // ── 재시도 가능 에러 판별 ──────────────────────────────────────────────────
+  // 설정 문제나 데이터 없음(빈 파일)은 재시도해도 소용없으므로 제외합니다.
+  function isRetryableError(msg) {
+    if (!msg) return false;
+    // 재시도 불가: 설정 미완료
+    if (msg.includes("pageUrl") || msg.includes("config.js")) return false;
+    // 재시도 불가: 데이터 자체가 없는 경우 (빈 파일)
+    if (msg.includes("비어 있습니다")) return false;
+    // 재시도 가능: 네트워크/타임아웃/브라우저/로그인 관련 오류
+    const retryPatterns = [
+      "timeout", "Timeout",           // 타임아웃
+      "net::", "ECONNRESET", "ETIMEDOUT", "ENOTFOUND",  // 네트워크
+      "Target closed", "browser has disconnected",       // 브라우저 크래시
+      "Navigation failed", "ERR_",     // 페이지 이동 실패
+      "로그인 실패",                    // elogis 로그인 실패 (서버 부하)
+      "다운로드 이벤트를 받지 못했습니다",  // 다운로드 이벤트 누락
+      "body 캡처 실패",                // prepare 요청 캡처 실패
+      "조회 버튼", "배송그룹 입력 필드", "그리드 메뉴",  // UI 요소 미발견 (일시적)
+    ];
+    return retryPatterns.some((p) => msg.includes(p));
+  }
+
+  // 재시도 대기 (1차: 30초, 2차: 60초)
+  const RETRY_DELAYS_SEC = [30, 60];
+  const MAX_RETRIES = RETRY_DELAYS_SEC.length;
+
   const downloadOne = async (fileConfig) => {
-    let browser = null;
-    try {
-      const session = fileConfig.tmsDownload
-        ? await createTmsSession(ELOGIS_ID, ELOGIS_PW, addLog)
-        : await createSession(ELOGIS_ID, ELOGIS_PW, addLog);
-      browser = session.browser;
-      activeBrowsers.add(browser);
-      const buffer = await downloadFile(session.page, session.context, fileConfig, addLog);
-      await uploadToAdmin(ADMIN_URL, fileConfig, buffer, addLog);
-      return { slotKey: fileConfig.slotKey, label: fileConfig.label, ok: true, message: "완료" };
-    } catch (err) {
-      const msg = err?.message ?? String(err);
-      await addLog(`[실패] ${fileConfig.label}: ${msg}`);
-      return { slotKey: fileConfig.slotKey, label: fileConfig.label, ok: false, message: msg };
-    } finally {
-      if (browser) {
-        activeBrowsers.delete(browser);
-        await browser.close().catch(() => {});
+    let lastError = null;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      // 재시도 시 대기 후 안내 로그 출력
+      if (attempt > 0) {
+        const delaySec = RETRY_DELAYS_SEC[attempt - 1];
+        await addLog(`[재시도 ${attempt}/${MAX_RETRIES}] ${fileConfig.label}: ${delaySec}초 후 재시도...`);
+        await new Promise((r) => setTimeout(r, delaySec * 1000));
+      }
+
+      let browser = null;
+      try {
+        const session = fileConfig.tmsDownload
+          ? await createTmsSession(ELOGIS_ID, ELOGIS_PW, addLog)
+          : await createSession(ELOGIS_ID, ELOGIS_PW, addLog);
+        browser = session.browser;
+        activeBrowsers.add(browser);
+        const buffer = await downloadFile(session.page, session.context, fileConfig, addLog);
+        await uploadToAdmin(ADMIN_URL, fileConfig, buffer, addLog);
+
+        // 재시도 후 성공한 경우 안내 로그
+        if (attempt > 0) {
+          await addLog(`[재시도 성공] ${fileConfig.label}: ${attempt}번 재시도 후 완료`);
+        }
+        return { slotKey: fileConfig.slotKey, label: fileConfig.label, ok: true, message: "완료" };
+      } catch (err) {
+        const msg = err?.message ?? String(err);
+        lastError = msg;
+        await addLog(`[실패] ${fileConfig.label} (시도 ${attempt + 1}/${MAX_RETRIES + 1}): ${msg}`);
+
+        // 재시도 불가 에러면 즉시 포기
+        if (!isRetryableError(msg)) {
+          await addLog(`[포기] ${fileConfig.label}: 재시도해도 해결되지 않는 오류입니다.`);
+          break;
+        }
+        // 마지막 시도까지 실패하면 루프 종료
+        if (attempt === MAX_RETRIES) {
+          await addLog(`[포기] ${fileConfig.label}: ${MAX_RETRIES}회 재시도 후 최종 실패`);
+        }
+      } finally {
+        if (browser) {
+          activeBrowsers.delete(browser);
+          await browser.close().catch(() => {});
+        }
       }
     }
+
+    return { slotKey: fileConfig.slotKey, label: fileConfig.label, ok: false, message: lastError ?? "알 수 없는 오류" };
   };
+
 
   // 종료 시 강제 닫기용 (currentBrowser 대신 Set으로 관리)
   currentBrowserSet = activeBrowsers;
@@ -210,28 +266,79 @@ async function shutdown(signal) {
 process.on("SIGINT",  () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 
-// 스케줄 트리거 (DB에 pending 작업 삽입 후 즉시 실행)
-async function triggerScheduled() {
+// ── 슬롯 스케줄 트리거 ────────────────────────────────────────────────────────
+
+/**
+ * 서버(R2)에 저장된 슬롯별 스케줄을 내부 API로 가져옵니다.
+ * INTERNAL_API_SECRET이 없으면 null 반환 (스케줄 기능 비활성화).
+ */
+async function fetchSlotSchedules() {
+  if (!INTERNAL_API_SECRET || !ADMIN_URL) return null;
+  try {
+    const res = await fetch(`${ADMIN_URL}/api/internal/agent-schedules`, {
+      headers: { "x-internal-secret": INTERNAL_API_SECRET },
+    });
+    if (!res.ok) {
+      log(`[WARN] 스케줄 조회 실패: HTTP ${res.status}`);
+      return null;
+    }
+    const json = await res.json();
+    return json.ok ? json.schedules : null;
+  } catch (err) {
+    log(`[WARN] 스케줄 조회 오류: ${err?.message ?? err}`);
+    return null;
+  }
+}
+
+/**
+ * 특정 슬롯 하나에 대한 pending 작업을 DB에 삽입하고 즉시 처리합니다.
+ * (브라우저 page.tsx의 handleSyncTrigger와 동일한 방식)
+ */
+async function triggerSlot(slotKey) {
   if (isProcessing) {
-    log("이미 처리 중 — 스케줄 트리거 건너뜀");
+    log(`이미 처리 중 — 슬롯 트리거 건너뜀: ${slotKey}`);
     return;
   }
 
+  // target_slots에 해당 슬롯만 지정해서 삽입
   const { data, error } = await supabase
     .from("elogis_sync_log")
-    .insert({ status: "pending" })
+    .insert({ status: "pending", target_slots: [slotKey] })
     .select("id")
     .single();
 
   if (error) {
-    log(`[ERROR] 스케줄 작업 생성 실패: ${error.message}`);
+    log(`[ERROR] 슬롯 작업 생성 실패 (${slotKey}): ${error.message}`);
     return;
   }
-  log(`스케줄 트리거 → 작업 #${data.id}`);
+  log(`스케줄 트리거 → 슬롯: ${slotKey}, 작업 #${data.id}`);
   await processJob(data.id);
 }
 
-// ── 폴링 루프 ─────────────────────────────────────────────────────────────────
+/**
+ * 매분 실행되는 스케줄 체크 함수.
+ * 서버에서 슬롯 스케줄을 읽어 현재 시각(KST)과 비교 후 해당 슬롯을 트리거합니다.
+ */
+async function checkSchedules() {
+  const schedules = await fetchSlotSchedules();
+  if (!schedules || typeof schedules !== "object") return;
+
+  // KST 기준 현재 시/분 추출
+  const nowKst = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+  const h = nowKst.getHours();
+  const m = nowKst.getMinutes();
+
+  for (const [slotKey, sched] of Object.entries(schedules)) {
+    // enabled: true이고 시/분이 정확히 일치할 때만 트리거
+    if (sched.enabled && sched.hour === h && sched.minute === m) {
+      log(`[스케줄] ${slotKey} → ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} 도달, 트리거`);
+      // 비동기로 실행 (동시에 여러 슬롯이 맞아도 순차 처리됨 — isProcessing 플래그)
+      triggerSlot(slotKey).catch((e) => log(`[ERROR] 슬롯 트리거 오류 (${slotKey}): ${e?.message}`));
+    }
+  }
+}
+
+// ── 폴링 루프 (수동 실행 요청 처리) ─────────────────────────────────────────
 
 async function poll() {
   if (isProcessing) return;
@@ -253,7 +360,14 @@ async function poll() {
 
 async function main() {
   log("=== elogis 에이전트 시작 ===");
-  log(`스케줄: ${CRON_SCHEDULE}`);
+
+  if (INTERNAL_API_SECRET) {
+    log("SlotSchedule 모드: 서버에서 슬롯별 스케줄을 직접 읽어 실행합니다.");
+  } else {
+    log("[WARN] INTERNAL_API_SECRET 미설정 — 슬롯 스케줄 자동 실행 비활성화");
+    log("[WARN] .env에 INTERNAL_API_SECRET=<MIGRATION_SECRET값> 을 추가하면 활성화됩니다.");
+  }
+
   log(`대상 파일: ${FILE_CONFIGS.filter((c) => c.pageUrl !== "TODO").map((c) => c.label).join(", ") || "없음 (config.js 설정 필요)"}`);
 
   // 이전에 중단된 running/pending 작업 정리
@@ -271,22 +385,29 @@ async function main() {
     log(`이전 중단 작업 ${ids.length}건 정리: #${ids.join(", #")}`);
   }
 
-  // heartbeat
+  // heartbeat (30초마다)
   await sendHeartbeat();
   setInterval(async () => {
     await sendHeartbeat().catch(() => {});
   }, 30_000);
 
-  // 폴링
+  // 수동 요청 폴링 (10초마다)
   setInterval(async () => {
     await poll().catch((e) => log(`[ERROR] poll: ${e?.message}`));
   }, 10_000);
 
-  // 매일 자동 실행
-  cron.schedule(CRON_SCHEDULE, () => {
-    log("정기 스케줄 실행");
-    triggerScheduled().catch((e) => log(`[ERROR] schedule: ${e?.message}`));
-  }, { timezone: "Asia/Seoul" });
+  // 슬롯 스케줄 체크: 다음 정각 분에 맞춰 시작 후 매분 실행
+  if (INTERNAL_API_SECRET) {
+    const secsLeft = 60 - new Date().getSeconds();
+    log(`슬롯 스케줄 체크 시작까지 ${secsLeft}초 대기...`);
+    setTimeout(() => {
+      // 즉시 1회 체크 후 매분 반복
+      checkSchedules().catch((e) => log(`[ERROR] checkSchedules: ${e?.message}`));
+      setInterval(() => {
+        checkSchedules().catch((e) => log(`[ERROR] checkSchedules: ${e?.message}`));
+      }, 60_000);
+    }, secsLeft * 1000);
+  }
 
   log("에이전트 대기 중... (Ctrl+C 로 종료)");
 }

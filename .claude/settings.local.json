@@ -68,7 +68,28 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Skill(schedule)",
-      "Skill(schedule:*)"
+      "Skill(schedule:*)",
+      "WebFetch(domain:elogis.emart24.co.kr)",
+      "Bash(grep -l \"elogis\\\\|emart\" /c/Users/wals741/webphoto/han-admin/src/app/admin/**/*.tsx)",
+      "Bash(node -e \"require\\('./scripts/elogis-agent/elogis.js'\\); console.log\\('OK'\\)\")",
+      "Bash(pm2 --version)",
+      "Bash(where pm2 *)",
+      "Bash(pm2 list *)",
+      "Bash(pm2 start *)",
+      "Bash(pm2 save *)",
+      "Bash(pm2 startup *)",
+      "Bash(npm install *)",
+      "Bash(pm2-startup install *)",
+      "Bash(pm2 logs *)",
+      "Bash(pm2 restart *)",
+      "Read(//c/Program Files/Google/Chrome/Application/**)",
+      "Read(//c/Program Files \\(x86\\)/Google/Chrome/Application/**)",
+      "Bash(node -e ' *)",
+      "Bash(npm list *)",
+      "Bash(net session *)",
+      "Bash(reg query *)",
+      "Bash(pm2 kill *)",
+      "Bash(wscript.exe \"C:\\\\Users\\\\wals741\\\\AppData\\\\Roaming\\\\npm\\\\node_modules\\\\pm2-windows-startup\\\\invisible.vbs\" \"C:\\\\Users\\\\wals741\\\\AppData\\\\Roaming\\\\npm\\\\node_modules\\\\pm2-windows-startup\\\\pm2_resurrect.cmd\")"
     ]
   }
 }

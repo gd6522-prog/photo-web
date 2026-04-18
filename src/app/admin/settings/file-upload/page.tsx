@@ -529,14 +529,23 @@ export default function FileUploadPage() {
         }
       }
     };
+
+    // setInterval id를 useEffect 클린업 scope에서 참조할 수 있도록 외부에 선언
+    // (기존 코드에서 setTimeout 콜백 내부의 return은 클린업 함수가 아니어서 누수 발생)
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
     // 다음 정각 분에 맞춰 시작
     const msToNextMin = (60 - new Date().getSeconds()) * 1000 - new Date().getMilliseconds();
     const initTimer = setTimeout(() => {
       tick();
-      const id = setInterval(tick, 60_000);
-      return () => clearInterval(id);
+      intervalId = setInterval(tick, 60_000);
     }, msToNextMin);
-    return () => clearTimeout(initTimer);
+
+    // useEffect 클린업: setTimeout과 setInterval 모두 정리
+    return () => {
+      clearTimeout(initTimer);
+      if (intervalId !== null) clearInterval(intervalId);
+    };
   }, [handleSyncTrigger]);
 
   // 현재 로그인 사용자 이름 + 권한 + 스케줄 조회
