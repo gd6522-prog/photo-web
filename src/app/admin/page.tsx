@@ -2796,7 +2796,6 @@ export default function AdminHomePage() {
           .summaryCol,
           .rightCol {
             display: flex;
-            height: 100%;
             min-width: 0;
             overflow: hidden;
           }
