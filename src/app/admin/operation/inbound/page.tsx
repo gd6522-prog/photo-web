@@ -430,6 +430,8 @@ export default function InboundPage() {
               background: "#fff",
               boxShadow: "0 16px 34px rgba(2,32,46,0.10)",
               overflow: "hidden",
+              display: "inline-block",
+              minWidth: 320,
             }}>
               {/* 카드 헤더 (화면용) */}
               <div style={{
