@@ -1,18 +1,13 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { toBlob as toImageBlob } from "html-to-image";
 import { supabase } from "@/lib/supabase";
 import type { InboundRow } from "@/app/api/admin/inbound-status/route";
 
-type SortKey = keyof Pick<
-  InboundRow,
-  "inb_ect_date" | "inb_date" | "suppr_nm" | "item_cd" | "item_nm" |
-  "inb_status" | "shortage_status" | "ord_qty" | "inb_qty" | "miss_qty"
->;
-type SortDir = "asc" | "desc";
-
+// ─── 유틸 ────────────────────────────────────────────────────────────────────
 async function getAdminToken() {
-  for (let attempt = 0; attempt < 20; attempt++) {
+  for (let i = 0; i < 20; i++) {
     const { data, error } = await supabase.auth.getSession();
     if (error) throw error;
     const token = data.session?.access_token;
@@ -26,48 +21,111 @@ function fmt(n: number) {
   return n.toLocaleString("ko-KR");
 }
 
-// YYYYMMDD → YYYY.MM.DD
-function fmtDate(s: string) {
-  const clean = s.replace(/\D/g, "");
-  if (clean.length === 8) return `${clean.slice(0, 4)}.${clean.slice(4, 6)}.${clean.slice(6, 8)}`;
+/** 날짜 문자열 → YYYYMMDD (하이픈/슬래시/점 제거) */
+function normalizeDate(s: string): string {
+  return s.replace(/\D/g, "").slice(0, 8);
+}
+
+/** YYYYMMDD → YYYY.MM.DD */
+function fmtDate(s: string): string {
+  const d = normalizeDate(s);
+  if (d.length === 8) return `${d.slice(0, 4)}.${d.slice(4, 6)}.${d.slice(6, 8)}`;
   return s || "-";
 }
 
-const INBOUND_STATUS_COLORS: Record<string, { bg: string; color: string }> = {
+/** KST 기준 오늘 날짜 YYYYMMDD */
+function kstToday(): string {
+  const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  return (
+    kst.getUTCFullYear().toString() +
+    String(kst.getUTCMonth() + 1).padStart(2, "0") +
+    String(kst.getUTCDate()).padStart(2, "0")
+  );
+}
+
+/**
+ * 내일 날짜 YYYYMMDD (KST 기준)
+ * 토요일이면 월요일(+3일), 일요일이면 월요일(+2일)
+ */
+function nextWorkdayDate(): string {
+  const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const d = new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate() + 1));
+  const dow = d.getUTCDay(); // 0=일, 6=토
+  if (dow === 6) d.setUTCDate(d.getUTCDate() + 2); // 토→월
+  if (dow === 0) d.setUTCDate(d.getUTCDate() + 1); // 일→월
+  return (
+    d.getUTCFullYear().toString() +
+    String(d.getUTCMonth() + 1).padStart(2, "0") +
+    String(d.getUTCDate()).padStart(2, "0")
+  );
+}
+
+const DOW_KO = ["일", "월", "화", "수", "목", "금", "토"];
+function dateLabel(yyyymmdd: string): string {
+  const d = new Date(`${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6, 8)}T00:00:00+09:00`);
+  return `${fmtDate(yyyymmdd)}(${DOW_KO[d.getDay()]})`;
+}
+
+// ─── 클립보드 이미지 복사 ───────────────────────────────────────────────────
+async function copyElementAsImage(element: HTMLElement) {
+  const hasWrite = !!(navigator.clipboard as { write?: unknown })?.write;
+  const hasItem = typeof (window as { ClipboardItem?: unknown }).ClipboardItem !== "undefined";
+  if (!hasWrite || !hasItem) throw new Error("이 브라우저는 이미지 복사를 지원하지 않습니다.");
+  if (!document.hasFocus()) { window.focus(); await new Promise((r) => setTimeout(r, 80)); }
+  const blob = await toImageBlob(element, {
+    cacheBust: true,
+    pixelRatio: 2,
+    backgroundColor: "#ffffff",
+    filter: (n) => !(n instanceof HTMLElement && n.dataset.copyHide === "true"),
+  });
+  if (!blob) throw new Error("이미지를 만들지 못했습니다.");
+  const item = new (window as { ClipboardItem: new (a: Record<string, Blob>) => unknown }).ClipboardItem({ "image/png": blob });
+  await (navigator.clipboard as unknown as { write: (a: unknown[]) => Promise<void> }).write([item]);
+}
+
+// ─── 정렬 ────────────────────────────────────────────────────────────────────
+type SortKey = "inb_ect_date" | "inb_date" | "suppr_nm" | "item_cd" | "item_nm" |
+  "inb_status" | "shortage_status" | "ord_qty" | "inb_qty" | "miss_qty";
+type SortDir = "asc" | "desc";
+
+// ─── 상태 배지 ────────────────────────────────────────────────────────────────
+const STATUS_COLOR: Record<string, { bg: string; color: string }> = {
   "입고완료": { bg: "#DCFCE7", color: "#15803D" },
   "입고예정": { bg: "#DBEAFE", color: "#1D4ED8" },
   "미입고":   { bg: "#FEF9C3", color: "#A16207" },
   "결품":     { bg: "#FEE2E2", color: "#DC2626" },
 };
 
-function StatusBadge({ label }: { label: string }) {
-  const style = INBOUND_STATUS_COLORS[label] ?? { bg: "#F1F5F9", color: "#475569" };
+function Badge({ label }: { label: string }) {
+  const s = STATUS_COLOR[label] ?? { bg: "#F1F5F9", color: "#475569" };
   return (
-    <span style={{
-      display: "inline-block",
-      padding: "2px 8px",
-      borderRadius: 12,
-      fontSize: 11,
-      fontWeight: 700,
-      background: style.bg,
-      color: style.color,
-      whiteSpace: "nowrap",
-    }}>
+    <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 700, background: s.bg, color: s.color, whiteSpace: "nowrap" }}>
       {label || "-"}
     </span>
   );
 }
 
+// ─── 메인 컴포넌트 ────────────────────────────────────────────────────────────
 export default function InboundPage() {
-  const [rows, setRows] = useState<InboundRow[]>([]);
+  const [rows, setRows]             = useState<InboundRow[]>([]);
   const [uploadedAt, setUploadedAt] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [search, setSearch] = useState("");
-  const [dateFilter, setDateFilter] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("inb_ect_date");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState("");
 
+  // 요약 카드 복사
+  const cardRef    = useRef<HTMLDivElement | null>(null);
+  const [copying, setCopying]       = useState(false);
+  const [copyMsg, setCopyMsg]       = useState("");
+
+  // 테이블 필터/정렬
+  const [search, setSearch]         = useState("");
+  const [dateFilter, setDateFilter] = useState("");
+  const [sortKey, setSortKey]       = useState<SortKey>("inb_ect_date");
+  const [sortDir, setSortDir]       = useState<SortDir>("asc");
+
+  const targetDate  = useMemo(() => nextWorkdayDate(), []);
+
+  // ── 로드 ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     void (async () => {
       try {
@@ -89,22 +147,65 @@ export default function InboundPage() {
     })();
   }, []);
 
-  // 날짜 필터 옵션 (입고예정일자 기준)
+  // 복사 메시지 자동 클리어
+  useEffect(() => {
+    if (!copyMsg) return;
+    const t = window.setTimeout(() => setCopyMsg(""), 2000);
+    return () => window.clearTimeout(t);
+  }, [copyMsg]);
+
+  // ── 내일 기준 요약 ────────────────────────────────────────────────────────
+  const summaryRows = useMemo(() => {
+    const target = rows.filter((r) => normalizeDate(r.inb_ect_date) === targetDate);
+    if (!target.length) return [];
+
+    const groups = new Map<string, { count: number; ord_price: number; ord_qty: number }>();
+    for (const r of target) {
+      const key = r.itemgrp_bnm || "기타";
+      const g = groups.get(key) ?? { count: 0, ord_price: 0, ord_qty: 0 };
+      g.count     += 1;
+      g.ord_price += r.ord_price;
+      g.ord_qty   += r.ord_qty;
+      groups.set(key, g);
+    }
+    // 내림차순 (발주금액 큰 순)
+    return [...groups.entries()]
+      .map(([label, v]) => ({ label, ...v }))
+      .sort((a, b) => b.ord_price - a.ord_price);
+  }, [rows, targetDate]);
+
+  const summaryTotal = useMemo(() => summaryRows.reduce(
+    (acc, r) => ({ count: acc.count + r.count, ord_price: acc.ord_price + r.ord_price, ord_qty: acc.ord_qty + r.ord_qty }),
+    { count: 0, ord_price: 0, ord_qty: 0 }
+  ), [summaryRows]);
+
+  // ── 복사 ─────────────────────────────────────────────────────────────────
+  const handleCopy = async () => {
+    if (!cardRef.current) return;
+    setCopying(true);
+    setCopyMsg("");
+    try {
+      await copyElementAsImage(cardRef.current);
+      setCopyMsg("복사 완료");
+    } catch (e: unknown) {
+      setCopyMsg((e as Error)?.message ?? "복사 실패");
+    } finally {
+      setCopying(false);
+    }
+  };
+
+  // ── 테이블 데이터 ─────────────────────────────────────────────────────────
   const dateOptions = useMemo(() => {
-    const dates = [...new Set(rows.map((r) => r.inb_ect_date).filter(Boolean))].sort();
+    const dates = [...new Set(rows.map((r) => normalizeDate(r.inb_ect_date)).filter(Boolean))].sort();
     return dates;
   }, [rows]);
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
-      if (dateFilter && r.inb_ect_date !== dateFilter) return false;
+      if (dateFilter && normalizeDate(r.inb_ect_date) !== dateFilter) return false;
       if (search) {
         const q = search.toLowerCase();
-        return (
-          r.item_cd.toLowerCase().includes(q) ||
-          r.item_nm.toLowerCase().includes(q) ||
-          r.suppr_nm.toLowerCase().includes(q)
-        );
+        return r.item_cd.toLowerCase().includes(q) || r.item_nm.toLowerCase().includes(q) || r.suppr_nm.toLowerCase().includes(q);
       }
       return true;
     });
@@ -112,22 +213,18 @@ export default function InboundPage() {
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
-      const av = a[sortKey];
-      const bv = b[sortKey];
-      let cmp = 0;
-      if (typeof av === "number" && typeof bv === "number") {
-        cmp = av - bv;
-      } else {
-        cmp = String(av).localeCompare(String(bv), "ko");
-      }
+      const av = a[sortKey]; const bv = b[sortKey];
+      let cmp = typeof av === "number" && typeof bv === "number"
+        ? av - bv
+        : String(av).localeCompare(String(bv), "ko");
       return sortDir === "asc" ? cmp : -cmp;
     });
   }, [filtered, sortKey, sortDir]);
 
-  const totals = useMemo(() => ({
-    ord_qty:   filtered.reduce((s, r) => s + r.ord_qty, 0),
-    inb_qty:   filtered.reduce((s, r) => s + r.inb_qty, 0),
-    miss_qty:  filtered.reduce((s, r) => s + r.miss_qty, 0),
+  const tableTotals = useMemo(() => ({
+    ord_qty:  filtered.reduce((s, r) => s + r.ord_qty, 0),
+    inb_qty:  filtered.reduce((s, r) => s + r.inb_qty, 0),
+    miss_qty: filtered.reduce((s, r) => s + r.miss_qty, 0),
   }), [filtered]);
 
   function handleSort(key: SortKey) {
@@ -136,11 +233,11 @@ export default function InboundPage() {
   }
 
   function SortIcon({ col }: { col: SortKey }) {
-    if (sortKey !== col) return <span style={{ color: "#CBD5E1", marginLeft: 4 }}>↕</span>;
-    return <span style={{ color: "#3B82F6", marginLeft: 4 }}>{sortDir === "asc" ? "↑" : "↓"}</span>;
+    if (sortKey !== col) return <span style={{ color: "#CBD5E1", marginLeft: 3 }}>↕</span>;
+    return <span style={{ color: "#3B82F6", marginLeft: 3 }}>{sortDir === "asc" ? "↑" : "↓"}</span>;
   }
 
-  const COLS: Array<{ key: SortKey; label: string; align?: "right" | "center" }> = [
+  const TABLE_COLS: Array<{ key: SortKey; label: string; align?: "right" | "center" }> = [
     { key: "inb_ect_date",    label: "입고예정일" },
     { key: "inb_date",        label: "입고일" },
     { key: "suppr_nm",        label: "공급거래처" },
@@ -153,190 +250,239 @@ export default function InboundPage() {
     { key: "miss_qty",        label: "결품수량",  align: "right" },
   ];
 
+  // ── 렌더 ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{ padding: "32px 24px", maxWidth: 1300, margin: "0 auto" }}>
-      {/* 헤더 */}
+    <div style={{ padding: "28px 24px", maxWidth: 1300, margin: "0 auto" }}>
+      {/* 페이지 타이틀 */}
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0F172A", margin: 0 }}>입고예정</h1>
-        <p style={{ fontSize: 13, color: "#64748B", marginTop: 4, marginBottom: 0 }}>
-          오늘~D+2 기간의 입고예정 현황입니다.
-          {uploadedAt && (
-            <span style={{ marginLeft: 10, color: "#94A3B8" }}>· 파일 기준: {uploadedAt}</span>
-          )}
-        </p>
-      </div>
-
-      {/* 필터 */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
-        <select
-          value={dateFilter}
-          onChange={(e) => setDateFilter(e.target.value)}
-          style={{
-            padding: "7px 12px",
-            border: "1px solid #E2E8F0",
-            borderRadius: 7,
-            fontSize: 13,
-            color: "#374151",
-            background: "#fff",
-            cursor: "pointer",
-          }}
-        >
-          <option value="">전체 날짜</option>
-          {dateOptions.map((d) => (
-            <option key={d} value={d}>{fmtDate(d)}</option>
-          ))}
-        </select>
-
-        <input
-          type="text"
-          placeholder="상품코드 / 상품명 / 공급거래처 검색"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{
-            padding: "7px 12px",
-            border: "1px solid #E2E8F0",
-            borderRadius: 7,
-            fontSize: 13,
-            width: 280,
-            outline: "none",
-          }}
-        />
-
-        {(search || dateFilter) && (
-          <button
-            onClick={() => { setSearch(""); setDateFilter(""); }}
-            style={{
-              padding: "7px 14px",
-              background: "#F1F5F9",
-              border: "none",
-              borderRadius: 7,
-              fontSize: 12,
-              color: "#475569",
-              cursor: "pointer",
-              fontWeight: 600,
-            }}
-          >
-            초기화
-          </button>
+        <h1 style={{ fontSize: 20, fontWeight: 800, color: "#0F172A", margin: 0 }}>입고예정</h1>
+        {uploadedAt && (
+          <p style={{ fontSize: 12, color: "#94A3B8", marginTop: 3 }}>파일 기준: {uploadedAt}</p>
         )}
       </div>
 
       {loading ? (
-        <div style={{ padding: 64, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+        <div style={{ padding: 80, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
           <style>{`@keyframes ib-spin { to { transform: rotate(360deg); } }`}</style>
-          <div style={{
-            width: 40, height: 40, borderRadius: "50%",
-            border: "4px solid #E2E8F0", borderTopColor: "#1D4ED8",
-            animation: "ib-spin 0.8s linear infinite",
-          }} />
+          <div style={{ width: 40, height: 40, borderRadius: "50%", border: "4px solid #E2E8F0", borderTopColor: "#1D4ED8", animation: "ib-spin 0.8s linear infinite" }} />
           <div style={{ fontSize: 14, color: "#64748B", fontWeight: 600 }}>데이터 불러오는 중...</div>
         </div>
       ) : error ? (
         <div style={{ padding: 48, textAlign: "center", color: "#EF4444", fontSize: 14 }}>{error}</div>
-      ) : rows.length === 0 ? (
-        <div style={{ padding: 64, textAlign: "center" }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>📦</div>
-          <div style={{ fontSize: 15, color: "#64748B", fontWeight: 600 }}>입고예정 파일이 없습니다.</div>
-          <div style={{ fontSize: 13, color: "#94A3B8", marginTop: 6 }}>파일 업로드 설정에서 입고예정 파일을 업로드해주세요.</div>
-        </div>
       ) : (
         <>
-          {/* 요약 */}
-          <div style={{ display: "flex", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
-            {[
-              { label: "조회 건수",  value: `${fmt(filtered.length)}건`,     color: "#1E293B" },
-              { label: "발주수량",   value: fmt(totals.ord_qty),              color: "#1D4ED8" },
-              { label: "입고수량",   value: fmt(totals.inb_qty),              color: "#15803D" },
-              { label: "결품수량",   value: fmt(totals.miss_qty),             color: totals.miss_qty > 0 ? "#DC2626" : "#94A3B8" },
-            ].map((s) => (
-              <div key={s.label} style={{
-                background: "#fff",
-                border: "1px solid #E8EDF2",
-                borderRadius: 8,
-                padding: "8px 16px",
+          {/* ── 요약 카드 (메인 기능) ─────────────────────────────────────── */}
+          <div ref={cardRef} style={{ marginBottom: 28 }}>
+            <div style={{
+              border: "1px solid #bdd0de",
+              borderRadius: 0,
+              background: "#fff",
+              boxShadow: "0 16px 34px rgba(2,32,46,0.10)",
+              overflow: "hidden",
+            }}>
+              {/* 카드 헤더 */}
+              <div style={{
+                padding: "12px 14px",
+                borderBottom: "1px solid #d9e6ef",
                 display: "flex",
                 alignItems: "center",
-                gap: 8,
+                justifyContent: "space-between",
+                background: "#fff",
               }}>
-                <span style={{ fontSize: 12, color: "#64748B" }}>{s.label}</span>
-                <span style={{ fontSize: 15, fontWeight: 800, color: s.color }}>{s.value}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* 테이블 */}
-          <div style={{ border: "1px solid #E8EDF2", borderRadius: 10, background: "#fff", overflow: "auto", boxShadow: "0 1px 4px rgba(15,23,42,0.06)" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1000 }}>
-              <thead>
-                <tr style={{ background: "#F8FAFC" }}>
-                  {COLS.map(({ key, label, align }) => (
-                    <th
-                      key={key}
-                      onClick={() => handleSort(key)}
+                <div>
+                  <div style={{ fontWeight: 950, fontSize: 15, color: "#103b53" }}>파트별 발주 현황</div>
+                  <div style={{ marginTop: 3, fontSize: 12, color: "#557186" }}>
+                    입고예정일: {rows.length > 0 ? dateLabel(targetDate) : "-"}
+                    {summaryRows.length === 0 && rows.length > 0 && (
+                      <span style={{ marginLeft: 8, color: "#F59E0B", fontWeight: 700 }}>해당 날짜 데이터 없음</span>
+                    )}
+                  </div>
+                </div>
+                {/* 버튼 - 복사 시 숨김 */}
+                <div data-copy-hide="true" style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <button
+                      onClick={handleCopy}
+                      disabled={copying || summaryRows.length === 0}
                       style={{
-                        textAlign: align ?? "left",
-                        padding: "10px 14px",
-                        borderBottom: "2px solid #E8EDF2",
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: sortKey === key ? "#1E293B" : "#64748B",
-                        cursor: "pointer",
-                        userSelect: "none",
-                        whiteSpace: "nowrap",
+                        height: 30, padding: "0 12px", borderRadius: 4,
+                        border: "1px solid #b9cddd",
+                        background: copying || summaryRows.length === 0 ? "#e5edf3" : "#ffffff",
+                        color:      copying || summaryRows.length === 0 ? "#90a4b4" : "#103b53",
+                        cursor:     copying || summaryRows.length === 0 ? "default" : "pointer",
+                        fontWeight: 950, fontSize: 12, whiteSpace: "nowrap",
+                        display: "inline-flex", alignItems: "center", justifyContent: "center",
                       }}
                     >
-                      {label}
-                      <SortIcon col={key} />
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.length === 0 ? (
-                  <tr>
-                    <td colSpan={COLS.length} style={{ padding: 40, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>
-                      검색 결과가 없습니다.
-                    </td>
-                  </tr>
+                      {copying ? "복사중" : "복사"}
+                    </button>
+                  </div>
+                  {copyMsg && (
+                    <div style={{ fontSize: 11.5, color: copyMsg === "복사 완료" ? "#0f766e" : "#b91c1c", fontWeight: 800 }}>
+                      {copyMsg}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 카드 바디 */}
+              <div style={{ padding: 10 }}>
+                {rows.length === 0 ? (
+                  <div style={{ padding: "40px 0", textAlign: "center" }}>
+                    <div style={{ fontSize: 32, marginBottom: 10 }}>📦</div>
+                    <div style={{ fontSize: 14, color: "#64748B", fontWeight: 600 }}>입고예정 파일이 없습니다.</div>
+                    <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 6 }}>파일 업로드 설정에서 입고예정 파일을 업로드해주세요.</div>
+                  </div>
+                ) : summaryRows.length === 0 ? (
+                  <div style={{ padding: "32px 0", textAlign: "center", color: "#94A3B8", fontSize: 14 }}>
+                    {dateLabel(targetDate)} 입고예정 데이터가 없습니다.
+                  </div>
                 ) : (
-                  sorted.map((row, i) => (
-                    <tr key={`${row.item_cd}-${row.inb_ect_date}-${i}`} style={{ background: i % 2 === 0 ? "#fff" : "#FAFBFC" }}>
-                      <td style={{ padding: "10px 14px", borderBottom: "1px solid #F1F5F9", fontSize: 13, whiteSpace: "nowrap", color: "#374151", fontWeight: 600 }}>
-                        {fmtDate(row.inb_ect_date)}
-                      </td>
-                      <td style={{ padding: "10px 14px", borderBottom: "1px solid #F1F5F9", fontSize: 13, whiteSpace: "nowrap", color: "#94A3B8" }}>
-                        {row.inb_date ? fmtDate(row.inb_date) : "-"}
-                      </td>
-                      <td style={{ padding: "10px 14px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>
-                        {row.suppr_nm || "-"}
-                      </td>
-                      <td style={{ padding: "10px 14px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#64748B", whiteSpace: "nowrap" }}>
-                        {row.item_cd}
-                      </td>
-                      <td style={{ padding: "10px 14px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#0F172A" }}>
-                        {row.item_nm}
-                      </td>
-                      <td style={{ padding: "10px 14px", borderBottom: "1px solid #F1F5F9", textAlign: "center" }}>
-                        <StatusBadge label={row.inb_status} />
-                      </td>
-                      <td style={{ padding: "10px 14px", borderBottom: "1px solid #F1F5F9", textAlign: "center" }}>
-                        <StatusBadge label={row.shortage_status} />
-                      </td>
-                      <td style={{ padding: "10px 14px", borderBottom: "1px solid #F1F5F9", fontSize: 13, textAlign: "right", color: "#1D4ED8", fontWeight: 600 }}>
-                        {row.ord_qty > 0 ? fmt(row.ord_qty) : "-"}
-                      </td>
-                      <td style={{ padding: "10px 14px", borderBottom: "1px solid #F1F5F9", fontSize: 13, textAlign: "right", color: "#15803D", fontWeight: 600 }}>
-                        {row.inb_qty > 0 ? fmt(row.inb_qty) : "-"}
-                      </td>
-                      <td style={{ padding: "10px 14px", borderBottom: "1px solid #F1F5F9", fontSize: 13, textAlign: "right", fontWeight: 700, color: row.miss_qty > 0 ? "#DC2626" : "#94A3B8" }}>
-                        {row.miss_qty > 0 ? fmt(row.miss_qty) : "-"}
-                      </td>
-                    </tr>
-                  ))
+                  <>
+                    <div style={{ border: "1px solid #d9e6ef", overflow: "hidden" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+                        <colgroup>
+                          <col style={{ width: "40%" }} />
+                          <col style={{ width: "20%" }} />
+                          <col style={{ width: "20%" }} />
+                          <col style={{ width: "20%" }} />
+                        </colgroup>
+                        <thead>
+                          <tr style={{ background: "#eef5fb" }}>
+                            <th style={{ textAlign: "left",  padding: "10px 12px", fontSize: 12, fontWeight: 950, color: "#103b53", whiteSpace: "nowrap" }}>파트 (대분류)</th>
+                            <th style={{ textAlign: "right", padding: "10px 10px", fontSize: 12, fontWeight: 950, color: "#103b53", whiteSpace: "nowrap" }}>발주건수</th>
+                            <th style={{ textAlign: "right", padding: "10px 10px", fontSize: 12, fontWeight: 950, color: "#103b53", whiteSpace: "nowrap" }}>발주수량</th>
+                            <th style={{ textAlign: "right", padding: "10px 10px", fontSize: 12, fontWeight: 950, color: "#103b53", whiteSpace: "nowrap" }}>발주금액</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {summaryRows.map((r, i) => (
+                            <tr key={r.label} style={{ borderTop: "1px solid #eef3f7", background: i % 2 === 0 ? "#fff" : "#fafcfe" }}>
+                              <td style={{ padding: "9px 12px", fontSize: 13, fontWeight: 800, color: "#0f2940", whiteSpace: "nowrap" }}>{r.label}</td>
+                              <td style={{ padding: "9px 10px", fontSize: 13, textAlign: "right", color: "#113247", fontVariantNumeric: "tabular-nums" }}>{fmt(r.count)}</td>
+                              <td style={{ padding: "9px 10px", fontSize: 13, textAlign: "right", color: "#113247", fontVariantNumeric: "tabular-nums" }}>{fmt(r.ord_qty)}</td>
+                              <td style={{ padding: "9px 10px", fontSize: 13, textAlign: "right", color: "#1D4ED8", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{fmt(r.ord_price)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {/* 합계 */}
+                    <div style={{ borderTop: "1px solid #d9e6ef", paddingTop: 8, marginTop: 2 }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+                        <colgroup>
+                          <col style={{ width: "40%" }} />
+                          <col style={{ width: "20%" }} />
+                          <col style={{ width: "20%" }} />
+                          <col style={{ width: "20%" }} />
+                        </colgroup>
+                        <tbody>
+                          <tr>
+                            <td style={{ padding: "6px 12px", fontSize: 13, fontWeight: 950, color: "#103b53" }}>총합계</td>
+                            <td style={{ padding: "6px 10px", fontSize: 13, textAlign: "right", fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums" }}>{fmt(summaryTotal.count)}</td>
+                            <td style={{ padding: "6px 10px", fontSize: 13, textAlign: "right", fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums" }}>{fmt(summaryTotal.ord_qty)}</td>
+                            <td style={{ padding: "6px 10px", fontSize: 14, textAlign: "right", fontWeight: 950, color: "#0f2940", fontVariantNumeric: "tabular-nums" }}>{fmt(summaryTotal.ord_price)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 )}
-              </tbody>
-            </table>
+              </div>
+            </div>
           </div>
+
+          {/* ── 상세 테이블 ──────────────────────────────────────────────── */}
+          {rows.length > 0 && (
+            <>
+              <div style={{ fontWeight: 700, fontSize: 14, color: "#374151", marginBottom: 12 }}>전체 데이터</div>
+
+              {/* 필터 */}
+              <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+                <select
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  style={{ padding: "7px 12px", border: "1px solid #E2E8F0", borderRadius: 7, fontSize: 13, color: "#374151", background: "#fff", cursor: "pointer" }}
+                >
+                  <option value="">전체 날짜</option>
+                  {dateOptions.map((d) => (
+                    <option key={d} value={d}>{fmtDate(d)}</option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  placeholder="상품코드 / 상품명 / 공급거래처"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  style={{ padding: "7px 12px", border: "1px solid #E2E8F0", borderRadius: 7, fontSize: 13, width: 260, outline: "none" }}
+                />
+                {(search || dateFilter) && (
+                  <button
+                    onClick={() => { setSearch(""); setDateFilter(""); }}
+                    style={{ padding: "7px 14px", background: "#F1F5F9", border: "none", borderRadius: 7, fontSize: 12, color: "#475569", cursor: "pointer", fontWeight: 600 }}
+                  >
+                    초기화
+                  </button>
+                )}
+              </div>
+
+              {/* 요약 바 */}
+              <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+                {[
+                  { label: "조회 건수", value: `${fmt(filtered.length)}건`, color: "#1E293B" },
+                  { label: "발주수량",  value: fmt(tableTotals.ord_qty),    color: "#1D4ED8" },
+                  { label: "입고수량",  value: fmt(tableTotals.inb_qty),    color: "#15803D" },
+                  { label: "결품수량",  value: fmt(tableTotals.miss_qty),   color: tableTotals.miss_qty > 0 ? "#DC2626" : "#94A3B8" },
+                ].map((s) => (
+                  <div key={s.label} style={{ background: "#fff", border: "1px solid #E8EDF2", borderRadius: 8, padding: "7px 14px", display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 12, color: "#64748B" }}>{s.label}</span>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: s.color }}>{s.value}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* 테이블 */}
+              <div style={{ border: "1px solid #E8EDF2", borderRadius: 10, background: "#fff", overflow: "auto", boxShadow: "0 1px 4px rgba(15,23,42,0.06)" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 980 }}>
+                  <thead>
+                    <tr style={{ background: "#F8FAFC" }}>
+                      {TABLE_COLS.map(({ key, label, align }) => (
+                        <th
+                          key={key}
+                          onClick={() => handleSort(key)}
+                          style={{ textAlign: align ?? "left", padding: "10px 13px", borderBottom: "2px solid #E8EDF2", fontSize: 12, fontWeight: 700, color: sortKey === key ? "#1E293B" : "#64748B", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
+                        >
+                          {label}<SortIcon col={key} />
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sorted.length === 0 ? (
+                      <tr><td colSpan={TABLE_COLS.length} style={{ padding: 40, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>검색 결과가 없습니다.</td></tr>
+                    ) : sorted.map((row, i) => (
+                      <tr key={`${row.item_cd}-${row.inb_ect_date}-${i}`} style={{ background: normalizeDate(row.inb_ect_date) === targetDate ? (i % 2 === 0 ? "#EFF6FF" : "#E8F2FF") : (i % 2 === 0 ? "#fff" : "#FAFBFC") }}>
+                        <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, whiteSpace: "nowrap", fontWeight: 600, color: normalizeDate(row.inb_ect_date) === targetDate ? "#1D4ED8" : "#374151" }}>
+                          {fmtDate(row.inb_ect_date)}
+                        </td>
+                        <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, whiteSpace: "nowrap", color: "#94A3B8" }}>
+                          {row.inb_date ? fmtDate(row.inb_date) : "-"}
+                        </td>
+                        <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{row.suppr_nm || "-"}</td>
+                        <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#64748B", whiteSpace: "nowrap" }}>{row.item_cd}</td>
+                        <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#0F172A" }}>{row.item_nm}</td>
+                        <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", textAlign: "center" }}><Badge label={row.inb_status} /></td>
+                        <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", textAlign: "center" }}><Badge label={row.shortage_status} /></td>
+                        <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, textAlign: "right", color: "#1D4ED8", fontWeight: 600 }}>{row.ord_qty > 0 ? fmt(row.ord_qty) : "-"}</td>
+                        <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, textAlign: "right", color: "#15803D", fontWeight: 600 }}>{row.inb_qty > 0 ? fmt(row.inb_qty) : "-"}</td>
+                        <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, textAlign: "right", fontWeight: 700, color: row.miss_qty > 0 ? "#DC2626" : "#94A3B8" }}>{row.miss_qty > 0 ? fmt(row.miss_qty) : "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </>
       )}
     </div>
