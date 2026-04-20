@@ -362,11 +362,13 @@ export default function InboundPage() {
                       padding: "7px 10px 5px",
                       borderBottom: "1px solid #d9e6ef",
                       background: "#f4f8fc",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 12,
                     }}>
                       <div style={{ fontSize: 12, fontWeight: 950, color: "#103b53" }}>입고예정 파트별 발주 현황</div>
-                      <div style={{ fontSize: 10, color: "#557186", marginTop: 2 }}>
-                        {dateLabel(targetDate)}
-                      </div>
+                      <div style={{ fontSize: 10, color: "#557186", whiteSpace: "nowrap" }}>{dateLabel(targetDate)}</div>
                     </div>
 
                     {/* 콤팩트 테이블 */}
