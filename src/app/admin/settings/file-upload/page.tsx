@@ -1225,7 +1225,8 @@ function SlotCard({
   return (
     <div
       style={{
-        flex: "1 1 460px",
+        flex: "1 1 300px",
+        maxWidth: "calc(33.333% - 12px)",
         border: "1px solid #E5E7EB",
         background: "#fff",
         padding: 18,
