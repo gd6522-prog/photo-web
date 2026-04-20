@@ -495,7 +495,7 @@ export function BoardForm({ mode, initialBoard, initialItem }: BoardFormProps) {
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!canManageAll) {
-      setErr("메인 관리자만 게시글을 등록하거나 수정할 수 있습니다.");
+      setErr("메인 관리자 또는 센터 관리자만 게시글을 등록하거나 수정할 수 있습니다.");
       return;
     }
     if (!title.trim()) {

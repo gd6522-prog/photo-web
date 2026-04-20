@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
       view_count: r.view_count ?? 0,
     }));
 
-    return json(true, undefined, { items, canManageAll: guard.isMainAdmin });
+    return json(true, undefined, { items, canManageAll: guard.isMainAdmin || guard.isCenterAdmin });
   } catch (e: unknown) {
     return json(false, e instanceof Error ? e.message : String(e), null, 500);
   }

@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
     const r = await requireAdmin(req);
     if (!r.ok) return r.res;
 
-    if (!r.isMainAdmin) return json(false, "Forbidden (main admin only)", null, 403);
+    if (!r.isMainAdmin && !r.isCenterAdmin) return json(false, "Forbidden (main admin only)", null, 403);
 
     const body = await req.json().catch(() => null);
 

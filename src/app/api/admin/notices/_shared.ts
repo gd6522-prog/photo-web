@@ -21,6 +21,7 @@ type CachedProfile = {
   uid: string;
   email: string;
   isMainAdmin: boolean;
+  isCenterAdmin: boolean;
   myWorkPart: string | null;
   myIsCompanyAdmin: boolean | null;
   myIsCenterAdmin: boolean | null;
@@ -67,7 +68,7 @@ function getSbAdmin(): SupabaseClient {
 
 export async function requireAdmin(req: NextRequest): Promise<
   | { ok: false; res: NextResponse }
-  | { ok: true; sbAdmin: SupabaseClient; uid: string; email: string; isMainAdmin: boolean; myWorkPart: string | null; myIsCompanyAdmin: boolean | null; myIsCenterAdmin: boolean | null }
+  | { ok: true; sbAdmin: SupabaseClient; uid: string; email: string; isMainAdmin: boolean; isCenterAdmin: boolean; myWorkPart: string | null; myIsCompanyAdmin: boolean | null; myIsCenterAdmin: boolean | null }
 > {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return { ok: false, res: json(false, "Missing Supabase env", null, 500) };
   if (!SUPABASE_SERVICE_ROLE_KEY) return { ok: false, res: json(false, "Missing SUPABASE_SERVICE_ROLE_KEY", null, 500) };
@@ -88,7 +89,7 @@ export async function requireAdmin(req: NextRequest): Promise<
   // 2) 캐시 히트 시 DB 조회 스킵
   const cached = getCachedProfile(uid);
   if (cached) {
-    return { ok: true, sbAdmin, uid, email, isMainAdmin: cached.isMainAdmin, myWorkPart: cached.myWorkPart, myIsCompanyAdmin: cached.myIsCompanyAdmin, myIsCenterAdmin: cached.myIsCenterAdmin };
+    return { ok: true, sbAdmin, uid, email, isMainAdmin: cached.isMainAdmin, isCenterAdmin: cached.isCenterAdmin, myWorkPart: cached.myWorkPart, myIsCompanyAdmin: cached.myIsCompanyAdmin, myIsCenterAdmin: cached.myIsCenterAdmin };
   }
 
   // 3) 캐시 미스: 프로필 1회 조회
@@ -117,6 +118,7 @@ export async function requireAdmin(req: NextRequest): Promise<
     uid,
     email,
     isMainAdmin: main,
+    isCenterAdmin: center,
     myWorkPart: (prof as { work_part?: string } | null)?.work_part ?? null,
     myIsCompanyAdmin: (prof as { is_company_admin?: boolean } | null)?.is_company_admin ?? null,
     myIsCenterAdmin: (prof as { is_center_admin?: boolean } | null)?.is_center_admin ?? null,
