@@ -725,6 +725,14 @@ async function downloadFile(page, context, fileConfig, log) {
   return downloadWmsFile(page, context, fileConfig, log);
 }
 
+// ── LC_TP_CD → 작업구분 이름 매핑 ────────────────────────────────────────────
+const LC_TP_NAMES = {
+  "01": "박스수기", "02": "소분", "03": "행사존A", "04": "유가증권",
+  "05": "담배존",  "06": "이형존A", "08": "주류존", "12": "소분음료",
+  "13": "슬라존A", "15": "경량존A", "17": "이너존A", "20": "담배수기",
+  "21": "박스존1", "25": "이형존B", "48": "공병존",
+};
+
 // ── DOM 스크래핑 (ExtJS 그리드 데이터 추출) ──────────────────────────────────
 
 async function scrapeDomData(page, fileConfig, log) {
@@ -741,9 +749,91 @@ async function scrapeDomData(page, fileConfig, log) {
 
   // 조회 버튼 클릭
   await clickSearchButton(page, log, label);
-  await page.waitForTimeout(4_000);
 
-  // ExtJS 그리드에서 데이터 추출
+  // Loading 스피너 사라질 때까지 최대 20초 대기
+  const targets0 = getElogisFrames(page);
+  const loadDeadline = Date.now() + 20_000;
+  while (Date.now() < loadDeadline) {
+    let loading = false;
+    for (const t of targets0) {
+      const isLoading = await t.evaluate(() => {
+        const el = document.querySelector(".x-mask-loading, .x-load-mask");
+        if (el && el.offsetParent !== null) return true;
+        if (typeof Ext !== "undefined") {
+          for (const g of Ext.ComponentQuery.query("gridpanel")) {
+            const st = g.store || g.getStore?.();
+            if (st && st.isLoading && st.isLoading()) return true;
+          }
+        }
+        return false;
+      }).catch(() => false);
+      if (isLoading) { loading = true; break; }
+    }
+    if (!loading) break;
+    log(`${label}: 데이터 로딩 대기 중...`);
+    await page.waitForTimeout(1_000);
+  }
+  await page.waitForTimeout(1_500);
+
+  // DPS 전용: DPS_INF_LIST 프레임 데이터 로드 대기 (최대 20초)
+  if (page.frames().some((f) => f.url().includes("DPS_INF_LIST"))) {
+    const dpsDeadline = Date.now() + 20_000;
+    while (Date.now() < dpsDeadline) {
+      const dpsF = page.frames().find((f) => f.url().includes("DPS_INF_LIST"));
+      const count = dpsF
+        ? await dpsF.evaluate(() => {
+            if (typeof Ext === "undefined") return 0;
+            const g = Ext.ComponentQuery.query("gridpanel")[0];
+            const s = g && (g.store || g.getStore?.());
+            return s ? s.getCount() : 0;
+          }).catch(() => 0)
+        : 0;
+      if (count > 0) { log(`${label}: DPS 데이터 ${count}건 로드 확인`); break; }
+      log(`${label}: DPS 데이터 로딩 대기...`);
+      await page.waitForTimeout(1_000);
+    }
+  }
+
+  const dpsFrame = page.frames().find((f) => f.url().includes("DPS_INF_LIST"));
+  if (dpsFrame) {
+    const summary = await dpsFrame.evaluate(() => {
+      try {
+        if (typeof Ext === "undefined") return null;
+        const grid = Ext.ComponentQuery.query("gridpanel")[0];
+        const store = grid && (grid.store || grid.getStore?.());
+        if (!store) return null;
+        const records = store.getRange();
+        if (records.length === 0) return null;
+        const dsTotal = records[0].get?.("DS_TOTALCOUNT") ?? 0;
+        const zones = {};
+        for (const r of records) {
+          const d = r.getData ? r.getData() : r.data;
+          const code = String(d.LC_TP_CD ?? "?");
+          const pgs = String(d.PGS_STAT_CD ?? "");
+          const car = String(d.CHG_CARDOC_CD ?? "");
+          const seq = Number(d.CHG_DVY_SEQ ?? 0);
+          if (!zones[code]) zones[code] = { done: 0, total: 0, inProgress: 0, maxSeq: 0, currentCars: new Set() };
+          zones[code].total++;
+          if (pgs === "03") zones[code].done++;
+          else if (pgs === "02") { zones[code].inProgress++; zones[code].currentCars.add(car); }
+          if (seq > zones[code].maxSeq) zones[code].maxSeq = seq;
+        }
+        // Set → Array 변환
+        const result = {};
+        for (const [k, v] of Object.entries(zones)) {
+          result[k] = { done: v.done, total: v.total, inProgress: v.inProgress, maxSeq: v.maxSeq, currentCars: [...v.currentCars] };
+        }
+        return { dsTotal, loadedCount: records.length, zones: result };
+      } catch (_) { return null; }
+    }).catch(() => null);
+
+    if (summary && Object.keys(summary.zones).length > 0) {
+      log(`${label}: ${summary.loadedCount}건 집계 완료 (전체 ${summary.dsTotal}건)`);
+      return summary;
+    }
+  }
+
+  // fallback: 일반 프레임 순회
   const targets = getElogisFrames(page);
   for (const target of targets) {
     const rows = await target.evaluate(() => {
@@ -760,9 +850,7 @@ async function scrapeDomData(page, fileConfig, log) {
             const raw = r.getData ? r.getData() : r.data || {};
             const out = {};
             for (const [k, v] of Object.entries(raw)) {
-              if (typeof v !== "function" && !k.startsWith("_")) {
-                out[k] = v;
-              }
+              if (typeof v !== "function" && !k.startsWith("_")) out[k] = v;
             }
             return out;
           });
@@ -770,33 +858,8 @@ async function scrapeDomData(page, fileConfig, log) {
       } catch (_) {}
       return null;
     }).catch(() => null);
-
     if (rows && rows.length > 0) {
-      log(`${label}: ExtJS 그리드에서 ${rows.length}건 추출`);
-      return rows;
-    }
-  }
-
-  // fallback: HTML 테이블에서 읽기
-  for (const target of targets) {
-    const rows = await target.evaluate(() => {
-      const tables = document.querySelectorAll("table");
-      for (const table of tables) {
-        const ths = [...table.querySelectorAll("th")].map((th) => th.textContent?.trim() ?? "");
-        const trs = [...table.querySelectorAll("tbody tr")];
-        if (ths.length === 0 || trs.length === 0) continue;
-        return trs.map((tr) => {
-          const tds = [...tr.querySelectorAll("td")];
-          const row = {};
-          ths.forEach((h, i) => { if (h) row[h] = tds[i]?.textContent?.trim() ?? ""; });
-          return row;
-        });
-      }
-      return null;
-    }).catch(() => null);
-
-    if (rows && rows.length > 0) {
-      log(`${label}: HTML 테이블에서 ${rows.length}건 추출`);
+      log(`${label}: ${rows.length}건 추출`);
       return rows;
     }
   }

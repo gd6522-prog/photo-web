@@ -892,12 +892,17 @@ function NoticeMainCard() {
 
 /** -------- DPS 작업현황 -------- */
 
-type DpsRow = Record<string, unknown>;
-
-type DpsStatusData = {
-  rows: DpsRow[];
-  scrapedAt: string | null;
+const LC_TP_NAMES: Record<string, string> = {
+  "01": "박스수기", "02": "소분", "03": "행사존A", "04": "유가증권",
+  "05": "담배존",  "06": "이형존A", "08": "주류존", "12": "소분음료",
+  "13": "슬라존A", "15": "경량존A", "17": "이너존A", "20": "담배수기",
+  "21": "박스존1", "25": "이형존B", "48": "공병존",
 };
+const LC_TP_ORDER = ["21","17","13","15","05","01","20","06","25","04","08","12","02","03","48"];
+
+type DpsZone = { done: number; total: number; inProgress: number; maxSeq: number; currentCars: string[] };
+type DpsSummary = { dsTotal: number; loadedCount: number; zones: Record<string, DpsZone> };
+type DpsStatusData = { rows: DpsSummary; scrapedAt: string | null };
 
 function DpsProgressCard() {
   const [data, setData] = useState<DpsStatusData | null>(null);
@@ -915,34 +920,10 @@ function DpsProgressCard() {
         });
         const j = await res.json();
         if (j.ok) setData(j);
-      } catch {
-        // ignore
-      } finally {
-        setLoading(false);
-      }
+      } catch { /* ignore */ }
+      finally { setLoading(false); }
     })();
   }, []);
-
-  // 컬럼 키 후보군: 실제 데이터에서 동적으로 탐지
-  const findKey = (row: DpsRow, candidates: string[]): string | null => {
-    for (const c of candidates) {
-      if (row[c] !== undefined && row[c] !== null && row[c] !== "") return c;
-      // 대소문자 무시 탐색
-      const k = Object.keys(row).find((k) => k.toLowerCase() === c.toLowerCase());
-      if (k && row[k] !== undefined && row[k] !== "") return k;
-    }
-    return null;
-  };
-
-  const rows = data?.rows ?? [];
-  const scrapedAt = data?.scrapedAt ?? null;
-
-  // 존/파트 이름 컬럼 자동 탐지
-  const zoneKey = rows.length > 0 ? findKey(rows[0], ["WORK_SCTN_NM", "ZONE_NM", "WORK_SECT", "작업구간", "존명", "구간"]) : null;
-  const carKey = rows.length > 0 ? findKey(rows[0], ["CAR_NO", "VEHICLE_NO", "ROUTE_NO", "호차", "배차"]) : null;
-  const seqKey = rows.length > 0 ? findKey(rows[0], ["SEQ_NO", "TASK_SEQ", "CURR_SEQ", "순번", "작업순번"]) : null;
-  const totalKey = rows.length > 0 ? findKey(rows[0], ["TOT_QTY", "TOTAL_QTY", "TOTAL", "총수량", "전체"]) : null;
-  const doneKey = rows.length > 0 ? findKey(rows[0], ["COMP_QTY", "DONE_QTY", "FINISH_QTY", "완료수량", "완료"]) : null;
 
   const fmtTime = (iso: string | null) => {
     if (!iso) return null;
@@ -951,74 +932,58 @@ function DpsProgressCard() {
     return `${String(kst.getUTCHours()).padStart(2, "0")}:${String(kst.getUTCMinutes()).padStart(2, "0")} 기준`;
   };
 
-  const str = (v: unknown) => (v == null ? "-" : String(v));
-  const num = (v: unknown) => { const n = parseFloat(String(v ?? "")); return isNaN(n) ? 0 : n; };
+  const summary = data?.rows as DpsSummary | null;
+  const zones = summary?.zones ?? {};
+  const sortedCodes = LC_TP_ORDER.filter((c) => zones[c]);
+  // 정렬에 없는 코드도 표시
+  Object.keys(zones).forEach((c) => { if (!LC_TP_ORDER.includes(c)) sortedCodes.push(c); });
 
   return (
     <Card
       title="작업파트별 진행현황"
       right={
-        scrapedAt ? (
-          <span style={{ fontSize: 11, color: "#6B7280", fontWeight: 600 }}>{fmtTime(scrapedAt)}</span>
+        data?.scrapedAt ? (
+          <span style={{ fontSize: 11, color: "#6B7280", fontWeight: 600 }}>{fmtTime(data.scrapedAt)}</span>
         ) : undefined
       }
     >
       {loading ? (
         <div style={{ padding: "24px 0", textAlign: "center", color: "#9CA3AF", fontSize: 13 }}>로딩...</div>
-      ) : rows.length === 0 ? (
-        <div style={{ padding: "24px 12px", color: "#9CA3AF", fontSize: 13, textAlign: "center" }}>
+      ) : sortedCodes.length === 0 ? (
+        <div style={{ padding: "20px 12px", color: "#9CA3AF", fontSize: 13, textAlign: "center" }}>
           데이터 없음
           <div style={{ marginTop: 6, fontSize: 11 }}>elogis-agent에서 DPS 작업현황을 스크래핑하면 표시됩니다.</div>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "4px 0" }}>
-          {rows.map((row, i) => {
-            const zoneName = zoneKey ? str(row[zoneKey]) : `파트${i + 1}`;
-            const carNo = carKey ? str(row[carKey]) : null;
-            const seqNo = seqKey ? str(row[seqKey]) : null;
-            const total = totalKey ? num(row[totalKey]) : 0;
-            const done = doneKey ? num(row[doneKey]) : 0;
-            const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : null;
-
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "2px 0" }}>
+          {sortedCodes.map((code) => {
+            const z = zones[code];
+            const name = LC_TP_NAMES[code] ?? `작업구분 ${code}`;
+            const pct = z.total > 0 ? Math.min(100, Math.round((z.done / z.total) * 100)) : 0;
+            const barColor = pct >= 80 ? "#16A34A" : pct >= 50 ? "#2563EB" : "#F59E0B";
             return (
-              <div key={i} style={{ padding: "6px 8px", background: "#F8FAFC", borderRadius: 6, border: "1px solid #E2EBF3" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
-                  <span style={{ fontSize: 13, fontWeight: 900, color: "#113247" }}>{zoneName}</span>
-                  <span style={{ fontSize: 12, color: "#475569", fontWeight: 700 }}>
-                    {carNo ? `${carNo}호차` : ""}{seqNo ? ` · ${seqNo}번` : ""}
+              <div key={code} style={{ padding: "5px 8px", background: "#F8FAFC", borderRadius: 6, border: "1px solid #E2EBF3" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <span style={{ fontSize: 13, fontWeight: 900, color: "#113247" }}>{name}</span>
+                  <span style={{ fontSize: 11, color: "#64748B", fontWeight: 700 }}>
+                    {z.currentCars.length > 0 ? `${z.currentCars.length}대 진행` : "대기"} · {z.maxSeq}번
                   </span>
                 </div>
-                {pct !== null && (
-                  <div>
-                    <div style={{ height: 8, background: "#E2EBF3", borderRadius: 99, overflow: "hidden" }}>
-                      <div
-                        style={{
-                          height: "100%",
-                          width: `${pct}%`,
-                          background: pct >= 80 ? "#16A34A" : pct >= 50 ? "#2563EB" : "#F59E0B",
-                          borderRadius: 99,
-                          transition: "width 0.4s ease",
-                        }}
-                      />
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3, fontSize: 11, color: "#6B7280" }}>
-                      <span>{done.toLocaleString()} / {total.toLocaleString()}</span>
-                      <span style={{ fontWeight: 700, color: pct >= 80 ? "#16A34A" : pct >= 50 ? "#2563EB" : "#F59E0B" }}>{pct}%</span>
-                    </div>
-                  </div>
-                )}
-                {pct === null && (zoneKey || carKey || seqKey) && (
-                  <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>
-                    {Object.entries(row)
-                      .filter(([k]) => !["id", "internalId"].includes(k))
-                      .slice(0, 6)
-                      .map(([k, v]) => `${k}: ${str(v)}`)
-                      .join(" · ")}
-                  </div>
-                )}
+                <div style={{ height: 7, background: "#E2EBF3", borderRadius: 99, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 99 }} />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3, fontSize: 11, color: "#6B7280" }}>
+                  <span>완료 {z.done.toLocaleString()} / {z.total.toLocaleString()}</span>
+                  <span style={{ fontWeight: 700, color: barColor }}>{pct}%</span>
+                </div>
               </div>
             );
           })}
+          {summary && (
+            <div style={{ fontSize: 11, color: "#94A3B8", textAlign: "right", paddingRight: 2 }}>
+              샘플 {summary.loadedCount.toLocaleString()} / 전체 {summary.dsTotal.toLocaleString()}건
+            </div>
+          )}
         </div>
       )}
     </Card>
