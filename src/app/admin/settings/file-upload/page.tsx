@@ -993,33 +993,46 @@ function DownloadButton({ slotKey }: { slotKey: string }) {
   );
 }
 
-// ─── HistoryPanel Component ───────────────────────────────────────────────────
+// ─── HistoryCalendarModal Component ──────────────────────────────────────────
 
-function HistoryPanel({ slotKey }: { slotKey: string }) {
-  const [open, setOpen] = React.useState(false);
-  const [files, setFiles] = React.useState<{ r2Key: string; fileName: string }[]>([]);
-  const [loading, setLoading] = React.useState(false);
+const MONTH_NAMES = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+const DAY_NAMES = ["일","월","화","수","목","금","토"];
+
+function HistoryCalendarModal({ slotKey, label, onClose }: { slotKey: string; label: string; onClose: () => void }) {
+  const [files, setFiles] = React.useState<{ r2Key: string; fileName: string; dateKey: string }[]>([]);
+  const [loading, setLoading] = React.useState(true);
   const [dlLoading, setDlLoading] = React.useState<string | null>(null);
+  const now = new Date();
+  const [ym, setYm] = React.useState({ year: now.getFullYear(), month: now.getMonth() });
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/file-upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "list-history", slotKey, fileName: "_" }),
-      });
-      const json = await res.json();
-      if (json.ok) setFiles(json.files ?? []);
-    } finally {
-      setLoading(false);
-    }
-  };
+  React.useEffect(() => {
+    fetch("/api/admin/file-upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "list-history", slotKey }),
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.ok) {
+          const parsed = (json.files ?? []).map((f: { r2Key: string; fileName: string }) => {
+            const m = f.fileName.match(/_(\d{8})_/);
+            return { ...f, dateKey: m ? m[1] : "" };
+          }).filter((f: { dateKey: string }) => f.dateKey);
+          setFiles(parsed);
+        }
+      })
+      .finally(() => setLoading(false));
+  }, [slotKey]);
 
-  const handleToggle = () => {
-    if (!open) load();
-    setOpen((v) => !v);
-  };
+  // 날짜별 최신 파일 맵
+  const dateMap = React.useMemo(() => {
+    const m = new Map<string, { r2Key: string; fileName: string }>();
+    files.forEach((f) => {
+      if (!m.has(f.dateKey) || f.fileName > m.get(f.dateKey)!.fileName)
+        m.set(f.dateKey, { r2Key: f.r2Key, fileName: f.fileName });
+    });
+    return m;
+  }, [files]);
 
   const handleDownload = async (r2Key: string, fileName: string) => {
     setDlLoading(r2Key);
@@ -1027,7 +1040,7 @@ function HistoryPanel({ slotKey }: { slotKey: string }) {
       const res = await fetch("/api/admin/file-upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "download-history-url", slotKey, fileName: "_", r2Key }),
+        body: JSON.stringify({ action: "download-history-url", slotKey, r2Key }),
       });
       const json = await res.json();
       if (json.ok && json.downloadUrl) {
@@ -1041,65 +1054,99 @@ function HistoryPanel({ slotKey }: { slotKey: string }) {
     }
   };
 
+  const { year, month } = ym;
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells: (number | null)[] = [
+    ...Array(firstDay).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+  while (cells.length % 7 !== 0) cells.push(null);
+
   return (
-    <div style={{ marginTop: 6 }}>
-      <button
-        onClick={handleToggle}
-        style={{
-          fontSize: 11,
-          padding: "2px 8px",
-          background: "#F3F4F6",
-          color: "#374151",
-          border: "1px solid #D1D5DB",
-          cursor: "pointer",
-          fontWeight: 700,
-        }}
+    <div
+      onClick={onClose}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: "#fff", padding: 24, width: 340, boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }}
       >
-        {open ? "▲ 이력 닫기" : "▼ 이력 보기"}
-      </button>
-      {open && (
-        <div style={{ marginTop: 6, border: "1px solid #E5E7EB", background: "#FAFAFA" }}>
-          {loading ? (
-            <div style={{ padding: "8px 10px", fontSize: 11, color: "#9CA3AF" }}>로딩 중...</div>
-          ) : files.length === 0 ? (
-            <div style={{ padding: "8px 10px", fontSize: 11, color: "#9CA3AF" }}>이력 없음</div>
-          ) : (
-            files.map((f) => (
-              <div
-                key={f.r2Key}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "5px 10px",
-                  borderBottom: "1px solid #F3F4F6",
-                  gap: 8,
-                }}
-              >
-                <span style={{ fontSize: 11, color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {f.fileName}
-                </span>
-                <button
-                  onClick={() => handleDownload(f.r2Key, f.fileName)}
-                  disabled={dlLoading === f.r2Key}
-                  style={{
-                    fontSize: 11,
-                    padding: "1px 7px",
-                    background: "#EFF6FF",
-                    color: "#1D4ED8",
-                    border: "1px solid #BFDBFE",
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                    flexShrink: 0,
-                  }}
-                >
-                  {dlLoading === f.r2Key ? "..." : "↓"}
-                </button>
-              </div>
-            ))
-          )}
+        {/* 헤더 */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+          <span style={{ fontWeight: 900, fontSize: 15 }}>{label} 이력</span>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, lineHeight: 1, color: "#6B7280" }}>✕</button>
         </div>
-      )}
+
+        {loading ? (
+          <div style={{ textAlign: "center", padding: 32, color: "#9CA3AF", fontSize: 13 }}>로딩 중...</div>
+        ) : (
+          <>
+            {/* 월 네비게이션 */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <button
+                onClick={() => setYm(({ year: y, month: mo }) => { const d = new Date(y, mo - 1); return { year: d.getFullYear(), month: d.getMonth() }; })}
+                style={{ background: "none", border: "1px solid #E5E7EB", cursor: "pointer", padding: "2px 12px", fontSize: 16 }}
+              >‹</button>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>{year}년 {MONTH_NAMES[month]}</span>
+              <button
+                onClick={() => setYm(({ year: y, month: mo }) => { const d = new Date(y, mo + 1); return { year: d.getFullYear(), month: d.getMonth() }; })}
+                style={{ background: "none", border: "1px solid #E5E7EB", cursor: "pointer", padding: "2px 12px", fontSize: 16 }}
+              >›</button>
+            </div>
+
+            {/* 요일 헤더 */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 4 }}>
+              {DAY_NAMES.map((d, i) => (
+                <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 700, padding: "4px 0", color: i === 0 ? "#EF4444" : i === 6 ? "#3B82F6" : "#9CA3AF" }}>
+                  {d}
+                </div>
+              ))}
+            </div>
+
+            {/* 달력 그리드 */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }}>
+              {cells.map((day, i) => {
+                if (!day) return <div key={i} />;
+                const dk = `${year}${String(month + 1).padStart(2, "0")}${String(day).padStart(2, "0")}`;
+                const file = dateMap.get(dk);
+                const isDown = file && dlLoading === file.r2Key;
+                const isSun = i % 7 === 0;
+                const isSat = i % 7 === 6;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => file && handleDownload(file.r2Key, file.fileName)}
+                    disabled={!file || !!isDown}
+                    style={{
+                      aspectRatio: "1",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 12,
+                      fontWeight: file ? 700 : 400,
+                      border: "none",
+                      borderRadius: "50%",
+                      background: isDown ? "#BFDBFE" : file ? "#2563EB" : "transparent",
+                      color: isDown ? "#1D4ED8" : file ? "#fff" : isSun ? "#EF4444" : isSat ? "#3B82F6" : "#374151",
+                      cursor: file ? "pointer" : "default",
+                      padding: 0,
+                    }}
+                  >
+                    {isDown ? "…" : day}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 범례 */}
+            <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#6B7280" }}>
+              <div style={{ width: 14, height: 14, background: "#2563EB", borderRadius: "50%", flexShrink: 0 }} />
+              <span>파일 있는 날짜 — 클릭해서 다운로드</span>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -1151,6 +1198,7 @@ function SlotCard({
   const localInputRef = useRef<HTMLInputElement | null>(null);
   const [running, setRunning] = React.useState(false);
   const [persistLoading, setPersistLoading] = React.useState(false);
+  const [showHistory, setShowHistory] = React.useState(false);
   const [elapsed, setElapsed] = React.useState(0);
   const [barWidth, setBarWidth] = React.useState(0);
   const maxBarRef = React.useRef(0);
@@ -1455,7 +1503,32 @@ function SlotCard({
       </div>
 
       {/* 이력 보관 ON일 때 이력 목록 */}
-      {persist && <HistoryPanel slotKey={config.key} />}
+      {persist && (
+        <>
+          <button
+            onClick={() => setShowHistory(true)}
+            style={{
+              marginTop: 6,
+              fontSize: 11,
+              padding: "3px 10px",
+              background: "#F3F4F6",
+              color: "#374151",
+              border: "1px solid #D1D5DB",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            📅 이력 보기
+          </button>
+          {showHistory && (
+            <HistoryCalendarModal
+              slotKey={config.key}
+              label={config.label}
+              onClose={() => setShowHistory(false)}
+            />
+          )}
+        </>
+      )}
 
       {/* 파일 선택 드롭존 */}
       <div
