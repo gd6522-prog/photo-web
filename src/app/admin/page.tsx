@@ -890,6 +890,141 @@ function NoticeMainCard() {
   );
 }
 
+/** -------- DPS 작업현황 -------- */
+
+type DpsRow = Record<string, unknown>;
+
+type DpsStatusData = {
+  rows: DpsRow[];
+  scrapedAt: string | null;
+};
+
+function DpsProgressCard() {
+  const [data, setData] = useState<DpsStatusData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess?.session?.access_token;
+        if (!token) return;
+        const res = await fetch("/api/internal/dps-status", {
+          cache: "no-store",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const j = await res.json();
+        if (j.ok) setData(j);
+      } catch {
+        // ignore
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  // 컬럼 키 후보군: 실제 데이터에서 동적으로 탐지
+  const findKey = (row: DpsRow, candidates: string[]): string | null => {
+    for (const c of candidates) {
+      if (row[c] !== undefined && row[c] !== null && row[c] !== "") return c;
+      // 대소문자 무시 탐색
+      const k = Object.keys(row).find((k) => k.toLowerCase() === c.toLowerCase());
+      if (k && row[k] !== undefined && row[k] !== "") return k;
+    }
+    return null;
+  };
+
+  const rows = data?.rows ?? [];
+  const scrapedAt = data?.scrapedAt ?? null;
+
+  // 존/파트 이름 컬럼 자동 탐지
+  const zoneKey = rows.length > 0 ? findKey(rows[0], ["WORK_SCTN_NM", "ZONE_NM", "WORK_SECT", "작업구간", "존명", "구간"]) : null;
+  const carKey = rows.length > 0 ? findKey(rows[0], ["CAR_NO", "VEHICLE_NO", "ROUTE_NO", "호차", "배차"]) : null;
+  const seqKey = rows.length > 0 ? findKey(rows[0], ["SEQ_NO", "TASK_SEQ", "CURR_SEQ", "순번", "작업순번"]) : null;
+  const totalKey = rows.length > 0 ? findKey(rows[0], ["TOT_QTY", "TOTAL_QTY", "TOTAL", "총수량", "전체"]) : null;
+  const doneKey = rows.length > 0 ? findKey(rows[0], ["COMP_QTY", "DONE_QTY", "FINISH_QTY", "완료수량", "완료"]) : null;
+
+  const fmtTime = (iso: string | null) => {
+    if (!iso) return null;
+    const d = new Date(iso);
+    const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+    return `${String(kst.getUTCHours()).padStart(2, "0")}:${String(kst.getUTCMinutes()).padStart(2, "0")} 기준`;
+  };
+
+  const str = (v: unknown) => (v == null ? "-" : String(v));
+  const num = (v: unknown) => { const n = parseFloat(String(v ?? "")); return isNaN(n) ? 0 : n; };
+
+  return (
+    <Card
+      title="작업파트별 진행현황"
+      right={
+        scrapedAt ? (
+          <span style={{ fontSize: 11, color: "#6B7280", fontWeight: 600 }}>{fmtTime(scrapedAt)}</span>
+        ) : undefined
+      }
+    >
+      {loading ? (
+        <div style={{ padding: "24px 0", textAlign: "center", color: "#9CA3AF", fontSize: 13 }}>로딩...</div>
+      ) : rows.length === 0 ? (
+        <div style={{ padding: "24px 12px", color: "#9CA3AF", fontSize: 13, textAlign: "center" }}>
+          데이터 없음
+          <div style={{ marginTop: 6, fontSize: 11 }}>elogis-agent에서 DPS 작업현황을 스크래핑하면 표시됩니다.</div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "4px 0" }}>
+          {rows.map((row, i) => {
+            const zoneName = zoneKey ? str(row[zoneKey]) : `파트${i + 1}`;
+            const carNo = carKey ? str(row[carKey]) : null;
+            const seqNo = seqKey ? str(row[seqKey]) : null;
+            const total = totalKey ? num(row[totalKey]) : 0;
+            const done = doneKey ? num(row[doneKey]) : 0;
+            const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : null;
+
+            return (
+              <div key={i} style={{ padding: "6px 8px", background: "#F8FAFC", borderRadius: 6, border: "1px solid #E2EBF3" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                  <span style={{ fontSize: 13, fontWeight: 900, color: "#113247" }}>{zoneName}</span>
+                  <span style={{ fontSize: 12, color: "#475569", fontWeight: 700 }}>
+                    {carNo ? `${carNo}호차` : ""}{seqNo ? ` · ${seqNo}번` : ""}
+                  </span>
+                </div>
+                {pct !== null && (
+                  <div>
+                    <div style={{ height: 8, background: "#E2EBF3", borderRadius: 99, overflow: "hidden" }}>
+                      <div
+                        style={{
+                          height: "100%",
+                          width: `${pct}%`,
+                          background: pct >= 80 ? "#16A34A" : pct >= 50 ? "#2563EB" : "#F59E0B",
+                          borderRadius: 99,
+                          transition: "width 0.4s ease",
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3, fontSize: 11, color: "#6B7280" }}>
+                      <span>{done.toLocaleString()} / {total.toLocaleString()}</span>
+                      <span style={{ fontWeight: 700, color: pct >= 80 ? "#16A34A" : pct >= 50 ? "#2563EB" : "#F59E0B" }}>{pct}%</span>
+                    </div>
+                  </div>
+                )}
+                {pct === null && (zoneKey || carKey || seqKey) && (
+                  <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>
+                    {Object.entries(row)
+                      .filter(([k]) => !["id", "internalId"].includes(k))
+                      .slice(0, 6)
+                      .map(([k, v]) => `${k}: ${str(v)}`)
+                      .join(" · ")}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 /** -------- 날씨 -------- */
 type DustLevel = { label: string; color: string; bg: string };
 
@@ -2626,7 +2761,10 @@ export default function AdminHomePage() {
           </div>
 
           <div className="rightCol">
-            <WeatherCard />
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
+              <DpsProgressCard />
+              <WeatherCard />
+            </div>
           </div>
         </div>
 

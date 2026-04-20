@@ -25,7 +25,9 @@ async function createSession(id, pw, log, { headless = true, useSystemChrome = f
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
+      "--disable-gpu",
       "--window-size=1920,1080",
+      "--window-position=-32000,-32000",
       "--no-first-run",
       "--hide-scrollbars",
       "--mute-audio",
@@ -723,9 +725,89 @@ async function downloadFile(page, context, fileConfig, log) {
   return downloadWmsFile(page, context, fileConfig, log);
 }
 
+// ── DOM 스크래핑 (ExtJS 그리드 데이터 추출) ──────────────────────────────────
+
+async function scrapeDomData(page, fileConfig, log) {
+  const { label, menuPath } = fileConfig;
+
+  log(`${label}: elogis 메인 이동...`);
+  await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
+  await page.waitForTimeout(2_000);
+
+  if (menuPath && menuPath.length > 0) {
+    await navigateViaMenu(page, menuPath, log);
+    await page.waitForTimeout(1_000);
+  }
+
+  // 조회 버튼 클릭
+  await clickSearchButton(page, log, label);
+  await page.waitForTimeout(4_000);
+
+  // ExtJS 그리드에서 데이터 추출
+  const targets = getElogisFrames(page);
+  for (const target of targets) {
+    const rows = await target.evaluate(() => {
+      try {
+        if (typeof Ext === "undefined") return null;
+        const grids = Ext.ComponentQuery.query("gridpanel");
+        for (const grid of grids) {
+          if (!grid.isVisible(true)) continue;
+          const store = grid.store || grid.getStore?.();
+          if (!store) continue;
+          const records = store.getRange();
+          if (records.length === 0) continue;
+          return records.map((r) => {
+            const raw = r.getData ? r.getData() : r.data || {};
+            const out = {};
+            for (const [k, v] of Object.entries(raw)) {
+              if (typeof v !== "function" && !k.startsWith("_")) {
+                out[k] = v;
+              }
+            }
+            return out;
+          });
+        }
+      } catch (_) {}
+      return null;
+    }).catch(() => null);
+
+    if (rows && rows.length > 0) {
+      log(`${label}: ExtJS 그리드에서 ${rows.length}건 추출`);
+      return rows;
+    }
+  }
+
+  // fallback: HTML 테이블에서 읽기
+  for (const target of targets) {
+    const rows = await target.evaluate(() => {
+      const tables = document.querySelectorAll("table");
+      for (const table of tables) {
+        const ths = [...table.querySelectorAll("th")].map((th) => th.textContent?.trim() ?? "");
+        const trs = [...table.querySelectorAll("tbody tr")];
+        if (ths.length === 0 || trs.length === 0) continue;
+        return trs.map((tr) => {
+          const tds = [...tr.querySelectorAll("td")];
+          const row = {};
+          ths.forEach((h, i) => { if (h) row[h] = tds[i]?.textContent?.trim() ?? ""; });
+          return row;
+        });
+      }
+      return null;
+    }).catch(() => null);
+
+    if (rows && rows.length > 0) {
+      log(`${label}: HTML 테이블에서 ${rows.length}건 추출`);
+      return rows;
+    }
+  }
+
+  await page.screenshot({ path: path.join(__dirname, `debug_${label}.png`) }).catch(() => {});
+  throw new Error(`${label}: 그리드 데이터를 찾지 못했습니다.`);
+}
+
 // TMS: 시스템 Chrome + headless 로 탐지 우회 시도
 async function createTmsSession(id, pw, log) {
   return createSession(id, pw, log, { headless: true, useSystemChrome: true });
 }
 
-module.exports = { createSession, createTmsSession, downloadFile };
+module.exports = { createSession, createTmsSession, downloadFile, scrapeDomData };

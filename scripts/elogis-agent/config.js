@@ -340,6 +340,16 @@ const FILE_CONFIGS = [
       SES_MULTI_LANG_YN: "N",
     },
   },
+  // ── 10. DPS 작업현황 (DOM 스크래핑) ──────────────────────────────────────
+  {
+    slotKey: "dps-status",
+    label: "DPS 작업현황",
+    type: "dom-scrape",
+    domScrape: true,
+    internalEndpoint: "/api/internal/dps-status",
+    pageUrl: "https://elogis.emart24.co.kr/",
+    menuPath: ["창고관리 (WMS)", "출고", "설비작업지시", "설비작업현황", "DPS 작업현황"],
+  },
 ];
 
 module.exports = { FILE_CONFIGS };

@@ -13,7 +13,7 @@ require("dotenv").config({ path: require("path").join(__dirname, ".env") });
 
 const { createClient } = require("@supabase/supabase-js");
 const { FILE_CONFIGS } = require("./config");
-const { createSession, createTmsSession, downloadFile } = require("./elogis");
+const { createSession, createTmsSession, downloadFile, scrapeDomData } = require("./elogis");
 const { uploadToAdmin } = require("./upload");
 
 // ── 환경변수 ──────────────────────────────────────────────────────────────────
@@ -85,8 +85,12 @@ async function runSync(jobId) {
 
   // 설정되지 않은 파일 필터링 + target_slots 필터링
   const targets = FILE_CONFIGS.filter((c) =>
-    c.pageUrl !== "TODO" && (targetSlots === null || targetSlots.includes(c.slotKey))
+    c.pageUrl !== "TODO" && c.slotKey !== "dps-status" && (targetSlots === null || targetSlots.includes(c.slotKey))
   );
+
+  // DPS 스크래핑은 별도 처리 (target_slots에 포함된 경우에만)
+  const dpsTarget = FILE_CONFIGS.find((c) => c.slotKey === "dps-status" && c.domScrape);
+  const shouldScrapeDps = dpsTarget && (targetSlots === null || targetSlots.includes("dps-status"));
   const skipped = FILE_CONFIGS.filter((c) => c.pageUrl === "TODO");
 
   if (skipped.length > 0) {
@@ -183,7 +187,13 @@ async function runSync(jobId) {
   // 종료 시 강제 닫기용 (currentBrowser 대신 Set으로 관리)
   currentBrowserSet = activeBrowsers;
 
-  const settled = await Promise.allSettled(targets.map(downloadOne));
+  // DPS 스크래핑 병렬 추가
+  const allTasks = [...targets.map(downloadOne)];
+  if (shouldScrapeDps) {
+    allTasks.push(scrapeDpsAndPost(dpsTarget, addLog));
+  }
+
+  const settled = await Promise.allSettled(allTasks);
   currentBrowserSet = null;
 
   const results = settled.map((s) =>
@@ -191,6 +201,36 @@ async function runSync(jobId) {
   );
 
   return results;
+}
+
+// ── DPS 스크래핑 + 내부 API 전송 ──────────────────────────────────────────────
+
+async function scrapeDpsAndPost(fileConfig, addLog) {
+  let browser = null;
+  try {
+    const session = await createSession(ELOGIS_ID, ELOGIS_PW, addLog);
+    browser = session.browser;
+    const rows = await scrapeDomData(session.page, fileConfig, addLog);
+    const payload = { rows, scrapedAt: new Date().toISOString() };
+    const res = await fetch(`${ADMIN_URL}/api/internal/dps-status`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-internal-secret": INTERNAL_API_SECRET || "",
+      },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!json.ok) throw new Error(`저장 실패: ${json.message}`);
+    await addLog(`DPS 작업현황: ${rows.length}건 스크래핑 → 저장 완료`);
+    return { slotKey: "dps-status", label: "DPS 작업현황", ok: true, message: `${rows.length}건` };
+  } catch (err) {
+    const msg = err?.message ?? String(err);
+    await addLog(`[실패] DPS 작업현황: ${msg}`);
+    return { slotKey: "dps-status", label: "DPS 작업현황", ok: false, message: msg };
+  } finally {
+    if (browser) await browser.close().catch(() => {});
+  }
 }
 
 // ── 작업 처리 ─────────────────────────────────────────────────────────────────
@@ -327,6 +367,9 @@ async function checkSchedules() {
   const nowKst = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
   const h = nowKst.getHours();
   const m = nowKst.getMinutes();
+
+  // 일요일(0)은 자동 실행 건너뜀
+  if (nowKst.getDay() === 0) return;
 
   for (const [slotKey, sched] of Object.entries(schedules)) {
     // enabled: true이고 시/분이 정확히 일치할 때만 트리거
