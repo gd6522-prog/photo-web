@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import * as XLSX from "xlsx";
-import { getR2ObjectBuffer, listR2Keys } from "@/lib/r2";
+import { getR2ObjectBuffer, getR2ObjectText, listR2Keys } from "@/lib/r2";
+import { WORKTYPE_CACHE_KEY } from "@/lib/cache-warm";
 import { requireAdmin, json } from "../notices/_shared";
 
 export const runtime = "nodejs";
@@ -57,9 +58,16 @@ export async function GET(req: NextRequest) {
   const guard = await requireAdmin(req);
   if (!guard.ok) return guard.res;
 
+  // 상품별전략관리 작업구분 캐시 로드 (product-strategy 업로드 시 생성됨)
+  let worktypeMap: Record<string, string> = {};
+  try {
+    const wt = await getR2ObjectText(WORKTYPE_CACHE_KEY);
+    if (wt) worktypeMap = JSON.parse(wt) as Record<string, string>;
+  } catch { /* 캐시 없으면 빈 맵 */ }
+
   const keys = await listR2Keys("file-uploads/inbound-status/");
   if (keys.length === 0) {
-    return json(true, undefined, { rows: [], uploadedAt: null });
+    return json(true, undefined, { rows: [], uploadedAt: null, worktypeMap });
   }
 
   // 가장 최신 파일 사용
@@ -114,7 +122,7 @@ export async function GET(req: NextRequest) {
       ? `${fileNameMatch[1].slice(0, 4)}-${fileNameMatch[1].slice(4, 6)}-${fileNameMatch[1].slice(6, 8)} ${fileNameMatch[2].slice(0, 2)}:${fileNameMatch[2].slice(2, 4)}:${fileNameMatch[2].slice(4, 6)}`
       : null;
 
-    return json(true, undefined, { rows, uploadedAt });
+    return json(true, undefined, { rows, uploadedAt, worktypeMap });
   } catch {
     return json(false, "파일 파싱 오류", null, 500);
   }

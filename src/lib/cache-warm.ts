@@ -17,6 +17,9 @@ export const CACHE_KEYS = {
   "workcenter-product-master": "file-uploads/workcenter-product-units-cache.json",
 } as const;
 
+/** 상품코드 → 작업구분 캐시 (product-strategy 파일에서 추출) */
+export const WORKTYPE_CACHE_KEY = "file-uploads/product-strategy-worktype-cache.json";
+
 type WarmableSlot = keyof typeof CACHE_KEYS;
 
 function normalizeHeader(value: unknown): string {
@@ -43,12 +46,20 @@ async function warmProductStrategy() {
   if (codeIdx === -1 || cellIdx === -1) return;
 
   const cells: Record<string, string> = {};
+  const worktypes: Record<string, string> = {};
   for (let i = 1; i < rows.length; i++) {
     const code = String(rows[i][codeIdx] ?? "").trim();
     const cell = String(rows[i][cellIdx] ?? "").trim();
-    if (code) cells[code] = cell;
+    const worktype = String(rows[i][19] ?? "").trim(); // 작업구분 (index 19)
+    if (code) {
+      cells[code] = cell;
+      if (worktype) worktypes[code] = worktype;
+    }
   }
-  await putR2Object(CACHE_KEYS["product-strategy"], JSON.stringify(cells), "application/json");
+  await Promise.all([
+    putR2Object(CACHE_KEYS["product-strategy"], JSON.stringify(cells), "application/json"),
+    putR2Object(WORKTYPE_CACHE_KEY, JSON.stringify(worktypes), "application/json"),
+  ]);
 }
 
 // ─── workcenter-product-master → 상품코드: {box_unit, picking_unit} ──

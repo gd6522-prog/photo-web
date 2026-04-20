@@ -107,10 +107,11 @@ function Badge({ label }: { label: string }) {
 
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────────────────
 export default function InboundPage() {
-  const [rows, setRows]             = useState<InboundRow[]>([]);
-  const [uploadedAt, setUploadedAt] = useState<string | null>(null);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState("");
+  const [rows, setRows]               = useState<InboundRow[]>([]);
+  const [worktypeMap, setWorktypeMap] = useState<Record<string, string>>({});
+  const [uploadedAt, setUploadedAt]   = useState<string | null>(null);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState("");
 
   // 요약 카드 복사
   const cardRef    = useRef<HTMLDivElement | null>(null);
@@ -136,9 +137,10 @@ export default function InboundPage() {
           cache: "no-store",
         });
         if (!res.ok) { setError("데이터를 불러오지 못했습니다."); return; }
-        const data = await res.json() as { ok: boolean; rows?: InboundRow[]; uploadedAt?: string | null };
+        const data = await res.json() as { ok: boolean; rows?: InboundRow[]; uploadedAt?: string | null; worktypeMap?: Record<string, string> };
         setRows(data.rows ?? []);
         setUploadedAt(data.uploadedAt ?? null);
+        setWorktypeMap(data.worktypeMap ?? {});
       } catch (e) {
         setError(e instanceof Error ? e.message : "오류가 발생했습니다.");
       } finally {
@@ -155,24 +157,33 @@ export default function InboundPage() {
   }, [copyMsg]);
 
   // ── 내일 기준 요약 ────────────────────────────────────────────────────────
+  // 조건: 입고예정일 = 내일, 입고상태 = "입고예정", 결품상태 ≠ "완납" · "완전결품"
+  const EXCLUDE_SHORTAGE = new Set(["완납", "완전결품"]);
+
   const summaryRows = useMemo(() => {
-    const target = rows.filter((r) => normalizeDate(r.inb_ect_date) === targetDate);
+    const target = rows.filter((r) => {
+      if (normalizeDate(r.inb_ect_date) !== targetDate) return false;
+      if (r.inb_status !== "입고예정") return false;
+      if (EXCLUDE_SHORTAGE.has(r.shortage_status)) return false;
+      return true;
+    });
     if (!target.length) return [];
 
     const groups = new Map<string, { count: number; ord_price: number; ord_qty: number }>();
     for (const r of target) {
-      const key = r.itemgrp_bnm || "기타";
+      // 상품별전략관리의 작업구분 사용, 없으면 "미등록"
+      const key = worktypeMap[r.item_cd] || "미등록";
       const g = groups.get(key) ?? { count: 0, ord_price: 0, ord_qty: 0 };
       g.count     += 1;
       g.ord_price += r.ord_price;
       g.ord_qty   += r.ord_qty;
       groups.set(key, g);
     }
-    // 내림차순 (발주금액 큰 순)
+    // 발주금액 내림차순
     return [...groups.entries()]
       .map(([label, v]) => ({ label, ...v }))
       .sort((a, b) => b.ord_price - a.ord_price);
-  }, [rows, targetDate]);
+  }, [rows, targetDate, worktypeMap]);
 
   const summaryTotal = useMemo(() => summaryRows.reduce(
     (acc, r) => ({ count: acc.count + r.count, ord_price: acc.ord_price + r.ord_price, ord_qty: acc.ord_qty + r.ord_qty }),
@@ -293,8 +304,12 @@ export default function InboundPage() {
                   <div style={{ fontWeight: 950, fontSize: 15, color: "#103b53" }}>파트별 발주 현황</div>
                   <div style={{ marginTop: 3, fontSize: 12, color: "#557186" }}>
                     입고예정일: {rows.length > 0 ? dateLabel(targetDate) : "-"}
-                    {summaryRows.length === 0 && rows.length > 0 && (
-                      <span style={{ marginLeft: 8, color: "#F59E0B", fontWeight: 700 }}>해당 날짜 데이터 없음</span>
+                    &nbsp;·&nbsp;입고예정 상태 · 완납/완전결품 제외
+                    {Object.keys(worktypeMap).length === 0 && rows.length > 0 && (
+                      <span style={{ marginLeft: 8, color: "#F59E0B", fontWeight: 700 }}>⚠ 상품별전략관리 파일 없음 (작업구분 미적용)</span>
+                    )}
+                    {summaryRows.length === 0 && rows.length > 0 && Object.keys(worktypeMap).length > 0 && (
+                      <span style={{ marginLeft: 8, color: "#F59E0B", fontWeight: 700 }}>해당 날짜 조건 데이터 없음</span>
                     )}
                   </div>
                 </div>
