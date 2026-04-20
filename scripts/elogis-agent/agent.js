@@ -452,6 +452,26 @@ async function main() {
     }, secsLeft * 1000);
   }
 
+  // DPS 작업현황 5분마다 자동 스크래핑
+  const dpsTarget = FILE_CONFIGS.find((c) => c.slotKey === "dps-status" && c.domScrape);
+  if (dpsTarget && INTERNAL_API_SECRET) {
+    let dpsRunning = false;
+    const runDps = async () => {
+      if (dpsRunning) { log("[DPS] 이전 작업 진행 중, 건너뜀"); return; }
+      dpsRunning = true;
+      try {
+        await scrapeDpsAndPost(dpsTarget, log);
+      } catch (e) {
+        log(`[ERROR] DPS 자동 스크래핑: ${e?.message}`);
+      } finally {
+        dpsRunning = false;
+      }
+    };
+    log("DPS 작업현황 5분 주기 자동 스크래핑 시작");
+    runDps(); // 시작 즉시 1회 실행
+    setInterval(runDps, 5 * 60 * 1000);
+  }
+
   log("에이전트 대기 중... (Ctrl+C 로 종료)");
 }
 
