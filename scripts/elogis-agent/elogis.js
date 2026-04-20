@@ -747,19 +747,7 @@ async function scrapeDomData(page, fileConfig, log) {
     await page.waitForTimeout(1_000);
   }
 
-  // DPS 전용: 조회 전에 pageSize를 전체 건수로 설정 (기본 10,000 → 무제한)
-  const dpsFramePreload = page.frames().find((f) => f.url().includes("DPS_INF_LIST"));
-  if (dpsFramePreload) {
-    await dpsFramePreload.evaluate(() => {
-      if (typeof Ext === "undefined") return;
-      const g = Ext.ComponentQuery.query("gridpanel")[0];
-      const s = g && (g.store || g.getStore?.());
-      if (s) { s.pageSize = 999999; if (s.proxy && s.proxy.extraParams) s.proxy.extraParams.limit = 999999; }
-    }).catch(() => {});
-    log(`${label}: pageSize=999999 설정 완료`);
-  }
-
-  // 조회 버튼 클릭
+  // 조회 버튼 클릭 (먼저 실행 — 프레임이 아직 없을 수 있으므로 pageSize는 조회 후 설정)
   await clickSearchButton(page, log, label);
 
   // Loading 스피너 사라질 때까지 최대 20초 대기
@@ -787,14 +775,52 @@ async function scrapeDomData(page, fileConfig, log) {
   }
   await page.waitForTimeout(1_500);
 
-  // DPS 전용: 전체 건수 로드 대기 (최대 120초 — 전체 수만 건)
+  // DPS 전용: 1차 로드 확인 후 전체 건수 부족하면 pageSize 재설정 → reload
   if (page.frames().some((f) => f.url().includes("DPS_INF_LIST"))) {
+    // 1차 로드 완료 대기
+    const firstDeadline = Date.now() + 20_000;
+    while (Date.now() < firstDeadline) {
+      const dpsF = page.frames().find((f) => f.url().includes("DPS_INF_LIST"));
+      const count = dpsF ? await dpsF.evaluate(() => {
+        if (typeof Ext === "undefined") return 0;
+        const g = Ext.ComponentQuery.query("gridpanel")[0];
+        const s = g && (g.store || g.getStore?.());
+        return s ? s.getCount() : 0;
+      }).catch(() => 0) : 0;
+      if (count > 0) break;
+      await page.waitForTimeout(1_000);
+    }
+
+    // pageSize 재설정 후 전체 재로드
+    const dpsF = page.frames().find((f) => f.url().includes("DPS_INF_LIST"));
+    if (dpsF) {
+      const reloaded = await dpsF.evaluate(() => {
+        if (typeof Ext === "undefined") return false;
+        const g = Ext.ComponentQuery.query("gridpanel")[0];
+        const s = g && (g.store || g.getStore?.());
+        if (!s) return false;
+        const total = s.getTotalCount ? s.getTotalCount() : 0;
+        const loaded = s.getCount();
+        if (total > 0 && loaded >= total) return false; // 이미 전체 로드됨
+        // pageSize 무제한 설정 후 첫 페이지 전체 재요청
+        s.pageSize = 999999;
+        if (s.proxy) {
+          if (s.proxy.extraParams) s.proxy.extraParams.limit = 999999;
+          if (s.proxy.reader) {} // noop
+        }
+        s.load({ params: { start: 0, limit: 999999 } });
+        return true;
+      }).catch(() => false);
+      if (reloaded) log(`${label}: 전체 건수 재로드 요청`);
+    }
+
+    // 전체 건수 로드 대기 (최대 120초)
     const dpsDeadline = Date.now() + 120_000;
     let lastCount = 0;
     while (Date.now() < dpsDeadline) {
-      const dpsF = page.frames().find((f) => f.url().includes("DPS_INF_LIST"));
-      const { count, total, loading } = dpsF
-        ? await dpsF.evaluate(() => {
+      const dpsF2 = page.frames().find((f) => f.url().includes("DPS_INF_LIST"));
+      const { count, total, loading } = dpsF2
+        ? await dpsF2.evaluate(() => {
             if (typeof Ext === "undefined") return { count: 0, total: 0, loading: false };
             const g = Ext.ComponentQuery.query("gridpanel")[0];
             const s = g && (g.store || g.getStore?.());

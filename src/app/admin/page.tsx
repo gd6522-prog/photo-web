@@ -982,11 +982,6 @@ function DpsProgressCard() {
               </div>
             );
           })}
-          {summary && (
-            <div style={{ fontSize: 11, color: "#94A3B8", textAlign: "right", paddingRight: 2 }}>
-              샘플 {summary.loadedCount.toLocaleString()} / 전체 {summary.dsTotal.toLocaleString()}건
-            </div>
-          )}
         </div>
       )}
     </Card>
