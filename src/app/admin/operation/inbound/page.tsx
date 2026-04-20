@@ -518,9 +518,8 @@ export default function InboundPage() {
           </div>
 
           {/* ── 상세 테이블 ──────────────────────────────────────────────── */}
-          {rows.length > 0 && (
-            <>
-              {/* 조회 버튼 / 필터 */}
+          <>
+            {/* 조회 버튼 / 필터 */}
               <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
                 <select
                   value={dateFilter}
@@ -639,7 +638,6 @@ export default function InboundPage() {
                 </>
               )}
             </>
-          )}
         </>
       )}
     </div>
