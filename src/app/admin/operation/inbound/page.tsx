@@ -304,7 +304,6 @@ export default function InboundPage() {
                   <div style={{ fontWeight: 950, fontSize: 15, color: "#103b53" }}>파트별 발주 현황</div>
                   <div style={{ marginTop: 3, fontSize: 12, color: "#557186" }}>
                     입고예정일: {rows.length > 0 ? dateLabel(targetDate) : "-"}
-                    &nbsp;·&nbsp;입고예정 · 완납/완전결품 제외
                     {Object.keys(worktypeMap).length === 0 && rows.length > 0 && (
                       <span style={{ marginLeft: 8, color: "#F59E0B", fontWeight: 700 }}>⚠ 상품별전략관리 파일 없음</span>
                     )}
