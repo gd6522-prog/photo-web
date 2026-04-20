@@ -321,6 +321,13 @@ export default function InboundPage() {
     { count: 0, ord_price: 0, ord_qty: 0 }
   ), [summaryRows]);
 
+  const summaryNoTobacco = useMemo(() => summaryRows
+    .filter(r => r.label !== "담배존" && r.label !== "담배수기")
+    .reduce(
+      (acc, r) => ({ count: acc.count + r.count, ord_price: acc.ord_price + r.ord_price, ord_qty: acc.ord_qty + r.ord_qty }),
+      { count: 0, ord_price: 0, ord_qty: 0 }
+    ), [summaryRows]);
+
   // ── 복사 ─────────────────────────────────────────────────────────────────
   const handleCopy = async () => {
     setCopying(true);
@@ -512,6 +519,11 @@ export default function InboundPage() {
                         <td style={{ padding: "5px 10px", fontWeight: 950, color: "#103b53" }}>합계</td>
                         <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums" }}>{fmt(summaryTotal.count)}</td>
                         <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 950, color: "#0f2940", fontVariantNumeric: "tabular-nums" }}>{fmt(Math.round(summaryTotal.ord_price))}</td>
+                      </tr>
+                      <tr style={{ borderTop: "1px solid #d9e6ef", background: "#eef4f9" }}>
+                        <td style={{ padding: "5px 10px", fontWeight: 950, color: "#103b53" }}>담배제외</td>
+                        <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums" }}>{fmt(summaryNoTobacco.count)}</td>
+                        <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 950, color: "#0f2940", fontVariantNumeric: "tabular-nums" }}>{fmt(Math.round(summaryNoTobacco.ord_price))}</td>
                       </tr>
                     </tfoot>
                   </table>
