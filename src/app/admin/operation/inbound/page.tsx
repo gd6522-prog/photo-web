@@ -73,6 +73,7 @@ async function copySummaryAsImage(
   dateLbl: string,
   summaryRows: SummaryItem[],
   total: { count: number; ord_price: number },
+  noTobacco: { count: number; ord_price: number },
 ) {
   const hasWrite = !!(navigator.clipboard as { write?: unknown })?.write;
   const hasItem = typeof (window as { ClipboardItem?: unknown }).ClipboardItem !== "undefined";
@@ -90,7 +91,7 @@ async function copySummaryAsImage(
   const COL_COUNT = 52;
   const COL_PRICE = 110;
   const W = PAD + COL_LABEL + COL_COUNT + COL_PRICE + PAD;
-  const H = TITLE_H + HEAD_H + ROW_H * summaryRows.length + FOOT_H + PAD;
+  const H = TITLE_H + HEAD_H + ROW_H * summaryRows.length + FOOT_H * 2 + PAD;
 
   const canvas = document.createElement("canvas");
   canvas.width  = W * DPR;
@@ -167,6 +168,22 @@ async function copySummaryAsImage(
   ctx.fillText("합계", PAD, fMid);
   drawRight(ctx, fmt(total.count),                  PAD + COL_LABEL + COL_COUNT,        fMid, 13, "#113247", true);
   drawRight(ctx, fmt(Math.round(total.ord_price)),  PAD + COL_LABEL + COL_COUNT + COL_PRICE, fMid, 13, "#0f2940", true);
+
+  // ── 담배제외 행 ────────────────────────────────────────────────────────────
+  const foot2Y = footY + FOOT_H;
+  ctx.fillStyle = "#eef4f9";
+  ctx.fillRect(0, foot2Y, W, FOOT_H);
+  ctx.strokeStyle = "#d9e6ef";
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, foot2Y); ctx.lineTo(W, foot2Y); ctx.stroke();
+
+  const f2Mid = foot2Y + FOOT_H / 2;
+  ctx.fillStyle = "#103b53";
+  ctx.font = `bold 13px -apple-system, "Malgun Gothic", sans-serif`;
+  ctx.textBaseline = "middle";
+  ctx.fillText("담배제외", PAD, f2Mid);
+  drawRight(ctx, fmt(noTobacco.count),                  PAD + COL_LABEL + COL_COUNT,        f2Mid, 13, "#113247", true);
+  drawRight(ctx, fmt(Math.round(noTobacco.ord_price)),  PAD + COL_LABEL + COL_COUNT + COL_PRICE, f2Mid, 13, "#0f2940", true);
 
   // 외곽선
   ctx.strokeStyle = "#d9e6ef";
@@ -338,6 +355,7 @@ export default function InboundPage() {
         dateLabel(targetDate),
         summaryRows,
         summaryTotal,
+        summaryNoTobacco,
       );
       setCopyMsg("복사 완료");
     } catch (e: unknown) {
