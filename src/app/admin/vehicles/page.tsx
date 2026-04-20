@@ -517,18 +517,19 @@ const cargoColumns: Array<{ key: keyof CargoRow | "largeTotal" | "smallTotal" | 
   { key: "store_code", label: "점포코드", width: 110 },
   { key: "store_name", label: "점포명", width: 180 },
   { key: "largeTotal", label: "대", width: 80 },
-  { key: "large_box", label: "박스존", width: 80 },
-  { key: "large_inner", label: "이너존", width: 80 },
-  { key: "large_other", label: "기타", width: 80 },
+  { key: "large_box", label: "박스존", width: 72 },
+  { key: "large_inner", label: "이너존", width: 72 },
+  { key: "large_other", label: "기타", width: 72 },
   { key: "large_day2l", label: "올데이 2L생수", width: 92 },
   { key: "large_nb2l", label: "노브랜드2L생수", width: 92 },
   { key: "smallTotal", label: "소", width: 80 },
-  { key: "small_low", label: "경량존", width: 80 },
-  { key: "small_high", label: "슬라존", width: 80 },
-  { key: "event", label: "행사", width: 80 },
+  { key: "small_low", label: "경량존", width: 72 },
+  { key: "small_high", label: "슬라존", width: 72 },
+  { key: "event", label: "행사", width: 72 },
   { key: "tobacco", label: "담배", width: 80 },
   { key: "certificate", label: "유가증권", width: 90 },
-  { key: "note", label: "지원기사", width: 140 },
+  { key: "standard_time", label: "기준시간", width: 76 },
+  { key: "note", label: "지원기사", width: 110 },
 ];
 
 const stickyCargoColumnKeys = ["support", "car_no", "seq_no", "store_code", "store_name"] as const;
@@ -4213,7 +4214,7 @@ export function VehiclePageScreen({
                               ...getStickyCargoStyle(String(column.key), subtotalBackground),
                             }}
                           >
-                            {column.key === "seq_no" || column.key === "store_name"
+                            {column.key === "seq_no" || column.key === "store_name" || column.key === "standard_time"
                               ? ""
                               : typeof value === "number"
                                 ? formatNumber(value)
@@ -4238,7 +4239,7 @@ export function VehiclePageScreen({
                             : column.key === "smallTotal"
                               ? sum.smallTotal
                               : row[column.key as keyof CargoRow];
-                      const editable = !["support", "car_no", "seq_no", "largeTotal", "smallTotal", "store_code", "store_name"].includes(String(column.key));
+                      const editable = !["support", "car_no", "seq_no", "largeTotal", "smallTotal", "store_code", "store_name", "standard_time"].includes(String(column.key));
 
                       return (
                         <td
