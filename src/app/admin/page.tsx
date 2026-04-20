@@ -420,7 +420,6 @@ function Card({
         boxShadow: "0 16px 34px rgba(2,32,46,0.10)",
         width: "100%",
         minHeight: minHeight ?? undefined,
-        height: "100%",
         display: "flex",
         flexDirection: "column",
       }}
@@ -2875,7 +2874,7 @@ export default function AdminHomePage() {
             grid-template-columns: var(--leftColW) minmax(0, 1fr) 330px 360px;
             column-gap: var(--colGap);
             row-gap: var(--rowGap);
-            align-items: stretch;
+            align-items: start;
           }
           .leftCol {
             display: flex;
