@@ -503,14 +503,30 @@ export default function FileUploadPage() {
     setSlotStates((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }));
   }, []);
 
+  const [persistSettings, setPersistSettings] = useState<Record<string, boolean>>({});
+
   // 서버 파일 상태 로드
   const loadStatus = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/file-upload");
       const json = await res.json();
-      if (json.ok) setServerFiles(json.slots ?? {});
+      if (json.ok) {
+        setServerFiles(json.slots ?? {});
+        setPersistSettings(json.persistSettings ?? {});
+      }
     } catch {}
   }, []);
+
+  const handleTogglePersist = useCallback(async (key: string) => {
+    const next = !(persistSettings[key] ?? false);
+    const res = await fetch("/api/admin/file-upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "set-persist", slotKey: key, enabled: next }),
+    });
+    const json = await res.json();
+    if (json.ok) setPersistSettings(json.persistSettings ?? {});
+  }, [persistSettings]);
 
   useEffect(() => {
     loadStatus();
@@ -919,6 +935,8 @@ export default function FileUploadPage() {
               schedule={schedules[config.key] ?? { enabled: false, hour: 6, minute: 0 }}
               onScheduleChange={(patch) => updateSchedule(config.key, patch)}
               canEditSchedule={isMainAdmin && schedulesLoaded}
+              persist={persistSettings[config.key] ?? false}
+              onTogglePersist={() => handleTogglePersist(config.key)}
             />
           );
         })}
@@ -975,6 +993,117 @@ function DownloadButton({ slotKey }: { slotKey: string }) {
   );
 }
 
+// ─── HistoryPanel Component ───────────────────────────────────────────────────
+
+function HistoryPanel({ slotKey }: { slotKey: string }) {
+  const [open, setOpen] = React.useState(false);
+  const [files, setFiles] = React.useState<{ r2Key: string; fileName: string }[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [dlLoading, setDlLoading] = React.useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/file-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "list-history", slotKey, fileName: "_" }),
+      });
+      const json = await res.json();
+      if (json.ok) setFiles(json.files ?? []);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggle = () => {
+    if (!open) load();
+    setOpen((v) => !v);
+  };
+
+  const handleDownload = async (r2Key: string, fileName: string) => {
+    setDlLoading(r2Key);
+    try {
+      const res = await fetch("/api/admin/file-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "download-history-url", slotKey, fileName: "_", r2Key }),
+      });
+      const json = await res.json();
+      if (json.ok && json.downloadUrl) {
+        const a = document.createElement("a");
+        a.href = json.downloadUrl;
+        a.download = fileName;
+        a.click();
+      }
+    } finally {
+      setDlLoading(null);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: 6 }}>
+      <button
+        onClick={handleToggle}
+        style={{
+          fontSize: 11,
+          padding: "2px 8px",
+          background: "#F3F4F6",
+          color: "#374151",
+          border: "1px solid #D1D5DB",
+          cursor: "pointer",
+          fontWeight: 700,
+        }}
+      >
+        {open ? "▲ 이력 닫기" : "▼ 이력 보기"}
+      </button>
+      {open && (
+        <div style={{ marginTop: 6, border: "1px solid #E5E7EB", background: "#FAFAFA" }}>
+          {loading ? (
+            <div style={{ padding: "8px 10px", fontSize: 11, color: "#9CA3AF" }}>로딩 중...</div>
+          ) : files.length === 0 ? (
+            <div style={{ padding: "8px 10px", fontSize: 11, color: "#9CA3AF" }}>이력 없음</div>
+          ) : (
+            files.map((f) => (
+              <div
+                key={f.r2Key}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "5px 10px",
+                  borderBottom: "1px solid #F3F4F6",
+                  gap: 8,
+                }}
+              >
+                <span style={{ fontSize: 11, color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {f.fileName}
+                </span>
+                <button
+                  onClick={() => handleDownload(f.r2Key, f.fileName)}
+                  disabled={dlLoading === f.r2Key}
+                  style={{
+                    fontSize: 11,
+                    padding: "1px 7px",
+                    background: "#EFF6FF",
+                    color: "#1D4ED8",
+                    border: "1px solid #BFDBFE",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                    flexShrink: 0,
+                  }}
+                >
+                  {dlLoading === f.r2Key ? "..." : "↓"}
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── SlotCard Component ───────────────────────────────────────────────────────
 
 type DragHandlers = {
@@ -999,6 +1128,8 @@ function SlotCard({
   schedule,
   onScheduleChange,
   canEditSchedule,
+  persist,
+  onTogglePersist,
 }: {
   config: SlotConfig;
   state: SlotState;
@@ -1014,6 +1145,8 @@ function SlotCard({
   schedule: SlotSchedule;
   onScheduleChange: (patch: Partial<SlotSchedule>) => void;
   canEditSchedule: boolean;
+  persist: boolean;
+  onTogglePersist: () => void;
 }) {
   const localInputRef = useRef<HTMLInputElement | null>(null);
   const [running, setRunning] = React.useState(false);
@@ -1276,7 +1409,25 @@ function SlotCard({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ fontWeight: 700 }}>현재 서버 파일</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontWeight: 700 }}>현재 서버 파일</span>
+            <button
+              onClick={onTogglePersist}
+              title={persist ? "이력 보관 켜짐 — 파일이 교체돼도 이전 파일 유지" : "이력 보관 꺼짐 — 새 파일 업로드 시 이전 파일 삭제"}
+              style={{
+                fontSize: 10,
+                padding: "1px 6px",
+                border: "1px solid",
+                borderColor: persist ? "#86EFAC" : "#D1D5DB",
+                background: persist ? "#F0FDF4" : "#F9FAFB",
+                color: persist ? "#15803D" : "#9CA3AF",
+                cursor: "pointer",
+                fontWeight: 700,
+              }}
+            >
+              {persist ? "📌 이력보관 ON" : "📌 이력보관"}
+            </button>
+          </div>
           {serverFile && (
             <DownloadButton slotKey={config.key} />
           )}
@@ -1295,6 +1446,9 @@ function SlotCard({
           <div style={{ marginTop: 2, color: "#9CA3AF" }}>없음</div>
         )}
       </div>
+
+      {/* 이력 보관 ON일 때 이력 목록 */}
+      {persist && <HistoryPanel slotKey={config.key} />}
 
       {/* 파일 선택 드롭존 */}
       <div
