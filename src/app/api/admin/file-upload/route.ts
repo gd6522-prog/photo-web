@@ -127,6 +127,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
+    // ── action: set-persist — 이력 보관 on/off (fileName 불필요) ──────────
+    if (action === "set-persist") {
+      if (!isMetaKey(slotKey)) {
+        return NextResponse.json({ ok: false, message: `유효하지 않은 슬롯: ${slotKey}` }, { status: 400 });
+      }
+      const settings = await getPersistSettings();
+      settings[slotKey] = enabled ?? true;
+      await savePersistSettings(settings);
+      return NextResponse.json({ ok: true, persistSettings: settings });
+    }
+
+    // ── action: list-history — 슬롯의 파일 목록 (fileName 불필요) ─────────
+    if (action === "list-history") {
+      if (!isMetaKey(slotKey)) {
+        return NextResponse.json({ ok: false, message: `유효하지 않은 슬롯: ${slotKey}` }, { status: 400 });
+      }
+      const keys = await listR2Keys(slotPrefix(slotKey));
+      const files = keys.map((k) => ({ r2Key: k, fileName: k.replace(slotPrefix(slotKey), "") }));
+      files.sort((a, b) => b.fileName.localeCompare(a.fileName));
+      return NextResponse.json({ ok: true, files });
+    }
+
+    // ── action: download-history-url — 이력 파일 개별 다운로드 (fileName 불필요) ─
+    if (action === "download-history-url") {
+      if (!bodyR2Key) {
+        return NextResponse.json({ ok: false, message: "r2Key가 없습니다." }, { status: 400 });
+      }
+      const downloadUrl = await getViewPresignedUrl(bodyR2Key);
+      return NextResponse.json({ ok: true, downloadUrl });
+    }
+
     if (!fileName) {
       return NextResponse.json({ ok: false, message: "fileName이 없습니다." }, { status: 400 });
     }
@@ -141,37 +172,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, message: "파일이 없습니다." }, { status: 404 });
       }
       const downloadUrl = await getViewPresignedUrl(keys[0]);
-      return NextResponse.json({ ok: true, downloadUrl });
-    }
-
-    // ── action: set-persist — 이력 보관 on/off ───────────────────────────
-    if (action === "set-persist") {
-      if (!isMetaKey(slotKey)) {
-        return NextResponse.json({ ok: false, message: `유효하지 않은 슬롯: ${slotKey}` }, { status: 400 });
-      }
-      const settings = await getPersistSettings();
-      settings[slotKey] = enabled ?? true;
-      await savePersistSettings(settings);
-      return NextResponse.json({ ok: true, persistSettings: settings });
-    }
-
-    // ── action: list-history — 슬롯의 파일 목록 ─────────────────────────
-    if (action === "list-history") {
-      if (!isMetaKey(slotKey)) {
-        return NextResponse.json({ ok: false, message: `유효하지 않은 슬롯: ${slotKey}` }, { status: 400 });
-      }
-      const keys = await listR2Keys(slotPrefix(slotKey));
-      const files = keys.map((k) => ({ r2Key: k, fileName: k.replace(slotPrefix(slotKey), "") }));
-      files.sort((a, b) => b.fileName.localeCompare(a.fileName));
-      return NextResponse.json({ ok: true, files });
-    }
-
-    // ── action: download-history-url — 이력 파일 개별 다운로드 ──────────
-    if (action === "download-history-url") {
-      if (!bodyR2Key) {
-        return NextResponse.json({ ok: false, message: "r2Key가 없습니다." }, { status: 400 });
-      }
-      const downloadUrl = await getViewPresignedUrl(bodyR2Key);
       return NextResponse.json({ ok: true, downloadUrl });
     }
 
