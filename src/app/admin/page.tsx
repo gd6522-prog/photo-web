@@ -2873,6 +2873,8 @@ export default function AdminHomePage() {
           .rightCol {
             display: flex;
             height: 100%;
+            min-width: 0;
+            overflow: hidden;
           }
           @media (max-width: 1250px) {
             .homeGrid {
