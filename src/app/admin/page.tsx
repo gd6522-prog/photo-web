@@ -907,33 +907,66 @@ function DpsProgressCard() {
   const [data, setData] = useState<DpsStatusData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const fetchRef = React.useRef<(() => Promise<void>) | null>(null);
+  const [refreshLabel, setRefreshLabel] = useState("새로고침");
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const { data: sess } = await supabase.auth.getSession();
-        const token = sess?.session?.access_token;
-        if (!token) return;
-        const res = await fetch("/api/internal/dps-status", {
-          cache: "no-store",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const j = await res.json();
-        if (j.ok) setData(j);
-      } catch { /* ignore */ }
-      finally { setLoading(false); setRefreshing(false); }
-    };
-    fetchRef.current = fetchData;
-    fetchData();
-    const interval = setInterval(fetchData, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+  const readR2 = React.useCallback(async () => {
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess?.session?.access_token;
+      if (!token) return;
+      const res = await fetch("/api/internal/dps-status", {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const j = await res.json();
+      if (j.ok) setData(j);
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
   }, []);
 
-  const handleRefresh = () => {
+  useEffect(() => {
+    readR2();
+    const interval = setInterval(readR2, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [readR2]);
+
+  const handleRefresh = async () => {
     if (refreshing) return;
     setRefreshing(true);
-    fetchRef.current?.();
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess?.session?.access_token;
+      if (!token) return;
+
+      // 에이전트에 DPS 스크래핑 요청
+      setRefreshLabel("요청 중...");
+      const startRes = await fetch("/api/admin/elogis-sync/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ targetSlot: "dps-status" }),
+      });
+      const startJson = await startRes.json().catch(() => ({ ok: false }));
+      if (!startJson.ok && !startJson.alreadyQueued) {
+        await readR2();
+        return;
+      }
+
+      // 작업 완료까지 폴링 (최대 3분)
+      setRefreshLabel("스크래핑 중...");
+      const deadline = Date.now() + 3 * 60 * 1000;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 4000));
+        const st = await fetch("/api/admin/elogis-sync/status").then((r) => r.json()).catch(() => ({}));
+        if (!st.running && !st.pending) break;
+      }
+
+      // 새 데이터 읽기
+      setRefreshLabel("데이터 읽는 중...");
+      await readR2();
+    } finally {
+      setRefreshing(false);
+      setRefreshLabel("새로고침");
+    }
   };
 
   const fmtTime = (iso: string | null) => {
@@ -965,7 +998,7 @@ function DpsProgressCard() {
               border: "none", borderRadius: 4, cursor: refreshing ? "default" : "pointer",
             }}
           >
-            {refreshing ? "로딩..." : "새로고침"}
+            {refreshLabel}
           </button>
         </div>
       }
