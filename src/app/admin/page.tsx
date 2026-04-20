@@ -37,8 +37,8 @@ type HolidayRow = {
   source: string | null;
 };
 
-const CARD_MIN_H = 520;
-const WEATHER_MIN_H = 520;
+const CARD_MIN_H = 0;
+const WEATHER_MIN_H = 0;
 const HOME_NOTICE_CACHE_KEY = "admin-home-notices-v1";
 const HOME_WEATHER_CACHE_KEY = "admin-home-weather-v1";
 const HOME_OUTBOUND_CACHE_KEY = "admin-home-outbound-v1";
