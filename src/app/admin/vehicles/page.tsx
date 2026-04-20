@@ -534,6 +534,7 @@ const cargoColumns: Array<{ key: keyof CargoRow | "largeTotal" | "smallTotal" | 
 
 const stickyCargoColumnKeys = ["support", "car_no", "seq_no", "store_code", "store_name"] as const;
 const numericCargoKeys = new Set(["largeTotal", "large_box", "large_inner", "large_other", "large_day2l", "large_nb2l", "smallTotal", "small_low", "small_high", "event", "tobacco", "certificate"]);
+const centerCargoKeys = new Set(["car_no", "seq_no", "store_code", "standard_time"]);
 const reportMainColumnWidths = [
   42,   // 0  No
   180,  // 1  점포명
@@ -4209,6 +4210,7 @@ export function VehiclePageScreen({
                               padding: 10,
                               borderBottom: `1px solid ${subtotalBorder}`,
                               fontWeight: 900,
+                              textAlign: centerCargoKeys.has(String(column.key)) ? "center" : undefined,
                               ...getCargoGroupStyle(String(column.key)),
                               background: subtotalBackground,
                               ...getStickyCargoStyle(String(column.key), subtotalBackground),
@@ -4279,7 +4281,7 @@ export function VehiclePageScreen({
                               style={{ width: "100%", minWidth: 60, height: 32, borderRadius: 6, border: "1px solid #D1D9E0", padding: "0 8px", outline: "none", fontSize: 13, textAlign: numericCargoKeys.has(String(column.key)) ? "right" : "left", fontVariantNumeric: "tabular-nums" }}
                             />
                           ) : (
-                            <div style={{ padding: "0 4px", fontWeight: column.key === "largeTotal" || column.key === "smallTotal" ? 900 : 500, textAlign: numericCargoKeys.has(String(column.key)) ? "right" : "left", fontVariantNumeric: "tabular-nums" }}>
+                            <div style={{ padding: "0 4px", fontWeight: column.key === "largeTotal" || column.key === "smallTotal" ? 900 : 500, textAlign: numericCargoKeys.has(String(column.key)) ? "right" : centerCargoKeys.has(String(column.key)) ? "center" : "left", fontVariantNumeric: "tabular-nums" }}>
                               {typeof value === "number" ? formatNumber(value) : String(value ?? "")}
                             </div>
                           )}
