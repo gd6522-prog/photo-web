@@ -224,8 +224,9 @@ async function scrapeDpsAndPost(fileConfig, addLog) {
     });
     const json = await res.json();
     if (!json.ok) throw new Error(`저장 실패: ${json.message}`);
-    await addLog(`DPS 작업현황: ${rows.length}건 스크래핑 → 저장 완료`);
-    return { slotKey: "dps-status", label: "DPS 작업현황", ok: true, message: `${rows.length}건` };
+    const loadedCount = rows?.loadedCount ?? 0;
+    await addLog(`DPS 작업현황: ${loadedCount}건 스크래핑 → 저장 완료`);
+    return { slotKey: "dps-status", label: "DPS 작업현황", ok: true, message: `${loadedCount}건`, zones: rows?.zones ?? null };
   } catch (err) {
     const msg = err?.message ?? String(err);
     await addLog(`[실패] DPS 작업현황: ${msg}`);
@@ -458,20 +459,47 @@ async function main() {
   const dpsTarget = FILE_CONFIGS.find((c) => c.slotKey === "dps-status" && c.domScrape);
   if (dpsTarget && INTERNAL_API_SECRET) {
     let dpsRunning = false;
+    let dpsInterval = null;
+
+    const msUntil11AmNextDay = () => {
+      const now = new Date();
+      const next = new Date(now);
+      next.setDate(now.getDate() + 1);
+      next.setHours(11, 0, 0, 0);
+      return next.getTime() - now.getTime();
+    };
+
+    const startDpsLoop = () => {
+      log("DPS 작업현황 5분 주기 자동 스크래핑 시작");
+      runDps();
+      dpsInterval = setInterval(runDps, 5 * 60 * 1000);
+    };
+
     const runDps = async () => {
       if (dpsRunning) { log("[DPS] 이전 작업 진행 중, 건너뜀"); return; }
       dpsRunning = true;
       try {
-        await scrapeDpsAndPost(dpsTarget, log);
+        const result = await scrapeDpsAndPost(dpsTarget, log);
+        if (result?.ok && result.zones) {
+          const zones = result.zones;
+          const allDone = Object.values(zones).every((z) => z.total > 0 && z.done >= z.total);
+          if (allDone) {
+            clearInterval(dpsInterval);
+            dpsInterval = null;
+            const ms = msUntil11AmNextDay();
+            const resumeAt = new Date(Date.now() + ms).toLocaleString("ko-KR");
+            log(`[DPS] 전체 작업 완료 — 5분 주기 중단. 익일 11시(${resumeAt}) 재시작 예약`);
+            setTimeout(startDpsLoop, ms);
+          }
+        }
       } catch (e) {
         log(`[ERROR] DPS 자동 스크래핑: ${e?.message}`);
       } finally {
         dpsRunning = false;
       }
     };
-    log("DPS 작업현황 5분 주기 자동 스크래핑 시작");
-    runDps(); // 시작 즉시 1회 실행
-    setInterval(runDps, 5 * 60 * 1000);
+
+    startDpsLoop();
   }
 
   log("에이전트 대기 중... (Ctrl+C 로 종료)");
