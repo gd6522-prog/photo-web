@@ -1603,12 +1603,29 @@ function buildCargoDraftWithSep(rows: ProductRow[], sepMap: Record<string, numbe
 }
 
 // cargoRows 재계산 후 note/support_excluded 등 사용자 편집 필드 보존
-function mergeCargoPreserve(existing: CargoRow[], rebuilt: CargoRow[]): CargoRow[] {
+// preserveNumeric=true 이면 숫자 필드도 기존 값으로 유지 (서버 로드 후 재계산 시 사용자 수정값 보호)
+function mergeCargoPreserve(existing: CargoRow[], rebuilt: CargoRow[], preserveNumeric = false): CargoRow[] {
   const existingMap = new Map(existing.map((r) => [r.id, r]));
   return rebuilt.map((newRow) => {
     const ex = existingMap.get(newRow.id);
     if (!ex) return newRow;
-    return { ...newRow, note: ex.note, support_excluded: ex.support_excluded };
+    const base = { ...newRow, note: ex.note, support_excluded: ex.support_excluded };
+    if (!preserveNumeric) return base;
+    return {
+      ...base,
+      large_box: ex.large_box,
+      large_inner: ex.large_inner,
+      large_other: ex.large_other,
+      large_day2l: ex.large_day2l,
+      large_nb2l: ex.large_nb2l,
+      small_low: ex.small_low,
+      small_high: ex.small_high,
+      event: ex.event,
+      tobacco: ex.tobacco,
+      certificate: ex.certificate,
+      cdc: ex.cdc,
+      pbox: ex.pbox,
+    };
   });
 }
 
@@ -1968,6 +1985,9 @@ export function VehiclePageScreen({
   const driverFetchKeyRef = useRef("");
   const serverSyncEnabledRef = useRef(false);
   const lastServerSnapshotRef = useRef("");
+  // 'server': 서버/로컬에서 로드된 상태 → 재계산 시 숫자 수정값 보존
+  // 'upload': 새 파일 업로드 → 재계산 시 productRows 기준으로 새로 계산
+  const cargoSourceRef = useRef<'server' | 'upload'>('server');
   const batchPrintRequestedRef = useRef(false);
 
   const [busy, setBusy] = useState(false);
@@ -2496,10 +2516,12 @@ export function VehiclePageScreen({
 
   // separateQtyMap 또는 productRows가 바뀌면 cargoRows 재계산 (note/support_excluded 보존)
   // 단품별 전용 페이지(cargo 탭 없음)에서는 불필요한 재계산 생략
+  // cargoSourceRef가 'server'이면 사용자 수정 숫자값도 보존 (서버 로드 후 덮어쓰기 방지)
   useEffect(() => {
     if (productRows.length === 0) return;
     if (!allowedTabs.includes("cargo")) return;
-    setCargoRows((prev) => mergeCargoPreserve(prev, buildCargoDraftWithSep(productRows, separateQtyMap)));
+    const preserveNumeric = cargoSourceRef.current === 'server';
+    setCargoRows((prev) => mergeCargoPreserve(prev, buildCargoDraftWithSep(productRows, separateQtyMap), preserveNumeric));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [separateQtyMap, productRows]);
 
@@ -2618,6 +2640,7 @@ export function VehiclePageScreen({
         cargoRows: draft,
       });
 
+      cargoSourceRef.current = 'upload';
       setProductRows(mappedRows);
       setCargoRows(draft);
       setFileName(snapshot.fileName || file.name);
