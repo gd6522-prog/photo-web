@@ -37,6 +37,7 @@ export const MENU_REGISTRY: MenuItem[] = [
   { key: "admin_operation_unit",     label: "단품별",   href: "/admin/operation",               group: "nav", order: 241, parent: "admin_operation" },
   { key: "admin_operation_cdc",      label: "CDC",      href: "/admin/vehicles/cdc",            group: "nav", order: 242, parent: "admin_operation" },
   { key: "admin_operation_separate", label: "별도작업", href: "/admin/operation/separate",      group: "nav", order: 243, parent: "admin_operation" },
+  { key: "admin_operation_inbound",  label: "입고예정", href: "/admin/operation/inbound",       group: "nav", order: 244, parent: "admin_operation" },
 
   // ── 차량 하위
   { key: "admin_vehicle_cargo",    label: "물동량",   href: "/admin/vehicles",                  group: "nav", order: 251, parent: "admin_vehicle" },
