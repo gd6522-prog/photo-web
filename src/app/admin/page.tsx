@@ -2565,7 +2565,7 @@ export default function AdminHomePage() {
         }
       >
         <div className="homeGrid">
-          <div className="leftCol">
+          <div className="leftCol" style={{ flexDirection: "column", gap: 8 }}>
             <Card
               title={monthLabel}
               minHeight={CARD_MIN_H}
@@ -2732,6 +2732,29 @@ export default function AdminHomePage() {
                 </div>
               </div>
             </Card>
+            <div
+              style={{
+                border: "1px solid #bdd0de",
+                borderRadius: 0,
+                background: "#fff",
+                padding: 8,
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                boxShadow: "0 10px 24px rgba(2,32,46,0.08)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1px solid #d9e6ef", borderRadius: 0, padding: "6px 8px", color: "#113247", fontSize: 12, fontWeight: 900, background: "#fff" }}>
+                <span style={{ width: 9, height: 9, borderRadius: 4, background: pendingRedeliveryCount > 0 ? "#DC2626" : "#16A34A", boxShadow: pendingRedeliveryCount > 0 ? "0 0 0 3px rgba(220,38,38,0.15)" : "0 0 0 3px rgba(22,163,74,0.15)", flex: "0 0 auto" }} />
+                <span style={{ flex: 1, color: "#113247" }}>재배송 미처리 {pendingRedeliveryCount}건</span>
+                <Link href="/admin/photos/delivery" style={{ width: 20, height: 20, borderRadius: 4, border: "1px solid #c4d5e3", color: "#113247", textDecoration: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, lineHeight: 1, fontWeight: 900, background: "#fff" }} title="배송사진 페이지로 이동">&gt;</Link>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1px solid #d9e6ef", borderRadius: 0, padding: "6px 8px", color: "#113247", fontSize: 12, fontWeight: 900, background: "#fff" }}>
+                <span style={{ width: 9, height: 9, borderRadius: 4, background: hazardSummaryBadge.dot, boxShadow: hazardSummaryBadge.glow, flex: "0 0 auto" }} />
+                <span style={{ flex: 1, color: "#113247" }}>{hazardSummaryBadge.text}</span>
+                <Link href="/admin/hazards" style={{ width: 20, height: 20, borderRadius: 4, border: "1px solid #c4d5e3", color: "#113247", textDecoration: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, lineHeight: 1, fontWeight: 900, background: "#fff" }} title="위험요인 페이지로 이동">&gt;</Link>
+              </div>
+            </div>
           </div>
 
           <div className="midCol">
@@ -2750,121 +2773,6 @@ export default function AdminHomePage() {
           </div>
         </div>
 
-        <div className="leftBottomCards">
-          <div
-            style={{
-              border: "1px solid #bdd0de",
-              borderRadius: 0,
-              background: "#fff",
-              padding: 8,
-              display: "flex",
-              flexDirection: "column",
-              gap: 6,
-              boxShadow: "0 10px 24px rgba(2,32,46,0.08)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                border: "1px solid #d9e6ef",
-                  borderRadius: 0,
-                  padding: "6px 8px",
-                  color: "#113247",
-                  fontSize: 12,
-                  fontWeight: 900,
-                  background: "#fff",
-                }}
-              >
-              <span
-                style={{
-                    width: 9,
-                    height: 9,
-                  borderRadius: 4,
-                  background: pendingRedeliveryCount > 0 ? "#DC2626" : "#16A34A",
-                  boxShadow:
-                    pendingRedeliveryCount > 0 ? "0 0 0 3px rgba(220,38,38,0.15)" : "0 0 0 3px rgba(22,163,74,0.15)",
-                  flex: "0 0 auto",
-                }}
-              />
-              <span style={{ flex: 1, color: "#113247" }}>
-                재배송 미처리 {pendingRedeliveryCount}건
-              </span>
-              <Link
-                href="/admin/photos/delivery"
-                style={{
-                    width: 20,
-                    height: 20,
-                  borderRadius: 4,
-                  border: "1px solid #c4d5e3",
-                  color: "#113247",
-                  textDecoration: "none",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                    fontSize: 11,
-                  lineHeight: 1,
-                  fontWeight: 900,
-                  background: "#fff",
-                }}
-                title="배송사진 페이지로 이동"
-              >
-                &gt;
-              </Link>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                border: "1px solid #d9e6ef",
-                  borderRadius: 0,
-                  padding: "6px 8px",
-                  color: "#113247",
-                  fontSize: 12,
-                  fontWeight: 900,
-                  background: "#fff",
-                }}
-              >
-              <span
-                  style={{
-                    width: 9,
-                    height: 9,
-                  borderRadius: 4,
-                  background: hazardSummaryBadge.dot,
-                  boxShadow: hazardSummaryBadge.glow,
-                  flex: "0 0 auto",
-                }}
-              />
-              <span style={{ flex: 1, color: "#113247" }}>
-                {hazardSummaryBadge.text}
-              </span>
-              <Link
-                href="/admin/hazards"
-                style={{
-                    width: 20,
-                    height: 20,
-                  borderRadius: 4,
-                  border: "1px solid #c4d5e3",
-                  color: "#113247",
-                  textDecoration: "none",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                    fontSize: 11,
-                  lineHeight: 1,
-                  fontWeight: 900,
-                  background: "#fff",
-                }}
-                title="위험요인 페이지로 이동"
-              >
-                &gt;
-              </Link>
-            </div>
-          </div>
-        </div>
 
         <StoreSearchWidget />
 
@@ -2878,12 +2786,8 @@ export default function AdminHomePage() {
           }
           .leftCol {
             display: flex;
-            width: var(--leftColW);
-            min-width: var(--leftColW);
-            max-width: var(--leftColW);
-          }
-          .leftBottomCards {
-            margin-top: 8px;
+            flex-direction: column;
+            gap: 8px;
             width: var(--leftColW);
             min-width: var(--leftColW);
             max-width: var(--leftColW);
