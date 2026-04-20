@@ -814,29 +814,33 @@ async function scrapeDomData(page, fileConfig, log) {
       if (reloaded) log(`${label}: 전체 건수 재로드 요청`);
     }
 
-    // 전체 건수 로드 대기 (최대 120초)
+    // 전체 건수 로드 대기 (최대 120초) — DS_TOTALCOUNT 필드로 판단
     const dpsDeadline = Date.now() + 120_000;
     let lastCount = 0;
     while (Date.now() < dpsDeadline) {
       const dpsF2 = page.frames().find((f) => f.url().includes("DPS_INF_LIST"));
-      const { count, total, loading } = dpsF2
+      const { count, dsTotal, loading } = dpsF2
         ? await dpsF2.evaluate(() => {
-            if (typeof Ext === "undefined") return { count: 0, total: 0, loading: false };
+            if (typeof Ext === "undefined") return { count: 0, dsTotal: 0, loading: false };
             const g = Ext.ComponentQuery.query("gridpanel")[0];
             const s = g && (g.store || g.getStore?.());
-            if (!s) return { count: 0, total: 0, loading: false };
+            if (!s) return { count: 0, dsTotal: 0, loading: false };
+            const records = s.getRange ? s.getRange() : [];
+            const dsTotal = records.length > 0
+              ? (records[0].get?.("DS_TOTALCOUNT") ?? s.getTotalCount?.() ?? 0)
+              : 0;
             return {
               count: s.getCount(),
-              total: s.getTotalCount ? s.getTotalCount() : 0,
+              dsTotal,
               loading: s.isLoading ? s.isLoading() : false,
             };
-          }).catch(() => ({ count: 0, total: 0, loading: false }))
-        : { count: 0, total: 0, loading: false };
-      if (count > 0 && !loading && (total === 0 || count >= total)) {
-        log(`${label}: DPS 전체 ${count}건 로드 완료`);
+          }).catch(() => ({ count: 0, dsTotal: 0, loading: false }))
+        : { count: 0, dsTotal: 0, loading: false };
+      if (count > 0 && !loading && (dsTotal === 0 ? count === lastCount && count > 0 : count >= dsTotal)) {
+        log(`${label}: DPS 전체 ${count}건 로드 완료 (서버 전체 ${dsTotal}건)`);
         break;
       }
-      if (count !== lastCount) { log(`${label}: DPS 로딩 중 ${count}/${total}건...`); lastCount = count; }
+      if (count !== lastCount) { log(`${label}: DPS 로딩 중 ${count}/${dsTotal}건...`); lastCount = count; }
       await page.waitForTimeout(2_000);
     }
   }

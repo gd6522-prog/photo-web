@@ -97,11 +97,13 @@ async function runSync(jobId) {
     await addLog(`설정 미완료 파일 건너뜀: ${skipped.map((c) => c.label).join(", ")}`);
   }
 
-  if (targets.length === 0) {
+  if (targets.length === 0 && !shouldScrapeDps) {
     throw new Error("처리할 파일이 없습니다. config.js 에서 pageUrl 을 설정하세요.");
   }
 
-  await addLog(`처리 대상 ${targets.length}개 파일 (병렬 실행): ${targets.map((c) => c.label).join(", ")}`);
+  if (targets.length > 0) {
+    await addLog(`처리 대상 ${targets.length}개 파일 (병렬 실행): ${targets.map((c) => c.label).join(", ")}`);
+  }
 
   // 각 슬롯을 독립적인 브라우저 세션으로 병렬 실행
   const activeBrowsers = new Set();
