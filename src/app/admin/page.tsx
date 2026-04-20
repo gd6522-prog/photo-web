@@ -908,7 +908,7 @@ function DpsProgressCard() {
   const [data, setData] = useState<DpsStatusData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const fetchRef = React.useRef<() => Promise<void>>();
+  const fetchRef = React.useRef<(() => Promise<void>) | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
