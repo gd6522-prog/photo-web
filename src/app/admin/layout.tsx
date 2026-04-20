@@ -802,7 +802,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </div>
 
-        <div className="ha-admin-content" style={{ maxWidth: MAX_W, margin: "0 auto", padding: "18px 12px" }}>{children}</div>
+        <div className="ha-admin-content" style={{ maxWidth: "none", padding: "18px 24px" }}>{children}</div>
       </div>
     </AdminAccessProvider>
   );
