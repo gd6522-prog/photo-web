@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { toBlob as toImageBlob } from "html-to-image";
+import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { InboundRow } from "@/app/api/admin/inbound-status/route";
 
@@ -66,22 +65,135 @@ function dateLabel(yyyymmdd: string): string {
   return `${fmtDate(yyyymmdd)}(${DOW_KO[d.getDay()]})`;
 }
 
-// ─── 클립보드 이미지 복사 ───────────────────────────────────────────────────
-async function copyElementAsImage(element: HTMLElement) {
+// ─── Canvas 직접 드로잉 방식 클립보드 복사 ──────────────────────────────────
+type SummaryItem = { label: string; count: number; ord_price: number };
+
+async function copySummaryAsImage(
+  title: string,
+  dateLbl: string,
+  summaryRows: SummaryItem[],
+  total: { count: number; ord_price: number },
+) {
   const hasWrite = !!(navigator.clipboard as { write?: unknown })?.write;
   const hasItem = typeof (window as { ClipboardItem?: unknown }).ClipboardItem !== "undefined";
   if (!hasWrite || !hasItem) throw new Error("이 브라우저는 이미지 복사를 지원하지 않습니다.");
-  if (!document.hasFocus()) { window.focus(); await new Promise((r) => setTimeout(r, 80)); }
-  const blob = await toImageBlob(element, {
-    cacheBust: true,
-    pixelRatio: 2,
-    backgroundColor: "#ffffff",
-    skipFonts: true,
-    filter: (n) => !(n instanceof HTMLElement && n.dataset.copyHide === "true"),
+
+  const DPR   = 2;
+  const PAD   = 14;
+  const ROW_H = 26;
+  const HEAD_H = 36;
+  const TITLE_H = 38;
+  const FOOT_H = 28;
+
+  // 컬럼 폭 계산
+  const COL_LABEL = 110;
+  const COL_COUNT = 52;
+  const COL_PRICE = 110;
+  const W = PAD + COL_LABEL + COL_COUNT + COL_PRICE + PAD;
+  const H = TITLE_H + HEAD_H + ROW_H * summaryRows.length + FOOT_H + PAD;
+
+  const canvas = document.createElement("canvas");
+  canvas.width  = W * DPR;
+  canvas.height = H * DPR;
+  const ctx = canvas.getContext("2d")!;
+  ctx.scale(DPR, DPR);
+
+  // 배경
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, W, H);
+
+  // ── 타이틀 행 ──────────────────────────────────────────────────────────────
+  ctx.fillStyle = "#f4f8fc";
+  ctx.fillRect(0, 0, W, TITLE_H);
+  ctx.strokeStyle = "#d9e6ef";
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, TITLE_H); ctx.lineTo(W, TITLE_H); ctx.stroke();
+
+  ctx.fillStyle = "#103b53";
+  ctx.font = `bold 13px -apple-system, "Malgun Gothic", sans-serif`;
+  ctx.textBaseline = "middle";
+  ctx.fillText(title, PAD, TITLE_H / 2);
+
+  ctx.fillStyle = "#557186";
+  ctx.font = `11px -apple-system, "Malgun Gothic", sans-serif`;
+  const dateW = ctx.measureText(dateLbl).width;
+  ctx.fillText(dateLbl, W - PAD - dateW, TITLE_H / 2);
+
+  // ── 헤더 행 ────────────────────────────────────────────────────────────────
+  const headerY = TITLE_H;
+  ctx.fillStyle = "#eef5fb";
+  ctx.fillRect(0, headerY, W, HEAD_H);
+  ctx.strokeStyle = "#d9e6ef";
+  ctx.beginPath(); ctx.moveTo(0, headerY + HEAD_H); ctx.lineTo(W, headerY + HEAD_H); ctx.stroke();
+
+  ctx.fillStyle = "#103b53";
+  ctx.font = `bold 12px -apple-system, "Malgun Gothic", sans-serif`;
+  ctx.textBaseline = "middle";
+  const hMid = headerY + HEAD_H / 2;
+  ctx.fillText("작업구분", PAD, hMid);
+  drawRight(ctx, "건수",    PAD + COL_LABEL + COL_COUNT,        hMid, 12, "#103b53", true);
+  drawRight(ctx, "발주금액", PAD + COL_LABEL + COL_COUNT + COL_PRICE, hMid, 12, "#103b53", true);
+
+  // ── 데이터 행 ──────────────────────────────────────────────────────────────
+  summaryRows.forEach((r, i) => {
+    const y = TITLE_H + HEAD_H + i * ROW_H;
+    ctx.fillStyle = i % 2 === 0 ? "#ffffff" : "#f8fbfd";
+    ctx.fillRect(0, y, W, ROW_H);
+    ctx.strokeStyle = "#eef3f7";
+    ctx.beginPath(); ctx.moveTo(0, y + ROW_H); ctx.lineTo(W, y + ROW_H); ctx.stroke();
+
+    const mid = y + ROW_H / 2;
+    ctx.fillStyle = "#0f2940";
+    ctx.font = `bold 12px -apple-system, "Malgun Gothic", sans-serif`;
+    ctx.textBaseline = "middle";
+    ctx.fillText(r.label, PAD, mid);
+    drawRight(ctx, fmt(r.count),                    PAD + COL_LABEL + COL_COUNT,        mid, 12, "#374151");
+    drawRight(ctx, fmt(Math.round(r.ord_price)),    PAD + COL_LABEL + COL_COUNT + COL_PRICE, mid, 12, "#1D4ED8", true);
   });
+
+  // ── 합계 행 ────────────────────────────────────────────────────────────────
+  const footY = TITLE_H + HEAD_H + ROW_H * summaryRows.length;
+  ctx.fillStyle = "#f4f8fc";
+  ctx.fillRect(0, footY, W, FOOT_H);
+  ctx.strokeStyle = "#d9e6ef";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(0, footY); ctx.lineTo(W, footY); ctx.stroke();
+  ctx.lineWidth = 1;
+
+  const fMid = footY + FOOT_H / 2;
+  ctx.fillStyle = "#103b53";
+  ctx.font = `bold 13px -apple-system, "Malgun Gothic", sans-serif`;
+  ctx.textBaseline = "middle";
+  ctx.fillText("합계", PAD, fMid);
+  drawRight(ctx, fmt(total.count),                  PAD + COL_LABEL + COL_COUNT,        fMid, 13, "#113247", true);
+  drawRight(ctx, fmt(Math.round(total.ord_price)),  PAD + COL_LABEL + COL_COUNT + COL_PRICE, fMid, 13, "#0f2940", true);
+
+  // 외곽선
+  ctx.strokeStyle = "#d9e6ef";
+  ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
+
+  const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/png"));
   if (!blob) throw new Error("이미지를 만들지 못했습니다.");
+
+  if (!document.hasFocus()) { window.focus(); await new Promise((r) => setTimeout(r, 50)); }
   const item = new (window as { ClipboardItem: new (a: Record<string, Blob>) => unknown }).ClipboardItem({ "image/png": blob });
   await (navigator.clipboard as unknown as { write: (a: unknown[]) => Promise<void> }).write([item]);
+}
+
+function drawRight(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  rightX: number,
+  midY: number,
+  size: number,
+  color: string,
+  bold = false,
+) {
+  ctx.fillStyle = color;
+  ctx.font = `${bold ? "bold " : ""}${size}px -apple-system, "Malgun Gothic", sans-serif`;
+  ctx.textBaseline = "middle";
+  const w = ctx.measureText(text).width;
+  ctx.fillText(text, rightX - w, midY);
 }
 
 // ─── 정렬 ────────────────────────────────────────────────────────────────────
@@ -123,10 +235,8 @@ export default function InboundPage() {
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState("");
 
-  // 요약 카드 복사
-  const cardRef    = useRef<HTMLDivElement | null>(null);
-  const [copying, setCopying]       = useState(false);
-  const [copyMsg, setCopyMsg]       = useState("");
+  const [copying, setCopying] = useState(false);
+  const [copyMsg, setCopyMsg] = useState("");
 
   // 테이블 필터/정렬/페이지
   const [search, setSearch]         = useState("");
@@ -212,11 +322,15 @@ export default function InboundPage() {
 
   // ── 복사 ─────────────────────────────────────────────────────────────────
   const handleCopy = async () => {
-    if (!cardRef.current) return;
     setCopying(true);
     setCopyMsg("");
     try {
-      await copyElementAsImage(cardRef.current);
+      await copySummaryAsImage(
+        "입고예정 파트별 발주 현황",
+        dateLabel(targetDate),
+        summaryRows,
+        summaryTotal,
+      );
       setCopyMsg("복사 완료");
     } catch (e: unknown) {
       setCopyMsg((e as Error)?.message ?? "복사 실패");
@@ -373,49 +487,31 @@ export default function InboundPage() {
                     {dateLabel(targetDate)} 조건에 맞는 데이터가 없습니다.
                   </div>
                 ) : (
-                  /* ── 복사용 콤팩트 캡처 영역 ── */
-                  <div ref={cardRef} style={{ display: "inline-block", background: "#fff" }}>
-                    {/* 캡처 타이틀 */}
-                    <div style={{
-                      padding: "7px 10px 5px",
-                      borderBottom: "1px solid #d9e6ef",
-                      background: "#f4f8fc",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 12,
-                    }}>
-                      <div style={{ fontSize: 12, fontWeight: 950, color: "#103b53" }}>입고예정 파트별 발주 현황</div>
-                      <div style={{ fontSize: 10, color: "#557186", whiteSpace: "nowrap" }}>{dateLabel(targetDate)}</div>
-                    </div>
-
-                    {/* 콤팩트 테이블 */}
-                    <table style={{ borderCollapse: "collapse", fontSize: 12, minWidth: 240 }}>
-                      <thead>
-                        <tr style={{ background: "#eef5fb" }}>
-                          <th style={{ textAlign: "left",  padding: "5px 10px", fontWeight: 900, color: "#103b53", whiteSpace: "nowrap", borderBottom: "1px solid #d9e6ef" }}>작업구분</th>
-                          <th style={{ textAlign: "right", padding: "5px 10px", fontWeight: 900, color: "#103b53", whiteSpace: "nowrap", borderBottom: "1px solid #d9e6ef" }}>건수</th>
-                          <th style={{ textAlign: "right", padding: "5px 10px", fontWeight: 900, color: "#103b53", whiteSpace: "nowrap", borderBottom: "1px solid #d9e6ef" }}>발주금액</th>
+                  <table style={{ borderCollapse: "collapse", fontSize: 12, minWidth: 240 }}>
+                    <thead>
+                      <tr style={{ background: "#eef5fb" }}>
+                        <th style={{ textAlign: "left",  padding: "5px 10px", fontWeight: 900, color: "#103b53", whiteSpace: "nowrap", borderBottom: "1px solid #d9e6ef" }}>작업구분</th>
+                        <th style={{ textAlign: "right", padding: "5px 10px", fontWeight: 900, color: "#103b53", whiteSpace: "nowrap", borderBottom: "1px solid #d9e6ef" }}>건수</th>
+                        <th style={{ textAlign: "right", padding: "5px 10px", fontWeight: 900, color: "#103b53", whiteSpace: "nowrap", borderBottom: "1px solid #d9e6ef" }}>발주금액</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {summaryRows.map((r, i) => (
+                        <tr key={r.label} style={{ background: i % 2 === 0 ? "#fff" : "#f8fbfd", borderTop: "1px solid #eef3f7" }}>
+                          <td style={{ padding: "5px 10px", fontWeight: 700, color: "#0f2940", whiteSpace: "nowrap" }}>{r.label}</td>
+                          <td style={{ padding: "5px 10px", textAlign: "right", color: "#374151", fontVariantNumeric: "tabular-nums" }}>{fmt(r.count)}</td>
+                          <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700, color: "#1D4ED8", fontVariantNumeric: "tabular-nums" }}>{fmt(Math.round(r.ord_price))}</td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {summaryRows.map((r, i) => (
-                          <tr key={r.label} style={{ background: i % 2 === 0 ? "#fff" : "#f8fbfd", borderTop: "1px solid #eef3f7" }}>
-                            <td style={{ padding: "5px 10px", fontWeight: 700, color: "#0f2940", whiteSpace: "nowrap" }}>{r.label}</td>
-                            <td style={{ padding: "5px 10px", textAlign: "right", color: "#374151", fontVariantNumeric: "tabular-nums" }}>{fmt(r.count)}</td>
-                            <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700, color: "#1D4ED8", fontVariantNumeric: "tabular-nums" }}>{fmt(Math.round(r.ord_price))}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        <tr style={{ borderTop: "2px solid #d9e6ef", background: "#f4f8fc" }}>
-                          <td style={{ padding: "5px 10px", fontWeight: 950, color: "#103b53" }}>합계</td>
-                          <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums" }}>{fmt(summaryTotal.count)}</td>
-                          <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 950, color: "#0f2940", fontVariantNumeric: "tabular-nums" }}>{fmt(Math.round(summaryTotal.ord_price))}</td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr style={{ borderTop: "2px solid #d9e6ef", background: "#f4f8fc" }}>
+                        <td style={{ padding: "5px 10px", fontWeight: 950, color: "#103b53" }}>합계</td>
+                        <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums" }}>{fmt(summaryTotal.count)}</td>
+                        <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 950, color: "#0f2940", fontVariantNumeric: "tabular-nums" }}>{fmt(Math.round(summaryTotal.ord_price))}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
                 )}
               </div>
             </div>
