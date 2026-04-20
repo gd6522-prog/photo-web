@@ -4141,6 +4141,7 @@ export function VehiclePageScreen({
                       fontWeight: 700,
                       color: "#64748B",
                       minWidth: column.width ?? 80,
+                      whiteSpace: "nowrap",
                       ...getCargoGroupStyle(String(column.key)),
                       ...getCargoHeaderStyle(String(column.key)),
                       textAlign: "center",
@@ -4251,6 +4252,8 @@ export function VehiclePageScreen({
                             borderBottom: "1px solid #F1F5F9",
                             fontSize: 13,
                             color: "#374151",
+                            maxWidth: column.key === "store_name" ? column.width : undefined,
+                            overflow: column.key === "store_name" ? "hidden" : undefined,
                             ...getCargoGroupStyle(String(column.key)),
                             ...(row.support_excluded ? { background: "#F1F5F9" } : {}),
                             ...getStickyCargoStyle(
@@ -4281,7 +4284,7 @@ export function VehiclePageScreen({
                               style={{ width: "100%", minWidth: 60, height: 32, borderRadius: 6, border: "1px solid #D1D9E0", padding: "0 8px", outline: "none", fontSize: 13, textAlign: numericCargoKeys.has(String(column.key)) ? "right" : "left", fontVariantNumeric: "tabular-nums" }}
                             />
                           ) : (
-                            <div style={{ padding: "0 4px", fontWeight: column.key === "largeTotal" || column.key === "smallTotal" ? 900 : 500, textAlign: numericCargoKeys.has(String(column.key)) ? "right" : centerCargoKeys.has(String(column.key)) ? "center" : "left", fontVariantNumeric: "tabular-nums" }}>
+                            <div style={{ padding: "0 4px", fontWeight: column.key === "largeTotal" || column.key === "smallTotal" ? 900 : 500, textAlign: numericCargoKeys.has(String(column.key)) ? "right" : centerCargoKeys.has(String(column.key)) ? "center" : "left", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                               {typeof value === "number" ? formatNumber(value) : String(value ?? "")}
                             </div>
                           )}
