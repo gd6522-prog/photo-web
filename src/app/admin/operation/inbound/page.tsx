@@ -385,7 +385,7 @@ export default function InboundPage() {
                           <tr key={r.label} style={{ background: i % 2 === 0 ? "#fff" : "#f8fbfd", borderTop: "1px solid #eef3f7" }}>
                             <td style={{ padding: "5px 10px", fontWeight: 700, color: "#0f2940", whiteSpace: "nowrap" }}>{r.label}</td>
                             <td style={{ padding: "5px 10px", textAlign: "right", color: "#374151", fontVariantNumeric: "tabular-nums" }}>{fmt(r.count)}</td>
-                            <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700, color: "#1D4ED8", fontVariantNumeric: "tabular-nums" }}>{fmt(r.ord_price)}</td>
+                            <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700, color: "#1D4ED8", fontVariantNumeric: "tabular-nums" }}>{fmt(Math.round(r.ord_price))}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -393,7 +393,7 @@ export default function InboundPage() {
                         <tr style={{ borderTop: "2px solid #d9e6ef", background: "#f4f8fc" }}>
                           <td style={{ padding: "5px 10px", fontWeight: 950, color: "#103b53" }}>합계</td>
                           <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums" }}>{fmt(summaryTotal.count)}</td>
-                          <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 950, color: "#0f2940", fontVariantNumeric: "tabular-nums" }}>{fmt(summaryTotal.ord_price)}</td>
+                          <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 950, color: "#0f2940", fontVariantNumeric: "tabular-nums" }}>{fmt(Math.round(summaryTotal.ord_price))}</td>
                         </tr>
                       </tfoot>
                     </table>
