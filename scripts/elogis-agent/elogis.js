@@ -864,10 +864,10 @@ async function scrapeDomData(page, fileConfig, log) {
           const car = String(d.CHG_CARDOC_CD ?? "");
           if (!zones[code]) zones[code] = { done: 0, total: 0, minPendingCar: null };
           zones[code].total++;
-          if (pgs === "03") {
+          const isDone = pgs === "03" || pgs === code;
+          if (isDone) {
             zones[code].done++;
           } else if (car) {
-            // 미완료 중 가장 빠른 호차번호
             const prev = zones[code].minPendingCar;
             if (prev === null || Number(car) < Number(prev)) zones[code].minPendingCar = car;
           }
