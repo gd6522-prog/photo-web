@@ -747,6 +747,34 @@ async function scrapeDomData(page, fileConfig, log) {
     await page.waitForTimeout(1_000);
   }
 
+  // DPS 전용: /grid01Model 요청 인터셉트 (페이지네이션 재사용)
+  let capturedDpsRequest = null;
+  const isDpsConfig = (fileConfig.menuPath && fileConfig.menuPath.includes("DPS 작업현황"));
+  log(`[DPS_ROUTE] isDpsConfig=${isDpsConfig} menuPath=${JSON.stringify(fileConfig.menuPath)}`);
+  if (isDpsConfig) {
+    // DEBUG: 모든 요청 URL 로그 (context 레벨)
+    page.context().on("request", (req) => {
+      const url = req.url();
+      if (url.includes("grid") || url.includes("Model") || url.includes("DPS") || url.includes("elogis")) {
+        log(`[REQ] ${req.method()} ${url.substring(0, 120)}`);
+      }
+    });
+    await page.context().route("**", async (route) => {
+      const req = route.request();
+      const url = req.url();
+      if (!capturedDpsRequest && url.includes("dpsInfListService")) {
+        capturedDpsRequest = {
+          url: req.url(),
+          method: req.method(),
+          headers: req.headers(),
+          postData: req.postData(),
+        };
+        log(`[CAPTURED] ${req.method()} ${url.substring(0, 120)} postData=${String(capturedDpsRequest.postData).substring(0, 200)}`);
+      }
+      await route.continue();
+    }).catch((e) => log(`[ROUTE_ERR] ${e?.message}`));
+  }
+
   // 조회 버튼 클릭 (먼저 실행 — 프레임이 아직 없을 수 있으므로 pageSize는 조회 후 설정)
   await clickSearchButton(page, log, label);
 
@@ -791,82 +819,52 @@ async function scrapeDomData(page, fileConfig, log) {
       await page.waitForTimeout(1_000);
     }
 
-    // pageSize 재설정 후 전체 재로드
+    // 1차 로드 완료 대기 (기본 10,000건)
     const dpsF = page.frames().find((f) => f.url().includes("DPS_INF_LIST"));
     if (dpsF) {
-      const reloaded = await dpsF.evaluate(() => {
-        if (typeof Ext === "undefined") return false;
-        const g = Ext.ComponentQuery.query("gridpanel")[0];
-        const s = g && (g.store || g.getStore?.());
-        if (!s) return false;
-        const total = s.getTotalCount ? s.getTotalCount() : 0;
-        const loaded = s.getCount();
-        if (total > 0 && loaded >= total) return false; // 이미 전체 로드됨
-        // pageSize 무제한 설정 후 첫 페이지 전체 재요청
-        s.pageSize = 999999;
-        if (s.proxy) {
-          if (s.proxy.extraParams) s.proxy.extraParams.limit = 999999;
-          if (s.proxy.reader) {} // noop
-        }
-        s.load({ params: { start: 0, limit: 999999 } });
-        return true;
-      }).catch(() => false);
-      if (reloaded) log(`${label}: 전체 건수 재로드 요청`);
-    }
-
-    // 전체 건수 로드 대기 (최대 120초) — DS_TOTALCOUNT 필드로 판단
-    const dpsDeadline = Date.now() + 120_000;
-    let lastCount = 0;
-    while (Date.now() < dpsDeadline) {
-      const dpsF2 = page.frames().find((f) => f.url().includes("DPS_INF_LIST"));
-      const { count, dsTotal, loading } = dpsF2
-        ? await dpsF2.evaluate(() => {
-            if (typeof Ext === "undefined") return { count: 0, dsTotal: 0, loading: false };
-            const g = Ext.ComponentQuery.query("gridpanel")[0];
-            const s = g && (g.store || g.getStore?.());
-            if (!s) return { count: 0, dsTotal: 0, loading: false };
-            const records = s.getRange ? s.getRange() : [];
-            const dsTotal = records.length > 0
-              ? (records[0].get?.("DS_TOTALCOUNT") ?? s.getTotalCount?.() ?? 0)
-              : 0;
-            return {
-              count: s.getCount(),
-              dsTotal,
-              loading: s.isLoading ? s.isLoading() : false,
-            };
-          }).catch(() => ({ count: 0, dsTotal: 0, loading: false }))
-        : { count: 0, dsTotal: 0, loading: false };
-      if (count > 0 && !loading) {
-        log(`${label}: DPS ${count}건 로드 완료 (서버 전체 ${dsTotal}건)`);
-        break;
+      const dpsDeadline = Date.now() + 30_000;
+      while (Date.now() < dpsDeadline) {
+        const { count, loading } = await dpsF.evaluate(() => {
+          if (typeof Ext === "undefined") return { count: 0, loading: true };
+          const g = Ext.ComponentQuery.query("gridpanel")[0];
+          const s = g && (g.store || g.getStore?.());
+          if (!s) return { count: 0, loading: true };
+          return { count: s.getCount(), loading: s.isLoading ? s.isLoading() : false };
+        }).catch(() => ({ count: 0, loading: true }));
+        if (count > 0 && !loading) { log(`${label}: 전체 건수 재로드 요청`); break; }
+        await page.waitForTimeout(1_000);
       }
-      if (count !== lastCount) { log(`${label}: DPS 로딩 중 ${count}/${dsTotal}건...`); lastCount = count; }
-      await page.waitForTimeout(2_000);
     }
   }
 
   const dpsFrame = page.frames().find((f) => f.url().includes("DPS_INF_LIST"));
   if (dpsFrame) {
-    const summary = await dpsFrame.evaluate(() => {
+    // 스토어에서 API URL + 파라미터 추출 후 페이지네이션으로 전체 집계
+    const storeInfo = await dpsFrame.evaluate(() => {
       try {
         if (typeof Ext === "undefined") return null;
-        const grid = Ext.ComponentQuery.query("gridpanel")[0];
-        const store = grid && (grid.store || grid.getStore?.());
-        if (!store) return null;
-        const records = store.getRange();
+        const g = Ext.ComponentQuery.query("gridpanel")[0];
+        const s = g && (g.store || g.getStore?.());
+        if (!s || !s.proxy) return null;
+        const records = s.getRange ? s.getRange() : [];
         if (records.length === 0) return null;
-        const dsTotal = records[0].get?.("DS_TOTALCOUNT") ?? 0;
+        const dsTotal = records[0].get?.("DS_TOTALCOUNT") ?? s.getTotalCount?.() ?? 0;
+
+        // 존별 완료 코드 (기본 "03", 경량존A(15)는 "01"도 완료)
+        const ZONE_DONE_CODES = { "15": ["01", "03"] };
+
+        // 첫 번째 배치 zones 집계
         const zones = {};
         for (const r of records) {
           const d = r.getData ? r.getData() : r.data;
           const code = String(d.LC_TP_CD ?? "?");
           const pgs = String(d.PGS_STAT_CD ?? "");
           const car = String(d.CHG_CARDOC_CD ?? "");
-          if (!zones[code]) zones[code] = { done: 0, total: 0, minPendingCar: null };
+          if (!zones[code]) zones[code] = { done: 0, total: 0, minPendingCar: null, pgsSet: [] };
           zones[code].total++;
-          // DEBUG: 경량존A(15) 샘플 출력
-          if (code === "15" && zones[code].total < 5) log(`[DEBUG 경량존A] PGS_STAT_CD=${pgs} CHG_CARDOC_CD=${car}`);
-          const isDone = pgs === "03";
+          if (zones[code].pgsSet.length < 3 && !zones[code].pgsSet.includes(pgs)) zones[code].pgsSet.push(pgs);
+          const doneCodes = ZONE_DONE_CODES[code] ?? ["03"];
+          const isDone = doneCodes.includes(pgs);
           if (isDone) {
             zones[code].done++;
           } else if (car) {
@@ -874,16 +872,83 @@ async function scrapeDomData(page, fileConfig, log) {
             if (prev === null || Number(car) < Number(prev)) zones[code].minPendingCar = car;
           }
         }
-        const result = {};
-        for (const [k, v] of Object.entries(zones)) {
-          result[k] = { done: v.done, total: v.total, minPendingCar: v.minPendingCar };
-        }
-        return { dsTotal, loadedCount: records.length, zones: result };
+
+        // API URL 추출
+        const proxy = s.proxy;
+        const proxyUrl = proxy.url || proxy.api?.read || "";
+        const extraParams = proxy.extraParams ? Object.assign({}, proxy.extraParams) : {};
+
+        return { dsTotal, loadedCount: records.length, zones, proxyUrl, extraParams };
       } catch (_) { return null; }
     }).catch(() => null);
 
-    if (summary && Object.keys(summary.zones).length > 0) {
-      log(`${label}: ${summary.loadedCount}건 집계 완료 (전체 ${summary.dsTotal}건)`);
+    if (!storeInfo || Object.keys(storeInfo.zones).length === 0) {
+      log(`${label}: 스토어 정보 추출 실패`);
+    } else {
+      const { dsTotal, loadedCount, zones, proxyUrl, extraParams } = storeInfo;
+      log(`${label}: 1차 ${loadedCount}건 집계 완료 (전체 ${dsTotal}건) capturedReq=${capturedDpsRequest ? capturedDpsRequest.method + " " + capturedDpsRequest.url.substring(0, 80) : "null"}`);
+
+      // 나머지 페이지 fetch로 집계 (캡처된 요청 재사용)
+      const ZONE_DONE_CODES = { "15": ["01", "03"] }; // 경량존A(15)는 "01"도 완료
+      if (dsTotal > loadedCount && capturedDpsRequest) {
+        const BATCH = 10000;
+        for (let start = loadedCount; start < dsTotal; start += BATCH) {
+          const batchLimit = Math.min(BATCH, dsTotal - start);
+          log(`${label}: 추가 로드 ${start}~${start + batchLimit}건...`);
+          // start/limit은 URL 쿼리파라미터로 추가 (postData는 그대로 사용)
+          const postData = capturedDpsRequest.postData || "";
+          let baseUrl = capturedDpsRequest.url.replace(/[&?]start=\d+/, "").replace(/[&?]limit=\d+/, "");
+          const fetchUrl = baseUrl + (baseUrl.includes("?") ? "&" : "?") + `start=${start}&limit=${batchLimit}`;
+          let fetchResult;
+          try {
+            const res = await page.request.fetch(fetchUrl, {
+              method: capturedDpsRequest.method,
+              headers: capturedDpsRequest.headers,
+              data: capturedDpsRequest.method === "POST" ? postData : undefined,
+            });
+            const text = await res.text();
+            let json;
+            try { json = JSON.parse(text); } catch { fetchResult = { err: "parse fail", preview: text.substring(0, 200) }; json = null; }
+            if (json) {
+              const rows = json.DS_OUT ?? json.rows ?? json.data ?? json.items ?? json.result ?? null;
+              fetchResult = { status: res.status(), keys: Object.keys(json), rowCount: rows ? rows.length : -1, rows: rows ?? [] };
+            }
+          } catch (e) { fetchResult = { err: String(e) }; }
+          log(`${label}: fetch 결과 status=${fetchResult.status} rows=${fetchResult.rowCount} keys=${JSON.stringify(fetchResult.keys)} err=${fetchResult.err || ""}`);
+          const rows = (fetchResult.rows ?? []).slice(0, batchLimit);
+
+          for (const d of rows) {
+            const code = String(d.LC_TP_CD ?? "?");
+            const pgs = String(d.PGS_STAT_CD ?? "");
+            const car = String(d.CHG_CARDOC_CD ?? "");
+            if (!zones[code]) zones[code] = { done: 0, total: 0, minPendingCar: null, pgsSet: [] };
+            zones[code].total++;
+            if (zones[code].pgsSet.length < 3 && !zones[code].pgsSet.includes(pgs)) zones[code].pgsSet.push(pgs);
+            const doneCodes = ZONE_DONE_CODES[code] ?? ["03"];
+            const isDone = doneCodes.includes(pgs);
+            if (isDone) {
+              zones[code].done++;
+            } else if (car) {
+              const prev = zones[code].minPendingCar;
+              if (prev === null || Number(car) < Number(prev)) zones[code].minPendingCar = car;
+            }
+          }
+        }
+      }
+
+      // pgsSet → DEBUG 로그 (완료 코드 확인용)
+      for (const [code, z] of Object.entries(zones)) {
+        log(`[DEBUG] zone ${code} done=${z.done}/${z.total} pgsSet=${JSON.stringify(z.pgsSet)}`);
+      }
+
+      const result = {};
+      let totalLoaded = 0;
+      for (const [k, v] of Object.entries(zones)) {
+        result[k] = { done: v.done, total: v.total, minPendingCar: v.minPendingCar };
+        totalLoaded += v.total;
+      }
+      const summary = { dsTotal, loadedCount: totalLoaded, zones: result };
+      log(`${label}: ${totalLoaded}건 집계 완료 (전체 ${dsTotal}건)`);
       return summary;
     }
   }
