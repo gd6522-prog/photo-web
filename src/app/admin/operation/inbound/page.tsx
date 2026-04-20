@@ -302,8 +302,9 @@ export default function InboundPage() {
       groups.set(key, g);
     }
 
-    const ORDER = ["박스수기", "박스존1", "이너존", "슬라존", "경량존", "이형존", "담배존", "담배수기", "유가증권", "미분류"];
+    const ORDER = ["박스수기", "박스존1", "이너존A", "슬라존A", "경량존A", "이형존A", "담배존", "담배수기", "미분류", "유가증권"];
     return [...groups.entries()]
+      .filter(([label]) => label !== "공병존")
       .map(([label, v]) => ({ label, ...v }))
       .sort((a, b) => {
         const ai = ORDER.indexOf(a.label);
