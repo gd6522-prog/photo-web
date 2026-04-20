@@ -203,8 +203,19 @@ export async function POST(req: NextRequest) {
       const persistSettings = await getPersistSettings();
       const shouldPersist = persistSettings[slotKey] ?? false;
       const oldKeys = await listR2Keys(slotPrefix(slotKey));
-      if (!shouldPersist && oldKeys.length > 0) {
-        await deleteR2Objects(oldKeys);
+      if (!shouldPersist) {
+        if (oldKeys.length > 0) await deleteR2Objects(oldKeys);
+      } else {
+        // persist ON: 같은 날짜 파일만 삭제 (당일 중복 제거)
+        const newDateMatch = fileName.match(/_(\d{8})_/);
+        if (newDateMatch) {
+          const newDate = newDateMatch[1];
+          const sameDayKeys = oldKeys.filter((k) => {
+            const m = k.match(/_(\d{8})_/);
+            return m && m[1] === newDate;
+          });
+          if (sameDayKeys.length > 0) await deleteR2Objects(sameDayKeys);
+        }
       }
 
       // 파일 교체 시 관련 R2 JSON 캐시 무효화
