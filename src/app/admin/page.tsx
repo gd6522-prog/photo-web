@@ -1018,18 +1018,16 @@ function DpsProgressCard() {
             const pct = z.total > 0 ? Math.min(100, Math.round((z.done / z.total) * 100)) : 0;
             const barColor = pct >= 80 ? "#16A34A" : pct >= 50 ? "#2563EB" : "#F59E0B";
             return (
-              <div key={code} style={{ padding: "5px 8px", background: "#F8FAFC", borderRadius: 6, border: "1px solid #E2EBF3" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                  <span style={{ fontSize: 13, fontWeight: 900, color: "#113247" }}>{name}</span>
-                  <span style={{ fontSize: 11, color: "#64748B", fontWeight: 700 }}>
+              <div key={code} style={{ padding: "4px 8px", background: "#F8FAFC", borderRadius: 6, border: "1px solid #E2EBF3" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 12, fontWeight: 900, color: "#113247", whiteSpace: "nowrap", minWidth: 52 }}>{name}</span>
+                  <div style={{ flex: 1, height: 7, background: "#E2EBF3", borderRadius: 99, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 99 }} />
+                  </div>
+                  <span style={{ fontSize: 11, color: "#64748B", fontWeight: 700, whiteSpace: "nowrap" }}>
                     {z.minPendingCar ? `${z.minPendingCar}호차` : "완료"}
                   </span>
-                </div>
-                <div style={{ height: 7, background: "#E2EBF3", borderRadius: 99, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 99 }} />
-                </div>
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 3, fontSize: 11 }}>
-                  <span style={{ fontWeight: 700, color: barColor }}>{pct}%</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: barColor, whiteSpace: "nowrap", minWidth: 28, textAlign: "right" }}>{pct}%</span>
                 </div>
               </div>
             );
