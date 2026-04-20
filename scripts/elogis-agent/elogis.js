@@ -750,29 +750,19 @@ async function scrapeDomData(page, fileConfig, log) {
   // DPS 전용: /grid01Model 요청 인터셉트 (페이지네이션 재사용)
   let capturedDpsRequest = null;
   const isDpsConfig = (fileConfig.menuPath && fileConfig.menuPath.includes("DPS 작업현황"));
-  log(`[DPS_ROUTE] isDpsConfig=${isDpsConfig} menuPath=${JSON.stringify(fileConfig.menuPath)}`);
   if (isDpsConfig) {
-    // DEBUG: 모든 요청 URL 로그 (context 레벨)
-    page.context().on("request", (req) => {
-      const url = req.url();
-      if (url.includes("grid") || url.includes("Model") || url.includes("DPS") || url.includes("elogis")) {
-        log(`[REQ] ${req.method()} ${url.substring(0, 120)}`);
-      }
-    });
     await page.context().route("**", async (route) => {
       const req = route.request();
-      const url = req.url();
-      if (!capturedDpsRequest && url.includes("dpsInfListService")) {
+      if (!capturedDpsRequest && req.url().includes("dpsInfListService")) {
         capturedDpsRequest = {
           url: req.url(),
           method: req.method(),
           headers: req.headers(),
           postData: req.postData(),
         };
-        log(`[CAPTURED] ${req.method()} ${url.substring(0, 120)} postData=${String(capturedDpsRequest.postData).substring(0, 200)}`);
       }
       await route.continue();
-    }).catch((e) => log(`[ROUTE_ERR] ${e?.message}`));
+    }).catch(() => {});
   }
 
   // 조회 버튼 클릭 (먼저 실행 — 프레임이 아직 없을 수 있으므로 pageSize는 조회 후 설정)
@@ -860,11 +850,9 @@ async function scrapeDomData(page, fileConfig, log) {
           const code = String(d.LC_TP_CD ?? "?");
           const pgs = String(d.PGS_STAT_CD ?? "");
           const car = String(d.CHG_CARDOC_CD ?? "");
-          if (!zones[code]) zones[code] = { done: 0, total: 0, minPendingCar: null, pgsSet: [] };
+          if (!zones[code]) zones[code] = { done: 0, total: 0, minPendingCar: null };
           zones[code].total++;
-          if (zones[code].pgsSet.length < 3 && !zones[code].pgsSet.includes(pgs)) zones[code].pgsSet.push(pgs);
-          const doneCodes = ZONE_DONE_CODES[code] ?? ["03"];
-          const isDone = doneCodes.includes(pgs);
+          const isDone = (ZONE_DONE_CODES[code] ?? ["03"]).includes(pgs);
           if (isDone) {
             zones[code].done++;
           } else if (car) {
@@ -934,11 +922,6 @@ async function scrapeDomData(page, fileConfig, log) {
             }
           }
         }
-      }
-
-      // pgsSet → DEBUG 로그 (완료 코드 확인용)
-      for (const [code, z] of Object.entries(zones)) {
-        log(`[DEBUG] zone ${code} done=${z.done}/${z.total} pgsSet=${JSON.stringify(z.pgsSet)}`);
       }
 
       const result = {};
