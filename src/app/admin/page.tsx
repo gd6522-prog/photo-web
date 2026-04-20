@@ -909,7 +909,7 @@ function DpsProgressCard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    (async () => {
+    const fetchData = async () => {
       try {
         const { data: sess } = await supabase.auth.getSession();
         const token = sess?.session?.access_token;
@@ -922,7 +922,10 @@ function DpsProgressCard() {
         if (j.ok) setData(j);
       } catch { /* ignore */ }
       finally { setLoading(false); }
-    })();
+    };
+    fetchData();
+    const interval = setInterval(fetchData, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const fmtTime = (iso: string | null) => {
@@ -966,7 +969,7 @@ function DpsProgressCard() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                   <span style={{ fontSize: 13, fontWeight: 900, color: "#113247" }}>{name}</span>
                   <span style={{ fontSize: 11, color: "#64748B", fontWeight: 700 }}>
-                    {z.currentCars.length > 0 ? `${z.currentCars.length}대 진행` : "대기"} · {z.maxSeq}번
+                    {z.currentCars.length > 0 ? `${z.currentCars.length}대 진행중` : "대기"}
                   </span>
                 </div>
                 <div style={{ height: 7, background: "#E2EBF3", borderRadius: 99, overflow: "hidden" }}>

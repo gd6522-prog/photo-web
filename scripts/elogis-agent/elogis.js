@@ -747,6 +747,18 @@ async function scrapeDomData(page, fileConfig, log) {
     await page.waitForTimeout(1_000);
   }
 
+  // DPS 전용: 조회 전에 pageSize를 전체 건수로 설정 (기본 10,000 → 무제한)
+  const dpsFramePreload = page.frames().find((f) => f.url().includes("DPS_INF_LIST"));
+  if (dpsFramePreload) {
+    await dpsFramePreload.evaluate(() => {
+      if (typeof Ext === "undefined") return;
+      const g = Ext.ComponentQuery.query("gridpanel")[0];
+      const s = g && (g.store || g.getStore?.());
+      if (s) { s.pageSize = 999999; if (s.proxy && s.proxy.extraParams) s.proxy.extraParams.limit = 999999; }
+    }).catch(() => {});
+    log(`${label}: pageSize=999999 설정 완료`);
+  }
+
   // 조회 버튼 클릭
   await clickSearchButton(page, log, label);
 
@@ -775,22 +787,31 @@ async function scrapeDomData(page, fileConfig, log) {
   }
   await page.waitForTimeout(1_500);
 
-  // DPS 전용: DPS_INF_LIST 프레임 데이터 로드 대기 (최대 20초)
+  // DPS 전용: 전체 건수 로드 대기 (최대 120초 — 전체 수만 건)
   if (page.frames().some((f) => f.url().includes("DPS_INF_LIST"))) {
-    const dpsDeadline = Date.now() + 20_000;
+    const dpsDeadline = Date.now() + 120_000;
+    let lastCount = 0;
     while (Date.now() < dpsDeadline) {
       const dpsF = page.frames().find((f) => f.url().includes("DPS_INF_LIST"));
-      const count = dpsF
+      const { count, total, loading } = dpsF
         ? await dpsF.evaluate(() => {
-            if (typeof Ext === "undefined") return 0;
+            if (typeof Ext === "undefined") return { count: 0, total: 0, loading: false };
             const g = Ext.ComponentQuery.query("gridpanel")[0];
             const s = g && (g.store || g.getStore?.());
-            return s ? s.getCount() : 0;
-          }).catch(() => 0)
-        : 0;
-      if (count > 0) { log(`${label}: DPS 데이터 ${count}건 로드 확인`); break; }
-      log(`${label}: DPS 데이터 로딩 대기...`);
-      await page.waitForTimeout(1_000);
+            if (!s) return { count: 0, total: 0, loading: false };
+            return {
+              count: s.getCount(),
+              total: s.getTotalCount ? s.getTotalCount() : 0,
+              loading: s.isLoading ? s.isLoading() : false,
+            };
+          }).catch(() => ({ count: 0, total: 0, loading: false }))
+        : { count: 0, total: 0, loading: false };
+      if (count > 0 && !loading && (total === 0 || count >= total)) {
+        log(`${label}: DPS 전체 ${count}건 로드 완료`);
+        break;
+      }
+      if (count !== lastCount) { log(`${label}: DPS 로딩 중 ${count}/${total}건...`); lastCount = count; }
+      await page.waitForTimeout(2_000);
     }
   }
 
