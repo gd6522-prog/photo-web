@@ -836,8 +836,8 @@ async function scrapeDomData(page, fileConfig, log) {
             };
           }).catch(() => ({ count: 0, dsTotal: 0, loading: false }))
         : { count: 0, dsTotal: 0, loading: false };
-      if (count > 0 && !loading && (dsTotal === 0 ? count === lastCount && count > 0 : count >= dsTotal)) {
-        log(`${label}: DPS 전체 ${count}건 로드 완료 (서버 전체 ${dsTotal}건)`);
+      if (count > 0 && !loading) {
+        log(`${label}: DPS ${count}건 로드 완료 (서버 전체 ${dsTotal}건)`);
         break;
       }
       if (count !== lastCount) { log(`${label}: DPS 로딩 중 ${count}/${dsTotal}건...`); lastCount = count; }
@@ -864,7 +864,9 @@ async function scrapeDomData(page, fileConfig, log) {
           const car = String(d.CHG_CARDOC_CD ?? "");
           if (!zones[code]) zones[code] = { done: 0, total: 0, minPendingCar: null };
           zones[code].total++;
-          const isDone = pgs === "03" || pgs === code;
+          // DEBUG: 경량존A(15) 샘플 출력
+          if (code === "15" && zones[code].total < 5) log(`[DEBUG 경량존A] PGS_STAT_CD=${pgs} CHG_CARDOC_CD=${car}`);
+          const isDone = pgs === "03";
           if (isDone) {
             zones[code].done++;
           } else if (car) {
