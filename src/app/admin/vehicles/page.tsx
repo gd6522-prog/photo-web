@@ -511,11 +511,11 @@ async function saveServerVehicleLimits(snapshot: VehicleLimitsSnapshot) {
 
 
 const cargoColumns: Array<{ key: keyof CargoRow | "largeTotal" | "smallTotal" | "support"; label: string; width?: number }> = [
-  { key: "support", label: "지원", width: 64 },
-  { key: "car_no", label: "호차", width: 80 },
-  { key: "seq_no", label: "순번", width: 70 },
-  { key: "store_code", label: "점포코드", width: 110 },
-  { key: "store_name", label: "점포명", width: 180 },
+  { key: "support", label: "지원", width: 46 },
+  { key: "car_no", label: "호차", width: 66 },
+  { key: "seq_no", label: "순번", width: 54 },
+  { key: "store_code", label: "점포코드", width: 92 },
+  { key: "store_name", label: "점포명", width: 155 },
   { key: "largeTotal", label: "대", width: 80 },
   { key: "large_box", label: "박스존", width: 72 },
   { key: "large_inner", label: "이너존", width: 72 },
@@ -4127,7 +4127,7 @@ export function VehiclePageScreen({
             ? { border: "1px solid #E8EDF2", borderRadius: 10, background: "transparent", overflow: "auto", flex: 1, minHeight: 0, boxShadow: "0 1px 4px rgba(15,23,42,0.06)" }
             : { border: "1px solid #E8EDF2", borderRadius: 10, background: "#fff", overflow: "auto", maxHeight: "70vh", boxShadow: "0 1px 4px rgba(15,23,42,0.06)" }
           }>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1600 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1550 }}>
             <thead>
               <tr style={{ background: "#F8FAFC" }}>
                 {cargoColumns.map((column) => (
