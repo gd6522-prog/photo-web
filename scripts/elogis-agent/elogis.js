@@ -25,8 +25,10 @@ async function createSession(id, pw, log, { headless = true, useSystemChrome = f
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
-      "--disable-gpu",
       "--window-size=1920,1080",
+      "--no-first-run",
+      "--hide-scrollbars",
+      "--mute-audio",
     ],
   };
   if (useSystemChrome) {
@@ -490,9 +492,11 @@ async function downloadViaInterceptAndApi(page, fileConfig, log) {
   await page.unroute("**/utilService/commonExcelDownPrepare").catch(() => {});
   if (!capturedBody) throw new Error("commonExcelDownPrepare body 캡처 실패");
 
-  // Step 4: override 적용
+  // Step 4: override 적용 (dynamicParams 함수가 있으면 호출하여 병합)
   const params = new URLSearchParams(capturedBody);
-  for (const [key, val] of Object.entries(prepareOverride)) params.set(key, val);
+  const dynamicExtra = fileConfig.dynamicParams ? fileConfig.dynamicParams() : {};
+  const merged = { ...prepareOverride, ...dynamicExtra };
+  for (const [key, val] of Object.entries(merged)) params.set(key, val);
   log(`${label}: SEARCH_URL 교체 → ${params.get("SEARCH_URL")}`);
 
   // Step 5: 수정된 body 로 prepare 재전송

@@ -39,6 +39,8 @@ const SLOT_ESTIMATED_SEC: Record<string, number> = {
   "product-strategy": 60,        // WMS 단순 다운로드
   "inventory-status": 60,        // WMS 단순 다운로드
   "product-inventory": 60,       // WMS 단순 다운로드
+  "po-std-master": 90,           // OMS 발주기준정보관리
+  "inbound-status": 60,          // WMS 입고현황 (날짜 D+2)
 };
 
 function ElogisSyncPanel({
@@ -266,6 +268,22 @@ const SLOT_CONFIGS: SlotConfig[] = [
     accept: ".xlsx,.xls",
     type: "generic",
     requiredHeaders: ["화주사코드", "화주사명", "재고수량", "보류수량"],
+  },
+  {
+    key: "po-std-master",
+    label: "발주기준정보관리",
+    description: "",
+    accept: ".xlsx,.xls",
+    type: "generic",
+    requiredHeaders: ["화주사코드", "상품코드", "상품명"],
+  },
+  {
+    key: "inbound-status",
+    label: "입고예정",
+    description: "",
+    accept: ".xlsx,.xls",
+    type: "generic",
+    requiredHeaders: ["입고번호", "상품코드", "입고예정일자"],
   },
 ];
 
