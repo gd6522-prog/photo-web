@@ -52,6 +52,18 @@ function metaKey(key: string) {
   return `file-uploads/${key}.meta`;
 }
 
+// ─── Card order helpers ────────────────────────────────────────────────────────
+const CARD_ORDER_KEY = "file-uploads/_card-order.json";
+
+async function getCardOrder(): Promise<string[]> {
+  try {
+    const text = await getR2ObjectText(CARD_ORDER_KEY);
+    return text ? JSON.parse(text) : [];
+  } catch {
+    return [];
+  }
+}
+
 // ─── Persist settings helpers ─────────────────────────────────────────────────
 const PERSIST_SETTINGS_KEY = "file-uploads/_persist-settings.json";
 
@@ -72,7 +84,7 @@ async function savePersistSettings(settings: Record<string, boolean>): Promise<v
 export async function GET() {
   const slots: Record<string, { fileName: string; uploadedAt: string; uploaderName?: string; fileSize?: number } | null> = {};
 
-  const [, persistSettings] = await Promise.all([
+  const [, persistSettings, cardOrder] = await Promise.all([
     Promise.all(
       ALL_META_KEYS.map(async (key) => {
         try {
@@ -86,9 +98,10 @@ export async function GET() {
       })
     ),
     getPersistSettings(),
+    getCardOrder(),
   ]);
 
-  return NextResponse.json({ ok: true, slots, persistSettings });
+  return NextResponse.json({ ok: true, slots, persistSettings, cardOrder });
 }
 
 // ─── POST: two actions via JSON body ─────────────────────────────────────────
@@ -124,6 +137,13 @@ export async function POST(req: NextRequest) {
       }
       const meta = { fileName, uploadedAt: new Date().toISOString(), ...(uploaderName ? { uploaderName } : {}), ...(fileSize != null ? { fileSize } : {}) };
       await putR2Object(metaKey(slotKey), JSON.stringify(meta), "application/json");
+      return NextResponse.json({ ok: true });
+    }
+
+    // ── action: set-card-order — 카드 순서 저장 (fileName 불필요) ──────────
+    if (action === "set-card-order") {
+      const order = (body as { order?: string[] }).order ?? [];
+      await putR2Object(CARD_ORDER_KEY, JSON.stringify(order), "application/json");
       return NextResponse.json({ ok: true });
     }
 

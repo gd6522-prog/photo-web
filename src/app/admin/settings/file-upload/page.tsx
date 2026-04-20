@@ -504,6 +504,7 @@ export default function FileUploadPage() {
   }, []);
 
   const [persistSettings, setPersistSettings] = useState<Record<string, boolean>>({});
+  const [cardOrder, setCardOrder] = useState<string[]>([]);
 
   // 서버 파일 상태 로드
   const loadStatus = useCallback(async () => {
@@ -513,9 +514,38 @@ export default function FileUploadPage() {
       if (json.ok) {
         setServerFiles(json.slots ?? {});
         setPersistSettings(json.persistSettings ?? {});
+        if ((json.cardOrder ?? []).length > 0) setCardOrder(json.cardOrder);
       }
     } catch {}
   }, []);
+
+  const orderedConfigs = React.useMemo(() => {
+    if (cardOrder.length === 0) return SLOT_CONFIGS;
+    const sorted = [...SLOT_CONFIGS].sort((a, b) => {
+      const ai = cardOrder.indexOf(a.key);
+      const bi = cardOrder.indexOf(b.key);
+      if (ai === -1 && bi === -1) return 0;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+    return sorted;
+  }, [cardOrder]);
+
+  const handleMoveCard = useCallback(async (key: string, dir: -1 | 1) => {
+    const keys = orderedConfigs.map((c) => c.key);
+    const idx = keys.indexOf(key);
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= keys.length) return;
+    const next = [...keys];
+    [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
+    setCardOrder(next);
+    await fetch("/api/admin/file-upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "set-card-order", order: next }),
+    });
+  }, [orderedConfigs]);
 
   const handleTogglePersist = useCallback(async (key: string) => {
     const next = !(persistSettings[key] ?? false);
@@ -908,7 +938,7 @@ export default function FileUploadPage() {
           gap: 16,
         }}
       >
-        {SLOT_CONFIGS.map((config) => {
+        {orderedConfigs.map((config, idx) => {
           const state = slotStates[config.key];
           const serverFile = serverFiles[config.key] ?? null;
           const canUpload =
@@ -937,6 +967,10 @@ export default function FileUploadPage() {
               canEditSchedule={isMainAdmin && schedulesLoaded}
               persist={persistSettings[config.key] ?? false}
               onTogglePersist={() => handleTogglePersist(config.key)}
+              onMoveUp={() => handleMoveCard(config.key, -1)}
+              onMoveDown={() => handleMoveCard(config.key, 1)}
+              isFirst={idx === 0}
+              isLast={idx === orderedConfigs.length - 1}
             />
           );
         })}
@@ -1177,6 +1211,10 @@ function SlotCard({
   canEditSchedule,
   persist,
   onTogglePersist,
+  onMoveUp,
+  onMoveDown,
+  isFirst,
+  isLast,
 }: {
   config: SlotConfig;
   state: SlotState;
@@ -1194,6 +1232,10 @@ function SlotCard({
   canEditSchedule: boolean;
   persist: boolean;
   onTogglePersist: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  isFirst: boolean;
+  isLast: boolean;
 }) {
   const localInputRef = useRef<HTMLInputElement | null>(null);
   const [running, setRunning] = React.useState(false);
@@ -1483,9 +1525,37 @@ function SlotCard({
               {persistLoading ? "저장 중..." : persist ? "📌 이력보관 ON" : "📌 이력보관 OFF"}
             </button>
           </div>
-          {serverFile && (
-            <DownloadButton slotKey={config.key} />
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <button
+              onClick={onMoveUp}
+              disabled={isFirst}
+              title="위로 이동"
+              style={{
+                fontSize: 12,
+                padding: "1px 6px",
+                border: "1px solid #D1D5DB",
+                background: isFirst ? "#F9FAFB" : "#fff",
+                color: isFirst ? "#D1D5DB" : "#374151",
+                cursor: isFirst ? "not-allowed" : "pointer",
+                fontWeight: 700,
+              }}
+            >↑</button>
+            <button
+              onClick={onMoveDown}
+              disabled={isLast}
+              title="아래로 이동"
+              style={{
+                fontSize: 12,
+                padding: "1px 6px",
+                border: "1px solid #D1D5DB",
+                background: isLast ? "#F9FAFB" : "#fff",
+                color: isLast ? "#D1D5DB" : "#374151",
+                cursor: isLast ? "not-allowed" : "pointer",
+                fontWeight: 700,
+              }}
+            >↓</button>
+            {serverFile && <DownloadButton slotKey={config.key} />}
+          </div>
         </div>
         {serverFile ? (
           <>
