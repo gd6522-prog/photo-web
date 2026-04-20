@@ -76,6 +76,7 @@ async function copyElementAsImage(element: HTMLElement) {
     cacheBust: true,
     pixelRatio: 2,
     backgroundColor: "#ffffff",
+    skipFonts: true,
     filter: (n) => !(n instanceof HTMLElement && n.dataset.copyHide === "true"),
   });
   if (!blob) throw new Error("이미지를 만들지 못했습니다.");
@@ -364,7 +365,7 @@ export default function InboundPage() {
                     }}>
                       <div style={{ fontSize: 12, fontWeight: 950, color: "#103b53" }}>입고예정 파트별 발주 현황</div>
                       <div style={{ fontSize: 10, color: "#557186", marginTop: 2 }}>
-                        {dateLabel(targetDate)}&nbsp;·&nbsp;입고예정 건 (완납/완전결품 제외)
+                        {dateLabel(targetDate)}
                       </div>
                     </div>
 
