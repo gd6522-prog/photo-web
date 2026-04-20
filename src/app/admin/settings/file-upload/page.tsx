@@ -1150,6 +1150,7 @@ function SlotCard({
 }) {
   const localInputRef = useRef<HTMLInputElement | null>(null);
   const [running, setRunning] = React.useState(false);
+  const [persistLoading, setPersistLoading] = React.useState(false);
   const [elapsed, setElapsed] = React.useState(0);
   const [barWidth, setBarWidth] = React.useState(0);
   const maxBarRef = React.useRef(0);
@@ -1413,20 +1414,26 @@ function SlotCard({
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ fontWeight: 700 }}>현재 서버 파일</span>
             <button
-              onClick={onTogglePersist}
-              title={persist ? "이력 보관 켜짐 — 파일이 교체돼도 이전 파일 유지" : "이력 보관 꺼짐 — 새 파일 업로드 시 이전 파일 삭제"}
+              onClick={async () => {
+                if (persistLoading) return;
+                setPersistLoading(true);
+                try { await onTogglePersist(); } finally { setPersistLoading(false); }
+              }}
+              disabled={persistLoading}
+              title={persist ? "이력 보관 켜짐 — 클릭하면 끄기" : "이력 보관 꺼짐 — 클릭하면 켜기"}
               style={{
-                fontSize: 10,
-                padding: "1px 6px",
-                border: "1px solid",
-                borderColor: persist ? "#86EFAC" : "#D1D5DB",
-                background: persist ? "#F0FDF4" : "#F9FAFB",
-                color: persist ? "#15803D" : "#9CA3AF",
-                cursor: "pointer",
+                fontSize: 11,
+                padding: "3px 10px",
+                border: "2px solid",
+                borderColor: persistLoading ? "#D1D5DB" : persist ? "#16A34A" : "#D1D5DB",
+                background: persistLoading ? "#F3F4F6" : persist ? "#16A34A" : "#fff",
+                color: persistLoading ? "#9CA3AF" : persist ? "#fff" : "#6B7280",
+                cursor: persistLoading ? "not-allowed" : "pointer",
                 fontWeight: 700,
+                transition: "all 150ms ease",
               }}
             >
-              {persist ? "📌 이력보관 ON" : "📌 이력보관"}
+              {persistLoading ? "저장 중..." : persist ? "📌 이력보관 ON" : "📌 이력보관 OFF"}
             </button>
           </div>
           {serverFile && (
