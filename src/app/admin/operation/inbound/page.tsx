@@ -106,6 +106,15 @@ function Badge({ label }: { label: string }) {
   );
 }
 
+function pgBtn(disabled: boolean, active = false): React.CSSProperties {
+  return {
+    padding: "4px 10px", fontSize: 13, borderRadius: 5, border: "1px solid #E2E8F0",
+    background: active ? "#1D4ED8" : disabled ? "#F8FAFC" : "#fff",
+    color: active ? "#fff" : disabled ? "#CBD5E1" : "#374151",
+    cursor: disabled ? "default" : "pointer", fontWeight: active ? 700 : 400,
+  };
+}
+
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────────────────
 export default function InboundPage() {
   const [rows, setRows]               = useState<InboundRow[]>([]);
@@ -119,11 +128,14 @@ export default function InboundPage() {
   const [copying, setCopying]       = useState(false);
   const [copyMsg, setCopyMsg]       = useState("");
 
-  // 테이블 필터/정렬
+  // 테이블 필터/정렬/페이지
   const [search, setSearch]         = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [sortKey, setSortKey]       = useState<SortKey>("inb_ect_date");
   const [sortDir, setSortDir]       = useState<SortDir>("asc");
+  const [showTable, setShowTable]   = useState(false);
+  const [page, setPage]             = useState(1);
+  const PAGE_SIZE = 50;
 
   const targetDate  = useMemo(() => nextWorkdayDate(), []);
 
@@ -245,6 +257,12 @@ export default function InboundPage() {
     inb_qty:  filtered.reduce((s, r) => s + r.inb_qty, 0),
     miss_qty: filtered.reduce((s, r) => s + r.miss_qty, 0),
   }), [filtered]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const paged = useMemo(() => sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [sorted, page]);
+
+  // 필터/정렬 변경 시 첫 페이지로
+  useEffect(() => { setPage(1); }, [search, dateFilter, sortKey, sortDir]);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) setSortDir((d) => d === "asc" ? "desc" : "asc");
@@ -406,9 +424,7 @@ export default function InboundPage() {
           {/* ── 상세 테이블 ──────────────────────────────────────────────── */}
           {rows.length > 0 && (
             <>
-              <div style={{ fontWeight: 700, fontSize: 14, color: "#374151", marginBottom: 12 }}>전체 데이터</div>
-
-              {/* 필터 */}
+              {/* 조회 버튼 / 필터 */}
               <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
                 <select
                   value={dateFilter}
@@ -427,9 +443,18 @@ export default function InboundPage() {
                   onChange={(e) => setSearch(e.target.value)}
                   style={{ padding: "7px 12px", border: "1px solid #E2E8F0", borderRadius: 7, fontSize: 13, width: 260, outline: "none" }}
                 />
-                {(search || dateFilter) && (
+                <button
+                  onClick={() => { setShowTable(true); setPage(1); }}
+                  style={{
+                    padding: "7px 18px", background: "#1D4ED8", border: "none",
+                    borderRadius: 7, fontSize: 13, color: "#fff", cursor: "pointer", fontWeight: 700,
+                  }}
+                >
+                  조회
+                </button>
+                {showTable && (search || dateFilter) && (
                   <button
-                    onClick={() => { setSearch(""); setDateFilter(""); }}
+                    onClick={() => { setSearch(""); setDateFilter(""); setPage(1); }}
                     style={{ padding: "7px 14px", background: "#F1F5F9", border: "none", borderRadius: 7, fontSize: 12, color: "#475569", cursor: "pointer", fontWeight: 600 }}
                   >
                     초기화
@@ -437,61 +462,86 @@ export default function InboundPage() {
                 )}
               </div>
 
-              {/* 요약 바 */}
-              <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
-                {[
-                  { label: "조회 건수", value: `${fmt(filtered.length)}건`, color: "#1E293B" },
-                  { label: "발주수량",  value: fmt(tableTotals.ord_qty),    color: "#1D4ED8" },
-                  { label: "입고수량",  value: fmt(tableTotals.inb_qty),    color: "#15803D" },
-                  { label: "결품수량",  value: fmt(tableTotals.miss_qty),   color: tableTotals.miss_qty > 0 ? "#DC2626" : "#94A3B8" },
-                ].map((s) => (
-                  <div key={s.label} style={{ background: "#fff", border: "1px solid #E8EDF2", borderRadius: 8, padding: "7px 14px", display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 12, color: "#64748B" }}>{s.label}</span>
-                    <span style={{ fontSize: 14, fontWeight: 800, color: s.color }}>{s.value}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* 테이블 */}
-              <div style={{ border: "1px solid #E8EDF2", borderRadius: 10, background: "#fff", overflow: "auto", boxShadow: "0 1px 4px rgba(15,23,42,0.06)" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 980 }}>
-                  <thead>
-                    <tr style={{ background: "#F8FAFC" }}>
-                      {TABLE_COLS.map(({ key, label, align }) => (
-                        <th
-                          key={key}
-                          onClick={() => handleSort(key)}
-                          style={{ textAlign: align ?? "left", padding: "10px 13px", borderBottom: "2px solid #E8EDF2", fontSize: 12, fontWeight: 700, color: sortKey === key ? "#1E293B" : "#64748B", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
-                        >
-                          {label}<SortIcon col={key} />
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sorted.length === 0 ? (
-                      <tr><td colSpan={TABLE_COLS.length} style={{ padding: 40, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>검색 결과가 없습니다.</td></tr>
-                    ) : sorted.map((row, i) => (
-                      <tr key={`${row.item_cd}-${row.inb_ect_date}-${i}`} style={{ background: normalizeDate(row.inb_ect_date) === targetDate ? (i % 2 === 0 ? "#EFF6FF" : "#E8F2FF") : (i % 2 === 0 ? "#fff" : "#FAFBFC") }}>
-                        <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, whiteSpace: "nowrap", fontWeight: 600, color: normalizeDate(row.inb_ect_date) === targetDate ? "#1D4ED8" : "#374151" }}>
-                          {fmtDate(row.inb_ect_date)}
-                        </td>
-                        <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, whiteSpace: "nowrap", color: "#94A3B8" }}>
-                          {row.inb_date ? fmtDate(row.inb_date) : "-"}
-                        </td>
-                        <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{row.suppr_nm || "-"}</td>
-                        <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#64748B", whiteSpace: "nowrap" }}>{row.item_cd}</td>
-                        <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#0F172A" }}>{row.item_nm}</td>
-                        <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", textAlign: "center" }}><Badge label={row.inb_status} /></td>
-                        <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", textAlign: "center" }}><Badge label={row.shortage_status} /></td>
-                        <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, textAlign: "right", color: "#1D4ED8", fontWeight: 600 }}>{row.ord_qty > 0 ? fmt(row.ord_qty) : "-"}</td>
-                        <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, textAlign: "right", color: "#15803D", fontWeight: 600 }}>{row.inb_qty > 0 ? fmt(row.inb_qty) : "-"}</td>
-                        <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, textAlign: "right", fontWeight: 700, color: row.miss_qty > 0 ? "#DC2626" : "#94A3B8" }}>{row.miss_qty > 0 ? fmt(row.miss_qty) : "-"}</td>
-                      </tr>
+              {showTable && (
+                <>
+                  {/* 요약 바 */}
+                  <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+                    {[
+                      { label: "조회 건수", value: `${fmt(filtered.length)}건`, color: "#1E293B" },
+                      { label: "발주수량",  value: fmt(tableTotals.ord_qty),    color: "#1D4ED8" },
+                      { label: "입고수량",  value: fmt(tableTotals.inb_qty),    color: "#15803D" },
+                      { label: "결품수량",  value: fmt(tableTotals.miss_qty),   color: tableTotals.miss_qty > 0 ? "#DC2626" : "#94A3B8" },
+                    ].map((s) => (
+                      <div key={s.label} style={{ background: "#fff", border: "1px solid #E8EDF2", borderRadius: 8, padding: "7px 14px", display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 12, color: "#64748B" }}>{s.label}</span>
+                        <span style={{ fontSize: 14, fontWeight: 800, color: s.color }}>{s.value}</span>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </div>
+
+                  {/* 테이블 */}
+                  <div style={{ border: "1px solid #E8EDF2", borderRadius: 10, background: "#fff", overflow: "auto", boxShadow: "0 1px 4px rgba(15,23,42,0.06)" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 980 }}>
+                      <thead>
+                        <tr style={{ background: "#F8FAFC" }}>
+                          {TABLE_COLS.map(({ key, label, align }) => (
+                            <th
+                              key={key}
+                              onClick={() => handleSort(key)}
+                              style={{ textAlign: align ?? "left", padding: "10px 13px", borderBottom: "2px solid #E8EDF2", fontSize: 12, fontWeight: 700, color: sortKey === key ? "#1E293B" : "#64748B", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
+                            >
+                              {label}<SortIcon col={key} />
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paged.length === 0 ? (
+                          <tr><td colSpan={TABLE_COLS.length} style={{ padding: 40, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>검색 결과가 없습니다.</td></tr>
+                        ) : paged.map((row, i) => (
+                          <tr key={`${row.item_cd}-${row.inb_ect_date}-${i}`} style={{ background: normalizeDate(row.inb_ect_date) === targetDate ? (i % 2 === 0 ? "#EFF6FF" : "#E8F2FF") : (i % 2 === 0 ? "#fff" : "#FAFBFC") }}>
+                            <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, whiteSpace: "nowrap", fontWeight: 600, color: normalizeDate(row.inb_ect_date) === targetDate ? "#1D4ED8" : "#374151" }}>{fmtDate(row.inb_ect_date)}</td>
+                            <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, whiteSpace: "nowrap", color: "#94A3B8" }}>{row.inb_date ? fmtDate(row.inb_date) : "-"}</td>
+                            <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#374151" }}>{row.suppr_nm || "-"}</td>
+                            <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#64748B", whiteSpace: "nowrap" }}>{row.item_cd}</td>
+                            <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: "#0F172A" }}>{row.item_nm}</td>
+                            <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", textAlign: "center" }}><Badge label={row.inb_status} /></td>
+                            <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", textAlign: "center" }}><Badge label={row.shortage_status} /></td>
+                            <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, textAlign: "right", color: "#1D4ED8", fontWeight: 600 }}>{row.ord_qty > 0 ? fmt(row.ord_qty) : "-"}</td>
+                            <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, textAlign: "right", color: "#15803D", fontWeight: 600 }}>{row.inb_qty > 0 ? fmt(row.inb_qty) : "-"}</td>
+                            <td style={{ padding: "9px 13px", borderBottom: "1px solid #F1F5F9", fontSize: 13, textAlign: "right", fontWeight: 700, color: row.miss_qty > 0 ? "#DC2626" : "#94A3B8" }}>{row.miss_qty > 0 ? fmt(row.miss_qty) : "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* 페이지네이션 */}
+                  {totalPages > 1 && (
+                    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6, marginTop: 14 }}>
+                      <button onClick={() => setPage(1)}          disabled={page === 1}          style={pgBtn(page === 1)}>{"<<"}</button>
+                      <button onClick={() => setPage((p) => p - 1)} disabled={page === 1}        style={pgBtn(page === 1)}>{"<"}</button>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                        .reduce<(number | "…")[]>((acc, p, idx, arr) => {
+                          if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push("…");
+                          acc.push(p);
+                          return acc;
+                        }, [])
+                        .map((p, i) =>
+                          p === "…" ? (
+                            <span key={`e${i}`} style={{ fontSize: 13, color: "#94A3B8", padding: "0 4px" }}>…</span>
+                          ) : (
+                            <button key={p} onClick={() => setPage(p as number)} style={pgBtn(false, p === page)}>{p}</button>
+                          )
+                        )}
+                      <button onClick={() => setPage((p) => p + 1)} disabled={page === totalPages} style={pgBtn(page === totalPages)}>{">"}</button>
+                      <button onClick={() => setPage(totalPages)}   disabled={page === totalPages} style={pgBtn(page === totalPages)}>{">>"}</button>
+                      <span style={{ fontSize: 12, color: "#94A3B8", marginLeft: 4 }}>{page} / {totalPages}</span>
+                    </div>
+                  )}
+                </>
+              )}
             </>
           )}
         </>
