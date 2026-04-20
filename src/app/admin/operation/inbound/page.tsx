@@ -171,18 +171,25 @@ export default function InboundPage() {
 
     const groups = new Map<string, { count: number; ord_price: number; ord_qty: number }>();
     for (const r of target) {
-      // 상품별전략관리의 작업구분 사용, 없으면 "미등록"
-      const key = worktypeMap[r.item_cd] || "미등록";
+      const key = worktypeMap[r.item_cd] || "미분류";
       const g = groups.get(key) ?? { count: 0, ord_price: 0, ord_qty: 0 };
       g.count     += 1;
       g.ord_price += r.ord_price;
       g.ord_qty   += r.ord_qty;
       groups.set(key, g);
     }
-    // 발주금액 내림차순
+
+    const ORDER = ["박스수기", "박스존1", "이너존", "슬라존", "경량존", "이형존", "담배존", "담배수기", "유가증권", "미분류"];
     return [...groups.entries()]
       .map(([label, v]) => ({ label, ...v }))
-      .sort((a, b) => b.ord_price - a.ord_price);
+      .sort((a, b) => {
+        const ai = ORDER.indexOf(a.label);
+        const bi = ORDER.indexOf(b.label);
+        if (ai === -1 && bi === -1) return a.label.localeCompare(b.label, "ko");
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        return ai - bi;
+      });
   }, [rows, targetDate, worktypeMap]);
 
   const summaryTotal = useMemo(() => summaryRows.reduce(
