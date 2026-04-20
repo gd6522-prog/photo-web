@@ -900,7 +900,7 @@ const LC_TP_NAMES: Record<string, string> = {
 };
 const LC_TP_ORDER = ["21","17","13","15","05","01","20","06","25","04","08","12","02","03","48"];
 
-type DpsZone = { done: number; total: number; inProgress: number; maxSeq: number; currentCars: string[] };
+type DpsZone = { done: number; total: number; minPendingCar: string | null };
 type DpsSummary = { dsTotal: number; loadedCount: number; zones: Record<string, DpsZone> };
 type DpsStatusData = { rows: DpsSummary; scrapedAt: string | null };
 
@@ -969,7 +969,7 @@ function DpsProgressCard() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                   <span style={{ fontSize: 13, fontWeight: 900, color: "#113247" }}>{name}</span>
                   <span style={{ fontSize: 11, color: "#64748B", fontWeight: 700 }}>
-                    {z.currentCars.length > 0 ? `${z.currentCars.length}대 진행중` : "대기"}
+                    {z.minPendingCar ? `${z.minPendingCar}호차` : "완료"}
                   </span>
                 </div>
                 <div style={{ height: 7, background: "#E2EBF3", borderRadius: 99, overflow: "hidden" }}>

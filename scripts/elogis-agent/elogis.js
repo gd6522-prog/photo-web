@@ -858,17 +858,19 @@ async function scrapeDomData(page, fileConfig, log) {
           const code = String(d.LC_TP_CD ?? "?");
           const pgs = String(d.PGS_STAT_CD ?? "");
           const car = String(d.CHG_CARDOC_CD ?? "");
-          const seq = Number(d.CHG_DVY_SEQ ?? 0);
-          if (!zones[code]) zones[code] = { done: 0, total: 0, inProgress: 0, maxSeq: 0, currentCars: new Set() };
+          if (!zones[code]) zones[code] = { done: 0, total: 0, minPendingCar: null };
           zones[code].total++;
-          if (pgs === "03") zones[code].done++;
-          else if (pgs === "02") { zones[code].inProgress++; zones[code].currentCars.add(car); }
-          if (seq > zones[code].maxSeq) zones[code].maxSeq = seq;
+          if (pgs === "03") {
+            zones[code].done++;
+          } else if (car) {
+            // 미완료 중 가장 빠른 호차번호
+            const prev = zones[code].minPendingCar;
+            if (prev === null || Number(car) < Number(prev)) zones[code].minPendingCar = car;
+          }
         }
-        // Set → Array 변환
         const result = {};
         for (const [k, v] of Object.entries(zones)) {
-          result[k] = { done: v.done, total: v.total, inProgress: v.inProgress, maxSeq: v.maxSeq, currentCars: [...v.currentCars] };
+          result[k] = { done: v.done, total: v.total, minPendingCar: v.minPendingCar };
         }
         return { dsTotal, loadedCount: records.length, zones: result };
       } catch (_) { return null; }
