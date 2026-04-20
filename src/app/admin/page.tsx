@@ -907,6 +907,8 @@ type DpsStatusData = { rows: DpsSummary; scrapedAt: string | null };
 function DpsProgressCard() {
   const [data, setData] = useState<DpsStatusData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const fetchRef = React.useRef<() => Promise<void>>();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -921,12 +923,19 @@ function DpsProgressCard() {
         const j = await res.json();
         if (j.ok) setData(j);
       } catch { /* ignore */ }
-      finally { setLoading(false); }
+      finally { setLoading(false); setRefreshing(false); }
     };
+    fetchRef.current = fetchData;
     fetchData();
     const interval = setInterval(fetchData, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleRefresh = () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    fetchRef.current?.();
+  };
 
   const fmtTime = (iso: string | null) => {
     if (!iso) return null;
@@ -938,16 +947,28 @@ function DpsProgressCard() {
   const summary = data?.rows as DpsSummary | null;
   const zones = summary?.zones ?? {};
   const sortedCodes = LC_TP_ORDER.filter((c) => zones[c]);
-  // 정렬에 없는 코드도 표시
   Object.keys(zones).forEach((c) => { if (!LC_TP_ORDER.includes(c)) sortedCodes.push(c); });
 
   return (
     <Card
       title="작업파트별 진행현황"
       right={
-        data?.scrapedAt ? (
-          <span style={{ fontSize: 11, color: "#6B7280", fontWeight: 600 }}>{fmtTime(data.scrapedAt)}</span>
-        ) : undefined
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {data?.scrapedAt && (
+            <span style={{ fontSize: 11, color: "#6B7280", fontWeight: 600 }}>{fmtTime(data.scrapedAt)}</span>
+          )}
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            style={{
+              padding: "3px 10px", fontSize: 11, fontWeight: 700,
+              background: refreshing ? "#e2ebf3" : "#0f2940", color: refreshing ? "#94a3b8" : "#fff",
+              border: "none", borderRadius: 4, cursor: refreshing ? "default" : "pointer",
+            }}
+          >
+            {refreshing ? "로딩..." : "새로고침"}
+          </button>
+        </div>
       }
     >
       {loading ? (
