@@ -283,7 +283,7 @@ export default function InboundPage() {
       ) : (
         <>
           {/* ── 요약 카드 (메인 기능) ─────────────────────────────────────── */}
-          <div ref={cardRef} style={{ marginBottom: 28 }}>
+          <div style={{ marginBottom: 28 }}>
             <div style={{
               border: "1px solid #bdd0de",
               borderRadius: 0,
@@ -291,7 +291,7 @@ export default function InboundPage() {
               boxShadow: "0 16px 34px rgba(2,32,46,0.10)",
               overflow: "hidden",
             }}>
-              {/* 카드 헤더 */}
+              {/* 카드 헤더 (화면용) */}
               <div style={{
                 padding: "12px 14px",
                 borderBottom: "1px solid #d9e6ef",
@@ -304,34 +304,29 @@ export default function InboundPage() {
                   <div style={{ fontWeight: 950, fontSize: 15, color: "#103b53" }}>파트별 발주 현황</div>
                   <div style={{ marginTop: 3, fontSize: 12, color: "#557186" }}>
                     입고예정일: {rows.length > 0 ? dateLabel(targetDate) : "-"}
-                    &nbsp;·&nbsp;입고예정 상태 · 완납/완전결품 제외
+                    &nbsp;·&nbsp;입고예정 · 완납/완전결품 제외
                     {Object.keys(worktypeMap).length === 0 && rows.length > 0 && (
-                      <span style={{ marginLeft: 8, color: "#F59E0B", fontWeight: 700 }}>⚠ 상품별전략관리 파일 없음 (작업구분 미적용)</span>
-                    )}
-                    {summaryRows.length === 0 && rows.length > 0 && Object.keys(worktypeMap).length > 0 && (
-                      <span style={{ marginLeft: 8, color: "#F59E0B", fontWeight: 700 }}>해당 날짜 조건 데이터 없음</span>
+                      <span style={{ marginLeft: 8, color: "#F59E0B", fontWeight: 700 }}>⚠ 상품별전략관리 파일 없음</span>
                     )}
                   </div>
                 </div>
-                {/* 버튼 - 복사 시 숨김 */}
-                <div data-copy-hide="true" style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <button
-                      onClick={handleCopy}
-                      disabled={copying || summaryRows.length === 0}
-                      style={{
-                        height: 30, padding: "0 12px", borderRadius: 4,
-                        border: "1px solid #b9cddd",
-                        background: copying || summaryRows.length === 0 ? "#e5edf3" : "#ffffff",
-                        color:      copying || summaryRows.length === 0 ? "#90a4b4" : "#103b53",
-                        cursor:     copying || summaryRows.length === 0 ? "default" : "pointer",
-                        fontWeight: 950, fontSize: 12, whiteSpace: "nowrap",
-                        display: "inline-flex", alignItems: "center", justifyContent: "center",
-                      }}
-                    >
-                      {copying ? "복사중" : "복사"}
-                    </button>
-                  </div>
+                {/* 복사 버튼 */}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                  <button
+                    onClick={handleCopy}
+                    disabled={copying || summaryRows.length === 0}
+                    style={{
+                      height: 30, padding: "0 12px", borderRadius: 4,
+                      border: "1px solid #b9cddd",
+                      background: copying || summaryRows.length === 0 ? "#e5edf3" : "#ffffff",
+                      color:      copying || summaryRows.length === 0 ? "#90a4b4" : "#103b53",
+                      cursor:     copying || summaryRows.length === 0 ? "default" : "pointer",
+                      fontWeight: 950, fontSize: 12, whiteSpace: "nowrap",
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    }}
+                  >
+                    {copying ? "복사중" : "복사"}
+                  </button>
                   {copyMsg && (
                     <div style={{ fontSize: 11.5, color: copyMsg === "복사 완료" ? "#0f766e" : "#b91c1c", fontWeight: 800 }}>
                       {copyMsg}
@@ -350,58 +345,50 @@ export default function InboundPage() {
                   </div>
                 ) : summaryRows.length === 0 ? (
                   <div style={{ padding: "32px 0", textAlign: "center", color: "#94A3B8", fontSize: 14 }}>
-                    {dateLabel(targetDate)} 입고예정 데이터가 없습니다.
+                    {dateLabel(targetDate)} 조건에 맞는 데이터가 없습니다.
                   </div>
                 ) : (
-                  <>
-                    <div style={{ border: "1px solid #d9e6ef", overflow: "hidden" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-                        <colgroup>
-                          <col style={{ width: "40%" }} />
-                          <col style={{ width: "20%" }} />
-                          <col style={{ width: "20%" }} />
-                          <col style={{ width: "20%" }} />
-                        </colgroup>
-                        <thead>
-                          <tr style={{ background: "#eef5fb" }}>
-                            <th style={{ textAlign: "left",  padding: "10px 12px", fontSize: 12, fontWeight: 950, color: "#103b53", whiteSpace: "nowrap" }}>파트 (대분류)</th>
-                            <th style={{ textAlign: "right", padding: "10px 10px", fontSize: 12, fontWeight: 950, color: "#103b53", whiteSpace: "nowrap" }}>발주건수</th>
-                            <th style={{ textAlign: "right", padding: "10px 10px", fontSize: 12, fontWeight: 950, color: "#103b53", whiteSpace: "nowrap" }}>발주수량</th>
-                            <th style={{ textAlign: "right", padding: "10px 10px", fontSize: 12, fontWeight: 950, color: "#103b53", whiteSpace: "nowrap" }}>발주금액</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {summaryRows.map((r, i) => (
-                            <tr key={r.label} style={{ borderTop: "1px solid #eef3f7", background: i % 2 === 0 ? "#fff" : "#fafcfe" }}>
-                              <td style={{ padding: "9px 12px", fontSize: 13, fontWeight: 800, color: "#0f2940", whiteSpace: "nowrap" }}>{r.label}</td>
-                              <td style={{ padding: "9px 10px", fontSize: 13, textAlign: "right", color: "#113247", fontVariantNumeric: "tabular-nums" }}>{fmt(r.count)}</td>
-                              <td style={{ padding: "9px 10px", fontSize: 13, textAlign: "right", color: "#113247", fontVariantNumeric: "tabular-nums" }}>{fmt(r.ord_qty)}</td>
-                              <td style={{ padding: "9px 10px", fontSize: 13, textAlign: "right", color: "#1D4ED8", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{fmt(r.ord_price)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                  /* ── 복사용 콤팩트 캡처 영역 ── */
+                  <div ref={cardRef} style={{ display: "inline-block", background: "#fff" }}>
+                    {/* 캡처 타이틀 */}
+                    <div style={{
+                      padding: "7px 10px 5px",
+                      borderBottom: "1px solid #d9e6ef",
+                      background: "#f4f8fc",
+                    }}>
+                      <div style={{ fontSize: 12, fontWeight: 950, color: "#103b53" }}>입고예정 파트별 발주 현황</div>
+                      <div style={{ fontSize: 10, color: "#557186", marginTop: 2 }}>
+                        {dateLabel(targetDate)}&nbsp;·&nbsp;입고예정 건 (완납/완전결품 제외)
+                      </div>
                     </div>
-                    {/* 합계 */}
-                    <div style={{ borderTop: "1px solid #d9e6ef", paddingTop: 8, marginTop: 2 }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-                        <colgroup>
-                          <col style={{ width: "40%" }} />
-                          <col style={{ width: "20%" }} />
-                          <col style={{ width: "20%" }} />
-                          <col style={{ width: "20%" }} />
-                        </colgroup>
-                        <tbody>
-                          <tr>
-                            <td style={{ padding: "6px 12px", fontSize: 13, fontWeight: 950, color: "#103b53" }}>총합계</td>
-                            <td style={{ padding: "6px 10px", fontSize: 13, textAlign: "right", fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums" }}>{fmt(summaryTotal.count)}</td>
-                            <td style={{ padding: "6px 10px", fontSize: 13, textAlign: "right", fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums" }}>{fmt(summaryTotal.ord_qty)}</td>
-                            <td style={{ padding: "6px 10px", fontSize: 14, textAlign: "right", fontWeight: 950, color: "#0f2940", fontVariantNumeric: "tabular-nums" }}>{fmt(summaryTotal.ord_price)}</td>
+
+                    {/* 콤팩트 테이블 */}
+                    <table style={{ borderCollapse: "collapse", fontSize: 12, minWidth: 240 }}>
+                      <thead>
+                        <tr style={{ background: "#eef5fb" }}>
+                          <th style={{ textAlign: "left",  padding: "5px 10px", fontWeight: 900, color: "#103b53", whiteSpace: "nowrap", borderBottom: "1px solid #d9e6ef" }}>작업구분</th>
+                          <th style={{ textAlign: "right", padding: "5px 10px", fontWeight: 900, color: "#103b53", whiteSpace: "nowrap", borderBottom: "1px solid #d9e6ef" }}>건수</th>
+                          <th style={{ textAlign: "right", padding: "5px 10px", fontWeight: 900, color: "#103b53", whiteSpace: "nowrap", borderBottom: "1px solid #d9e6ef" }}>발주금액</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {summaryRows.map((r, i) => (
+                          <tr key={r.label} style={{ background: i % 2 === 0 ? "#fff" : "#f8fbfd", borderTop: "1px solid #eef3f7" }}>
+                            <td style={{ padding: "5px 10px", fontWeight: 700, color: "#0f2940", whiteSpace: "nowrap" }}>{r.label}</td>
+                            <td style={{ padding: "5px 10px", textAlign: "right", color: "#374151", fontVariantNumeric: "tabular-nums" }}>{fmt(r.count)}</td>
+                            <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700, color: "#1D4ED8", fontVariantNumeric: "tabular-nums" }}>{fmt(r.ord_price)}</td>
                           </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr style={{ borderTop: "2px solid #d9e6ef", background: "#f4f8fc" }}>
+                          <td style={{ padding: "5px 10px", fontWeight: 950, color: "#103b53" }}>합계</td>
+                          <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums" }}>{fmt(summaryTotal.count)}</td>
+                          <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 950, color: "#0f2940", fontVariantNumeric: "tabular-nums" }}>{fmt(summaryTotal.ord_price)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
                 )}
               </div>
             </div>
