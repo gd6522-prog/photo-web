@@ -975,8 +975,7 @@ function DpsProgressCard() {
                 <div style={{ height: 7, background: "#E2EBF3", borderRadius: 99, overflow: "hidden" }}>
                   <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 99 }} />
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3, fontSize: 11, color: "#6B7280" }}>
-                  <span>완료 {z.done.toLocaleString()} / {z.total.toLocaleString()}</span>
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 3, fontSize: 11 }}>
                   <span style={{ fontWeight: 700, color: barColor }}>{pct}%</span>
                 </div>
               </div>
