@@ -840,20 +840,16 @@ async function scrapeDomData(page, fileConfig, log) {
         if (records.length === 0) return null;
         const dsTotal = records[0].get?.("DS_TOTALCOUNT") ?? s.getTotalCount?.() ?? 0;
 
-        const ZONE_DONE_CODES = {};
-
         // 첫 번째 배치 zones 집계
         const zones = {};
-        const zone15pgs = {}; // PGS_STAT_CD 분포 확인용
         for (const r of records) {
           const d = r.getData ? r.getData() : r.data;
           const code = String(d.LC_TP_CD ?? "?");
           const pgs = String(d.PGS_STAT_CD ?? "");
           const car = String(d.CHG_CARDOC_CD ?? "");
-          if (code === "15") zone15pgs[pgs] = (zone15pgs[pgs] || 0) + 1;
           if (!zones[code]) zones[code] = { done: 0, total: 0, minPendingCar: null };
           zones[code].total++;
-          const isDone = (ZONE_DONE_CODES[code] ?? ["03"]).includes(pgs);
+          const isDone = pgs === "03";
           if (isDone) {
             zones[code].done++;
           } else if (car) {
@@ -867,18 +863,17 @@ async function scrapeDomData(page, fileConfig, log) {
         const proxyUrl = proxy.url || proxy.api?.read || "";
         const extraParams = proxy.extraParams ? Object.assign({}, proxy.extraParams) : {};
 
-        return { dsTotal, loadedCount: records.length, zones, proxyUrl, extraParams, zone15pgs };
+        return { dsTotal, loadedCount: records.length, zones, proxyUrl, extraParams };
       } catch (_) { return null; }
     }).catch(() => null);
 
     if (!storeInfo || Object.keys(storeInfo.zones).length === 0) {
       log(`${label}: 스토어 정보 추출 실패`);
     } else {
-      const { dsTotal, loadedCount, zones, proxyUrl, extraParams, zone15pgs } = storeInfo;
+      const { dsTotal, loadedCount, zones, proxyUrl, extraParams } = storeInfo;
       log(`${label}: 1차 ${loadedCount}건 집계 완료 (전체 ${dsTotal}건) capturedReq=${capturedDpsRequest ? capturedDpsRequest.method + " " + capturedDpsRequest.url.substring(0, 80) : "null"}`);
 
       // 나머지 페이지 fetch로 집계 (캡처된 요청 재사용)
-      const ZONE_DONE_CODES = { "15": ["01"] }; // 경량존(15): 완료="01", 미완료="02"
       if (dsTotal > loadedCount && capturedDpsRequest) {
         const BATCH = 10000;
         for (let start = loadedCount; start < dsTotal; start += BATCH) {
@@ -912,8 +907,7 @@ async function scrapeDomData(page, fileConfig, log) {
             const car = String(d.CHG_CARDOC_CD ?? "");
             if (!zones[code]) zones[code] = { done: 0, total: 0, minPendingCar: null };
             zones[code].total++;
-            const doneCodes = ZONE_DONE_CODES[code] ?? ["03"];
-            const isDone = doneCodes.includes(pgs);
+            const isDone = pgs === "03";
             if (isDone) {
               zones[code].done++;
             } else if (car) {
@@ -933,10 +927,6 @@ async function scrapeDomData(page, fileConfig, log) {
       const summary = { dsTotal, loadedCount: totalLoaded, zones: result };
       log(`${label}: ${totalLoaded}건 집계 완료 (전체 ${dsTotal}건)`);
       // zone 15 디버그: 미완료 car 분포 확인
-      if (zones["15"]) {
-        const z15 = zones["15"];
-        log(`[DEBUG zone15] done=${z15.done} total=${z15.total} minPendingCar=${z15.minPendingCar} pgsDist=${JSON.stringify(zone15pgs)}`);
-      }
       return summary;
     }
   }
