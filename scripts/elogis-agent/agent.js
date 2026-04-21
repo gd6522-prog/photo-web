@@ -46,7 +46,7 @@ const LOG_FILE = require("path").join(__dirname, "agent.log");
 function log(msg) {
   const line = `[${now()}] ${msg}`;
   console.log(line);
-  fs.appendFileSync(LOG_FILE, line + "\n");
+  fs.appendFileSync(LOG_FILE, line + "\n", "utf8");
 }
 
 // ── Supabase 헬퍼 ─────────────────────────────────────────────────────────────
