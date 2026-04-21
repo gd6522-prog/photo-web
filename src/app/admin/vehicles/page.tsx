@@ -1604,30 +1604,28 @@ function buildCargoDraftWithSep(rows: ProductRow[], sepMap: Record<string, numbe
   });
 }
 
-// cargoRows 재계산 후 note/support_excluded 등 사용자 편집 필드 보존
-// preserveNumeric=true 이면 숫자 필드도 기존 값으로 유지 (서버 로드 후 재계산 시 사용자 수정값 보호)
-function mergeCargoPreserve(existing: CargoRow[], rebuilt: CargoRow[], preserveNumeric = false): CargoRow[] {
+// cargoRows 재계산 후 note/support_excluded만 보존 (파일 업로드 시 사용)
+function mergeCargoPreserve(existing: CargoRow[], rebuilt: CargoRow[]): CargoRow[] {
   const existingMap = new Map(existing.map((r) => [r.id, r]));
   return rebuilt.map((newRow) => {
     const ex = existingMap.get(newRow.id);
     if (!ex) return newRow;
-    const base = { ...newRow, note: ex.note, support_excluded: ex.support_excluded };
-    if (!preserveNumeric) return base;
-    return {
-      ...base,
-      large_box: ex.large_box,
-      large_inner: ex.large_inner,
-      large_other: ex.large_other,
-      large_day2l: ex.large_day2l,
-      large_nb2l: ex.large_nb2l,
-      small_low: ex.small_low,
-      small_high: ex.small_high,
-      event: ex.event,
-      tobacco: ex.tobacco,
-      certificate: ex.certificate,
-      cdc: ex.cdc,
-      pbox: ex.pbox,
-    };
+    return { ...newRow, note: ex.note, support_excluded: ex.support_excluded };
+  });
+}
+
+// sep 재계산 시 사용자 수동 수정값(기존값 != 재계산값인 필드) 보존
+const CARGO_NUMERIC_KEYS = ['large_box', 'large_inner', 'large_other', 'large_day2l', 'large_nb2l', 'small_low', 'small_high', 'event', 'tobacco', 'certificate', 'cdc', 'pbox'] as const;
+function mergeCargoPreserveSmart(existing: CargoRow[], rebuilt: CargoRow[]): CargoRow[] {
+  const existingMap = new Map(existing.map((r) => [r.id, r]));
+  return rebuilt.map((newRow) => {
+    const ex = existingMap.get(newRow.id);
+    if (!ex) return newRow;
+    const merged: CargoRow = { ...newRow, note: ex.note, support_excluded: ex.support_excluded };
+    for (const key of CARGO_NUMERIC_KEYS) {
+      if (ex[key] !== newRow[key]) merged[key] = ex[key]; // 사용자 수동 수정값 유지
+    }
+    return merged;
   });
 }
 
@@ -1987,9 +1985,10 @@ export function VehiclePageScreen({
   const driverFetchKeyRef = useRef("");
   const serverSyncEnabledRef = useRef(false);
   const lastServerSnapshotRef = useRef("");
-  // 'server': 서버/로컬에서 로드된 상태 → 재계산 시 숫자 수정값 보존
-  // 'upload': 새 파일 업로드 → 재계산 시 productRows 기준으로 새로 계산
-  const cargoSourceRef = useRef<'server' | 'upload'>('server');
+  // 'server': 서버/로컬 로드 직후 → productRows 재계산 스킵
+  // 'upload': 새 파일 업로드 직후 → sep 적용 시 보존 없이 전체 재계산
+  // 'active': 정상 동작 → sep 변경 시 사용자 수정값 스마트 보존
+  const cargoSourceRef = useRef<'server' | 'upload' | 'active'>('server');
   const batchPrintRequestedRef = useRef(false);
 
   const [busy, setBusy] = useState(false);
@@ -2071,6 +2070,7 @@ export function VehiclePageScreen({
 
         if (localSnapshot) {
           setFileName(localSnapshot.fileName ?? "");
+          cargoSourceRef.current = 'server';
           setProductRows(Array.isArray(localSnapshot.productRows) ? localSnapshot.productRows : []);
           setCargoRows(Array.isArray(localSnapshot.cargoRows) ? localSnapshot.cargoRows.filter((r) => !r.id?.startsWith("subtotal-")) : []);
           if (localSnapshot.subtotalSettings) setSubtotalSettings(localSnapshot.subtotalSettings);
@@ -2101,6 +2101,7 @@ export function VehiclePageScreen({
         if (serverSaved?.snapshot) {
           const nextSnapshot = serverSaved.snapshot;
           setFileName(nextSnapshot.fileName ?? "");
+          cargoSourceRef.current = 'server';
           setProductRows(Array.isArray(nextSnapshot.productRows) ? nextSnapshot.productRows : []);
           setCargoRows(Array.isArray(nextSnapshot.cargoRows) ? nextSnapshot.cargoRows.filter((r) => !r.id?.startsWith("subtotal-")) : []);
           if (nextSnapshot.subtotalSettings) setSubtotalSettings(nextSnapshot.subtotalSettings);
@@ -2516,16 +2517,30 @@ export function VehiclePageScreen({
     return toISODate(baseDate);
   }, [productRows]);
 
-  // separateQtyMap 또는 productRows가 바뀌면 cargoRows 재계산 (note/support_excluded 보존)
-  // 단품별 전용 페이지(cargo 탭 없음)에서는 불필요한 재계산 생략
-  // cargoSourceRef가 'server'이면 사용자 수정 숫자값도 보존 (서버 로드 후 덮어쓰기 방지)
+  // productRows 변경 시 재계산: 서버/로컬 로드('server')는 스킵, 파일 업로드만 실행
   useEffect(() => {
     if (productRows.length === 0) return;
     if (!allowedTabs.includes("cargo")) return;
-    const preserveNumeric = cargoSourceRef.current === 'server';
-    setCargoRows((prev) => mergeCargoPreserve(prev, buildCargoDraftWithSep(productRows, separateQtyMap), preserveNumeric));
+    if (cargoSourceRef.current !== 'active') return; // 'server'·'upload' 모두 스킵, sep effect에서 처리
+    setCargoRows((prev) => mergeCargoPreserve(prev, buildCargoDraftWithSep(productRows, separateQtyMapRef.current)));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [separateQtyMap, productRows]);
+  }, [productRows]);
+
+  // separateQtyMap 변경 시 재계산: 별도수량 편집 반영 + 사용자 수동 수정값 스마트 보존
+  useEffect(() => {
+    if (productRows.length === 0) return;
+    if (!allowedTabs.includes("cargo")) return;
+    const isUploadFresh = cargoSourceRef.current === 'upload';
+    cargoSourceRef.current = 'active';
+    if (isUploadFresh) {
+      // 신규 파일 업로드 후 첫 sep: 전체 재계산 (수동 수정값 없음)
+      setCargoRows((prev) => mergeCargoPreserve(prev, buildCargoDraftWithSep(productRows, separateQtyMap)));
+    } else {
+      // 서버 로드 or 별도수량 편집: 사용자 수동 수정값 보존하며 재계산
+      setCargoRows((prev) => mergeCargoPreserveSmart(prev, buildCargoDraftWithSep(productRows, separateQtyMap)));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [separateQtyMap]);
 
   useEffect(() => {
     if (!deliveryDateISO) {
