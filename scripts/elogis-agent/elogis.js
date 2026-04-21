@@ -877,7 +877,7 @@ async function scrapeDomData(page, fileConfig, log) {
       log(`${label}: 1차 ${loadedCount}건 집계 완료 (전체 ${dsTotal}건) capturedReq=${capturedDpsRequest ? capturedDpsRequest.method + " " + capturedDpsRequest.url.substring(0, 80) : "null"}`);
 
       // 나머지 페이지 fetch로 집계 (캡처된 요청 재사용)
-      const ZONE_DONE_CODES = { "15": ["01", "03"] }; // 경량존A(15)는 "01"도 완료
+      const ZONE_DONE_CODES = { "15": ["01"] }; // 경량존(15): 완료="01", 미완료="02"
       if (dsTotal > loadedCount && capturedDpsRequest) {
         const BATCH = 10000;
         for (let start = loadedCount; start < dsTotal; start += BATCH) {
@@ -931,6 +931,11 @@ async function scrapeDomData(page, fileConfig, log) {
       }
       const summary = { dsTotal, loadedCount: totalLoaded, zones: result };
       log(`${label}: ${totalLoaded}건 집계 완료 (전체 ${dsTotal}건)`);
+      // zone 15 디버그: 미완료 car 분포 확인
+      if (zones["15"]) {
+        const z15 = zones["15"];
+        log(`[DEBUG zone15] done=${z15.done} total=${z15.total} minPendingCar=${z15.minPendingCar}`);
+      }
       return summary;
     }
   }
