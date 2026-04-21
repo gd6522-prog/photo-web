@@ -83,8 +83,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [workLogOpen, setWorkLogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [operationOpen, setOperationOpen] = useState(false);
-  const [insuOpen, setInsuOpen] = useState(false);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const guardBootstrappedRef = useRef(false);
 
@@ -98,8 +97,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const OPERATION_ITEMS = useMemo(() => getSubItems("admin_operation"), []);
   const NOTICE_ITEMS    = useMemo(() => getSubItems("admin_notice"),    []);
   const WORK_LOG_ITEMS  = useMemo(() => getSubItems("admin_work_log"),  []);
-  const INSU_ITEMS      = useMemo(() => getSubItems("admin_insu"),      []);
-
   const getAccess = (menuKey: string, mainOnly?: boolean): AccessLevel => {
     if (isMainAdmin) return "full";
     if (mainOnly) return "hidden";
@@ -123,7 +120,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     setWorkLogOpen(false);
     setSettingsOpen(false);
     setOperationOpen(false);
-    setInsuOpen(false);
   };
 
   const redirectToLogin = (reason?: "timeout") => {
@@ -131,7 +127,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     window.location.replace(next);
   };
 
-  const openDropdown = (which: "photos" | "vehicle" | "notice" | "worklog" | "settings" | "operation" | "insu") => {
+  const openDropdown = (which: "photos" | "vehicle" | "notice" | "worklog" | "settings" | "operation") => {
     clearCloseTimer();
     setPhotosOpen(which === "photos");
     setVehicleOpen(which === "vehicle");
@@ -139,10 +135,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     setWorkLogOpen(which === "worklog");
     setSettingsOpen(which === "settings");
     setOperationOpen(which === "operation");
-    setInsuOpen(which === "insu");
   };
 
-  const closeDropdownDelayed = (which: "photos" | "vehicle" | "notice" | "worklog" | "settings" | "operation" | "insu") => {
+  const closeDropdownDelayed = (which: "photos" | "vehicle" | "notice" | "worklog" | "settings" | "operation") => {
     clearCloseTimer();
     closeTimer.current = setTimeout(() => {
       if (which === "photos") setPhotosOpen(false);
@@ -151,7 +146,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       if (which === "worklog") setWorkLogOpen(false);
       if (which === "settings") setSettingsOpen(false);
       if (which === "operation") setOperationOpen(false);
-      if (which === "insu") setInsuOpen(false);
     }, 180);
   };
 
@@ -233,8 +227,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const isOperationActive = pathname.startsWith("/admin/operation") || pathname.startsWith("/admin/vehicles/cdc");
   const isWorkLogActive = pathname.startsWith("/admin/work-log");
   const isSettingsActive = pathname.startsWith("/admin/settings");
-  const isInsuActive = pathname.startsWith("/admin/insu");
-
   const canShow = (menuKey: string, mainOnly?: boolean) => getAccess(menuKey, mainOnly) !== "hidden";
   const visibleSettingsItems = SETTINGS_ITEMS.filter((it) => canShow(it.key, it.mainOnly));
   const canShowPhotos = canShow("admin_photos");
@@ -682,38 +674,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     )}
                   </div>
                 ) : null}
-
-                {/* 인수증 */}
-                <div
-                  onMouseEnter={() => openDropdown("insu")}
-                  onMouseLeave={() => closeDropdownDelayed("insu")}
-                  style={{ position: "relative" }}
-                >
-                  <Link href="/admin/insu" className={isInsuActive ? "nav-pill-active" : "nav-pill"} style={pillStyle(isInsuActive)} onMouseEnter={() => openDropdown("insu")}>
-                    인수증
-                  </Link>
-
-                  {insuOpen && (
-                    <div
-                      onMouseEnter={() => openDropdown("insu")}
-                      onMouseLeave={() => closeDropdownDelayed("insu")}
-                      style={dropdownBoxStyle}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {INSU_ITEMS.map((it) => {
-                        const base = it.href.split("?")[0];
-                        const active = base === "/admin/insu"
-                          ? pathname === "/admin/insu"
-                          : pathname === base || pathname.startsWith(base + "/");
-                        return (
-                          <Link key={it.key} href={it.href} style={dropdownItemStyle(active)}>
-                            {it.label}
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
 
                 {/* 설정 */}
                 {visibleSettingsItems.length > 0 ? (

@@ -26,8 +26,6 @@ export const MENU_REGISTRY: MenuItem[] = [
     match: (p) => p === "/admin/notice" || p.startsWith("/admin/notice/"),
   },
   { key: "admin_work_log",  label: "근태",   href: "/admin/work-log",   group: "nav", order: 40 },
-  { key: "admin_insu",      label: "인수증", href: "/admin/insu",        group: "nav", order: 45 },
-
   // ── 사진 하위
   { key: "admin_photos_field",    label: "현장사진", href: "/admin/photos",                     group: "nav", order: 21, parent: "admin_photos" },
   { key: "admin_photos_delivery", label: "배송사진", href: "/admin/photos/delivery",            group: "nav", order: 22, parent: "admin_photos" },
@@ -48,12 +46,6 @@ export const MENU_REGISTRY: MenuItem[] = [
   // ── 게시판 하위
   { key: "admin_notice_board",    label: "게시판",   href: "/admin/notice/boards?board=notice", group: "nav", order: 301, parent: "admin_notice" },
   { key: "admin_notice_calendar", label: "일정달력", href: "/admin/notice/calendar",            group: "nav", order: 302, parent: "admin_notice" },
-
-  // ── 인수증 하위
-  { key: "admin_insu_dashboard", label: "관리대장",   href: "/admin/insu",         group: "nav", order: 451, parent: "admin_insu" },
-  { key: "admin_insu_upload",    label: "파일 업로드", href: "/admin/insu/upload",  group: "nav", order: 452, parent: "admin_insu" },
-  { key: "admin_insu_print",     label: "인수증 출력", href: "/admin/insu/print",   group: "nav", order: 453, parent: "admin_insu" },
-  { key: "admin_insu_scan",      label: "회수 스캔",   href: "/admin/insu/scan",    group: "nav", order: 454, parent: "admin_insu" },
 
   // ── 근태 하위
   { key: "admin_worklog_basic",  label: "기본근태", href: "/admin/work-log?tab=basic",          group: "nav", order: 401, parent: "admin_work_log" },
