@@ -841,7 +841,7 @@ async function scrapeDomData(page, fileConfig, log) {
         const dsTotal = records[0].get?.("DS_TOTALCOUNT") ?? s.getTotalCount?.() ?? 0;
 
         // 존별 완료 코드 (기본 "03", 경량존A(15)는 "01"도 완료)
-        const ZONE_DONE_CODES = {}; // 기본 완료코드 "03", 존별 예외 없음
+        const ZONE_DONE_CODES = { "15": ["01"] }; // 경량존A: 완료="01", 미완료="02" (다른 존과 반대)
 
         // 첫 번째 배치 zones 집계
         const zones = {};
