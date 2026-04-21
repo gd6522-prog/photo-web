@@ -461,15 +461,28 @@ async function main() {
     let dpsRunning = false;
     let dpsInterval = null;
 
-    const msUntil11AmNextDay = () => {
-      const now = new Date();
-      const next = new Date(now);
-      next.setDate(now.getDate() + 1);
-      next.setHours(11, 0, 0, 0);
-      return next.getTime() - now.getTime();
+    let waitingForDanpum = false;
+    let danpumPollInterval = null;
+
+    // 오늘(KST) 날짜 문자열 반환
+    const todayKST = () => new Date().toLocaleDateString("ko-KR", {
+      timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit",
+    }).replace(/\. /g, "-").replace(".", "");
+
+    // 단품별 파일 등록 여부 확인 (내부 API 호출)
+    const checkDanpumFile = async () => {
+      try {
+        const res = await fetch(`${ADMIN_URL}/api/internal/vehicle-daily-check`, {
+          headers: { "x-internal-secret": INTERNAL_API_SECRET },
+        });
+        const json = await res.json();
+        return json?.found === true && json?.uploadedAt;
+      } catch { return false; }
     };
 
     const startDpsLoop = () => {
+      waitingForDanpum = false;
+      if (danpumPollInterval) { clearInterval(danpumPollInterval); danpumPollInterval = null; }
       log("DPS 작업현황 5분 주기 자동 스크래핑 시작");
       runDps();
       dpsInterval = setInterval(runDps, 5 * 60 * 1000);
@@ -483,13 +496,21 @@ async function main() {
         if (result?.ok && result.zones) {
           const zones = result.zones;
           const allDone = Object.values(zones).every((z) => z.total > 0 && z.done >= z.total);
-          if (allDone) {
+          if (allDone && !waitingForDanpum) {
             clearInterval(dpsInterval);
             dpsInterval = null;
-            const ms = msUntil11AmNextDay();
-            const resumeAt = new Date(Date.now() + ms).toLocaleString("ko-KR");
-            log(`[DPS] 전체 작업 완료 — 5분 주기 중단. 익일 11시(${resumeAt}) 재시작 예약`);
-            setTimeout(startDpsLoop, ms);
+            waitingForDanpum = true;
+            log("[DPS] 전체 작업 완료 — 5분 주기 중단. 단품별 파일 등록 대기 시작 (5분 간격 폴링)");
+            // 5분마다 단품별 파일 등록 여부 확인
+            danpumPollInterval = setInterval(async () => {
+              const found = await checkDanpumFile();
+              if (found) {
+                log(`[DPS] 단품별 파일 등록 감지 (${todayKST()}) — DPS 스크래핑 재시작`);
+                startDpsLoop();
+              } else {
+                log(`[DPS] 단품별 파일 미등록 (${todayKST()}) — 계속 대기 중`);
+              }
+            }, 5 * 60 * 1000);
           }
         }
       } catch (e) {
