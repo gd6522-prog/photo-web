@@ -444,10 +444,28 @@ async function main() {
 
   // 슬롯 스케줄 체크: 다음 정각 분에 맞춰 시작 후 매분 실행
   if (INTERNAL_API_SECRET) {
+    // 시작 시 최근 10분 이내 놓친 슬롯 즉시 실행 (재시작으로 인한 누락 방지)
+    const catchupMissed = async () => {
+      const schedules = await fetchSlotSchedules();
+      if (!schedules || typeof schedules !== "object") return;
+      const nowKst = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+      if (nowKst.getDay() === 0) return;
+      const nowMin = nowKst.getHours() * 60 + nowKst.getMinutes();
+      for (const [slotKey, sched] of Object.entries(schedules)) {
+        if (!sched.enabled) continue;
+        const schedMin = sched.hour * 60 + sched.minute;
+        const diff = nowMin - schedMin;
+        if (diff > 0 && diff <= 10) {
+          log(`[스케줄] ${slotKey} → 놓친 슬롯 감지 (${diff}분 전), 즉시 실행`);
+          triggerSlot(slotKey).catch((e) => log(`[ERROR] 슬롯 catchup 오류 (${slotKey}): ${e?.message}`));
+        }
+      }
+    };
+    catchupMissed().catch((e) => log(`[ERROR] catchup: ${e?.message}`));
+
     const secsLeft = 60 - new Date().getSeconds();
     log(`슬롯 스케줄 체크 시작까지 ${secsLeft}초 대기...`);
     setTimeout(() => {
-      // 즉시 1회 체크 후 매분 반복
       checkSchedules().catch((e) => log(`[ERROR] checkSchedules: ${e?.message}`));
       setInterval(() => {
         checkSchedules().catch((e) => log(`[ERROR] checkSchedules: ${e?.message}`));
