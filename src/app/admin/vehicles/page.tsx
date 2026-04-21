@@ -3063,15 +3063,15 @@ export function VehiclePageScreen({
               justify-content: center;
               padding-left: 10mm !important;
               box-sizing: border-box;
-              break-after: page;
-              page-break-after: always;
+              break-before: page;
+              page-break-before: always;
               break-inside: avoid;
               page-break-inside: avoid;
             }
 
-            .report-print-shell:last-child {
-              break-after: auto;
-              page-break-after: auto;
+            .report-print-shell:first-child {
+              break-before: auto;
+              page-break-before: auto;
             }
 
             .report-preview-viewport {
@@ -3281,15 +3281,15 @@ export function VehiclePageScreen({
             justify-content: center !important;
             padding-left: 10mm !important;
             box-sizing: border-box !important;
-            break-after: page !important;
-            page-break-after: always !important;
+            break-before: page !important;
+            page-break-before: always !important;
             break-inside: avoid !important;
             page-break-inside: avoid !important;
           }
 
-          .report-print-shell:last-child {
-            break-after: auto !important;
-            page-break-after: auto !important;
+          .report-print-shell:first-child {
+            break-before: auto !important;
+            page-break-before: auto !important;
           }
 
           .report-preview-viewport {
