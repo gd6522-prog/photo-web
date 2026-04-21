@@ -2396,21 +2396,32 @@ export function VehiclePageScreen({
     if (!batchPrintMode || !batchPrintRequestedRef.current) return;
 
     let cancelled = false;
-    let firstFrame = 0;
-    let secondFrame = 0;
+    let rafId = 0;
+    let timerId = 0;
+    const expectedCount = visibleReportGroups.length;
+    let pollCount = 0;
 
-    firstFrame = window.requestAnimationFrame(() => {
-      secondFrame = window.requestAnimationFrame(() => {
+    const tryPrint = () => {
+      if (cancelled) return;
+      const actualCount = reportPrintListRef.current?.querySelectorAll(".report-print-shell").length ?? 0;
+      if (actualCount < expectedCount && pollCount < 40) {
+        pollCount++;
+        timerId = window.setTimeout(() => { rafId = window.requestAnimationFrame(tryPrint); }, 16);
+        return;
+      }
+      rafId = window.requestAnimationFrame(() => {
         if (cancelled) return;
         batchPrintRequestedRef.current = false;
         void printVisibleReportPages(() => setBatchPrintMode(""));
       });
-    });
+    };
+
+    rafId = window.requestAnimationFrame(() => { rafId = window.requestAnimationFrame(tryPrint); });
 
     return () => {
       cancelled = true;
-      window.cancelAnimationFrame(firstFrame);
-      window.cancelAnimationFrame(secondFrame);
+      window.cancelAnimationFrame(rafId);
+      window.clearTimeout(timerId);
     };
   }, [batchPrintMode, visibleReportGroups]);
 
@@ -3191,7 +3202,7 @@ export function VehiclePageScreen({
         finalize();
         setMessage("출력을 시작하지 못했습니다. 다시 시도해 주세요.");
       }
-    }, 150);
+    }, 500);
   };
 
   const printSelectedReport = () => {
