@@ -40,8 +40,13 @@ function now() {
   return new Date().toLocaleString("ko-KR");
 }
 
+const fs = require("fs");
+const LOG_FILE = require("path").join(__dirname, "agent.log");
+
 function log(msg) {
-  console.log(`[${now()}] ${msg}`);
+  const line = `[${now()}] ${msg}`;
+  console.log(line);
+  fs.appendFileSync(LOG_FILE, line + "\n");
 }
 
 // ── Supabase 헬퍼 ─────────────────────────────────────────────────────────────
