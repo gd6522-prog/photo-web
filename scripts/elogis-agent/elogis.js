@@ -867,14 +867,14 @@ async function scrapeDomData(page, fileConfig, log) {
         const proxyUrl = proxy.url || proxy.api?.read || "";
         const extraParams = proxy.extraParams ? Object.assign({}, proxy.extraParams) : {};
 
-        return { dsTotal, loadedCount: records.length, zones, proxyUrl, extraParams };
+        return { dsTotal, loadedCount: records.length, zones, proxyUrl, extraParams, zone15pgs };
       } catch (_) { return null; }
     }).catch(() => null);
 
     if (!storeInfo || Object.keys(storeInfo.zones).length === 0) {
       log(`${label}: 스토어 정보 추출 실패`);
     } else {
-      const { dsTotal, loadedCount, zones, proxyUrl, extraParams } = storeInfo;
+      const { dsTotal, loadedCount, zones, proxyUrl, extraParams, zone15pgs } = storeInfo;
       log(`${label}: 1차 ${loadedCount}건 집계 완료 (전체 ${dsTotal}건) capturedReq=${capturedDpsRequest ? capturedDpsRequest.method + " " + capturedDpsRequest.url.substring(0, 80) : "null"}`);
 
       // 나머지 페이지 fetch로 집계 (캡처된 요청 재사용)
