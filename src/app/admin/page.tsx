@@ -1596,6 +1596,254 @@ function WorkTypeOutboundCard() {
   );
 }
 
+// ── 입고예정 파트별 발주 현황 카드 ────────────────────────────────────────────
+function InboundSummaryCard() {
+  type InboundItem = { label: string; count: number; ord_price: number };
+
+  const [summaryRows, setSummaryRows] = useState<InboundItem[]>([]);
+  const [summaryTotal, setSummaryTotal] = useState({ count: 0, ord_price: 0 });
+  const [summaryNoTobacco, setSummaryNoTobacco] = useState({ count: 0, ord_price: 0 });
+  const [targetDateLabel, setTargetDateLabel] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [copying, setCopying] = useState(false);
+  const [copyMsg, setCopyMsg] = useState("");
+
+  function fmt(n: number) { return n.toLocaleString("ko-KR"); }
+  function normalizeDate(s: string) { return s.replace(/\D/g, "").slice(0, 8); }
+  function fmtDate(s: string) {
+    const d = normalizeDate(s);
+    if (d.length === 8) return `${d.slice(0, 4)}.${d.slice(4, 6)}.${d.slice(6, 8)}`;
+    return s || "-";
+  }
+  function nextWorkdayDate() {
+    const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    const d = new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate() + 1));
+    const dow = d.getUTCDay();
+    if (dow === 6) d.setUTCDate(d.getUTCDate() + 2);
+    if (dow === 0) d.setUTCDate(d.getUTCDate() + 1);
+    return d.getUTCFullYear().toString() + String(d.getUTCMonth() + 1).padStart(2, "0") + String(d.getUTCDate()).padStart(2, "0");
+  }
+  function dateLabel(yyyymmdd: string) {
+    const DOW_KO = ["일", "월", "화", "수", "목", "금", "토"];
+    const d = new Date(`${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6, 8)}T00:00:00+09:00`);
+    return `${fmtDate(yyyymmdd)}(${DOW_KO[d.getDay()]})`;
+  }
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        setLoading(true);
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) return;
+        const res = await fetch("/api/admin/inbound-status", {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const json = await res.json() as { ok: boolean; rows?: Array<Record<string, unknown>>; worktypeMap?: Record<string, string> };
+        const rows = (json.rows ?? []) as Array<{ inb_ect_date: string; inb_status: string; shortage_status: string; item_cd: string; ord_price: number }>;
+        const worktypeMap = json.worktypeMap ?? {};
+        const target = nextWorkdayDate();
+        setTargetDateLabel(dateLabel(target));
+
+        const EXCLUDE_SHORTAGE = new Set(["완납", "완전결품"]);
+        const filtered = rows.filter((r) =>
+          normalizeDate(r.inb_ect_date) === target &&
+          r.inb_status === "입고예정" &&
+          !EXCLUDE_SHORTAGE.has(r.shortage_status)
+        );
+
+        const groups = new Map<string, { count: number; ord_price: number }>();
+        for (const r of filtered) {
+          const key = worktypeMap[r.item_cd] || "미분류";
+          const g = groups.get(key) ?? { count: 0, ord_price: 0 };
+          g.count += 1;
+          g.ord_price += r.ord_price;
+          groups.set(key, g);
+        }
+
+        const ORDER = ["박스수기", "박스존1", "이너존A", "슬라존A", "경량존A", "이형존A", "담배존", "담배수기", "미분류", "유가증권"];
+        const sorted = [...groups.entries()]
+          .filter(([label]) => label !== "공병존")
+          .map(([label, v]) => ({ label, ...v }))
+          .sort((a, b) => {
+            const ai = ORDER.indexOf(a.label), bi = ORDER.indexOf(b.label);
+            if (ai === -1 && bi === -1) return a.label.localeCompare(b.label, "ko");
+            if (ai === -1) return 1; if (bi === -1) return -1;
+            return ai - bi;
+          });
+
+        setSummaryRows(sorted);
+        setSummaryTotal(sorted.reduce((acc, r) => ({ count: acc.count + r.count, ord_price: acc.ord_price + r.ord_price }), { count: 0, ord_price: 0 }));
+        setSummaryNoTobacco(sorted.filter(r => r.label !== "담배존" && r.label !== "담배수기").reduce((acc, r) => ({ count: acc.count + r.count, ord_price: acc.ord_price + r.ord_price }), { count: 0, ord_price: 0 }));
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!copyMsg) return;
+    const t = window.setTimeout(() => setCopyMsg(""), 2000);
+    return () => window.clearTimeout(t);
+  }, [copyMsg]);
+
+  const handleCopy = async () => {
+    setCopying(true);
+    try {
+      const hasWrite = !!(navigator.clipboard as { write?: unknown })?.write;
+      const hasItem = typeof (window as { ClipboardItem?: unknown }).ClipboardItem !== "undefined";
+      if (!hasWrite || !hasItem) throw new Error("이 브라우저는 이미지 복사를 지원하지 않습니다.");
+
+      const DPR = 2, PAD = 14, ROW_H = 26, HEAD_H = 36, TITLE_H = 38, FOOT_H = 28;
+      const COL_LABEL = 110, COL_COUNT = 52, COL_PRICE = 110;
+      const W = PAD + COL_LABEL + COL_COUNT + COL_PRICE + PAD;
+      const H = TITLE_H + HEAD_H + ROW_H * summaryRows.length + FOOT_H * 2 + PAD;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = W * DPR; canvas.height = H * DPR;
+      const ctx = canvas.getContext("2d")!;
+      ctx.scale(DPR, DPR);
+
+      const drawRight = (text: string, rx: number, my: number, size: number, color: string, bold = false) => {
+        ctx.fillStyle = color;
+        ctx.font = `${bold ? "bold " : ""}${size}px -apple-system, "Malgun Gothic", sans-serif`;
+        ctx.textBaseline = "middle";
+        ctx.fillText(text, rx - ctx.measureText(text).width, my);
+      };
+
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "#f4f8fc"; ctx.fillRect(0, 0, W, TITLE_H);
+      ctx.strokeStyle = "#d9e6ef"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, TITLE_H); ctx.lineTo(W, TITLE_H); ctx.stroke();
+      ctx.fillStyle = "#103b53"; ctx.font = `bold 13px -apple-system, "Malgun Gothic", sans-serif`; ctx.textBaseline = "middle";
+      ctx.fillText("파트별 발주 현황", PAD, TITLE_H / 2);
+      ctx.fillStyle = "#557186"; ctx.font = `11px -apple-system, "Malgun Gothic", sans-serif`;
+      const dlbl = `입고예정일: ${targetDateLabel}`;
+      ctx.fillText(dlbl, W - PAD - ctx.measureText(dlbl).width, TITLE_H / 2);
+
+      ctx.fillStyle = "#eef5fb"; ctx.fillRect(0, TITLE_H, W, HEAD_H);
+      ctx.strokeStyle = "#d9e6ef";
+      ctx.beginPath(); ctx.moveTo(0, TITLE_H + HEAD_H); ctx.lineTo(W, TITLE_H + HEAD_H); ctx.stroke();
+      ctx.fillStyle = "#103b53"; ctx.font = `bold 12px -apple-system, "Malgun Gothic", sans-serif`; ctx.textBaseline = "middle";
+      ctx.fillText("작업구분", PAD, TITLE_H + HEAD_H / 2);
+      drawRight("건수", PAD + COL_LABEL + COL_COUNT, TITLE_H + HEAD_H / 2, 12, "#103b53", true);
+      drawRight("발주금액", PAD + COL_LABEL + COL_COUNT + COL_PRICE, TITLE_H + HEAD_H / 2, 12, "#103b53", true);
+
+      summaryRows.forEach((r, i) => {
+        const y = TITLE_H + HEAD_H + i * ROW_H;
+        ctx.fillStyle = i % 2 === 0 ? "#ffffff" : "#f8fbfd"; ctx.fillRect(0, y, W, ROW_H);
+        ctx.strokeStyle = "#eef3f7"; ctx.beginPath(); ctx.moveTo(0, y + ROW_H); ctx.lineTo(W, y + ROW_H); ctx.stroke();
+        const mid = y + ROW_H / 2;
+        ctx.fillStyle = "#0f2940"; ctx.font = `bold 12px -apple-system, "Malgun Gothic", sans-serif`; ctx.textBaseline = "middle";
+        ctx.fillText(r.label, PAD, mid);
+        drawRight(fmt(r.count), PAD + COL_LABEL + COL_COUNT, mid, 12, "#374151");
+        drawRight(fmt(Math.round(r.ord_price)), PAD + COL_LABEL + COL_COUNT + COL_PRICE, mid, 12, "#1D4ED8", true);
+      });
+
+      const footY = TITLE_H + HEAD_H + ROW_H * summaryRows.length;
+      ctx.fillStyle = "#f4f8fc"; ctx.fillRect(0, footY, W, FOOT_H);
+      ctx.strokeStyle = "#d9e6ef"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(0, footY); ctx.lineTo(W, footY); ctx.stroke();
+      ctx.lineWidth = 1;
+      ctx.fillStyle = "#103b53"; ctx.font = `bold 13px -apple-system, "Malgun Gothic", sans-serif`; ctx.textBaseline = "middle";
+      ctx.fillText("합계", PAD, footY + FOOT_H / 2);
+      drawRight(fmt(summaryTotal.count), PAD + COL_LABEL + COL_COUNT, footY + FOOT_H / 2, 13, "#113247", true);
+      drawRight(fmt(Math.round(summaryTotal.ord_price)), PAD + COL_LABEL + COL_COUNT + COL_PRICE, footY + FOOT_H / 2, 13, "#0f2940", true);
+
+      const foot2Y = footY + FOOT_H;
+      ctx.fillStyle = "#eef4f9"; ctx.fillRect(0, foot2Y, W, FOOT_H);
+      ctx.strokeStyle = "#d9e6ef"; ctx.beginPath(); ctx.moveTo(0, foot2Y); ctx.lineTo(W, foot2Y); ctx.stroke();
+      ctx.fillStyle = "#103b53"; ctx.font = `bold 13px -apple-system, "Malgun Gothic", sans-serif`; ctx.textBaseline = "middle";
+      ctx.fillText("담배제외", PAD, foot2Y + FOOT_H / 2);
+      drawRight(fmt(summaryNoTobacco.count), PAD + COL_LABEL + COL_COUNT, foot2Y + FOOT_H / 2, 13, "#113247", true);
+      drawRight(fmt(Math.round(summaryNoTobacco.ord_price)), PAD + COL_LABEL + COL_COUNT + COL_PRICE, foot2Y + FOOT_H / 2, 13, "#0f2940", true);
+
+      ctx.strokeStyle = "#d9e6ef"; ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
+
+      const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/png"));
+      if (!blob) throw new Error("이미지를 만들지 못했습니다.");
+      if (!document.hasFocus()) { window.focus(); await new Promise((r) => setTimeout(r, 50)); }
+      const item = new (window as { ClipboardItem: new (a: Record<string, Blob>) => unknown }).ClipboardItem({ "image/png": blob });
+      await (navigator.clipboard as unknown as { write: (a: unknown[]) => Promise<void> }).write([item]);
+      setCopyMsg("복사 완료");
+    } catch (e: unknown) {
+      setCopyMsg((e as Error)?.message ?? "복사 실패");
+    } finally {
+      setCopying(false);
+    }
+  };
+
+  return (
+    <Card
+      title="파트별 발주 현황"
+      subtitle={targetDateLabel ? `입고예정일: ${targetDateLabel}` : ""}
+      right={
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+          <button
+            onClick={handleCopy}
+            disabled={copying || loading || summaryRows.length === 0}
+            style={{
+              height: 30, padding: "0 12px", borderRadius: 4,
+              border: "1px solid #b9cddd",
+              background: copying || loading || summaryRows.length === 0 ? "#e5edf3" : "#ffffff",
+              color: copying || loading || summaryRows.length === 0 ? "#90a4b4" : "#103b53",
+              cursor: copying || loading || summaryRows.length === 0 ? "default" : "pointer",
+              fontWeight: 950, fontSize: 12, whiteSpace: "nowrap",
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+            }}
+          >
+            {copying ? "복사중" : "복사"}
+          </button>
+          {copyMsg && (
+            <div style={{ fontSize: 11.5, color: copyMsg === "복사 완료" ? "#0f766e" : "#b91c1c", fontWeight: 800 }}>
+              {copyMsg}
+            </div>
+          )}
+        </div>
+      }
+    >
+      {loading ? (
+        <div style={{ padding: "24px 0", textAlign: "center", color: "#94A3B8", fontSize: 13 }}>불러오는 중...</div>
+      ) : summaryRows.length === 0 ? (
+        <div style={{ padding: "24px 0", textAlign: "center", color: "#94A3B8", fontSize: 13 }}>데이터가 없습니다.</div>
+      ) : (
+        <table style={{ borderCollapse: "collapse", fontSize: 12, width: "100%" }}>
+          <thead>
+            <tr style={{ background: "#eef5fb" }}>
+              <th style={{ textAlign: "left", padding: "5px 10px", fontWeight: 900, color: "#103b53", whiteSpace: "nowrap", borderBottom: "1px solid #d9e6ef" }}>작업구분</th>
+              <th style={{ textAlign: "right", padding: "5px 10px", fontWeight: 900, color: "#103b53", whiteSpace: "nowrap", borderBottom: "1px solid #d9e6ef" }}>건수</th>
+              <th style={{ textAlign: "right", padding: "5px 10px", fontWeight: 900, color: "#103b53", whiteSpace: "nowrap", borderBottom: "1px solid #d9e6ef" }}>발주금액</th>
+            </tr>
+          </thead>
+          <tbody>
+            {summaryRows.map((r, i) => (
+              <tr key={r.label} style={{ background: i % 2 === 0 ? "#fff" : "#f8fbfd", borderTop: "1px solid #eef3f7" }}>
+                <td style={{ padding: "5px 10px", fontWeight: 700, color: "#0f2940", whiteSpace: "nowrap" }}>{r.label}</td>
+                <td style={{ padding: "5px 10px", textAlign: "right", color: "#374151", fontVariantNumeric: "tabular-nums" }}>{fmt(r.count)}</td>
+                <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700, color: "#1D4ED8", fontVariantNumeric: "tabular-nums" }}>{fmt(Math.round(r.ord_price))}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr style={{ borderTop: "2px solid #d9e6ef", background: "#f4f8fc" }}>
+              <td style={{ padding: "5px 10px", fontWeight: 950, color: "#103b53" }}>합계</td>
+              <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums" }}>{fmt(summaryTotal.count)}</td>
+              <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 950, color: "#0f2940", fontVariantNumeric: "tabular-nums" }}>{fmt(Math.round(summaryTotal.ord_price))}</td>
+            </tr>
+            <tr style={{ borderTop: "1px solid #d9e6ef", background: "#eef4f9" }}>
+              <td style={{ padding: "5px 10px", fontWeight: 950, color: "#103b53" }}>담배제외</td>
+              <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums" }}>{fmt(summaryNoTobacco.count)}</td>
+              <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 950, color: "#0f2940", fontVariantNumeric: "tabular-nums" }}>{fmt(Math.round(summaryNoTobacco.ord_price))}</td>
+            </tr>
+          </tfoot>
+        </table>
+      )}
+    </Card>
+  );
+}
+
 /** -------- 달력 및 3일 미리보기 (제목만) -------- */
 function ThreeDayPreview({
   baseYMD,
@@ -2794,6 +3042,7 @@ export default function AdminHomePage() {
 
           <div className="summaryCol">
             <WorkTypeOutboundCard />
+            <InboundSummaryCard />
           </div>
 
           <div className="rightCol">
