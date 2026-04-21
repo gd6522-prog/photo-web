@@ -469,14 +469,14 @@ async function main() {
       timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit",
     }).replace(/\. /g, "-").replace(".", "");
 
-    // 단품별 파일 등록 여부 확인 (내부 API 호출)
+    // 단품별 파일 등록 여부 확인 (납품예정일 D+1, 토요일 D+2)
     const checkDanpumFile = async () => {
       try {
         const res = await fetch(`${ADMIN_URL}/api/internal/vehicle-daily-check`, {
           headers: { "x-internal-secret": INTERNAL_API_SECRET },
         });
         const json = await res.json();
-        return json?.found === true && json?.uploadedAt;
+        return json?.found === true ? json.targetDate : false;
       } catch { return false; }
     };
 
@@ -503,12 +503,12 @@ async function main() {
             log("[DPS] 전체 작업 완료 — 5분 주기 중단. 단품별 파일 등록 대기 시작 (5분 간격 폴링)");
             // 5분마다 단품별 파일 등록 여부 확인
             danpumPollInterval = setInterval(async () => {
-              const found = await checkDanpumFile();
-              if (found) {
-                log(`[DPS] 단품별 파일 등록 감지 (${todayKST()}) — DPS 스크래핑 재시작`);
+              const targetDate = await checkDanpumFile();
+              if (targetDate) {
+                log(`[DPS] 단품별 파일 등록 감지 (납품예정일 ${targetDate}) — DPS 스크래핑 재시작`);
                 startDpsLoop();
               } else {
-                log(`[DPS] 단품별 파일 미등록 (${todayKST()}) — 계속 대기 중`);
+                log(`[DPS] 단품별 파일 미등록 (납품예정일 대기 중) — 계속 폴링`);
               }
             }, 5 * 60 * 1000);
           }
