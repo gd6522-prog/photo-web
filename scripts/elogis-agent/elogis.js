@@ -909,9 +909,8 @@ async function scrapeDomData(page, fileConfig, log) {
             const code = String(d.LC_TP_CD ?? "?");
             const pgs = String(d.PGS_STAT_CD ?? "");
             const car = String(d.CHG_CARDOC_CD ?? "");
-            if (!zones[code]) zones[code] = { done: 0, total: 0, minPendingCar: null, pgsSet: [] };
+            if (!zones[code]) zones[code] = { done: 0, total: 0, minPendingCar: null };
             zones[code].total++;
-            if (zones[code].pgsSet.length < 3 && !zones[code].pgsSet.includes(pgs)) zones[code].pgsSet.push(pgs);
             const doneCodes = ZONE_DONE_CODES[code] ?? ["03"];
             const isDone = doneCodes.includes(pgs);
             if (isDone) {

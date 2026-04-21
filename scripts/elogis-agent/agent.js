@@ -505,7 +505,13 @@ async function main() {
             danpumPollInterval = setInterval(async () => {
               const targetDate = await checkDanpumFile();
               if (targetDate) {
-                log(`[DPS] 단품별 파일 등록 감지 (납품예정일 ${targetDate}) — DPS 스크래핑 재시작`);
+                log(`[DPS] 단품별 파일 등록 감지 (납품예정일 ${targetDate}) — DPS 캐시 초기화 후 재시작`);
+                // 캐시 초기화: 대시보드가 즉시 빈 상태로 표시되도록
+                await fetch(`${ADMIN_URL}/api/internal/dps-status`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "x-internal-secret": INTERNAL_API_SECRET },
+                  body: JSON.stringify({ rows: { zones: {}, dsTotal: 0, loadedCount: 0 }, scrapedAt: new Date().toISOString() }),
+                }).catch(() => {});
                 startDpsLoop();
               } else {
                 log(`[DPS] 단품별 파일 미등록 (납품예정일 대기 중) — 계속 폴링`);
