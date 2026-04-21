@@ -3073,11 +3073,18 @@ export default function AdminHomePage() {
             max-width: var(--leftColW);
           }
           .midCol,
-          .summaryCol,
           .rightCol {
             display: flex;
             min-width: 0;
             overflow: hidden;
+          }
+          .summaryCol {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 0;
+            overflow: hidden;
+            align-items: stretch;
           }
           @media (max-width: 1250px) {
             .homeGrid {
