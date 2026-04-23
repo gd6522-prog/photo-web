@@ -105,6 +105,8 @@ export async function POST(req: Request) {
     if (keys.length === 0) {
       return NextResponse.json({ ok: false, message: "R2에 업로드된 파일이 없습니다." }, { status: 404 });
     }
+    // R2는 알파벳 오름차순 반환 → 내림차순 정렬해서 가장 최근 파일을 사용
+    keys.sort((a, b) => b.localeCompare(a));
     const r2Key  = keys[0];
     const buffer = await getR2ObjectBuffer(r2Key);
     if (!buffer) {
