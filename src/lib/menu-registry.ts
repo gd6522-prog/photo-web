@@ -59,6 +59,7 @@ export const MENU_REGISTRY: MenuItem[] = [
   { key: "settings_permissions",        label: "권한 설정",              href: "/admin/settings/permissions",        group: "settings", order: 150, mainOnly: true },
   { key: "settings_holidays",           label: "공휴일 동기화",          href: "/admin/settings/holidays",           group: "settings", order: 160, mainOnly: true },
   { key: "settings_vehicle_history",    label: "과거 차량데이터 업로드",  href: "/admin/settings/vehicle-history",    group: "settings", order: 165 },
+  { key: "settings_work_completion",    label: "작업 완료 기준시간",       href: "/admin/settings/work-completion-time", group: "settings", order: 170, mainOnly: true },
 ];
 
 /** 상단 Nav의 최상위 항목만 (parent 없는 것) */

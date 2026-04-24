@@ -908,6 +908,36 @@ function DpsProgressCard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshLabel, setRefreshLabel] = useState("새로고침");
+  const [refTime, setRefTime] = useState<{ hour: number; minute: number } | null>(null);
+  const savedDateRef = React.useRef<string | null>(null);
+
+  const loadRefTime = React.useCallback(async () => {
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess?.session?.access_token;
+      if (!token) return;
+      const res = await fetch("/api/admin/app-settings?key=dps_reference_time", {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const j = await res.json() as { ok: boolean; value?: { hour: number; minute: number } };
+      if (j.ok && j.value?.hour != null) setRefTime(j.value);
+    } catch { /* ignore */ }
+  }, []);
+
+  const saveCompletion = React.useCallback(async (workDate: string, completedAt: string | null, snapshot: DpsSummary) => {
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess?.session?.access_token;
+      if (!token) return;
+      await fetch("/api/admin/dps-completion", {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ work_date: workDate, completed_at: completedAt, snapshot }),
+      });
+    } catch { /* ignore */ }
+  }, []);
 
   const readR2 = React.useCallback(async () => {
     try {
@@ -919,16 +949,31 @@ function DpsProgressCard() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const j = await res.json();
-      if (j.ok) setData(j);
+      if (j.ok) {
+        setData(j);
+        const summary = j.rows as DpsSummary;
+        const zs = summary?.zones ?? {};
+        const activeCodes = Object.keys(zs).filter((c) => zs[c].total > 0);
+        const allDone = activeCodes.length > 0 && activeCodes.every((c) => zs[c].done >= zs[c].total);
+        if (allDone) {
+          const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+          const todayStr = `${kst.getUTCFullYear()}-${String(kst.getUTCMonth() + 1).padStart(2, "0")}-${String(kst.getUTCDate()).padStart(2, "0")}`;
+          if (savedDateRef.current !== todayStr) {
+            savedDateRef.current = todayStr;
+            void saveCompletion(todayStr, j.scrapedAt ?? null, summary);
+          }
+        }
+      }
     } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, []);
+  }, [saveCompletion]);
 
   useEffect(() => {
     readR2();
+    void loadRefTime();
     const interval = setInterval(readR2, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [readR2]);
+  }, [readR2, loadRefTime]);
 
   const handleRefresh = async () => {
     if (refreshing) return;
@@ -981,6 +1026,23 @@ function DpsProgressCard() {
   const sortedCodes = LC_TP_ORDER.filter((c) => zones[c]);
   Object.keys(zones).forEach((c) => { if (!LC_TP_ORDER.includes(c)) sortedCodes.push(c); });
 
+  const activeCodes = sortedCodes.filter((c) => zones[c]?.total > 0);
+  const allDone = activeCodes.length > 0 && activeCodes.every((c) => zones[c].done >= zones[c].total);
+
+  const nowKst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const nowMin = nowKst.getUTCHours() * 60 + nowKst.getUTCMinutes();
+  const refMin = refTime ? refTime.hour * 60 + refTime.minute : null;
+
+  function getBarColor(pct: number): string {
+    if (refMin !== null) {
+      const diff = refMin - nowMin;
+      if (diff < 0) return "#EF4444";
+      if (diff <= 10) return "#F59E0B";
+      return "#2563EB";
+    }
+    return pct >= 80 ? "#16A34A" : pct >= 50 ? "#2563EB" : "#F59E0B";
+  }
+
   return (
     <Card
       title="작업파트별 진행현황"
@@ -1005,6 +1067,13 @@ function DpsProgressCard() {
     >
       {loading ? (
         <div style={{ padding: "24px 0", textAlign: "center", color: "#9CA3AF", fontSize: 13 }}>로딩...</div>
+      ) : allDone ? (
+        <div style={{ padding: "20px 12px", textAlign: "center" }}>
+          <div style={{ fontSize: 18, fontWeight: 900, color: "#16A34A", letterSpacing: 0.5 }}>금일 작업 종료</div>
+          {data?.scrapedAt && (
+            <div style={{ marginTop: 6, fontSize: 11, color: "#6B7280" }}>{fmtTime(data.scrapedAt)} 기준</div>
+          )}
+        </div>
       ) : sortedCodes.length === 0 ? (
         <div style={{ padding: "20px 12px", color: "#9CA3AF", fontSize: 13, textAlign: "center" }}>
           데이터 없음
@@ -1016,7 +1085,7 @@ function DpsProgressCard() {
             const z = zones[code];
             const name = LC_TP_NAMES[code] ?? `작업구분 ${code}`;
             const pct = z.total > 0 ? Math.min(100, Math.round((z.done / z.total) * 100)) : 0;
-            const barColor = pct >= 80 ? "#16A34A" : pct >= 50 ? "#2563EB" : "#F59E0B";
+            const barColor = getBarColor(pct);
             return (
               <div key={code} style={{ padding: "4px 8px", background: "#F8FAFC", borderRadius: 6, border: "1px solid #E2EBF3" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
