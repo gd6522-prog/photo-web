@@ -1088,7 +1088,7 @@ function DpsProgressCard() {
         <div style={{ padding: "20px 12px", textAlign: "center" }}>
           <div style={{ fontSize: 18, fontWeight: 900, color: "#16A34A", letterSpacing: 0.5 }}>금일 작업 종료</div>
           {data?.scrapedAt && (
-            <div style={{ marginTop: 6, fontSize: 11, color: "#6B7280" }}>{fmtTime(data.scrapedAt)} 기준</div>
+            <div style={{ marginTop: 6, fontSize: 11, color: "#6B7280" }}>{fmtTime(data.scrapedAt)}</div>
           )}
         </div>
       ) : sortedCodes.length === 0 ? (
