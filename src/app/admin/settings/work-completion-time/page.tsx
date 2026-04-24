@@ -59,20 +59,30 @@ function fmtTimeKst(iso: string | null) {
 }
 
 function TimeInput({ value, onChange }: { value: { hour: number; minute: number }; onChange: (v: { hour: number; minute: number }) => void }) {
+  const inputStyle: React.CSSProperties = {
+    width: 42, padding: "4px 0", border: "1px solid #b9cddd", borderRadius: 4,
+    fontSize: 14, fontWeight: 700, textAlign: "center", color: "#103b53",
+  };
   return (
     <div style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
       <input
-        type="number" min={0} max={23}
-        value={value.hour}
-        onChange={(e) => onChange({ ...value, hour: Math.min(23, Math.max(0, Number(e.target.value))) })}
-        style={{ width: 48, padding: "4px 0", border: "1px solid #b9cddd", borderRadius: 4, fontSize: 14, fontWeight: 700, textAlign: "center", color: "#103b53" }}
+        type="text" inputMode="numeric" maxLength={2}
+        value={String(value.hour).padStart(2, "0")}
+        onChange={(e) => {
+          const n = parseInt(e.target.value.replace(/\D/g, ""), 10);
+          if (!isNaN(n)) onChange({ ...value, hour: Math.min(23, Math.max(0, n)) });
+        }}
+        style={inputStyle}
       />
       <span style={{ fontSize: 15, fontWeight: 900, color: "#103b53" }}>:</span>
       <input
-        type="number" min={0} max={59}
-        value={value.minute}
-        onChange={(e) => onChange({ ...value, minute: Math.min(59, Math.max(0, Number(e.target.value))) })}
-        style={{ width: 48, padding: "4px 0", border: "1px solid #b9cddd", borderRadius: 4, fontSize: 14, fontWeight: 700, textAlign: "center", color: "#103b53" }}
+        type="text" inputMode="numeric" maxLength={2}
+        value={String(value.minute).padStart(2, "0")}
+        onChange={(e) => {
+          const n = parseInt(e.target.value.replace(/\D/g, ""), 10);
+          if (!isNaN(n)) onChange({ ...value, minute: Math.min(59, Math.max(0, n)) });
+        }}
+        style={inputStyle}
       />
     </div>
   );
