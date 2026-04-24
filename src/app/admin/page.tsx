@@ -1717,7 +1717,7 @@ function InboundSummaryCard() {
       ctx.strokeStyle = "#d9e6ef"; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(0, TITLE_H); ctx.lineTo(W, TITLE_H); ctx.stroke();
       ctx.fillStyle = "#103b53"; ctx.font = `bold 13px -apple-system, "Malgun Gothic", sans-serif`; ctx.textBaseline = "middle";
-      ctx.fillText("작업파트별 발주 현황", PAD, TITLE_H / 2);
+      ctx.fillText("작업파트별 입고 현황", PAD, TITLE_H / 2);
       ctx.fillStyle = "#557186"; ctx.font = `11px -apple-system, "Malgun Gothic", sans-serif`;
       const dlbl = `입고예정일: ${targetDateLabel}`;
       ctx.fillText(dlbl, W - PAD - ctx.measureText(dlbl).width, TITLE_H / 2);
@@ -1776,7 +1776,7 @@ function InboundSummaryCard() {
 
   return (
     <Card
-      title="작업파트별 발주 현황"
+      title="작업파트별 입고 현황"
       subtitle={targetDateLabel ? `입고예정일: ${targetDateLabel}` : ""}
       right={
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
