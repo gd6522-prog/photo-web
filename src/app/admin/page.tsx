@@ -1767,7 +1767,7 @@ function InboundSummaryCard() {
       const DPR = 2, PAD = 14, ROW_H = 26, HEAD_H = 36, TITLE_H = 38, FOOT_H = 28;
       const COL_LABEL = 110, COL_COUNT = 52, COL_PRICE = 110;
       const W = PAD + COL_LABEL + COL_COUNT + COL_PRICE + PAD;
-      const H = TITLE_H + HEAD_H + ROW_H * summaryRows.length + FOOT_H * 2 + PAD;
+      const H = TITLE_H + HEAD_H + ROW_H * summaryRows.length + FOOT_H * 2;
 
       const canvas = document.createElement("canvas");
       canvas.width = W * DPR; canvas.height = H * DPR;
@@ -1786,7 +1786,7 @@ function InboundSummaryCard() {
       ctx.strokeStyle = "#d9e6ef"; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(0, TITLE_H); ctx.lineTo(W, TITLE_H); ctx.stroke();
       ctx.fillStyle = "#103b53"; ctx.font = `bold 13px -apple-system, "Malgun Gothic", sans-serif`; ctx.textBaseline = "middle";
-      ctx.fillText("작업파트별 입고 현황", PAD, TITLE_H / 2);
+      ctx.fillText("작업파트별 입고 예정", PAD, TITLE_H / 2);
       ctx.fillStyle = "#557186"; ctx.font = `11px -apple-system, "Malgun Gothic", sans-serif`;
       const dlbl = `입고예정일: ${targetDateLabel}`;
       ctx.fillText(dlbl, W - PAD - ctx.measureText(dlbl).width, TITLE_H / 2);
@@ -1845,7 +1845,7 @@ function InboundSummaryCard() {
 
   return (
     <Card
-      title="작업파트별 입고 현황"
+      title="작업파트별 입고 예정"
       subtitle={targetDateLabel ? `입고예정일: ${targetDateLabel}` : ""}
       right={
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
