@@ -942,6 +942,7 @@ function DpsProgressCard() {
   }, []);
 
   const readR2 = React.useCallback(async () => {
+    if (allDoneRef.current) return;
     try {
       const { data: sess } = await supabase.auth.getSession();
       const token = sess?.session?.access_token;
