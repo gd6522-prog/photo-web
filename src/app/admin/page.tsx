@@ -1420,7 +1420,7 @@ function WorkTypeOutboundCard() {
       writeHomeCache(HOME_OUTBOUND_CACHE_KEY, { rows: nextRows, deliveryDate: nextDeliveryDate });
     } catch (e: any) {
       setRows([]);
-      setErr(e?.message ?? "작업구분별 출고배수를 불러오지 못했습니다.");
+      setErr(e?.message ?? "작업파트별 출고배수를 불러오지 못했습니다.");
     } finally {
       setLoading(false);
     }
@@ -1466,7 +1466,7 @@ function WorkTypeOutboundCard() {
   return (
     <div ref={cardCaptureRef}>
       <Card
-        title="작업구분별 출고배수"
+        title="작업파트별 출고배수"
         subtitle={`납품예정일: ${formatDeliveryDateLabel(deliveryDate)}`}
         minHeight={WEATHER_MIN_H}
         right={
@@ -1619,7 +1619,6 @@ function InboundSummaryCard() {
     const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
     const d = new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate() + 1));
     const dow = d.getUTCDay();
-    if (dow === 6) d.setUTCDate(d.getUTCDate() + 2);
     if (dow === 0) d.setUTCDate(d.getUTCDate() + 1);
     return d.getUTCFullYear().toString() + String(d.getUTCMonth() + 1).padStart(2, "0") + String(d.getUTCDate()).padStart(2, "0");
   }
@@ -1718,7 +1717,7 @@ function InboundSummaryCard() {
       ctx.strokeStyle = "#d9e6ef"; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(0, TITLE_H); ctx.lineTo(W, TITLE_H); ctx.stroke();
       ctx.fillStyle = "#103b53"; ctx.font = `bold 13px -apple-system, "Malgun Gothic", sans-serif`; ctx.textBaseline = "middle";
-      ctx.fillText("파트별 발주 현황", PAD, TITLE_H / 2);
+      ctx.fillText("작업파트별 발주 현황", PAD, TITLE_H / 2);
       ctx.fillStyle = "#557186"; ctx.font = `11px -apple-system, "Malgun Gothic", sans-serif`;
       const dlbl = `입고예정일: ${targetDateLabel}`;
       ctx.fillText(dlbl, W - PAD - ctx.measureText(dlbl).width, TITLE_H / 2);
@@ -1777,7 +1776,7 @@ function InboundSummaryCard() {
 
   return (
     <Card
-      title="파트별 발주 현황"
+      title="작업파트별 발주 현황"
       subtitle={targetDateLabel ? `입고예정일: ${targetDateLabel}` : ""}
       right={
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
