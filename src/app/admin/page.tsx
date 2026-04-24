@@ -908,20 +908,20 @@ function DpsProgressCard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshLabel, setRefreshLabel] = useState("새로고침");
-  const [refTime, setRefTime] = useState<{ hour: number; minute: number } | null>(null);
+  const [carRefTimes, setCarRefTimes] = useState<Record<string, { hour: number; minute: number }>>({});
   const savedDateRef = React.useRef<string | null>(null);
 
-  const loadRefTime = React.useCallback(async () => {
+  const loadCarRefTimes = React.useCallback(async () => {
     try {
       const { data: sess } = await supabase.auth.getSession();
       const token = sess?.session?.access_token;
       if (!token) return;
-      const res = await fetch("/api/admin/app-settings?key=dps_reference_time", {
+      const res = await fetch("/api/admin/app-settings?key=dps_car_reference_times", {
         cache: "no-store",
         headers: { Authorization: `Bearer ${token}` },
       });
-      const j = await res.json() as { ok: boolean; value?: { hour: number; minute: number } };
-      if (j.ok && j.value?.hour != null) setRefTime(j.value);
+      const j = await res.json() as { ok: boolean; value?: Record<string, { hour: number; minute: number }> };
+      if (j.ok && j.value) setCarRefTimes(j.value);
     } catch { /* ignore */ }
   }, []);
 
@@ -970,10 +970,10 @@ function DpsProgressCard() {
 
   useEffect(() => {
     readR2();
-    void loadRefTime();
+    void loadCarRefTimes();
     const interval = setInterval(readR2, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [readR2, loadRefTime]);
+  }, [readR2, loadCarRefTimes]);
 
   const handleRefresh = async () => {
     if (refreshing) return;
@@ -1031,11 +1031,11 @@ function DpsProgressCard() {
 
   const nowKst = new Date(Date.now() + 9 * 60 * 60 * 1000);
   const nowMin = nowKst.getUTCHours() * 60 + nowKst.getUTCMinutes();
-  const refMin = refTime ? refTime.hour * 60 + refTime.minute : null;
 
-  function getBarColor(pct: number): string {
-    if (refMin !== null) {
-      const diff = refMin - nowMin;
+  function getBarColor(pct: number, pendingCar: string | null): string {
+    const ref = pendingCar ? carRefTimes[pendingCar] : null;
+    if (ref) {
+      const diff = ref.hour * 60 + ref.minute - nowMin;
       if (diff < 0) return "#EF4444";
       if (diff <= 10) return "#F59E0B";
       return "#2563EB";
@@ -1085,7 +1085,7 @@ function DpsProgressCard() {
             const z = zones[code];
             const name = LC_TP_NAMES[code] ?? `작업구분 ${code}`;
             const pct = z.total > 0 ? Math.min(100, Math.round((z.done / z.total) * 100)) : 0;
-            const barColor = getBarColor(pct);
+            const barColor = getBarColor(pct, z.minPendingCar);
             return (
               <div key={code} style={{ padding: "4px 8px", background: "#F8FAFC", borderRadius: 6, border: "1px solid #E2EBF3" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
