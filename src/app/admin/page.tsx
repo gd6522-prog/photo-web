@@ -910,6 +910,8 @@ function DpsProgressCard() {
   const [refreshLabel, setRefreshLabel] = useState("새로고침");
   const [carRefTimes, setCarRefTimes] = useState<Record<string, { hour: number; minute: number }>>({});
   const savedDateRef = React.useRef<string | null>(null);
+  const allDoneRef = React.useRef(false);
+  const intervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadCarRefTimes = React.useCallback(async () => {
     try {
@@ -962,6 +964,15 @@ function DpsProgressCard() {
             savedDateRef.current = todayStr;
             void saveCompletion(todayStr, j.scrapedAt ?? null, summary);
           }
+          if (!allDoneRef.current) {
+            allDoneRef.current = true;
+            if (intervalRef.current !== null) {
+              clearInterval(intervalRef.current);
+              intervalRef.current = null;
+            }
+          }
+        } else {
+          allDoneRef.current = false;
         }
       }
     } catch { /* ignore */ }
@@ -969,10 +980,16 @@ function DpsProgressCard() {
   }, [saveCompletion]);
 
   useEffect(() => {
+    allDoneRef.current = false;
     readR2();
     void loadCarRefTimes();
-    const interval = setInterval(readR2, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+    intervalRef.current = setInterval(readR2, 5 * 60 * 1000);
+    return () => {
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
   }, [readR2, loadCarRefTimes]);
 
   const handleRefresh = async () => {
