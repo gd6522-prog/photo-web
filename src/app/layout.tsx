@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "D-port",
-  description: "D-port 관리자",
+  title: "Drido",
+  description: "Drido 관리자",
   icons: {
     icon: "/icon.png",
     shortcut: "/icon.png",
