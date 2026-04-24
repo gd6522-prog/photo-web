@@ -486,7 +486,7 @@ const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
           >
             <div style={{ display: "flex", alignItems: "center", minWidth: 0, gap: 10 }}>
               <Link href="/admin" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
-                <Image src="/logo.png" alt="logo" width={108} height={26} priority style={{ width: "auto", height: 26 }} />
+                <Image src="/logo.png" alt="logo" width={180} height={44} priority style={{ width: "auto", height: 44 }} />
               </Link>
             </div>
 
