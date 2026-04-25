@@ -837,8 +837,15 @@ async function scrapeDomData(page, fileConfig, log) {
         const s = g && (g.store || g.getStore?.());
         if (!s || !s.proxy) return null;
         const records = s.getRange ? s.getRange() : [];
-        if (records.length === 0) return null;
-        const dsTotal = records[0].get?.("DS_TOTALCOUNT") ?? s.getTotalCount?.() ?? 0;
+        const dsTotal = records.length > 0
+          ? (records[0].get?.("DS_TOTALCOUNT") ?? s.getTotalCount?.() ?? 0)
+          : (s.getTotalCount?.() ?? 0);
+        if (records.length === 0) {
+          const proxy = s.proxy;
+          const proxyUrl = proxy.url || proxy.api?.read || "";
+          const extraParams = proxy.extraParams ? Object.assign({}, proxy.extraParams) : {};
+          return { dsTotal, loadedCount: 0, zones: {}, proxyUrl, extraParams };
+        }
 
         // 첫 번째 배치 zones 집계
         const zones = {};
@@ -867,8 +874,12 @@ async function scrapeDomData(page, fileConfig, log) {
       } catch (_) { return null; }
     }).catch(() => null);
 
-    if (!storeInfo || Object.keys(storeInfo.zones).length === 0) {
+    if (!storeInfo) {
       log(`${label}: 스토어 정보 추출 실패`);
+    } else if (Object.keys(storeInfo.zones).length === 0) {
+      // 그리드는 찾았으나 검색 결과 0건 (작업 미생성 또는 조회 조건 불일치)
+      log(`${label}: 검색 결과 0건 — 빈 데이터로 저장`);
+      return { dsTotal: storeInfo.dsTotal, loadedCount: 0, zones: {} };
     } else {
       const { dsTotal, loadedCount, zones, proxyUrl, extraParams } = storeInfo;
       log(`${label}: 1차 ${loadedCount}건 집계 완료 (전체 ${dsTotal}건) capturedReq=${capturedDpsRequest ? capturedDpsRequest.method + " " + capturedDpsRequest.url.substring(0, 80) : "null"}`);

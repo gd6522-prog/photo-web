@@ -518,7 +518,7 @@ async function main() {
         const result = await scrapeDpsAndPost(dpsTarget, log);
         if (result?.ok && result.zones) {
           const zones = result.zones;
-          const allDone = Object.values(zones).every((z) => z.total > 0 && z.done >= z.total);
+          const allDone = Object.values(zones).length > 0 && Object.values(zones).every((z) => z.total > 0 && z.done >= z.total);
           if (allDone && !waitingForDanpum) {
             clearInterval(dpsInterval);
             dpsInterval = null;
