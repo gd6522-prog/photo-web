@@ -226,11 +226,6 @@ async function setDateFieldByLabel(page, dateLabel, daysOffset, log, slotLabel, 
               return "ext-ok";
             }
           }
-          // 디버그: datefield/triggerfield 목록 출력
-          const debugList = comps.slice(0, 8).map(f =>
-            `name=${f.name || "?"}|lbl=${(f.fieldLabel || "").substring(0, 15)}|val=${f.rawValue || ""}`
-          ).join(" // ");
-          if (debugList) return `debug:${debugList}`;
         }
         // DOM fallback: YYYY.MM.DD 형식 값을 가진 input 탐색
         const inputs = document.querySelectorAll("input[type='text'],input:not([type])");
@@ -251,9 +246,7 @@ async function setDateFieldByLabel(page, dateLabel, daysOffset, log, slotLabel, 
         return false;
       }, { ts: targetTs, dotStr: targetDot, searchLabel: dateLabel, extName, extIndex }).catch(() => false);
 
-      if (result && typeof result === "string" && result.startsWith("debug:")) {
-        log(`${slotLabel}: [DEBUG] ExtJS datefield 목록: ${result.slice(6)}`);
-      } else if (result) {
+      if (result) {
         dateSet = true;
         log(`${slotLabel}: ${dateLabel} → ${targetDot} [${result}]`);
         break;
