@@ -210,10 +210,10 @@ async function setDateFieldByLabel(page, dateLabel, daysOffset, log, slotLabel, 
     for (const target of getElogisFrames(page)) {
       const result = await target.evaluate(({ ts, dotStr, searchLabel, extName, extIndex }) => {
         if (typeof Ext !== "undefined") {
-          // extName 지정 시 datefield/triggerfield 중 visible + name 속성 직접 비교
+          // extName 지정 시 name 속성 직접 비교 (isVisible 체크 없음 — iframe 환경에서 오동작)
           const comps = Ext.ComponentQuery.query("datefield,triggerfield");
           if (extName) {
-            const byName = comps.filter(f => (f.name || "") === extName && (!f.isVisible || f.isVisible()));
+            const byName = comps.filter(f => (f.name || "") === extName);
             if (byName.length > extIndex) {
               byName[extIndex].setValue(new Date(ts));
               return "ext-name-ok";
