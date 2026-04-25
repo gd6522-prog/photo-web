@@ -42,7 +42,7 @@ const R2_ACCOUNT_ID = envVars.R2_ACCOUNT_ID;
 const R2_ACCESS_KEY_ID = envVars.R2_ACCESS_KEY_ID;
 const R2_SECRET_ACCESS_KEY = envVars.R2_SECRET_ACCESS_KEY;
 const R2_BUCKET = envVars.R2_BUCKET;
-const R2_PUBLIC_URL = "https://pub-2ed566ac41944f778e208a0ccea9acd5.r2.dev";
+const R2_PUBLIC_URL = "https://img.dridolabs.com";
 
 const DELETE_AFTER = process.argv.includes("--delete");
 
