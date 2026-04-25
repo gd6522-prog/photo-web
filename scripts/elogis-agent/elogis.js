@@ -392,6 +392,13 @@ async function clickExcelAndDownload(page, context, log, label, prepareOverride,
     if (!/\.(png|jpg|gif|css|woff2?|ttf|ico|svg)$/i.test(url) && !url.includes("favicon")) {
       log(`${label}: [NET-REQ] ${req.method()} ${url.replace(/\?.*/, "")}`);
     }
+    if (url.includes("commonExcelDownPrepare")) {
+      try {
+        const body = req.postData() || "";
+        const p = new URLSearchParams(body);
+        log(`${label}: [PREPARE-SEARCH_URL] ${p.get("SEARCH_URL")} MENUCODE=${p.get("CURRENT_MENUCODE")}`);
+      } catch {}
+    }
   };
   const onResponse = async (resp) => {
     try {
@@ -748,6 +755,35 @@ async function downloadWmsFile(page, context, fileConfig, log) {
     log(`${label}: 전체행 재조회 후 ${waitMs}ms 대기...`);
     await page.waitForTimeout(waitMs);
     await waitForGridData(page, log, label);
+  }
+
+  // 다운로드 직전 탭 재활성화 — allRowsBeforeDownload 중 탭이 바뀔 수 있으므로 마지막 메뉴 아이템(탭)을 다시 선택
+  if (menuPath && menuPath.length > 0) {
+    const lastMenu = menuPath[menuPath.length - 1];
+    for (const target of getElogisFrames(page)) {
+      const reactivated = await target.evaluate((text) => {
+        if (typeof Ext === "undefined") return false;
+        const normalize = (s) => (s || "").replace(/\s+/g, "").trim();
+        const panels = Ext.ComponentQuery.query("tabpanel");
+        for (const panel of panels) {
+          const items = panel.items && panel.items.items;
+          if (!items) continue;
+          for (const tab of items) {
+            const title = tab.title || tab.text || tab.card?.title || "";
+            if (normalize(title) === normalize(text)) {
+              panel.setActiveItem(tab);
+              return true;
+            }
+          }
+        }
+        return false;
+      }, lastMenu).catch(() => false);
+      if (reactivated) {
+        log(`${label}: 다운로드 전 탭 재활성화: ${lastMenu}`);
+        await page.waitForTimeout(800);
+        break;
+      }
+    }
   }
 
   // prepareOverride가 있으면 UI prepare 요청을 가로채 수정 후 API 재전송
