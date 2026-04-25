@@ -195,6 +195,86 @@ async function evaluateClickByText(frame, texts) {
   }, texts).catch(() => false);
 }
 
+// ── UI 날짜 필드 설정 (ExtJS datefield/triggerfield를 라벨로 탐색) ────────────
+
+async function setDateFieldByLabel(page, dateLabel, daysOffset, log, slotLabel) {
+  const kst = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+  kst.setDate(kst.getDate() + daysOffset);
+  const targetTs = kst.getTime();
+  const targetDot = `${kst.getFullYear()}.${String(kst.getMonth()+1).padStart(2,"0")}.${String(kst.getDate()).padStart(2,"0")}`;
+
+  let dateSet = false;
+  const deadline = Date.now() + 6_000;
+  while (!dateSet && Date.now() < deadline) {
+    for (const target of getElogisFrames(page)) {
+      const result = await target.evaluate(({ ts, dotStr, searchLabel }) => {
+        if (typeof Ext !== "undefined") {
+          const comps = Ext.ComponentQuery.query("datefield,triggerfield");
+          for (const f of comps) {
+            const lbl = (f.fieldLabel || f.emptyText || "").replace(/\s/g, "");
+            const nm = (f.name || "").replace(/\s/g, "");
+            if (lbl.includes(searchLabel) || nm.includes(searchLabel)) {
+              f.setValue(new Date(ts));
+              return "ext-ok";
+            }
+          }
+        }
+        // DOM fallback: YYYY.MM.DD 형식 값을 가진 input 탐색
+        const inputs = document.querySelectorAll("input[type='text'],input:not([type])");
+        for (const inp of inputs) {
+          if (/^\d{4}\.\d{2}\.\d{2}$/.test((inp.value || "").trim())) {
+            const extCmp = inp.id && typeof Ext !== "undefined" ? Ext.getCmp(inp.id) : null;
+            if (extCmp && extCmp.setValue) {
+              extCmp.setValue(new Date(ts));
+              return "dom-ext-ok";
+            }
+            const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+            if (nativeSet) nativeSet.call(inp, dotStr);
+            inp.dispatchEvent(new Event("input", { bubbles: true }));
+            inp.dispatchEvent(new Event("change", { bubbles: true }));
+            return "dom-ok";
+          }
+        }
+        return false;
+      }, { ts: targetTs, dotStr: targetDot, searchLabel: dateLabel }).catch(() => false);
+
+      if (result) {
+        dateSet = true;
+        log(`${slotLabel}: ${dateLabel} → ${targetDot} [${result}]`);
+        break;
+      }
+    }
+    if (!dateSet) await page.waitForTimeout(500);
+  }
+  if (!dateSet) log(`${slotLabel}: ${dateLabel} 필드 미발견 — 기본값으로 조회`);
+}
+
+// ── 그리드 데이터 로딩 완료 대기 ────────────────────────────────────────────
+
+async function waitForGridData(page, log, label, timeoutMs = 20_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    let loading = false;
+    for (const t of getElogisFrames(page)) {
+      const isLoading = await t.evaluate(() => {
+        const el = document.querySelector(".x-mask-loading, .x-load-mask");
+        if (el && el.offsetParent !== null) return true;
+        if (typeof Ext !== "undefined") {
+          for (const g of Ext.ComponentQuery.query("gridpanel")) {
+            const st = g.store || g.getStore?.();
+            if (st && st.isLoading && st.isLoading()) return true;
+          }
+        }
+        return false;
+      }).catch(() => false);
+      if (isLoading) { loading = true; break; }
+    }
+    if (!loading) break;
+    log(`${label}: 데이터 로딩 대기 중...`);
+    await page.waitForTimeout(1_000);
+  }
+}
+
 // ── 조회 버튼 클릭 (evaluate → 실제 ExtJS 이벤트 발생, 최대 4회 재시도) ──────
 
 async function clickSearchButton(page, log, label) {
@@ -521,7 +601,7 @@ async function downloadViaInterceptAndApi(page, fileConfig, log) {
 // ── WMS/MDM 파일 다운로드 ─────────────────────────────────────────────────────
 
 async function downloadWmsFile(page, context, fileConfig, log) {
-  const { label, menuPath, searchInputs, prepareOverride } = fileConfig;
+  const { label, menuPath, searchInputs, prepareOverride, uiDateSearch } = fileConfig;
 
   log(`${label}: elogis 메인 이동...`);
   await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
@@ -536,6 +616,13 @@ async function downloadWmsFile(page, context, fileConfig, log) {
   // 검색 입력이 있는 경우: 값만 입력 (조회 클릭 불필요)
   if (searchInputs && searchInputs.length > 0) {
     await fillSearchInputs(page, searchInputs, log);
+  }
+
+  // UI 날짜 설정 + 조회 (DOWN_EXCEL_FILTERED_ROWS:"Y" 방식의 BMS 보고서용)
+  if (uiDateSearch) {
+    await setDateFieldByLabel(page, uiDateSearch.label, uiDateSearch.daysOffset, log, label);
+    await clickSearchButton(page, log, label);
+    await waitForGridData(page, log, label);
   }
 
   // prepareOverride가 있으면 UI prepare 요청을 가로채 수정 후 API 재전송

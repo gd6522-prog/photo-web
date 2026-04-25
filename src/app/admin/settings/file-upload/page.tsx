@@ -285,6 +285,14 @@ const SLOT_CONFIGS: SlotConfig[] = [
     type: "generic",
     requiredHeaders: ["입고번호", "상품코드", "입고예정일자"],
   },
+  {
+    key: "logistics-cost-by-store",
+    label: "점포별물류비조회(일)_작업구분별",
+    description: "기준일자 D-2 자동 조회",
+    accept: ".xlsx,.xls",
+    type: "generic",
+    requiredHeaders: ["센터명", "점포코드", "작업구분명"],
+  },
 ];
 
 // ─── Excel Helpers ────────────────────────────────────────────────────────────
