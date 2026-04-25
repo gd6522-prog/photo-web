@@ -327,18 +327,25 @@ async function clickExcelAndDownload(page, context, log, label, prepareOverride,
     });
   }
 
-  const onReqCapture = () => {};
-  page.on("request", onReqCapture);
-
-  // 네트워크 요청 감시 — ExcelDownLoad/commonExcelDown 관련 URL 로깅
-  const requestLog = [];
+  // 네트워크 요청/응답 즉시 로깅 (download 이벤트가 안 잡힐 경우 원인 파악용)
   const onRequest = (req) => {
     const url = req.url();
-    if (url.includes("Excel") || url.includes("excel") || url.includes("Download") || url.includes("download")) {
-      requestLog.push(`[REQ] ${req.method()} ${url}`);
+    if (!/\.(png|jpg|gif|css|woff2?|ttf|ico|svg)$/i.test(url) && !url.includes("favicon")) {
+      log(`${label}: [NET-REQ] ${req.method()} ${url.replace(/\?.*/, "")}`);
     }
   };
+  const onResponse = async (resp) => {
+    try {
+      const h = resp.headers();
+      const cd = h["content-disposition"] || "";
+      const ct = h["content-type"] || "";
+      if (cd.toLowerCase().includes("attachment") || ct.includes("excel") || ct.includes("spreadsheet") || ct.includes("octet-stream")) {
+        log(`${label}: [NET-RESP-FILE] ${resp.status()} ${resp.url().replace(/\?.*/, "")} CT=${ct} CD=${cd}`);
+      }
+    } catch {}
+  };
   page.on("request", onRequest);
+  page.on("response", onResponse);
 
   // page + context 양쪽에서 download 이벤트 대기 (MDM은 새 탭으로 다운로드할 수 있음)
   const downloadPromise = Promise.race([
@@ -413,18 +420,24 @@ async function clickExcelAndDownload(page, context, log, label, prepareOverride,
     }, preferMenuText).catch(() => false);
     if (dropdownClicked) {
       log(`${label}: 드롭다운 → ${dropdownClicked} 클릭`);
+      // 드롭다운 클릭 직후 스크린샷 (download 이벤트 미발생 시 화면 상태 확인용)
+      await page.waitForTimeout(1500);
+      await page.screenshot({ path: path.join(__dirname, `debug_${label.replace(/[/\\:*?"<>|]/g, "_")}_after_dl.png`) }).catch(() => {});
       break;
     }
   }
 
-  const download = await downloadPromise;
+  const download = await downloadPromise.catch(async (err) => {
+    page.off("request", onRequest);
+    page.off("response", onResponse);
+    await page.screenshot({ path: path.join(__dirname, `debug_${label.replace(/[/\\:*?"<>|]/g, "_")}_timeout.png`) }).catch(() => {});
+    throw err;
+  });
   page.off("request", onRequest);
-  page.off("request", onReqCapture);
+  page.off("response", onResponse);
   if (prepareOverride && Object.keys(prepareOverride).length > 0) {
     await page.unroute("**/utilService/commonExcelDownPrepare").catch(() => {});
   }
-  if (requestLog.length > 0) log(`[DEBUG] 다운로드 요청:\n  ${requestLog.join("\n  ")}`);
-  else log(`[DEBUG] 다운로드 관련 요청 없음`);
   const tmpPath = path.join(__dirname, `_tmp_${Date.now()}.xlsx`);
   await download.saveAs(tmpPath);
   const buffer = fs.readFileSync(tmpPath);
