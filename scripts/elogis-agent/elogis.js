@@ -770,25 +770,56 @@ async function scrapeDomData(page, fileConfig, log) {
     kst.setDate(kst.getDate() + (dow === 6 ? 2 : 1));
     const targetTs = kst.getTime();
     const targetLabel = `${kst.getFullYear()}-${String(kst.getMonth()+1).padStart(2,"0")}-${String(kst.getDate()).padStart(2,"0")}`;
+    // YYYY.MM.DD 포맷 (elogis 표시 형식)
+    const targetDot = `${kst.getFullYear()}.${String(kst.getMonth()+1).padStart(2,"0")}.${String(kst.getDate()).padStart(2,"0")}`;
+
     let dateSet = false;
-    for (const target of getElogisFrames(page)) {
-      const ok = await target.evaluate((ts) => {
-        if (typeof Ext === "undefined") return false;
-        const fields = Ext.ComponentQuery.query("datefield");
-        for (const f of fields) {
-          const nm = (f.name || "").toUpperCase();
-          const lbl = (f.fieldLabel || f.emptyText || "").replace(/\s/g, "");
-          if (nm.includes("OUT_DT") || lbl.includes("납품예정일")) {
-            f.setValue(new Date(ts));
-            return true;
+    // 최대 6초 대기 (프레임 로딩 고려)
+    const dateDeadline = Date.now() + 6_000;
+    while (!dateSet && Date.now() < dateDeadline) {
+      for (const target of getElogisFrames(page)) {
+        const result = await target.evaluate(({ ts, dotStr }) => {
+          // 방법1: Ext JS datefield 컴포넌트 쿼리
+          if (typeof Ext !== "undefined") {
+            // datefield 외에 triggerfield, textfield 도 포함 (elogis 커스텀 컴포넌트 대응)
+            const comps = Ext.ComponentQuery.query("datefield,triggerfield");
+            for (const f of comps) {
+              const nm = (f.name || "").toUpperCase();
+              const lbl = (f.fieldLabel || f.emptyText || "").replace(/\s/g, "");
+              const val = String(f.rawValue || f.getValue?.() || "");
+              // 이름/라벨 매칭 또는 현재 값이 날짜 형식이면 납품예정일 필드로 간주
+              if (nm.includes("OUT_DT") || lbl.includes("납품예정일") || /^\d{4}\.\d{2}\.\d{2}$/.test(val)) {
+                f.setValue(new Date(ts));
+                return "ext-ok";
+              }
+            }
           }
-        }
-        return false;
-      }, targetTs).catch(() => false);
-      if (ok) { dateSet = true; break; }
+          // 방법2: DOM 직접 조작 — 날짜 형식 값(YYYY.MM.DD)을 가진 input 찾기
+          const inputs = document.querySelectorAll("input[type='text'],input:not([type])");
+          for (const inp of inputs) {
+            if (/^\d{4}\.\d{2}\.\d{2}$/.test((inp.value || "").trim())) {
+              const extCmp = inp.id && typeof Ext !== "undefined" ? Ext.getCmp(inp.id) : null;
+              if (extCmp && extCmp.setValue) {
+                extCmp.setValue(new Date(ts));
+                return "dom-ext-ok";
+              }
+              // Ext 없으면 직접 값 변경 후 이벤트 발생
+              const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+              if (nativeSet) nativeSet.call(inp, dotStr);
+              inp.dispatchEvent(new Event("input", { bubbles: true }));
+              inp.dispatchEvent(new Event("change", { bubbles: true }));
+              return "dom-ok";
+            }
+          }
+          return false;
+        }, { ts: targetTs, dotStr: targetDot }).catch(() => false);
+
+        if (result) { dateSet = true; log(`${label}: 납품예정일 → ${targetLabel} [${result}]`); break; }
+      }
+      if (!dateSet) await page.waitForTimeout(500);
     }
-    log(`${label}: 납품예정일 → ${targetLabel} (${dateSet ? "설정완료" : "필드 미발견"})`)
-    await page.waitForTimeout(500);
+    if (!dateSet) log(`${label}: 납품예정일 필드 미발견 — 기본값으로 조회`);
+    await page.waitForTimeout(300);
   }
 
   // 조회 버튼 클릭 (먼저 실행 — 프레임이 아직 없을 수 있으므로 pageSize는 조회 후 설정)
