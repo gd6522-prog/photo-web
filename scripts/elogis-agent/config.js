@@ -352,6 +352,7 @@ const FILE_CONFIGS = [
   },
 
   // ── 11. 점포별물류비조회(일)_작업구분별 (BMS, 기준일자 D-2) ─────────────────
+  // BMS는 commonExcelDownPrepare를 쓰지 않으므로 브라우저 다운로드 이벤트 방식 사용
   {
     slotKey: "logistics-cost-by-store",
     label: "점포별물류비조회(일)_작업구분별",
@@ -359,32 +360,6 @@ const FILE_CONFIGS = [
     pageUrl: "https://elogis.emart24.co.kr/",
     menuPath: ["정산관리 (BMS)", "물류용역수수료", "점포별물류비조회(일)", "점포별/일자별/작업구분별"],
     uiDateSearch: { label: "기준일자", daysOffset: -2 },
-    prepareOverride: {
-      CURRENT_MENUCODE: "BMS151700",
-      CURRENT_MENUNAME: "MENU_LOGISCOST_TOTAL::MENU_BMS_STORE_BY_LOGISCOST_SEARCH_DAY",
-      DOWN_EXCEL_FILTERED_ROWS: "Y",
-      EXCEL_SHEET_TITLE: "MENU_LOGISCOST_TOTAL::MENU_BMS_STORE_BY_LOGISCOST_SEARCH_DAY",
-      EXCEL_HEADERCOLS: "CENT_NM,OUTB_ECT_DATE,STOR_CD,STOR_NM,ADJST_NM,WORK_SCTN_NM,ITEMGRP_BNM,ORD_QTY_01,NO_VAT_ORDER_AMT,VAT_ORDER_AMT,OUTB_CMPT_QTY,OUTB_MOQ,STORECONFIRM_QTY,NO_VAT_OUTB_CMPT_AMT,BMS_OUTB_AMT,BMS_CUST_CNFM_AMT_VAT,BMS_CUST_CNFM_AMT_EX_VAT,BMS_OUTB_ORG_AMT",
-      EXCEL_HEADERCOLS_TEXT: "센터명,납품예정일,점포코드,점포명,조정분류명,작업구분명,대분류명,발주수량,발주금액(VAT제외),발주금액(VAT포함),출고수량,출고배수,점포확정수량,출고금액(VAT제외),출고금액(VAT포함),점포확정금액(VAT포함),점포확정금액(VAT제외),출고원가(VAT제외)",
-      EXCEL_HEADER_DEPTH: "1",
-      EXCEL_REQUIRED_HEADERS: "",
-      EXCEL_COLNAMES: "WH_CD,OUTB_DATE_YMD,CUST_ID,CUST_NM,ADJST_NM,WORK_SCTN_NM,ITEMGRP_BNM,ORDER_QTY,NO_VAT_ORDER_AMT,ORDER_AMT,OUTB_CMPT_QTY,OUTB_CMPT_QTY_MOQ,CUST_CNFM_QTY,NO_VAT_OUTB_CMPT_AMT,OUTB_CMPT_AMT,CUST_CNFM_AMT,BMS_CUST_CNFM_AMT_EX_VAT,SHIP_AMT",
-      EXCEL_COL_WIDTH: "100,100,100,140,140,100,100,80,140,140,100,100,100,145,145,145,145,145",
-      EXCEL_EDIT_FALSE_COLS: "",
-      EXCEL_FIXED_COLS: "",
-      EXCEL_DATE_COLS: "OUTB_DATE_YMD",
-      EXCEL_DATE_COLS_FORMAT: "",
-      EXCEL_NUMBER_COLS: "ORDER_QTY,NO_VAT_ORDER_AMT,ORDER_AMT,OUTB_CMPT_QTY,OUTB_CMPT_QTY_MOQ,CUST_CNFM_QTY,NO_VAT_OUTB_CMPT_AMT,OUTB_CMPT_AMT,CUST_CNFM_AMT,BMS_CUST_CNFM_AMT_EX_VAT,SHIP_AMT",
-      EXCEL_COL_ALIGN: "center,center,center,left,left,left,center,right,right,right,right,right,right,right,right,right,right,right",
-      EXCEL_COL_HIDDEN: "",
-      EXCEL_COL_COMBOCOLS: "WH_CD",
-      EXCEL_COL_CHECKCOLS: "",
-      EXCEL_HEADERMERGE: "",
-      SES_LANG: "KO",
-      SES_USERGROUP: "2000000300",
-      SES_WHSE: "T01234",
-      SES_MULTI_LANG_YN: "N",
-    },
   },
 ];
 
