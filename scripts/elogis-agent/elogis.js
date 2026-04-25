@@ -618,7 +618,7 @@ async function downloadViaInterceptAndApi(page, fileConfig, log) {
 // ── WMS/MDM 파일 다운로드 ─────────────────────────────────────────────────────
 
 async function downloadWmsFile(page, context, fileConfig, log) {
-  const { label, menuPath, searchInputs, prepareOverride, uiDateSearch, downloadMenuText } = fileConfig;
+  const { label, menuPath, searchInputs, prepareOverride, uiDateSearch, uiDateRange, downloadMenuText } = fileConfig;
 
   log(`${label}: elogis 메인 이동...`);
   await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
@@ -635,13 +635,27 @@ async function downloadWmsFile(page, context, fileConfig, log) {
     await fillSearchInputs(page, searchInputs, log);
   }
 
-  // UI 날짜 설정 + 조회 (DOWN_EXCEL_FILTERED_ROWS:"Y" 방식의 BMS 보고서용)
+  // UI 날짜 설정 + 조회 (단일 날짜 필드)
   if (uiDateSearch) {
     await setDateFieldByLabel(page, uiDateSearch.label, uiDateSearch.daysOffset, log, label);
     await clickSearchButton(page, log, label);
     if (uiDateSearch.waitAfterSearch) {
       log(`${label}: 조회 후 ${uiDateSearch.waitAfterSearch}ms 대기...`);
       await page.waitForTimeout(uiDateSearch.waitAfterSearch);
+    }
+    await waitForGridData(page, log, label);
+  }
+
+  // UI 날짜 범위 설정 + 조회 (From/To 두 필드 모두 설정)
+  if (uiDateRange && uiDateRange.length > 0) {
+    for (const dr of uiDateRange) {
+      await setDateFieldByLabel(page, dr.label, dr.daysOffset, log, label);
+    }
+    await clickSearchButton(page, log, label);
+    const waitMs = uiDateRange.find(dr => dr.waitAfterSearch)?.waitAfterSearch;
+    if (waitMs) {
+      log(`${label}: 조회 후 ${waitMs}ms 대기...`);
+      await page.waitForTimeout(waitMs);
     }
     await waitForGridData(page, log, label);
   }

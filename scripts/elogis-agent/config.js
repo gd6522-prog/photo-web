@@ -301,13 +301,18 @@ const FILE_CONFIGS = [
     type: "generic",
     pageUrl: "https://elogis.emart24.co.kr/",
     menuPath: ["창고관리 (WMS)", "보고", "실적", "입고현황"],
+    // UI에서 직접 날짜 설정 후 조회 → 세션 업데이트 (서버가 세션 기준으로 검색하므로 필수)
+    uiDateRange: [
+      { label: "입고예정일From", daysOffset: 0 },
+      { label: "입고예정일To",   daysOffset: 2 },
+    ],
     dynamicParams: () => {
       const kstFmt = (offsetDays) => {
         const kst = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
         kst.setDate(kst.getDate() + offsetDays);
         return `${kst.getFullYear()}${String(kst.getMonth()+1).padStart(2,"0")}${String(kst.getDate()).padStart(2,"0")}`;
       };
-      return { INB_ECT_FROM: kstFmt(0), INB_ECT_TO: kstFmt(3) };
+      return { INB_ECT_FROM: kstFmt(0), INB_ECT_TO: kstFmt(2) };
     },
     prepareOverride: {
       SQL_ID: "SELECT_INB_STATUS_LIST",
