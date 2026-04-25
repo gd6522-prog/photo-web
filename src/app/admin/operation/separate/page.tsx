@@ -432,7 +432,7 @@ export default function SeparatePage() {
       </div>
 
       {/* ── 화면 UI ── */}
-      <div style={{ padding: "32px 24px", maxWidth: 1100, margin: "0 auto" }} className="no-print-wrapper">
+      <div style={{ padding: "32px 24px", maxWidth: 1400, margin: "0 auto" }} className="no-print-wrapper">
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
@@ -513,7 +513,7 @@ export default function SeparatePage() {
             </div>
 
             <div style={{ border: "1px solid #E8EDF2", borderRadius: 10, background: "#fff", overflow: "auto", boxShadow: "0 1px 4px rgba(15,23,42,0.06)" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 940 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1200 }}>
                 <thead>
                   <tr style={{ background: "#F8FAFC" }}>
                     {/* 전체선택 체크박스 — 헤더 맨 왼쪽 */}
@@ -607,19 +607,19 @@ export default function SeparatePage() {
                           <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#6B7280" : "#374151", whiteSpace: "nowrap" }}>
                             {formatDate(entry.date)}
                           </td>
-                          <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#9CA3AF" : "#64748B" }}>
+                          <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#9CA3AF" : "#64748B", whiteSpace: "nowrap" }}>
                             {entry.store_code}
                           </td>
-                          <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, fontWeight: 600, color: isDone ? "#6B7280" : "#0F172A" }}>
+                          <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, fontWeight: 600, color: isDone ? "#6B7280" : "#0F172A", whiteSpace: "nowrap" }}>
                             {entry.store_name}
                           </td>
                           <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#9CA3AF" : "#374151", whiteSpace: "nowrap" }}>
                             {pickingCell || <span style={{ color: "#CBD5E1" }}>-</span>}
                           </td>
-                          <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#9CA3AF" : "#64748B" }}>
+                          <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#9CA3AF" : "#64748B", whiteSpace: "nowrap" }}>
                             {entry.product_code}
                           </td>
-                          <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#6B7280" : "#374151" }}>
+                          <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, color: isDone ? "#6B7280" : "#374151", whiteSpace: "nowrap" }}>
                             {entry.product_name}
                           </td>
                           <td style={{ padding: "11px 16px", borderBottom: "1px solid #F1F5F9", fontSize: 13, fontWeight: 700, color: isDone ? "#9CA3AF" : "#1D4ED8", textAlign: "right" }}>
