@@ -295,56 +295,17 @@ const FILE_CONFIGS = [
     },
   },
   // ── 9. 입고예정 ───────────────────────────────────────────────────────────
+  // 서버가 session 기준으로 검색하므로, UI에서 직접 날짜 설정 + 조회 후 다운로드
   {
     slotKey: "inbound-status",
     label: "입고예정",
     type: "generic",
     pageUrl: "https://elogis.emart24.co.kr/",
     menuPath: ["창고관리 (WMS)", "보고", "실적", "입고현황"],
-    // UI에서 직접 날짜 설정 후 조회 → 세션 업데이트 (서버가 세션 기준으로 검색하므로 필수)
     uiDateRange: [
       { label: "입고예정일From", daysOffset: 0 },
       { label: "입고예정일To",   daysOffset: 2 },
     ],
-    dynamicParams: () => {
-      const kstFmt = (offsetDays) => {
-        const kst = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
-        kst.setDate(kst.getDate() + offsetDays);
-        return `${kst.getFullYear()}${String(kst.getMonth()+1).padStart(2,"0")}${String(kst.getDate()).padStart(2,"0")}`;
-      };
-      return { INB_ECT_FROM: kstFmt(0), INB_ECT_TO: kstFmt(2) };
-    },
-    prepareOverride: {
-      SQL_ID: "SELECT_INB_STATUS_LIST",
-      WH_CD: "T01234",
-      PAGING: "N",
-      CURRENT_MENUCODE: "WMS171610",
-      CURRENT_MENUNAME: "MENU_PERFORMANCE::MENU_INB_STATUS",
-      DOWN_EXCEL_FILTERED_ROWS: "N",
-      SEARCH_URL: "/reportService/searchReport",
-      EXCEL_SHEET_TITLE: "MENU_PERFORMANCE::MENU_INB_STATUS",
-      EXCEL_HEADERCOLS: "WH_CD,WH_NM,FROM_WH_CD2,FROM_WH_NM2,INB_NO,INB_DETL_NO,INB_ECT_DATE,INB_DATE,ORD_TCD,INB_TCD,RTRN_TCD,SUPPR_ID,SUPPR_NM,ITEMGRP_BCD,ITEMGRP_BNM,ITEM_CD,ITEM_NM,ORDER_TYPE,INB_DETL_SCD,SHORTAGE_SCD,QTY,AMT,QTY,AMT,QTY,AMT,VALID_DATETIME,UNRECEIVE_TCD,UNRECEIVE_REMARK,WCELL_WORK_EMPTY_YN,UPD_DATETIME,UPD_PERSON_ID",
-      EXCEL_HEADERCOLS_TEXT: "창고코드,창고명,FROM 창고코드,FROM 창고명,입고번호,입고상세번호,입고예정일자,입고일자,전표구분,입고유형,반품유형,공급거래처,공급거래처명,대분류코드,대분류명,상품코드,상품명,발주구분,입고상세상태,결품상태,수량,금액,수량,금액,수량,금액,소비기한,미입고사유,미입고상세내용,피킹셀/작업구분 미등록 여부,수정일시,수정자 ID",
-      EXCEL_HEADER_DEPTH: "2",
-      EXCEL_REQUIRED_HEADERS: "",
-      EXCEL_COLNAMES: "WH_CD,WH_NM,FROM_WH_CD,FROM_WH_NM,INB_NO,INB_DETL_NO,SHOW_INB_ECT_DATE,SHOW_INB_DATE,ORD_TCD,INB_TCD,SLIP_TP_CD,SUPPR_ID,SUPPR_NM,ITEMGRP_BCD,ITEMGRP_BNM,ITEM_CD,ITEM_NM,ORD_TP_NM,INB_DETL_SCD,SHOW_SHORTAGE_SCD,ORD_QTY,ORD_PRICE,INB_QTY,INB_PRICE,MISS_QTY,MISS_PRICE,VALID_DATETIME,UINB_REASON_CD,UINB_DETL_DESCR,WCELL_WORK_EMPTY_YN,UPD_DATETIME,UPD_PERSON_ID",
-      EXCEL_COL_WIDTH: "autofit,autofit,autofit,autofit,autofit,autofit,120,120,autofit,autofit,autofit,autofit,200,autofit,autofit,140,180,autofit,autofit,autofit,autofit,autofit,autofit,autofit,autofit,autofit,120,140,130,150,150,autofit",
-      EXCEL_EDIT_FALSE_COLS: "",
-      EXCEL_FIXED_COLS: "",
-      EXCEL_DATE_COLS: "SHOW_INB_ECT_DATE,SHOW_INB_DATE,VALID_DATETIME",
-      EXCEL_DATE_COLS_FORMAT: "",
-      EXCEL_NUMBER_COLS: "INB_DETL_NO,ORD_QTY,ORD_PRICE,INB_QTY,INB_PRICE,MISS_QTY,MISS_PRICE",
-      EXCEL_COL_ALIGN: "center,center,center,left,center,right,center,center,center,left,left,center,left,left,left,left,left,left,center,center,right,right,right,right,right,right,center,left,left,center,left,left",
-      EXCEL_COL_HIDDEN: "",
-      EXCEL_COL_COMBOCOLS: "ORD_TCD,INB_TCD,SLIP_TP_CD,INB_DETL_SCD,SHOW_SHORTAGE_SCD,UINB_REASON_CD",
-      EXCEL_COL_CHECKCOLS: "",
-      EXCEL_HEADERMERGE: "0,1,0,0#0,1,1,1#0,1,2,2#0,1,3,3#0,1,4,4#0,1,5,5#0,1,6,6#0,1,7,7#0,1,8,8#0,1,9,9#0,1,10,10#0,1,11,11#0,1,12,12#0,1,13,13#0,1,14,14#0,1,15,15#0,1,16,16#0,1,17,17#0,1,18,18#0,1,19,19#0,0,20,21#0,0,22,23#0,0,24,25#0,1,26,26#0,1,27,27#0,1,28,28#0,1,29,29#0,1,30,30#0,1,31,31",
-      EXCEL_HEADER_GROUP_0: "WH_CD,WH_NM,FROM_WH_CD2,FROM_WH_NM2,INB_NO,INB_DETL_NO,INB_ECT_DATE,INB_DATE,ORD_TCD,INB_TCD,RTRN_TCD,SUPPR_ID,SUPPR_NM,ITEMGRP_BCD,ITEMGRP_BNM,ITEM_CD,ITEM_NM,ORDER_TYPE,INB_DETL_SCD,SHORTAGE_SCD,LABEL_ORDER,LABEL_ORDER,INBOUND,INBOUND,SHORTAGE,SHORTAGE,VALID_DATETIME,UNRECEIVE_TCD,UNRECEIVE_REMARK,WCELL_WORK_EMPTY_YN,UPD_DATETIME,UPD_PERSON_ID",
-      SES_LANG: "KO",
-      SES_USERGROUP: "2000000300",
-      SES_WHSE: "T01234",
-      SES_MULTI_LANG_YN: "N",
-    },
   },
   // ── 10. DPS 작업현황 (DOM 스크래핑) ──────────────────────────────────────
   {
