@@ -645,7 +645,7 @@ async function downloadWmsFile(page, context, fileConfig, log) {
 
   // UI 날짜 설정 + 조회 (단일 날짜 필드)
   if (uiDateSearch) {
-    await setDateFieldByLabel(page, uiDateSearch.label, uiDateSearch.daysOffset, log, label);
+    await setDateFieldByLabel(page, uiDateSearch.label, uiDateSearch.daysOffset, log, label, uiDateSearch.extName ?? null, uiDateSearch.extIndex ?? 0);
     await clickSearchButton(page, log, label);
     if (uiDateSearch.waitAfterSearch) {
       log(`${label}: 조회 후 ${uiDateSearch.waitAfterSearch}ms 대기...`);
