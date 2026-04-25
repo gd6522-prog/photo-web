@@ -302,7 +302,7 @@ async function clickSearchButton(page, log, label) {
 
 // ── 엑셀 버튼 클릭 + 다운로드 캡처 ──────────────────────────────────────────
 
-async function clickExcelAndDownload(page, context, log, label, prepareOverride) {
+async function clickExcelAndDownload(page, context, log, label, prepareOverride, preferMenuText = null) {
   const targets = getElogisFrames(page);
 
   // prepareOverride 가 있으면 commonExcelDownPrepare POST body 를 route.fetch 로 교체
@@ -373,14 +373,24 @@ async function clickExcelAndDownload(page, context, log, label, prepareOverride)
   // 드롭다운 메뉴가 나타난 경우 처리 (짧게 대기 후 확인)
   await page.waitForTimeout(800);
   for (const target of targets) {
-    const dropdownClicked = await target.evaluate(() => {
+    const dropdownClicked = await target.evaluate((prefer) => {
       const normalize = (s) => (s || "").replace(/\s+/g, "").trim();
       const items = document.querySelectorAll(".x-menu-item-text, .x-menu-item");
+      // preferMenuText 지정 시: 해당 텍스트 포함 항목 우선 클릭
+      if (prefer) {
+        const normPrefer = normalize(prefer);
+        for (const el of items) {
+          if (normalize(el.textContent).includes(normPrefer)) {
+            el.click();
+            return `prefer:${prefer}`;
+          }
+        }
+      }
       // 1순위: "전체 데이터 다운로드" 정확히 일치
       for (const el of items) {
         if (normalize(el.textContent) === "전체데이터다운로드") {
           el.click();
-          return true;
+          return "전체데이터다운로드";
         }
       }
       // 2순위: 다운로드 관련 텍스트 포함 (엑셀/Excel 제외 — 엑셀 버튼 자신 재클릭 방지)
@@ -388,13 +398,13 @@ async function clickExcelAndDownload(page, context, log, label, prepareOverride)
         const text = normalize(el.textContent);
         if (text.includes("다운로드") || text.includes("download")) {
           el.click();
-          return true;
+          return text;
         }
       }
       return false;
-    }).catch(() => false);
+    }, preferMenuText).catch(() => false);
     if (dropdownClicked) {
-      log(`${label}: 드롭다운 → 전체 데이터 다운로드 클릭`);
+      log(`${label}: 드롭다운 → ${dropdownClicked} 클릭`);
       break;
     }
   }
@@ -601,7 +611,7 @@ async function downloadViaInterceptAndApi(page, fileConfig, log) {
 // ── WMS/MDM 파일 다운로드 ─────────────────────────────────────────────────────
 
 async function downloadWmsFile(page, context, fileConfig, log) {
-  const { label, menuPath, searchInputs, prepareOverride, uiDateSearch } = fileConfig;
+  const { label, menuPath, searchInputs, prepareOverride, uiDateSearch, downloadMenuText } = fileConfig;
 
   log(`${label}: elogis 메인 이동...`);
   await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
@@ -634,7 +644,7 @@ async function downloadWmsFile(page, context, fileConfig, log) {
   }
 
   log(`${label}: 엑셀 다운로드 시작...`);
-  const buffer = await clickExcelAndDownload(page, context, log, label, null);
+  const buffer = await clickExcelAndDownload(page, context, log, label, null, downloadMenuText ?? null);
   log(`${label}: 다운로드 완료 (${Math.round(buffer.length / 1024)} KB)`);
   return buffer;
 }
