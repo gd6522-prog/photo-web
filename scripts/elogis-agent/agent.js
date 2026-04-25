@@ -486,11 +486,7 @@ async function main() {
 
     let waitingForDanpum = false;
     let danpumPollInterval = null;
-
-    // 오늘(KST) 날짜 문자열 반환
-    const todayKST = () => new Date().toLocaleDateString("ko-KR", {
-      timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit",
-    }).replace(/\. /g, "-").replace(".", "");
+    let lastTriggeredDanpumDate = null; // 이미 처리한 단품별 날짜 — 같은 날짜 중복 트리거 방지
 
     // 단품별 파일 등록 여부 확인 (납품예정일 D+1, 토요일 D+2)
     const checkDanpumFile = async () => {
@@ -503,8 +499,9 @@ async function main() {
       } catch { return false; }
     };
 
-    const startDpsLoop = () => {
+    const startDpsLoop = (triggerDate) => {
       waitingForDanpum = false;
+      if (triggerDate) lastTriggeredDanpumDate = triggerDate;
       if (danpumPollInterval) { clearInterval(danpumPollInterval); danpumPollInterval = null; }
       log("DPS 작업현황 5분 주기 자동 스크래핑 시작");
       runDps();
@@ -527,7 +524,7 @@ async function main() {
             // 5분마다 단품별 파일 등록 여부 확인
             danpumPollInterval = setInterval(async () => {
               const targetDate = await checkDanpumFile();
-              if (targetDate) {
+              if (targetDate && targetDate !== lastTriggeredDanpumDate) {
                 log(`[DPS] 단품별 파일 등록 감지 (납품예정일 ${targetDate}) — DPS 캐시 초기화 후 재시작`);
                 // 캐시 초기화: 대시보드가 즉시 빈 상태로 표시되도록
                 await fetch(`${ADMIN_URL}/api/internal/dps-status`, {
@@ -535,7 +532,9 @@ async function main() {
                   headers: { "Content-Type": "application/json", "x-internal-secret": INTERNAL_API_SECRET },
                   body: JSON.stringify({ rows: { zones: {}, dsTotal: 0, loadedCount: 0 }, scrapedAt: new Date().toISOString() }),
                 }).catch(() => {});
-                startDpsLoop();
+                startDpsLoop(targetDate);
+              } else if (targetDate) {
+                log(`[DPS] 단품별 파일 이미 처리됨 (${targetDate}) — 다음 날짜 파일 대기 중`);
               } else {
                 log(`[DPS] 단품별 파일 미등록 (납품예정일 대기 중) — 계속 폴링`);
               }
