@@ -210,15 +210,15 @@ async function setDateFieldByLabel(page, dateLabel, daysOffset, log, slotLabel, 
     for (const target of getElogisFrames(page)) {
       const result = await target.evaluate(({ ts, dotStr, searchLabel, extName, extIndex }) => {
         if (typeof Ext !== "undefined") {
-          // extName 지정 시 name 속성으로 정확히 매칭
+          // extName 지정 시 datefield/triggerfield 중 name 속성 직접 비교
+          const comps = Ext.ComponentQuery.query("datefield,triggerfield");
           if (extName) {
-            const byName = Ext.ComponentQuery.query(`field[name="${extName}"]`);
-            if (byName && byName.length > extIndex) {
+            const byName = comps.filter(f => (f.name || "") === extName);
+            if (byName.length > extIndex) {
               byName[extIndex].setValue(new Date(ts));
               return "ext-name-ok";
             }
           }
-          const comps = Ext.ComponentQuery.query("datefield,triggerfield");
           for (const f of comps) {
             const lbl = (f.fieldLabel || f.emptyText || "").replace(/\s/g, "");
             const nm = (f.name || "").replace(/\s/g, "");
