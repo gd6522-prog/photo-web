@@ -328,6 +328,7 @@ const FILE_CONFIGS = [
     menuPath: ["정산관리 (BMS)", "물류용역수수료", "점포별물류비조회(일)", "점포별/일자별/작업구분별"],
     uiDateSearch: { label: "기준일자", extName: "A.BASE_YMD", daysOffset: -2, waitAfterSearch: 10000 },
     downloadMenuText: "현재 그리드 데이터 다운로드",
+    allRowsBeforeDownload: true,
   },
 ];
 

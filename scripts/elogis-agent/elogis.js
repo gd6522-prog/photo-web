@@ -210,10 +210,10 @@ async function setDateFieldByLabel(page, dateLabel, daysOffset, log, slotLabel, 
     for (const target of getElogisFrames(page)) {
       const result = await target.evaluate(({ ts, dotStr, searchLabel, extName, extIndex }) => {
         if (typeof Ext !== "undefined") {
-          // extName 지정 시 datefield/triggerfield 중 name 속성 직접 비교
+          // extName 지정 시 datefield/triggerfield 중 visible + name 속성 직접 비교
           const comps = Ext.ComponentQuery.query("datefield,triggerfield");
           if (extName) {
-            const byName = comps.filter(f => (f.name || "") === extName);
+            const byName = comps.filter(f => (f.name || "") === extName && (!f.isVisible || f.isVisible()));
             if (byName.length > extIndex) {
               byName[extIndex].setValue(new Date(ts));
               return "ext-name-ok";
@@ -259,6 +259,54 @@ async function setDateFieldByLabel(page, dateLabel, daysOffset, log, slotLabel, 
 }
 
 // ── 그리드 데이터 로딩 완료 대기 ────────────────────────────────────────────
+
+// 페이징 툴바의 행 수 콤보를 '전체' 또는 최대값으로 변경
+async function setGridPageSizeAll(page, log, label) {
+  for (const target of getElogisFrames(page)) {
+    const ok = await target.evaluate(() => {
+      if (typeof Ext === "undefined") return false;
+      // PagingToolbar 안의 combobox 탐색
+      const toolbars = Ext.ComponentQuery.query("pagingtoolbar");
+      for (const tb of toolbars) {
+        if (tb.isVisible && !tb.isVisible()) continue;
+        const combos = Ext.ComponentQuery.query("combobox,combo", tb);
+        for (const combo of combos) {
+          const store = combo.store;
+          if (!store) continue;
+          let allRec = null;
+          let maxRec = null;
+          let maxVal = -Infinity;
+          store.each((rec) => {
+            const vals = Object.values(rec.data || {});
+            if (vals.some((v) => String(v).includes("전체") || v === -1)) allRec = rec;
+            const n = Number(rec.get(combo.valueField || "field1"));
+            if (!isNaN(n) && n > maxVal) { maxVal = n; maxRec = rec; }
+          });
+          const useRec = allRec || maxRec;
+          if (useRec) {
+            const useVal = useRec.get(combo.valueField || "field1");
+            combo.setValue(useVal);
+            combo.fireEvent("select", combo, [useRec]);
+            return `${useVal}`;
+          }
+        }
+      }
+      // DOM fallback: <select> 안의 전체 옵션
+      for (const sel of document.querySelectorAll("select")) {
+        for (const opt of sel.options) {
+          if (opt.text.includes("전체") || opt.value === "-1") {
+            sel.value = opt.value;
+            sel.dispatchEvent(new Event("change", { bubbles: true }));
+            return `dom-전체`;
+          }
+        }
+      }
+      return false;
+    }).catch(() => false);
+    if (ok) { log(`${label}: 전체행 설정 (${ok})`); return; }
+  }
+  log(`${label}: [WARN] 전체행 콤보 미발견`);
+}
 
 async function waitForGridData(page, log, label, timeoutMs = 20_000) {
   const deadline = Date.now() + timeoutMs;
@@ -640,7 +688,7 @@ async function downloadViaInterceptAndApi(page, fileConfig, log) {
 // ── WMS/MDM 파일 다운로드 ─────────────────────────────────────────────────────
 
 async function downloadWmsFile(page, context, fileConfig, log) {
-  const { label, menuPath, searchInputs, prepareOverride, uiDateSearch, uiDateRange, downloadMenuText } = fileConfig;
+  const { label, menuPath, searchInputs, prepareOverride, uiDateSearch, uiDateRange, downloadMenuText, allRowsBeforeDownload } = fileConfig;
 
   log(`${label}: elogis 메인 이동...`);
   await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
@@ -679,6 +727,16 @@ async function downloadWmsFile(page, context, fileConfig, log) {
       log(`${label}: 조회 후 ${waitMs}ms 대기...`);
       await page.waitForTimeout(waitMs);
     }
+    await waitForGridData(page, log, label);
+  }
+
+  // 전체행 설정 후 재조회 (allRowsBeforeDownload: true)
+  if (allRowsBeforeDownload) {
+    await setGridPageSizeAll(page, log, label);
+    await clickSearchButton(page, log, label);
+    const waitMs = uiDateSearch?.waitAfterSearch ?? uiDateRange?.find(dr => dr.waitAfterSearch)?.waitAfterSearch ?? 10_000;
+    log(`${label}: 전체행 재조회 후 ${waitMs}ms 대기...`);
+    await page.waitForTimeout(waitMs);
     await waitForGridData(page, log, label);
   }
 
