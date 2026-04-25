@@ -763,6 +763,32 @@ async function scrapeDomData(page, fileConfig, log) {
       }
       await route.continue();
     }).catch(() => {});
+
+    // 납품예정일을 목표 날짜(D+1, 토요일은 D+2)로 설정
+    const kst = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+    const dow = kst.getDay(); // 0=일, 6=토
+    kst.setDate(kst.getDate() + (dow === 6 ? 2 : 1));
+    const targetTs = kst.getTime();
+    const targetLabel = `${kst.getFullYear()}-${String(kst.getMonth()+1).padStart(2,"0")}-${String(kst.getDate()).padStart(2,"0")}`;
+    let dateSet = false;
+    for (const target of getElogisFrames(page)) {
+      const ok = await target.evaluate((ts) => {
+        if (typeof Ext === "undefined") return false;
+        const fields = Ext.ComponentQuery.query("datefield");
+        for (const f of fields) {
+          const nm = (f.name || "").toUpperCase();
+          const lbl = (f.fieldLabel || f.emptyText || "").replace(/\s/g, "");
+          if (nm.includes("OUT_DT") || lbl.includes("납품예정일")) {
+            f.setValue(new Date(ts));
+            return true;
+          }
+        }
+        return false;
+      }, targetTs).catch(() => false);
+      if (ok) { dateSet = true; break; }
+    }
+    log(`${label}: 납품예정일 → ${targetLabel} (${dateSet ? "설정완료" : "필드 미발견"})`)
+    await page.waitForTimeout(500);
   }
 
   // 조회 버튼 클릭 (먼저 실행 — 프레임이 아직 없을 수 있으므로 pageSize는 조회 후 설정)
