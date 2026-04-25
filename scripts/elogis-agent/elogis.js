@@ -211,7 +211,7 @@ async function setDateFieldByLabel(page, dateLabel, daysOffset, log, slotLabel, 
         if (typeof Ext !== "undefined") {
           // extName 지정 시 name 속성으로 정확히 매칭
           if (extName) {
-            const byName = Ext.ComponentQuery.query(`field[name=${extName}]`);
+            const byName = Ext.ComponentQuery.query(`field[name="${extName}"]`);
             if (byName && byName.length > extIndex) {
               byName[extIndex].setValue(new Date(ts));
               return "ext-name-ok";
