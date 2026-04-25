@@ -634,6 +634,10 @@ async function downloadWmsFile(page, context, fileConfig, log) {
   if (uiDateSearch) {
     await setDateFieldByLabel(page, uiDateSearch.label, uiDateSearch.daysOffset, log, label);
     await clickSearchButton(page, log, label);
+    if (uiDateSearch.waitAfterSearch) {
+      log(`${label}: 조회 후 ${uiDateSearch.waitAfterSearch}ms 대기...`);
+      await page.waitForTimeout(uiDateSearch.waitAfterSearch);
+    }
     await waitForGridData(page, log, label);
   }
 

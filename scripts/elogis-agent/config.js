@@ -360,7 +360,7 @@ const FILE_CONFIGS = [
     type: "generic",
     pageUrl: "https://elogis.emart24.co.kr/",
     menuPath: ["정산관리 (BMS)", "물류용역수수료", "점포별물류비조회(일)", "점포별/일자별/작업구분별"],
-    uiDateSearch: { label: "기준일자", daysOffset: -2 },
+    uiDateSearch: { label: "기준일자", daysOffset: -2, waitAfterSearch: 10000 },
     downloadMenuText: "현재 그리드 데이터 다운로드",
   },
 ];
