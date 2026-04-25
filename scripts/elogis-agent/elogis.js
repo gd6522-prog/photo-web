@@ -586,12 +586,17 @@ async function downloadViaInterceptAndApi(page, fileConfig, log) {
 
   // Step 4: override 적용 (dynamicParams 함수가 있으면 호출하여 병합)
   const params = new URLSearchParams(capturedBody);
+  // 원본 바디에서 날짜/조회조건 파라미터 추출 (EXCEL_ 제외)
+  const rawDateDebug = [...params.entries()]
+    .filter(([k]) => !k.startsWith("EXCEL") && !k.startsWith("SES") && /date|from|to|ect|dt|inb|sch|srch/i.test(k))
+    .map(([k,v]) => `${k}=${v}`).join(", ");
+  if (rawDateDebug) log(`${label}: [DEBUG] 원본 날짜/조회 파라미터: ${rawDateDebug}`);
   const dynamicExtra = fileConfig.dynamicParams ? fileConfig.dynamicParams() : {};
   const merged = { ...prepareOverride, ...dynamicExtra };
   for (const [key, val] of Object.entries(merged)) params.set(key, val);
   log(`${label}: SEARCH_URL 교체 → ${params.get("SEARCH_URL")}`);
-  const dateDebug = [...params.entries()].filter(([k]) => /date|from|to|ect|dt/i.test(k)).map(([k,v]) => `${k}=${v}`).join(", ");
-  if (dateDebug) log(`${label}: [DEBUG] 날짜 파라미터: ${dateDebug}`);
+  const dateDebug = [...params.entries()].filter(([k]) => !k.startsWith("EXCEL") && !k.startsWith("SES") && /date|from|to|ect|dt|inb|sch/i.test(k)).map(([k,v]) => `${k}=${v}`).join(", ");
+  if (dateDebug) log(`${label}: [DEBUG] 최종 날짜 파라미터: ${dateDebug}`);
 
   // Step 5: 수정된 body 로 prepare 재전송
   const prepareRes = await page.request.post(
