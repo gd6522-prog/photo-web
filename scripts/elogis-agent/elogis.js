@@ -590,6 +590,8 @@ async function downloadViaInterceptAndApi(page, fileConfig, log) {
   const merged = { ...prepareOverride, ...dynamicExtra };
   for (const [key, val] of Object.entries(merged)) params.set(key, val);
   log(`${label}: SEARCH_URL 교체 → ${params.get("SEARCH_URL")}`);
+  const dateDebug = [...params.entries()].filter(([k]) => /date|from|to|ect|dt/i.test(k)).map(([k,v]) => `${k}=${v}`).join(", ");
+  if (dateDebug) log(`${label}: [DEBUG] 날짜 파라미터: ${dateDebug}`);
 
   // Step 5: 수정된 body 로 prepare 재전송
   const prepareRes = await page.request.post(

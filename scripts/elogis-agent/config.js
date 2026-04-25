@@ -302,11 +302,12 @@ const FILE_CONFIGS = [
     pageUrl: "https://elogis.emart24.co.kr/",
     menuPath: ["창고관리 (WMS)", "보고", "실적", "입고현황"],
     dynamicParams: () => {
-      const fmt = (d) => d.toISOString().slice(0, 10).replace(/-/g, "");
-      const today = new Date();
-      const d2 = new Date(today);
-      d2.setDate(d2.getDate() + 2);
-      return { INB_ECT_FROM: fmt(today), INB_ECT_TO: fmt(d2) };
+      const kstFmt = (offsetDays) => {
+        const kst = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+        kst.setDate(kst.getDate() + offsetDays);
+        return `${kst.getFullYear()}${String(kst.getMonth()+1).padStart(2,"0")}${String(kst.getDate()).padStart(2,"0")}`;
+      };
+      return { INB_ECT_FROM: kstFmt(0), INB_ECT_TO: kstFmt(2) };
     },
     prepareOverride: {
       SQL_ID: "SELECT_INB_STATUS_LIST",
