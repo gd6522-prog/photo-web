@@ -23,6 +23,7 @@ const GENERIC_SLOT_KEYS = [
   "product-inventory",
   "po-std-master",
   "inbound-status",
+  "logistics-cost-by-store",
 ] as const;
 
 // store-master uses DB import but also saves R2 metadata (for last uploader display)
