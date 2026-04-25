@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const BATCH_SIZE = 30;
-const R2_PUBLIC_URL = "https://img.dridolabs.com";
+const R2_PUBLIC_URL = "https://pub-2ed566ac41944f778e208a0ccea9acd5.r2.dev";
 
 function isAuthorized(req: NextRequest) {
   const secret = process.env.CRON_SECRET;

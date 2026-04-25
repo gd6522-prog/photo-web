@@ -8,7 +8,7 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 // R2 Public Dev URL - 사진 조회용
-export const R2_PUBLIC_URL = "https://img.dridolabs.com";
+export const R2_PUBLIC_URL = "https://pub-2ed566ac41944f778e208a0ccea9acd5.r2.dev";
 
 const ALLOWED_BUCKETS = ["photos", "delivery_photos", "hazard-reports"] as const;
 
