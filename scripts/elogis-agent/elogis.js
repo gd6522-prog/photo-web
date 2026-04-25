@@ -177,14 +177,24 @@ function getElogisFrames(page) {
 async function evaluateClickByText(frame, texts) {
   return frame.evaluate((texts) => {
     const normalize = (s) => (s || "").replace(/\s+/g, "").trim();
-    // x-btn-inner span (ExtJS 버튼) — offsetParent null = display:none 인 숨겨진 탭 버튼 제외
+    // ExtJS API 우선 — isVisible(true)로 숨겨진 탭 패널 안 버튼 제외
+    if (typeof Ext !== "undefined") {
+      const btns = Ext.ComponentQuery.query("button");
+      for (const btn of btns) {
+        if (btn.isVisible(true) && texts.some((t) => normalize(btn.text || "") === normalize(t))) {
+          if (typeof btn.handler === "function") btn.handler.call(btn.scope || btn, btn);
+          else btn.fireEvent("click", btn);
+          return true;
+        }
+      }
+    }
+    // DOM fallback — offsetParent !== null (display:none 조상 없는 것만)
     for (const span of document.querySelectorAll(".x-btn-inner")) {
       if (texts.some((t) => normalize(span.textContent) === normalize(t))) {
         const btn = span.closest('a[role="button"], button');
         if (btn && btn.offsetParent !== null) { btn.click(); return true; }
       }
     }
-    // 일반 버튼/링크
     for (const el of document.querySelectorAll('a[role="button"], button, input[type="button"], input[type="submit"]')) {
       const text = el.value !== undefined && el.value !== "" ? el.value : el.textContent;
       if (texts.some((t) => normalize(text) === normalize(t)) && el.offsetParent !== null) {
