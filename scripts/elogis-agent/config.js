@@ -307,7 +307,7 @@ const FILE_CONFIGS = [
         kst.setDate(kst.getDate() + offsetDays);
         return `${kst.getFullYear()}${String(kst.getMonth()+1).padStart(2,"0")}${String(kst.getDate()).padStart(2,"0")}`;
       };
-      return { INB_ECT_FROM: kstFmt(0), INB_ECT_TO: kstFmt(2) };
+      return { INB_ECT_FROM: kstFmt(0), INB_ECT_TO: kstFmt(3) };
     },
     prepareOverride: {
       SQL_ID: "SELECT_INB_STATUS_LIST",
