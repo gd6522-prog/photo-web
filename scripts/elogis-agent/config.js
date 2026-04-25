@@ -303,8 +303,8 @@ const FILE_CONFIGS = [
     pageUrl: "https://elogis.emart24.co.kr/",
     menuPath: ["창고관리 (WMS)", "보고", "실적", "입고현황"],
     uiDateRange: [
-      { label: "입고예정일From", extName: "INB_ECT_FROM", daysOffset: 0 },
-      { label: "입고예정일To",   extName: "INB_ECT_TO",   daysOffset: 2 },
+      { label: "입고예정일From", extName: "INB_ECT_DATE", extIndex: 0, daysOffset: 0 },
+      { label: "입고예정일To",   extName: "INB_ECT_DATE", extIndex: 1, daysOffset: 2 },
     ],
   },
   // ── 10. DPS 작업현황 (DOM 스크래핑) ──────────────────────────────────────

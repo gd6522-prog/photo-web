@@ -197,7 +197,7 @@ async function evaluateClickByText(frame, texts) {
 
 // ── UI 날짜 필드 설정 (ExtJS datefield/triggerfield를 라벨로 탐색) ────────────
 
-async function setDateFieldByLabel(page, dateLabel, daysOffset, log, slotLabel, extName = null) {
+async function setDateFieldByLabel(page, dateLabel, daysOffset, log, slotLabel, extName = null, extIndex = 0) {
   const kst = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
   kst.setDate(kst.getDate() + daysOffset);
   const targetTs = kst.getTime();
@@ -207,13 +207,13 @@ async function setDateFieldByLabel(page, dateLabel, daysOffset, log, slotLabel, 
   const deadline = Date.now() + 6_000;
   while (!dateSet && Date.now() < deadline) {
     for (const target of getElogisFrames(page)) {
-      const result = await target.evaluate(({ ts, dotStr, searchLabel, extName }) => {
+      const result = await target.evaluate(({ ts, dotStr, searchLabel, extName, extIndex }) => {
         if (typeof Ext !== "undefined") {
           // extName 지정 시 name 속성으로 정확히 매칭
           if (extName) {
             const byName = Ext.ComponentQuery.query(`field[name=${extName}]`);
-            if (byName && byName.length > 0) {
-              byName[0].setValue(new Date(ts));
+            if (byName && byName.length > extIndex) {
+              byName[extIndex].setValue(new Date(ts));
               return "ext-name-ok";
             }
           }
@@ -249,7 +249,7 @@ async function setDateFieldByLabel(page, dateLabel, daysOffset, log, slotLabel, 
           }
         }
         return false;
-      }, { ts: targetTs, dotStr: targetDot, searchLabel: dateLabel, extName }).catch(() => false);
+      }, { ts: targetTs, dotStr: targetDot, searchLabel: dateLabel, extName, extIndex }).catch(() => false);
 
       if (result && typeof result === "string" && result.startsWith("debug:")) {
         log(`${slotLabel}: [DEBUG] ExtJS datefield 목록: ${result.slice(6)}`);
@@ -664,7 +664,7 @@ async function downloadWmsFile(page, context, fileConfig, log) {
   // UI 날짜 범위 설정 + 조회 (From/To 두 필드 모두 설정)
   if (uiDateRange && uiDateRange.length > 0) {
     for (const dr of uiDateRange) {
-      await setDateFieldByLabel(page, dr.label, dr.daysOffset, log, label, dr.extName ?? null);
+      await setDateFieldByLabel(page, dr.label, dr.daysOffset, log, label, dr.extName ?? null, dr.extIndex ?? 0);
     }
     await clickSearchButton(page, log, label);
     const waitMs = uiDateRange.find(dr => dr.waitAfterSearch)?.waitAfterSearch;
