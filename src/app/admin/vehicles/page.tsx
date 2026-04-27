@@ -3011,18 +3011,25 @@ export function VehiclePageScreen({
     const iframe = document.createElement("iframe");
     iframe.setAttribute("aria-hidden", "true");
     iframe.style.position = "fixed";
-    iframe.style.right = "0";
-    iframe.style.bottom = "0";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
+    iframe.style.left = "-10000px";
+    iframe.style.top = "0";
+    iframe.style.width = "1200px";
+    iframe.style.height = "900px";
     iframe.style.border = "0";
+    iframe.style.opacity = "0";
+    iframe.style.pointerEvents = "none";
     document.body.appendChild(iframe);
 
+    // Chrome은 onafterprint를 인쇄 다이얼로그가 닫힌 직후(실제 스풀 도중) 발생시키므로,
+    // iframe을 즉시 제거하면 페이지가 많을 때 끝부분이 빈 페이지로 출력된다.
+    // 충분히 긴 지연(15초) 후에만 정리한다.
+    let cleanupTimerId = 0;
     const cleanup = () => {
-      window.setTimeout(() => {
+      window.clearTimeout(cleanupTimerId);
+      cleanupTimerId = window.setTimeout(() => {
         iframe.remove();
         onAfterPrint?.();
-      }, 0);
+      }, 15000);
     };
 
     const printWindow = iframe.contentWindow;
@@ -3194,15 +3201,23 @@ export function VehiclePageScreen({
     };
 
     printWindow.onafterprint = finalize;
-    window.setTimeout(() => {
+    window.setTimeout(async () => {
       try {
+        // 폰트가 로드되지 않은 상태로 print()가 호출되면 일부 페이지 레이아웃이 어긋나
+        // 빈 페이지를 만들 수 있어 fonts.ready를 먼저 기다린다.
+        const fonts = (printWindow.document as Document & { fonts?: { ready?: Promise<unknown> } }).fonts;
+        if (fonts?.ready) {
+          try { await fonts.ready; } catch {}
+        }
+        // 강제 reflow로 모든 페이지 레이아웃이 계산되었는지 확인
+        void printWindow.document.body.offsetHeight;
         printWindow.focus();
         printWindow.print();
       } catch {
         finalize();
         setMessage("출력을 시작하지 못했습니다. 다시 시도해 주세요.");
       }
-    }, 500);
+    }, 800);
   };
 
   const printSelectedReport = () => {
