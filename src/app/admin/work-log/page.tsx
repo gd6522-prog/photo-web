@@ -41,7 +41,7 @@ const COMPANY_ORDER: Record<string, number> = {
 };
 const BLOCKED_COMPANY = "한익스프레스";
 
-const WORK_PART_ORDER_LIST = ["관리자", "박스존", "이너존", "슬라존", "경량존", "담배존", "이형존"] as const;
+const WORK_PART_ORDER_LIST = ["관리자", "박스존", "이너존", "슬라존", "경량존", "담배존", "이형존", "공병", "지게차"] as const;
 const WORK_PART_ORDER: Record<string, number> = Object.fromEntries(
   WORK_PART_ORDER_LIST.map((v, i) => [v, (i + 1) * 10])
 ) as Record<string, number>;
