@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { json, requireAdmin } from "../../notices/_shared";
+import { BLOCKED_COMPANY, getWorkLogScope } from "../_shared";
 import { getErrorMessage } from "@/lib/supabase-compat";
 
 const HHMM = /^\d{1,2}:\d{2}(:\d{2})?$/;
@@ -37,7 +38,11 @@ export async function PATCH(req: NextRequest) {
   try {
     const guard = await requireAdmin(req);
     if (!guard.ok) return guard.res;
-    if (!guard.isMainAdmin) return json(false, "Forbidden (main admin only)", null, 403);
+
+    const scope = await getWorkLogScope(guard.sbAdmin, guard.uid);
+    if (!guard.isMainAdmin && !scope.isCompanyAdminRole) {
+      return json(false, "Forbidden (main/company admin only)", null, 403);
+    }
 
     const body = (await req.json().catch(() => null)) as {
       user_id?: string;
@@ -50,6 +55,15 @@ export async function PATCH(req: NextRequest) {
     const workDate = String(body?.work_date ?? "").trim();
     if (!UUID.test(userId)) return json(false, "invalid user_id", null, 400);
     if (!YMD.test(workDate)) return json(false, "invalid work_date (YYYY-MM-DD)", null, 400);
+
+    if (!guard.isMainAdmin && scope.isCompanyAdminRole) {
+      const tgt = await guard.sbAdmin.from("profiles").select("company_name").eq("id", userId).maybeSingle();
+      if (tgt.error) return json(false, tgt.error.message, null, 500);
+      if (!tgt.data) return json(false, "target user not found", null, 404);
+      if (String((tgt.data as { company_name?: string | null }).company_name ?? "").trim() === BLOCKED_COMPANY) {
+        return json(false, "Forbidden (out of scope)", null, 403);
+      }
+    }
 
     const hasIn = Object.prototype.hasOwnProperty.call(body ?? {}, "clock_in_at");
     const hasOut = Object.prototype.hasOwnProperty.call(body ?? {}, "clock_out_at");

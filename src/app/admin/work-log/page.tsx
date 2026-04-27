@@ -389,6 +389,7 @@ export default function WorkLogPage() {
   const monthLastDay = useMemo(() => monthRange(month).lastDay, [month]);
   const detailDays = useMemo(() => Array.from({ length: monthLastDay }, (_, i) => i + 1), [monthLastDay]);
   const detailProfile = useMemo(() => profiles.find((p) => p.id === detailUserId) ?? null, [profiles, detailUserId]);
+  const canEditShift = isMainAdmin || isCompanyAdminRole;
 
   const shiftByUserDay = useMemo(() => {
     const m = new Map<string, Map<number, Shift>>();
@@ -968,12 +969,12 @@ export default function WorkLogPage() {
           onMouseDown={(e) => { if (e.target === e.currentTarget) setDetailUserId(null); }}
           style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
         >
-          <div style={{ width: isMainAdmin ? "min(720px, 100%)" : "min(520px, 100%)", maxHeight: "90vh", display: "flex", flexDirection: "column", background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 24px 60px rgba(2,6,23,0.28)" }}>
+          <div style={{ width: canEditShift ? "min(720px, 100%)" : "min(520px, 100%)", maxHeight: "90vh", display: "flex", flexDirection: "column", background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 24px 60px rgba(2,6,23,0.28)" }}>
             <div style={{ padding: "18px 22px", borderBottom: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <div style={{ fontWeight: 800, fontSize: 16, color: "#0F172A" }}>{detailProfile.name ?? "(이름없음)"}</div>
                 <div style={{ marginTop: 2, fontSize: 12, color: "#94A3B8" }}>
-                  {month} 월 상세근태{isMainAdmin ? " · 출퇴근 수정 가능 (메인관리자)" : ""}
+                  {month} 월 상세근태{canEditShift ? ` · 출퇴근 수정 가능 (${isMainAdmin ? "메인관리자" : "업체관리자"})` : ""}
                 </div>
               </div>
               <button onClick={() => setDetailUserId(null)} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid #E8EDF2", background: "#F8FAFC", fontSize: 16, cursor: "pointer", color: "#64748B", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
@@ -985,7 +986,7 @@ export default function WorkLogPage() {
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: "#F8FAFC" }}>
-                    {(isMainAdmin ? ["일자", "요일", "출근", "퇴근", "근무시간", "저장"] : ["일자", "요일", "출근", "퇴근", "근무시간"]).map((h) => (
+                    {(canEditShift ? ["일자", "요일", "출근", "퇴근", "근무시간", "저장"] : ["일자", "요일", "출근", "퇴근", "근무시간"]).map((h) => (
                       <th key={h} style={{ padding: "9px 10px", fontWeight: 700, color: "#64748B", fontSize: 12, textAlign: "center", borderBottom: "2px solid #E8EDF2" }}>{h}</th>
                     ))}
                   </tr>
@@ -1008,7 +1009,7 @@ export default function WorkLogPage() {
                       <tr key={`detail-row-${d}`} style={{ borderBottom: "1px solid #F1F5F9" }}>
                         <td style={{ padding: "8px 10px", textAlign: "center", background: dayBg, fontWeight: 700, color: "#0F172A" }}>{String(d).padStart(2, "0")}</td>
                         <td style={{ padding: "8px 10px", textAlign: "center", background: dayBg, color: hol ? "#DC2626" : "#64748B", fontWeight: hol ? 800 : 600 }}>{wkKo(month, d)}</td>
-                        {isMainAdmin ? (
+                        {canEditShift ? (
                           <>
                             <td style={{ padding: "6px 6px", textAlign: "center" }}>
                               <input
@@ -1040,7 +1041,7 @@ export default function WorkLogPage() {
                           </>
                         )}
                         <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 700, color: mins ? "#1D4ED8" : "#CBD5E1" }}>{hhmm(mins)}</td>
-                        {isMainAdmin && (
+                        {canEditShift && (
                           <td style={{ padding: "6px 6px", textAlign: "center" }}>
                             <button
                               onClick={() => saveShift(d)}
