@@ -301,7 +301,9 @@ async function getVehicleAdminToken() {
 
 async function fetchServerVehicleSnapshot() {
   const token = await getVehicleAdminToken();
-  const response = await fetch("/api/admin/vehicles/current?includeLimits=1&includeReportBase=1", {
+  // includeSnapshot=1로 스냅샷 본문을 API 응답에 직접 포함시켜 R2 presigned URL을 별도로 호출하지 않도록 한다.
+  // (브라우저에서 r2.cloudflarestorage.com에 직접 fetch 시 CORS/네트워크 차단으로 "Failed to fetch"가 발생할 수 있음.)
+  const response = await fetch("/api/admin/vehicles/current?includeSnapshot=1&includeLimits=1&includeReportBase=1", {
     method: "GET",
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
