@@ -13,15 +13,25 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const targetSlot = body?.targetSlot as string | undefined;
 
-    // 이미 pending/running 이 있으면 중복 방지
-    const { data: existing } = await supabase
+    // 슬롯별 동시 실행 허용 — 같은 슬롯 또는 전체 동기화 잡이 이미 떠있을 때만 거절
+    const { data: actives } = await supabase
       .from("elogis_sync_log")
-      .select("id, status")
-      .in("status", ["pending", "running"])
-      .limit(1);
+      .select("id, status, target_slots")
+      .in("status", ["pending", "running"]);
 
-    if (existing && existing.length > 0) {
-      return NextResponse.json({ ok: true, alreadyQueued: true, status: existing[0].status });
+    const isGlobalJob = (slots: unknown) =>
+      !Array.isArray(slots) || slots.length === 0;
+    const dup = (actives ?? []).find((j) => {
+      if (targetSlot) {
+        // 슬롯 트리거: 글로벌 잡이 떠있거나, 같은 슬롯을 포함하는 잡이 떠있으면 중복
+        return isGlobalJob(j.target_slots) || (j.target_slots as string[]).includes(targetSlot);
+      }
+      // 전체 동기화 트리거: 어떤 잡이든 떠있으면 중복
+      return true;
+    });
+
+    if (dup) {
+      return NextResponse.json({ ok: true, alreadyQueued: true, status: dup.status });
     }
 
     const insertData: Record<string, unknown> = { status: "pending" };
