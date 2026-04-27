@@ -1063,17 +1063,18 @@ function DpsProgressCard() {
     <Card
       title="작업파트별 진행현황"
       right={
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {data?.scrapedAt && (
-            <span style={{ fontSize: 11, color: "#6B7280", fontWeight: 600 }}>{fmtTime(data.scrapedAt)}</span>
+            <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, letterSpacing: -0.2 }}>{fmtTime(data.scrapedAt)}</span>
           )}
           <button
             onClick={handleRefresh}
             disabled={refreshing}
             style={{
-              padding: "3px 10px", fontSize: 11, fontWeight: 700,
+              height: 26, padding: "0 12px", fontSize: 11, fontWeight: 800, lineHeight: 1,
               background: refreshing ? "#e2ebf3" : "#0f2940", color: refreshing ? "#94a3b8" : "#fff",
-              border: "none", borderRadius: 4, cursor: refreshing ? "default" : "pointer",
+              border: "none", borderRadius: 6, cursor: refreshing ? "default" : "pointer",
+              letterSpacing: -0.2,
             }}
           >
             {refreshLabel}
@@ -1103,14 +1104,14 @@ function DpsProgressCard() {
             const pct = z.total > 0 ? Math.min(100, Math.round((z.done / z.total) * 100)) : 0;
             const barColor = getBarColor(pct, z.minPendingCar);
             return (
-              <div key={code} style={{ padding: "4px 8px", background: "#F8FAFC", borderRadius: 6, border: "1px solid #E2EBF3" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 12, fontWeight: 900, color: "#113247", whiteSpace: "nowrap", minWidth: 52 }}>{name}</span>
-                  <div style={{ flex: 1, height: 7, background: "#E2EBF3", borderRadius: 99, overflow: "hidden" }}>
+              <div key={code} style={{ padding: "6px 10px", background: "#F8FAFC", borderRadius: 6, border: "1px solid #E2EBF3" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 12, fontWeight: 900, color: "#113247", whiteSpace: "nowrap", minWidth: 56, letterSpacing: -0.3 }}>{name}</span>
+                  <div style={{ flex: 1, height: 8, background: "#E2EBF3", borderRadius: 99, overflow: "hidden" }}>
                     <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 99 }} />
                   </div>
                   <span
-                    style={{ fontSize: 11, color: pct >= 100 ? "#16A34A" : "#64748B", fontWeight: 700, whiteSpace: "nowrap", cursor: pct < 100 && z.minPendingCar && carRefTimes[z.minPendingCar] ? "help" : "default" }}
+                    style={{ fontSize: 11, color: pct >= 100 ? "#16A34A" : "#64748B", fontWeight: 700, whiteSpace: "nowrap", minWidth: 60, textAlign: "right", letterSpacing: -0.3, cursor: pct < 100 && z.minPendingCar && carRefTimes[z.minPendingCar] ? "help" : "default" }}
                     title={
                       pct < 100 && z.minPendingCar && carRefTimes[z.minPendingCar]
                         ? `작업완료 기준시간: ${String(carRefTimes[z.minPendingCar].hour).padStart(2, "0")}:${String(carRefTimes[z.minPendingCar].minute).padStart(2, "0")}`
@@ -1119,7 +1120,7 @@ function DpsProgressCard() {
                   >
                     {pct >= 100 ? "작업완료" : z.minPendingCar ? `${z.minPendingCar}호차` : "완료"}
                   </span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: barColor, whiteSpace: "nowrap", minWidth: 28, textAlign: "right" }}>{pct}%</span>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: barColor, whiteSpace: "nowrap", minWidth: 36, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{pct}%</span>
                 </div>
               </div>
             );
