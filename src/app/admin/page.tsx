@@ -1111,7 +1111,14 @@ function DpsProgressCard() {
                   <div style={{ flex: 1, height: 7, background: "#E2EBF3", borderRadius: 99, overflow: "hidden" }}>
                     <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 99 }} />
                   </div>
-                  <span style={{ fontSize: 11, color: pct >= 100 ? "#16A34A" : "#64748B", fontWeight: 700, whiteSpace: "nowrap" }}>
+                  <span
+                    style={{ fontSize: 11, color: pct >= 100 ? "#16A34A" : "#64748B", fontWeight: 700, whiteSpace: "nowrap", cursor: pct < 100 && z.minPendingCar && carRefTimes[z.minPendingCar] ? "help" : "default" }}
+                    title={
+                      pct < 100 && z.minPendingCar && carRefTimes[z.minPendingCar]
+                        ? `작업완료 기준시간: ${String(carRefTimes[z.minPendingCar].hour).padStart(2, "0")}:${String(carRefTimes[z.minPendingCar].minute).padStart(2, "0")}`
+                        : undefined
+                    }
+                  >
                     {pct >= 100 ? "작업완료" : z.minPendingCar ? `${z.minPendingCar}호차` : "완료"}
                   </span>
                   <span style={{ fontSize: 11, fontWeight: 700, color: barColor, whiteSpace: "nowrap", minWidth: 28, textAlign: "right" }}>{pct}%</span>
