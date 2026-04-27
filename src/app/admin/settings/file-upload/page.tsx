@@ -43,17 +43,19 @@ type SyncStatus = {
 // ─── 슬롯별 자동 실행 스케줄 ──────────────────────────────────────────────────
 type SlotSchedule = { enabled: boolean; hour: number; minute: number };
 
-// 슬롯별 예상 소요 시간 (초) — 실제 완료 시점보다 약간 크게 설정해 0초 조기 도달 방지
+// 슬롯별 예상 소요 시간 (초) — 4/27 prepareOverride 적용 후 실측치 + 약 +8초 마진
+// 실측 (작업 #259~#266): 단일 잡 기준. 동시 실행 시 elogis 응답 지연으로 +5~10초 가산될 수 있음.
 const SLOT_ESTIMATED_SEC: Record<string, number> = {
-  "store-master": 120,           // TMS 새 탭 열기 포함, 가장 오래 걸림
-  "product-master": 90,          // MDM 즐겨찾기 경유, 다운로드까지
-  "workcenter-product-master": 90, // 작업센터코드 입력 + 다운로드
-  "cell-management": 60,         // WMS 단순 다운로드
-  "product-strategy": 60,        // WMS 단순 다운로드
-  "inventory-status": 60,        // WMS 단순 다운로드
-  "product-inventory": 60,       // WMS 단순 다운로드
-  "po-std-master": 90,           // OMS 발주기준정보관리
-  "inbound-status": 60,          // WMS 입고현황 (날짜 D+2)
+  "store-master": 35,              // 실측 26초 (TMS 새 탭, 변동성 있음)
+  "product-master": 55,            // 실측 49초 (MDM 즐겨찾기 경유)
+  "workcenter-product-master": 50, // 실측 41초
+  "cell-management": 30,           // 실측 21초
+  "product-strategy": 45,          // 실측 35초
+  "inventory-status": 50,          // 실측 42초
+  "product-inventory": 35,         // 실측 28초
+  "po-std-master": 60,             // 실측 52초
+  "inbound-status": 30,            // 실측 19초
+  "logistics-cost-by-store": 50,   // 실측 42초 (BMS, 기준일자 D-2)
 };
 
 function ElogisSyncPanel({
@@ -1314,6 +1316,10 @@ function SlotCard({
   }, [myActiveJob?.id]);
 
   // 경과 시간 카운터 + 게이지바 (절대 뒤로 안 감)
+  // 수식:
+  //   elapsed ≤ est: 선형 0% → 90% (예상 시간 안에서 정확히 비례)
+  //   elapsed > est: 90% → 99% 로 지수 점근 (overrun=30초 시 ~95.7%, 60초 시 ~97.8%)
+  // 예상 시간 도달 = 90%, 이후 마무리 단계 표시. 항상 단조 증가.
   React.useEffect(() => {
     if (!isJobActive || isSlotDone) { setElapsed(0); return; }
     const startedAt = myActiveJob?.started_at
@@ -1323,9 +1329,14 @@ function SlotCard({
     const tick = () => {
       const sec = Math.floor((Date.now() - startedAt) / 1000);
       setElapsed(sec);
-      // 지수 감소: est 시점에 약 86%, 이후에도 95%에 수렴
-      const raw = Math.round(95 * (1 - Math.exp(-sec / (est * 0.5))));
-      const next = Math.max(raw, maxBarRef.current);
+      let raw: number;
+      if (sec <= est) {
+        raw = (sec / est) * 90;
+      } else {
+        const overrun = sec - est;
+        raw = 90 + 9 * (1 - Math.exp(-overrun / 30));
+      }
+      const next = Math.max(Math.round(raw), maxBarRef.current);
       maxBarRef.current = next;
       setBarWidth(next);
     };
@@ -1334,7 +1345,8 @@ function SlotCard({
     return () => clearInterval(id);
   }, [isJobActive, isSlotDone, myActiveJob?.started_at, myActiveJob?.id, job?.started_at, job?.id, config.key]);
 
-  const remaining = Math.max(0, estimatedSec - elapsed);
+  // 예상 시간 안: 양수 카운트다운 / 초과: null (UI 에서 "마무리 중..." 표시)
+  const remaining = elapsed < estimatedSec ? estimatedSec - elapsed : null;
 
   // 다음 자동 실행까지 남은 시간
   React.useEffect(() => {
@@ -1522,7 +1534,9 @@ function SlotCard({
             return (
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#6B7280", marginBottom: 3, gap: 8 }}>
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{msg}</span>
-                <span style={{ whiteSpace: "nowrap", flexShrink: 0 }}>{remaining > 0 ? `약 ${remaining}초 남음` : `${elapsed}초 경과`}</span>
+                <span style={{ whiteSpace: "nowrap", flexShrink: 0 }}>
+                  {remaining !== null ? `약 ${remaining}초 남음` : `마무리 중... (${elapsed}초 경과)`}
+                </span>
               </div>
             );
           })()}
