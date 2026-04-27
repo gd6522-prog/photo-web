@@ -2088,7 +2088,8 @@ export function VehiclePageScreen({
           setSmallLimit(localLimits.smallLimit ? String(localLimits.smallLimit) : "");
         }
 
-        setLoadingState("");
+        // 로컬 캐시 로드는 끝났지만 서버 스냅샷 fetch가 아직 진행 중이므로
+        // loadingState는 유지한다 (finally 블록에서 정리). storageReady만 먼저 true로.
         setStorageReady(true);
 
         const serverSaved = await fetchServerVehicleSnapshot().catch((error) => {
@@ -3889,7 +3890,12 @@ export function VehiclePageScreen({
                 {pagedProductRows.length === 0 ? (
                   <tr>
                     <td colSpan={11} style={{ padding: 32, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>
-                      {productRows.length === 0
+                      {loadingState === "restore" && productRows.length === 0 ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#1D4ED8", fontWeight: 700 }}>
+                          <span style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid rgba(29,78,216,0.25)", borderTopColor: "#1d4ed8", display: "inline-block", animation: "vehicle-spin 0.8s linear infinite" }} />
+                          데이터를 불러오는 중입니다...
+                        </span>
+                      ) : productRows.length === 0
                         ? "아직 불러온 단품별 데이터가 없습니다."
                         : !inputSearched
                           ? "검색 조건 입력 후 조회 버튼을 눌러주세요."
@@ -4340,7 +4346,14 @@ export function VehiclePageScreen({
               {cargoRows.length === 0 ? (
                 <tr>
                   <td colSpan={cargoColumns.length} style={{ padding: 32, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>
-                    단품별 데이터를 먼저 불러와 주세요.
+                    {loadingState === "restore" ? (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#1D4ED8", fontWeight: 700 }}>
+                        <span style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid rgba(29,78,216,0.25)", borderTopColor: "#1d4ed8", display: "inline-block", animation: "vehicle-spin 0.8s linear infinite" }} />
+                        데이터를 불러오는 중입니다...
+                      </span>
+                    ) : (
+                      "단품별 데이터를 먼저 불러와 주세요."
+                    )}
                   </td>
                 </tr>
               ) : null}
