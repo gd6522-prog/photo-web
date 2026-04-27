@@ -13,6 +13,7 @@ type Profile = {
   company_name?: string | null;
   work_table?: string | null;
   join_date?: string | null;
+  employment_type?: string | null;
 };
 
 type Shift = {
@@ -391,6 +392,34 @@ export default function WorkLogPage() {
   const detailDays = useMemo(() => Array.from({ length: monthLastDay }, (_, i) => i + 1), [monthLastDay]);
   const detailProfile = useMemo(() => profiles.find((p) => p.id === detailUserId) ?? null, [profiles, detailUserId]);
   const canEditShift = isMainAdmin || isCompanyAdminRole;
+
+  const attendanceSummary = useMemo(() => {
+    type Bucket = { regular: number; temporary: number };
+    const map = new Map<string, Bucket>();
+    let totalRegular = 0;
+    let totalTemporary = 0;
+    for (const { profile, shift } of basicRows) {
+      if (!shift?.clock_in_at) continue;
+      const part = String(profile.work_part ?? "").trim() || "(미지정)";
+      const isTemp = profile.employment_type === "temporary";
+      const cur = map.get(part) ?? { regular: 0, temporary: 0 };
+      if (isTemp) {
+        cur.temporary += 1;
+        totalTemporary += 1;
+      } else {
+        cur.regular += 1;
+        totalRegular += 1;
+      }
+      map.set(part, cur);
+    }
+    const rows = Array.from(map.entries()).sort(([a], [b]) => {
+      const ao = WORK_PART_ORDER[a] ?? 9999;
+      const bo = WORK_PART_ORDER[b] ?? 9999;
+      if (ao !== bo) return ao - bo;
+      return a.localeCompare(b, "ko");
+    });
+    return { rows, totalRegular, totalTemporary };
+  }, [basicRows]);
 
   const orderedProfiles = useMemo(() => {
     if (!customOrder.length) return profiles;
@@ -848,6 +877,36 @@ export default function WorkLogPage() {
       </div>
 
       {err && <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 8, background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: 13, fontWeight: 700 }}>{err}</div>}
+
+      {tab === "basic" && (
+        <div style={{ ...card, padding: "12px 16px", marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: attendanceSummary.rows.length ? 10 : 0 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: "#0F172A" }}>현재 출근인원</span>
+              <span style={{ fontSize: 11, color: "#94A3B8" }}>{day} 기준 · 출근 기록 보유 인원</span>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <span style={{ padding: "4px 12px", borderRadius: 20, background: "#ECFDF5", color: "#065F46", fontSize: 12, fontWeight: 800 }}>정규직 {attendanceSummary.totalRegular}명</span>
+              <span style={{ padding: "4px 12px", borderRadius: 20, background: "#FFF7ED", color: "#9A3412", fontSize: 12, fontWeight: 800 }}>임시직 {attendanceSummary.totalTemporary}명</span>
+              <span style={{ padding: "4px 12px", borderRadius: 20, background: "#EFF6FF", color: "#1D4ED8", fontSize: 12, fontWeight: 800 }}>합계 {attendanceSummary.totalRegular + attendanceSummary.totalTemporary}명</span>
+            </div>
+          </div>
+          {attendanceSummary.rows.length === 0 ? (
+            <div style={{ fontSize: 12, color: "#94A3B8" }}>출근 기록이 있는 인원이 없습니다.</div>
+          ) : (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {attendanceSummary.rows.map(([part, b]) => (
+                <div key={part} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: 8, border: "1px solid #E8EDF2", background: "#F8FAFC" }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: "#0F172A" }}>{part}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#065F46" }}>정규직 {b.regular}명</span>
+                  <span style={{ fontSize: 11, color: "#CBD5E1" }}>·</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#9A3412" }}>임시직 {b.temporary}명</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {tab === "basic" ? (
         <div style={{ ...card, overflow: "hidden" }}>

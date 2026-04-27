@@ -12,6 +12,7 @@ export type WorkLogProfileRow = {
   company_name: string | null;
   work_table: string | null;
   join_date: string | null;
+  employment_type: string | null;
 };
 
 export async function getWorkLogScope(sbAdmin: SupabaseClient, uid: string) {
@@ -44,10 +45,11 @@ export async function getWorkLogProfiles(
   const excludeTemporary = !!filters.excludeTemporary;
   const effectiveCompany = scope.isCompanyAdminRole && qCompany === BLOCKED_COMPANY ? "" : qCompany;
 
-  const load = async (includeWorkTable: boolean, includeJoinDate: boolean, applyEmploymentFilter: boolean) => {
+  const load = async (includeWorkTable: boolean, includeJoinDate: boolean, applyEmploymentFilter: boolean, includeEmploymentType: boolean) => {
     const columns = ["id", "name", "work_part", "company_name"];
     if (includeWorkTable) columns.push("work_table");
     if (includeJoinDate) columns.push("join_date");
+    if (includeEmploymentType) columns.push("employment_type");
 
     let q = sbAdmin
       .from("profiles")
@@ -68,19 +70,19 @@ export async function getWorkLogProfiles(
     return await q;
   };
 
-  let result = await load(true, true, true);
+  let result = await load(true, true, true, true);
   if (result.error && isMissingColumnError(result.error, "employment_type")) {
-    result = await load(true, true, false);
+    result = await load(true, true, false, false);
   }
   if (result.error && (isMissingColumnError(result.error, "work_table") || isMissingColumnError(result.error, "join_date"))) {
     const includeWorkTable = !isMissingColumnError(result.error, "work_table");
     const includeJoinDate = !isMissingColumnError(result.error, "join_date");
-    result = await load(includeWorkTable, includeJoinDate, true);
+    result = await load(includeWorkTable, includeJoinDate, true, true);
     if (result.error && isMissingColumnError(result.error, "employment_type")) {
-      result = await load(includeWorkTable, includeJoinDate, false);
+      result = await load(includeWorkTable, includeJoinDate, false, false);
     }
     if (result.error && (isMissingColumnError(result.error, "work_table") || isMissingColumnError(result.error, "join_date"))) {
-      result = await load(false, false, false);
+      result = await load(false, false, false, false);
     }
   }
   if (result.error) throw result.error;
@@ -92,5 +94,6 @@ export async function getWorkLogProfiles(
     company_name: row.company_name ?? null,
     work_table: row.work_table ?? null,
     join_date: row.join_date ?? null,
+    employment_type: row.employment_type ?? null,
   }));
 }
