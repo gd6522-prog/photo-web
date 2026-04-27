@@ -273,37 +273,52 @@ async function setDateFieldByLabel(page, dateLabel, daysOffset, log, slotLabel, 
 // 페이징 툴바의 행 수 콤보(combobox) 또는 스피너(numberfield)를 '전체' / totalCount 로 변경
 async function setGridPageSizeAll(page, log, label) {
   // ── 0) Playwright 로 page-size input 에 직접 타이핑 (사용자 manual flow 동등) ──
-  //    ExtJS setValue/store.pageSize 우회가 BMS 에 안 먹히는 케이스용 (numberfield name="gridXXPageSize-inputEl")
-  for (const frame of getElogisFrames(page)) {
-    let inputName = null;
+  //    ExtJS setValue/store.pageSize 우회가 BMS 에 안 먹히는 케이스용
+  const frames = getElogisFrames(page);
+  log(`${label}: [DEBUG] 페이지 크기 input 탐색 — frame ${frames.length}개`);
+  for (const frame of frames) {
+    let probe;
     try {
-      inputName = await frame.evaluate(() => {
-        if (typeof Ext === "undefined") return null;
-        const nfs = Ext.ComponentQuery.query("numberfield").filter((nf) => {
-          if (!nf.isVisible || !nf.isVisible(true)) return false;
-          const nm = nf.name || "";
-          return /grid\w+PageSize/i.test(nm) && !/CurrentPage/i.test(nm);
-        });
-        if (nfs.length === 0) return null;
-        return nfs[0].inputEl?.dom?.name || null;
+      probe = await frame.evaluate(() => {
+        if (typeof Ext === "undefined") return { extOk: false };
+        const all = Ext.ComponentQuery.query("numberfield");
+        const visible = all.filter((nf) => nf.isVisible && nf.isVisible(true));
+        const matched = visible.filter((nf) => /grid\w+PageSize/i.test(nf.name || "") && !/CurrentPage/i.test(nf.name || ""));
+        return {
+          extOk: true,
+          total: all.length,
+          visible: visible.length,
+          matched: matched.length,
+          probe: matched.map((nf) => ({
+            extName: nf.name,
+            inputName: nf.inputEl?.dom?.name || null,
+            inputId: nf.inputEl?.dom?.id || null,
+          })),
+        };
       });
-    } catch (_) { inputName = null; }
-    if (!inputName) continue;
+    } catch (e) { probe = { error: String(e?.message ?? e) }; }
+    const url = (frame.url ? frame.url() : "main").slice(-60);
+    log(`${label}: [DEBUG] frame ...${url} → ${JSON.stringify(probe).slice(0, 400)}`);
+    const p = probe?.probe?.[0];
+    if (!p) continue;
+    // selector 결정 — id 가 있으면 id 우선, 없으면 name
+    let selector = null;
+    if (p.inputId) selector = `#${p.inputId.replace(/[^\w-]/g, (c) => "\\" + c)}`;
+    else if (p.inputName) selector = `input[name="${p.inputName}"]`;
+    if (!selector) continue;
     try {
-      const inp = frame.locator(`input[name="${inputName}"]`).first();
+      const inp = frame.locator(selector).first();
       const cnt = await inp.count();
-      if (cnt === 0) continue;
-      // 너무 큰 값 입력 — BMS UI 가 max(=실제 totalCount)로 cap 또는 그대로 받음.
-      // 사용자 가 "End" 라고 표현한 동작과 동등 (input 에 끝값 입력 후 Enter).
+      if (cnt === 0) { log(`${label}: [DEBUG] selector ${selector} count=0 in frame ...${url}`); continue; }
       const target = "999999";
       await inp.click();
       await inp.press("Control+A");
       await inp.fill(target);
       await inp.press("Enter");
-      log(`${label}: 페이지 크기 input "${inputName}" → ${target} fill+Enter`);
+      log(`${label}: 페이지 크기 input ${selector} → ${target} fill+Enter`);
       return;
     } catch (e) {
-      log(`${label}: input direct manipulation 실패: ${e?.message ?? e}`);
+      log(`${label}: input direct manipulation 실패 (${selector}): ${e?.message ?? e}`);
     }
   }
   // 위 직접 조작 실패 시 기존 ExtJS API 경로로 폴백
