@@ -361,20 +361,27 @@ async function setGridPageSizeAll(page, log, label) {
         const total = getTotalCount();
         const target = total > 0 ? total : 999999;
         try { if (typeof nf.setMaxValue === "function") nf.setMaxValue(Number.MAX_SAFE_INTEGER); else nf.maxValue = Number.MAX_SAFE_INTEGER; } catch (_) {}
+        const before = nf.getValue ? nf.getValue() : null;
         nf.setValue(target);
-        try { nf.fireEvent("change", nf, target); } catch (_) {}
+        try { nf.fireEvent("change", nf, target, before); } catch (_) {}
         try { nf.fireEvent("specialkey", nf, { getKey: () => 13, ENTER: 13, stopEvent: () => {} }); } catch (_) {}
-        // input DOM 에 직접 값 + change/keyup 도 발행
+        // input DOM 에 직접 값 + input/change/keyup 발행 (ExtJS 가 dom value 를 source 로 쓰는 케이스 대비)
         try {
           const inp = nf.inputEl && nf.inputEl.dom;
           if (inp) {
-            inp.value = String(target);
+            const proto = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+            if (proto && proto.set) proto.set.call(inp, String(target));
+            else inp.value = String(target);
             inp.dispatchEvent(new Event("input", { bubbles: true }));
             inp.dispatchEvent(new Event("change", { bubbles: true }));
+            inp.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter", keyCode: 13 }));
             inp.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "Enter", keyCode: 13 }));
           }
         } catch (_) {}
-        return `numberfield:${target}`;
+        // 검증: setValue 가 실제 반영됐는지 확인
+        const after = nf.getValue ? nf.getValue() : null;
+        const inputDomVal = (nf.inputEl && nf.inputEl.dom && nf.inputEl.dom.value) || null;
+        return `numberfield target=${target} before=${before} after=${after} input=${inputDomVal}`;
       };
 
       // 페이지 크기 라벨 매칭
@@ -968,16 +975,18 @@ async function downloadWmsFile(page, context, fileConfig, log) {
     await waitForGridData(page, log, label);
   }
 
-  // 전체행 설정 후 재조회 (allRowsBeforeDownload: true)
-  // setGridPageSizeAll 내부에서 store.pageSize 갱신 + loadPage(1) 로 reload 까지 수행하므로
-  // 외부에서 조회 버튼을 다시 누르지 않는다 (조회 핸들러가 default limit 으로 store 를 reset 하는 케이스 회피).
+  // 전체행 설정 후 재조회 (allRowsBeforeDownload: true) — 사용자 manual 흐름:
+  //   1. 조회 1번 (위에서 이미 수행)
+  //   2. 페이지당 행 갯수 numberfield 변경 (setGridPageSizeAll)
+  //   3. 조회 다시 (clickSearchButton) — 조회 핸들러가 numberfield 의 새 값으로 search
   if (allRowsBeforeDownload) {
     await setGridPageSizeAll(page, log, label);
+    await page.waitForTimeout(500);
+    await clickSearchButton(page, log, label);
     const waitMs = uiDateSearch?.waitAfterSearch ?? uiDateRange?.find(dr => dr.waitAfterSearch)?.waitAfterSearch ?? 10_000;
-    log(`${label}: 페이지 크기 변경 후 reload, ${waitMs}ms 대기...`);
+    log(`${label}: 전체행 재조회 후 ${waitMs}ms 대기...`);
     await page.waitForTimeout(waitMs);
     await waitForGridData(page, log, label);
-    // 데이터 없음 모달이 떠 있으면 닫음 (이후 엑셀 클릭이 막히지 않도록)
     await dismissInfoDialog(page, log, label);
   }
 
