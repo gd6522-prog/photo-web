@@ -47,8 +47,7 @@ const WORK_PART_ORDER: Record<string, number> = Object.fromEntries(
 const DETAIL_HEAD_TOP = 22;
 const DETAIL_HEAD_SUB = 18;
 const DETAIL_HEAD_TOTAL = DETAIL_HEAD_TOP + DETAIL_HEAD_SUB;
-const DETAIL_LEFT_WIDTHS = [92, 78, 88, 62, 72, 50] as const;
-const DETAIL_ORDER_STORAGE_KEY = "workLog:detailProfileOrder";
+const DETAIL_LEFT_WIDTHS = [88, 78, 88, 62, 72, 50] as const;
 const DETAIL_LEFT_STICKY = [
   0,
   DETAIL_LEFT_WIDTHS[0],
@@ -410,46 +409,44 @@ export default function WorkLogPage() {
     return out;
   }, [profiles, customOrder]);
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(DETAIL_ORDER_STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.every((v) => typeof v === "string")) {
-        setCustomOrder(parsed);
+  const persistCustomOrder = useCallback(
+    async (next: string[]) => {
+      setCustomOrder(next);
+      try {
+        const token = await getAccessToken();
+        await fetch("/api/admin/work-log/detail-order", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ order: next }),
+        });
+      } catch {
+        // 저장 실패 시 다음 조회 때 서버 값으로 복구됨
       }
-    } catch {
-      // ignore
-    }
-  }, []);
+    },
+    [getAccessToken]
+  );
 
-  const persistCustomOrder = useCallback((next: string[]) => {
-    setCustomOrder(next);
-    try {
-      if (next.length) localStorage.setItem(DETAIL_ORDER_STORAGE_KEY, JSON.stringify(next));
-      else localStorage.removeItem(DETAIL_ORDER_STORAGE_KEY);
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  const moveProfile = useCallback(
-    (id: string, delta: -1 | 1) => {
+  const reorderProfile = useCallback(
+    (sourceId: string, targetId: string) => {
+      if (!sourceId || sourceId === targetId) return;
       const ids = orderedProfiles.map((p) => p.id);
-      const idx = ids.indexOf(id);
-      if (idx < 0) return;
-      const target = idx + delta;
-      if (target < 0 || target >= ids.length) return;
+      const from = ids.indexOf(sourceId);
+      const to = ids.indexOf(targetId);
+      if (from < 0 || to < 0) return;
       const next = ids.slice();
-      [next[idx], next[target]] = [next[target], next[idx]];
-      persistCustomOrder(next);
+      next.splice(from, 1);
+      next.splice(to, 0, sourceId);
+      void persistCustomOrder(next);
     },
     [orderedProfiles, persistCustomOrder]
   );
 
   const resetOrder = useCallback(() => {
-    persistCustomOrder([]);
+    void persistCustomOrder([]);
   }, [persistCustomOrder]);
+
+  const [dragSourceId, setDragSourceId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const shiftByUserDay = useMemo(() => {
     const m = new Map<string, Map<number, Shift>>();
@@ -515,11 +512,13 @@ export default function WorkLogPage() {
       profiles?: Profile[];
       monthShifts?: Shift[];
       holidayDates?: string[];
+      customOrder?: string[];
     };
     if (!res.ok || !payload?.ok) throw new Error(payload?.message || "상세근태를 불러오지 못했습니다.");
 
     setIsCompanyAdminRole(!!payload.isCompanyAdminRole);
     setIsMainAdmin(!!payload.isMainAdmin);
+    setCustomOrder(Array.isArray(payload.customOrder) ? payload.customOrder : []);
     const ps = sortProfilesLikeUserMaster(payload.profiles ?? []);
     setProfiles(ps);
     if (!ps.length) {
@@ -996,34 +995,65 @@ export default function WorkLogPage() {
                   { key: "hol", label: "휴/연", vals: holVals, total: one(th) },
                 ];
 
-                const isFirstRow = idx === 0;
-                const isLastRow = idx === orderedProfiles.length - 1;
-                return rows.map((r, ridx) => <tr key={`${p.id}-${r.key}`}>
+                const isDragging = dragSourceId === p.id;
+                const isDropTarget = !!dragSourceId && dragOverId === p.id && dragSourceId !== p.id;
+                const dropAbove = isDropTarget && (() => {
+                  const ids = orderedProfiles.map((x) => x.id);
+                  return ids.indexOf(dragSourceId!) > ids.indexOf(p.id);
+                })();
+                const dropBelow = isDropTarget && !dropAbove;
+                const handleDragOver = (e: React.DragEvent) => {
+                  if (!dragSourceId || dragSourceId === p.id) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  if (dragOverId !== p.id) setDragOverId(p.id);
+                };
+                const handleDrop = (e: React.DragEvent) => {
+                  e.preventDefault();
+                  if (dragSourceId && dragSourceId !== p.id) reorderProfile(dragSourceId, p.id);
+                  setDragSourceId(null);
+                  setDragOverId(null);
+                };
+                return rows.map((r, ridx) => <tr
+                  key={`${p.id}-${r.key}`}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  style={{ opacity: isDragging ? 0.4 : 1 }}
+                >
                   {ridx === 0 && <>
-                    <td rowSpan={5} title={p.name ?? ""} style={{ position: "sticky", left: DETAIL_LEFT_STICKY[0], zIndex: 20, border: "1px solid #CBD5E1", padding: "4px 4px", textAlign: "center", background: "#F3E8E8", fontWeight: 900, fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4 }}>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                          <button
-                            onClick={() => moveProfile(p.id, -1)}
-                            disabled={isFirstRow}
-                            title="위로 이동"
-                            style={{ width: 18, height: 14, padding: 0, border: "1px solid #CBD5E1", borderRadius: 3, background: isFirstRow ? "#F1F5F9" : "#fff", color: isFirstRow ? "#CBD5E1" : "#475569", cursor: isFirstRow ? "not-allowed" : "pointer", fontSize: 9, lineHeight: "12px", fontWeight: 900 }}
-                          >▲</button>
-                          <button
-                            onClick={() => moveProfile(p.id, 1)}
-                            disabled={isLastRow}
-                            title="아래로 이동"
-                            style={{ width: 18, height: 14, padding: 0, border: "1px solid #CBD5E1", borderRadius: 3, background: isLastRow ? "#F1F5F9" : "#fff", color: isLastRow ? "#CBD5E1" : "#475569", cursor: isLastRow ? "not-allowed" : "pointer", fontSize: 9, lineHeight: "12px", fontWeight: 900 }}
-                          >▼</button>
-                        </div>
-                        <button
-                          onClick={() => setDetailUserId(p.id)}
-                          style={{ flex: 1, border: "none", background: "transparent", padding: 0, margin: 0, cursor: "pointer", fontWeight: 900, fontSize: 11, color: "#0F172A", textDecoration: "underline", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
-                          title={`${p.name ?? "(이름없음)"} 상세 보기`}
-                        >
-                          {p.name ?? "(이름없음)"}
-                        </button>
-                      </div>
+                    <td
+                      rowSpan={5}
+                      title={`${p.name ?? "(이름없음)"} (꾹 눌러 위아래로 드래그하면 순서 변경, 클릭은 상세 보기)`}
+                      draggable
+                      onDragStart={(e) => {
+                        setDragSourceId(p.id);
+                        e.dataTransfer.effectAllowed = "move";
+                        try { e.dataTransfer.setData("text/plain", p.id); } catch { /* noop */ }
+                      }}
+                      onDragEnd={() => { setDragSourceId(null); setDragOverId(null); }}
+                      onClick={() => { if (!dragSourceId) setDetailUserId(p.id); }}
+                      style={{
+                        position: "sticky",
+                        left: DETAIL_LEFT_STICKY[0],
+                        zIndex: 20,
+                        border: "1px solid #CBD5E1",
+                        borderTop: dropAbove ? "3px solid #0EA5E9" : "1px solid #CBD5E1",
+                        borderBottom: dropBelow ? "3px solid #0EA5E9" : "1px solid #CBD5E1",
+                        padding: "5px 6px",
+                        textAlign: "center",
+                        background: isDropTarget ? "#FEF3C7" : "#F3E8E8",
+                        fontWeight: 900,
+                        fontSize: 11,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        cursor: "grab",
+                        userSelect: "none",
+                        textDecoration: "underline",
+                        color: "#0F172A",
+                      }}
+                    >
+                      {p.name ?? "(이름없음)"}
                     </td>
                     <td rowSpan={5} style={{ position: "sticky", left: DETAIL_LEFT_STICKY[1], zIndex: 20, border: "1px solid #CBD5E1", padding: "5px 2px", textAlign: "center", background: bg, fontSize: 10 }}>{p.join_date ?? "-"}</td>
                     <td rowSpan={5} title={p.company_name ?? ""} style={{ position: "sticky", left: DETAIL_LEFT_STICKY[2], zIndex: 20, border: "1px solid #CBD5E1", padding: "5px 3px", textAlign: "center", background: "#EEF2A6", fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.company_name ?? "-"}</td>

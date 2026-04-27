@@ -41,11 +41,13 @@ export async function GET(req: NextRequest) {
 
     const ids = profiles.map((p) => p.id);
     if (ids.length === 0) {
-      return json(true, undefined, { isCompanyAdminRole: scope.isCompanyAdminRole, isMainAdmin: guard.isMainAdmin, profiles: [], monthShifts: [], holidayDates: [] });
+      const orderRes = await guard.sbAdmin.from("work_log_detail_order").select("user_id").order("sort_key", { ascending: true });
+      const customOrder = ((orderRes.data ?? []) as Array<{ user_id: string }>).map((x) => x.user_id);
+      return json(true, undefined, { isCompanyAdminRole: scope.isCompanyAdminRole, isMainAdmin: guard.isMainAdmin, profiles: [], monthShifts: [], holidayDates: [], customOrder });
     }
 
     const r = monthRange(month);
-    const [ss, hs] = await Promise.all([
+    const [ss, hs, oo] = await Promise.all([
       guard.sbAdmin
         .from("work_shifts")
         .select("id,user_id,work_date,clock_in_at,clock_out_at,clock_in_lat,clock_in_lng,clock_out_lat,clock_out_lng,created_at")
@@ -54,18 +56,22 @@ export async function GET(req: NextRequest) {
         .in("user_id", ids)
         .order("created_at", { ascending: false }),
       guard.sbAdmin.from("holidays").select("date").gte("date", r.from).lte("date", r.to),
+      guard.sbAdmin.from("work_log_detail_order").select("user_id").order("sort_key", { ascending: true }),
     ]);
 
     if (ss.error) return json(false, ss.error.message, null, 500);
     if (hs.error) return json(false, hs.error.message, null, 500);
+    if (oo.error) return json(false, oo.error.message, null, 500);
 
     const holidayDates = ((hs.data ?? []) as Array<{ date?: string | null }>).map((x) => x.date).filter((v): v is string => !!v);
+    const customOrder = ((oo.data ?? []) as Array<{ user_id: string }>).map((x) => x.user_id);
     return json(true, undefined, {
       isCompanyAdminRole: scope.isCompanyAdminRole,
       isMainAdmin: guard.isMainAdmin,
       profiles,
       monthShifts: (ss.data ?? []) as ShiftRow[],
       holidayDates,
+      customOrder,
     });
   } catch (e: unknown) {
     console.error("[work-log/detail] failed", e);
