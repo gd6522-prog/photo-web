@@ -586,7 +586,19 @@ export default function FileUploadPage() {
   // 슬롯 완료 시 자동 새로고침 — 새 결과가 생기거나 작업 완료 시 서버 파일 갱신
   const prevResultCountRef = useRef(0);
   const prevCompletedAtRef = useRef<string | null>(null);
+  const prevActiveIdsRef = useRef<Set<number>>(new Set());
   useEffect(() => {
+    // (1) 동시 실행 대응: activeJobs 의 잡이 사라지면(=완료/실패로 빠져나갔으면) 즉시 갱신
+    //     latest 가 다른 잡으로 덮이면서 먼저 끝난 잡 감지를 놓치는 케이스 방지
+    const currentIds = new Set((syncStatus?.activeJobs ?? []).map((j) => j.id));
+    let anyDisappeared = false;
+    for (const id of prevActiveIdsRef.current) {
+      if (!currentIds.has(id)) { anyDisappeared = true; break; }
+    }
+    if (anyDisappeared) loadStatus();
+    prevActiveIdsRef.current = currentIds;
+
+    // (2) latest 기반 폴백 — 단일 잡 케이스나 results 증분 감지
     const latest = syncStatus?.latest;
     if (!latest) return;
     const resultCount = latest.results?.length ?? 0;
