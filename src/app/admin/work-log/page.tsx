@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import * as XLSX from "xlsx";
@@ -447,6 +447,19 @@ export default function WorkLogPage() {
 
   const [dragSourceId, setDragSourceId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const detailScrollRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!dragSourceId) return;
+    const container = detailScrollRef.current;
+    if (!container) return;
+    const onWheel = (e: WheelEvent) => {
+      container.scrollTop += e.deltaY;
+      e.preventDefault();
+    };
+    window.addEventListener("wheel", onWheel, { passive: false, capture: true });
+    return () => window.removeEventListener("wheel", onWheel, { capture: true } as EventListenerOptions);
+  }, [dragSourceId]);
 
   const shiftByUserDay = useMemo(() => {
     const m = new Map<string, Map<number, Shift>>();
@@ -843,7 +856,7 @@ export default function WorkLogPage() {
           )}
         </div>
       ) : (
-        <div style={{ ...card, marginTop: 12, overflow: "auto", height: "calc(100vh - 260px)", minHeight: 420, position: "relative", padding: 0 }}>
+        <div ref={detailScrollRef} style={{ ...card, marginTop: 12, overflow: "auto", height: "calc(100vh - 260px)", minHeight: 420, position: "relative", padding: 0 }}>
           <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, tableLayout: "fixed" }}>
             <thead>
               <tr>
