@@ -104,6 +104,22 @@ function kstHHmm(ts: string | null) {
   return `${hh}:${mm}`;
 }
 
+function sanitizeHHmmInput(raw: string): string {
+  const cleaned = raw.replace(/[^\d:]/g, "");
+  if (cleaned.includes(":")) return cleaned.slice(0, 5);
+  if (cleaned.length <= 2) return cleaned;
+  return `${cleaned.slice(0, 2)}:${cleaned.slice(2, 4)}`;
+}
+
+function isValidHHmm(v: string): boolean {
+  if (!v) return true;
+  const m = v.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return false;
+  const h = Number(m[1]);
+  const mn = Number(m[2]);
+  return h >= 0 && h <= 23 && mn >= 0 && mn <= 59;
+}
+
 function diffMin(a: string | null, b: string | null) {
   if (!a || !b) return null;
   const aa = new Date(a).getTime();
@@ -986,6 +1002,7 @@ export default function WorkLogPage() {
                     const inVal = draft?.in ?? baseIn;
                     const outVal = draft?.out ?? baseOut;
                     const dirty = !!draft && (draft.in !== baseIn || draft.out !== baseOut);
+                    const valid = isValidHHmm(inVal) && isValidHHmm(outVal);
                     const saving = savingDay === d;
                     return (
                       <tr key={`detail-row-${d}`} style={{ borderBottom: "1px solid #F1F5F9" }}>
@@ -995,18 +1012,24 @@ export default function WorkLogPage() {
                           <>
                             <td style={{ padding: "6px 6px", textAlign: "center" }}>
                               <input
-                                type="time"
+                                type="text"
+                                inputMode="numeric"
+                                placeholder="00:00"
+                                maxLength={5}
                                 value={inVal}
-                                onChange={(e) => setEditDraft((prev) => ({ ...prev, [d]: { in: e.target.value, out: prev[d]?.out ?? baseOut } }))}
-                                style={{ height: 30, padding: "0 6px", borderRadius: 6, border: "1px solid #D1D9E0", fontSize: 12, color: "#0F172A", width: 110, background: "#fff" }}
+                                onChange={(e) => setEditDraft((prev) => ({ ...prev, [d]: { in: sanitizeHHmmInput(e.target.value), out: prev[d]?.out ?? baseOut } }))}
+                                style={{ height: 30, padding: "0 8px", borderRadius: 6, border: `1px solid ${isValidHHmm(inVal) ? "#D1D9E0" : "#FCA5A5"}`, fontSize: 12, color: "#0F172A", width: 80, background: "#fff", textAlign: "center", fontVariantNumeric: "tabular-nums" }}
                               />
                             </td>
                             <td style={{ padding: "6px 6px", textAlign: "center" }}>
                               <input
-                                type="time"
+                                type="text"
+                                inputMode="numeric"
+                                placeholder="00:00"
+                                maxLength={5}
                                 value={outVal}
-                                onChange={(e) => setEditDraft((prev) => ({ ...prev, [d]: { in: prev[d]?.in ?? baseIn, out: e.target.value } }))}
-                                style={{ height: 30, padding: "0 6px", borderRadius: 6, border: "1px solid #D1D9E0", fontSize: 12, color: "#0F172A", width: 110, background: "#fff" }}
+                                onChange={(e) => setEditDraft((prev) => ({ ...prev, [d]: { in: prev[d]?.in ?? baseIn, out: sanitizeHHmmInput(e.target.value) } }))}
+                                style={{ height: 30, padding: "0 8px", borderRadius: 6, border: `1px solid ${isValidHHmm(outVal) ? "#D1D9E0" : "#FCA5A5"}`, fontSize: 12, color: "#0F172A", width: 80, background: "#fff", textAlign: "center", fontVariantNumeric: "tabular-nums" }}
                               />
                             </td>
                           </>
@@ -1021,13 +1044,13 @@ export default function WorkLogPage() {
                           <td style={{ padding: "6px 6px", textAlign: "center" }}>
                             <button
                               onClick={() => saveShift(d)}
-                              disabled={!dirty || saving}
+                              disabled={!dirty || !valid || saving}
                               style={{
                                 height: 28, padding: "0 10px", borderRadius: 6, border: "none",
-                                background: dirty ? "#0F766E" : "#E2E8F0",
-                                color: dirty ? "#fff" : "#94A3B8",
+                                background: dirty && valid ? "#0F766E" : "#E2E8F0",
+                                color: dirty && valid ? "#fff" : "#94A3B8",
                                 fontWeight: 700, fontSize: 12,
-                                cursor: !dirty || saving ? "not-allowed" : "pointer",
+                                cursor: !dirty || !valid || saving ? "not-allowed" : "pointer",
                                 opacity: saving ? 0.6 : 1,
                               }}
                             >
