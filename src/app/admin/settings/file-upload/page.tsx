@@ -14,6 +14,10 @@ type SyncStatus = {
   lastHeartbeat: string | null;
   pending: boolean;
   running: boolean;
+  // 동시 실행 시 슬롯별 disabled 판정용 (백엔드에서 활성 잡들의 target_slots 합집합)
+  hasGlobalJob?: boolean;        // target_slots null/[] 인 "전체 동기화" 잡이 떠있는지
+  runningSlots?: string[];       // 현재 running 상태인 잡들의 슬롯
+  pendingSlots?: string[];       // 현재 pending 상태인 잡들의 슬롯
   latest: {
     id: number;
     status: string;
@@ -593,10 +597,16 @@ export default function FileUploadPage() {
     const tick = () => {
       const now = new Date();
       const h = now.getHours(), m = now.getMinutes();
-      const isBusy = syncStatusRef.current?.pending || syncStatusRef.current?.running;
-      if (isBusy) return;
+      const status = syncStatusRef.current;
+      const hasGlobalJob = !!status?.hasGlobalJob;
+      const runningSlotSet = new Set<string>([
+        ...(status?.runningSlots ?? []),
+        ...(status?.pendingSlots ?? []),
+      ]);
       for (const [key, sched] of Object.entries(schedulesRef.current)) {
         if (sched.enabled && sched.hour === h && sched.minute === m) {
+          // 글로벌 동기화 또는 같은 슬롯이 이미 도는 중이면 트리거 건너뜀 (다른 슬롯은 무관)
+          if (hasGlobalJob || runningSlotSet.has(key)) continue;
           handleSyncTrigger(key);
         }
       }
@@ -1254,15 +1264,23 @@ function SlotCard({
   const maxBarRef = React.useRef(0);
   const [nextRunLabel, setNextRunLabel] = React.useState("");
 
-  // 이 슬롯이 현재 실행 중인지 계산
+  // 이 슬롯이 현재 실행 중인지 계산 — 동시 실행 시 슬롯별로 판정
+  // 백엔드의 runningSlots/pendingSlots/hasGlobalJob (활성 잡 전체 합집합) 우선,
+  // 미지원 시 latest 1건 기준 폴백.
   const job = syncStatus?.latest ?? null;
-  const jobTargets = job?.target_slots ?? null; // null = 전체
-  const isInJob = jobTargets === null || jobTargets.includes(config.key);
-  const isJobActive = (syncStatus?.running || syncStatus?.pending) && isInJob;
+  const hasGlobalJob = !!syncStatus?.hasGlobalJob;
+  const slotIsRunning = !!syncStatus?.runningSlots?.includes(config.key);
+  const slotIsPending = !!syncStatus?.pendingSlots?.includes(config.key);
+  const isJobActive = hasGlobalJob || slotIsRunning || slotIsPending || (
+    // 폴백: 새 필드 미존재 시 latest 잡 기준
+    syncStatus?.runningSlots === undefined && (syncStatus?.running || syncStatus?.pending) &&
+    (job?.target_slots === null || job?.target_slots?.includes(config.key))
+  );
   const slotResult = job?.results?.find((r) => r.slotKey === config.key) ?? null;
   const isSlotDone = !!slotResult;
   const agentOnline = syncStatus?.agentOnline ?? false;
-  const isBusy = !!(syncStatus?.running || syncStatus?.pending);
+  // 이 슬롯에 한정한 락 — 다른 슬롯이 도는 것은 무관
+  const isSlotBusy = isJobActive;
   const estimatedSec = SLOT_ESTIMATED_SEC[config.key] ?? 60;
 
   // 새 작업 시작 시 게이지바 초기화
@@ -1311,7 +1329,8 @@ function SlotCard({
   }, [schedule.enabled, schedule.hour, schedule.minute]);
 
   const handleRun = async () => {
-    if (running || isBusy) return;
+    // 자기 슬롯이 도는 중이거나 요청 진행 중일 때만 막음 (다른 슬롯 무관)
+    if (running || isSlotBusy) return;
     setRunning(true);
     try { await onRun(); } finally { setRunning(false); }
   };
@@ -1358,8 +1377,9 @@ function SlotCard({
           {/* 개별 실행 버튼 — 완료 후에는 "완료" 버튼으로 표시, 누르면 재실행 */}
           {(() => {
             const isDone = isSlotDone && slotResult;
-            const isRunningThis = isBusy && isInJob && !isSlotDone;
-            const disabled = !agentOnline || (isBusy && !isDone) || running;
+            const isRunningThis = isSlotBusy && !isSlotDone;
+            // 자기 슬롯이 도는 중일 때만 disabled (다른 슬롯이 도는 것은 무관)
+            const disabled = !agentOnline || (isSlotBusy && !isDone) || running;
             let label = "실행";
             if (running) label = "요청 중...";
             else if (isRunningThis) label = "실행 중...";
@@ -1372,7 +1392,7 @@ function SlotCard({
                 disabled={disabled}
                 title={
                   !agentOnline ? "에이전트 오프라인"
-                  : isBusy && !isDone ? "동기화 중..."
+                  : isSlotBusy && !isDone ? "이 슬롯 동기화 중..."
                   : isDone ? "클릭하면 다시 실행"
                   : "이 파일만 다운로드"
                 }
