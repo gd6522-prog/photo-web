@@ -553,6 +553,10 @@ async function main() {
                   headers: { "Content-Type": "application/json", "x-internal-secret": INTERNAL_API_SECRET },
                   body: JSON.stringify({ rows: { zones: {}, dsTotal: 0, loadedCount: 0 }, scrapedAt: new Date().toISOString() }),
                 }).catch(() => {});
+                // 단품별 등록 시점에 재고현황/상품별재고현황 추가 다운로드 (예약시간 외 자동 갱신용)
+                log(`[DPS] 단품별 등록 감지 → 재고현황/상품별재고현황 추가 트리거`);
+                triggerSlot("inventory-status").catch((e) => log(`[ERROR] inventory-status 트리거: ${e?.message}`));
+                triggerSlot("product-inventory").catch((e) => log(`[ERROR] product-inventory 트리거: ${e?.message}`));
                 startDpsLoop(targetDate);
               } else if (targetDate) {
                 log(`[DPS] 단품별 파일 이미 처리됨 (${targetDate}) — 다음 날짜 파일 대기 중`);
