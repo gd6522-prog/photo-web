@@ -6,8 +6,8 @@
  *   label        : 로그에 표시될 이름
  *   type         : 'generic' (R2 저장) | 'store-master' (DB 반영)
  *   pageUrl      : elogis 에서 해당 데이터를 조회하는 페이지 URL
- *   prepareParams: commonExcelDownPrepare POST 파라미터
- *                  (Network 탭 > Payload 에서 복사)
+ *   prepareOverride: commonExcelDownPrepare POST 파라미터를 override
+ *                    (지정 시 intercept→API 방식으로 다운로드)
  *
  * ※ USER_SESSION_ID 는 로그인 후 자동으로 추출되므로 여기에 쓰지 않습니다.
  * ※ pageUrl 을 TODO 로 남겨둔 파일은 해당 URL 을 찾아 채워주세요.
@@ -24,7 +24,6 @@ const FILE_CONFIGS = [
     tmsConfig: {
       배송그룹: "D9012343",     // 배송그룹 입력값
     },
-    prepareParams: null,        // TMS 는 API 방식 아님
   },
 
   // ── 2. 상품마스터 ─────────────────────────────────────────────────────────
@@ -34,7 +33,7 @@ const FILE_CONFIGS = [
     type: "generic",
     pageUrl: "https://elogis.emart24.co.kr/",
     menuPath: ["즐겨찾기", "마스터관리 (MDM)", "상품관리", "상품"],
-    prepareParams: {
+    prepareOverride: {
       PAGING: "N",
       CURRENT_MENUCODE: "MDM202000",
       CURRENT_MENUNAME: "MENU_ITEM_MANAGER::MENU_ITEM",
@@ -79,7 +78,7 @@ const FILE_CONFIGS = [
         condition: "포함",   // = 버튼 → 데이터 비교조건 패널 → 포함 선택
       },
     ],
-    prepareParams: {
+    prepareOverride: {
       PAGING: "N",
       CURRENT_MENUCODE: "MD201040",
       CURRENT_MENUNAME: "MENU_ITEM_MANAGER::MENU_TASK_CENTER_PRODUCT",
@@ -116,7 +115,7 @@ const FILE_CONFIGS = [
     type: "generic",
     pageUrl: "https://elogis.emart24.co.kr/",
     menuPath: ["창고관리 (WMS)", "기준정보", "로케이션", "셀 관리"],
-    prepareParams: {
+    prepareOverride: {
       PAGING: "N",
       WH_CD: "T01234",
       CURRENT_MENUCODE: "WMS101218",
@@ -154,7 +153,7 @@ const FILE_CONFIGS = [
     type: "generic",
     pageUrl: "https://elogis.emart24.co.kr/",
     menuPath: ["창고관리 (WMS)", "기준정보", "상품", "상품별 전략 관리"],
-    prepareParams: {
+    prepareOverride: {
       PAGING: "N",
       CURRENT_MENUCODE: "WMS101421",
       CURRENT_MENUNAME: "MENU_MAS_STO::MENU_ITEM_STRATEGY_UPLOAD",
@@ -191,7 +190,7 @@ const FILE_CONFIGS = [
     type: "generic",
     pageUrl: "https://elogis.emart24.co.kr/",
     menuPath: ["창고관리 (WMS)", "재고", "재고조회", "재고현황"],  // 재고현황 탭이 기본값
-    prepareParams: {
+    prepareOverride: {
       PAGING: "N",
       CURRENT_MENUCODE: "WMS141123",
       CURRENT_MENUNAME: "MENU_CMBN_INVN_SRCH::MENU_CMBN_INVN_STATUS",
@@ -264,7 +263,7 @@ const FILE_CONFIGS = [
     type: "generic",
     pageUrl: "https://elogis.emart24.co.kr/",
     menuPath: ["주문관리 (OMS)", "기준정보", "리오더발주관리", "발주기준정보관리"],
-    prepareParams: {
+    prepareOverride: {
       PAGING: "N",
       CURRENT_MENUCODE: "OM102070",
       CURRENT_MENUNAME: "MENU_REORDER::MENU_PO_STD_MASTER",
