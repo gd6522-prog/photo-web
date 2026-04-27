@@ -3,7 +3,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { S3Client, PutObjectCommand } from "npm:@aws-sdk/client-s3";
 
 const SYNC_SECRET = Deno.env.get("SYNC_SECRET") ?? "";
-const R2_PUBLIC_URL = "https://pub-2ed566ac41944f778e208a0ccea9acd5.r2.dev";
+const R2_PUBLIC_URL = "https://img.dridolabs.com";
 
 Deno.serve(async (req) => {
   // 공유 시크릿 검증
