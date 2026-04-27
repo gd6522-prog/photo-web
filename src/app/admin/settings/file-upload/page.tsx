@@ -974,8 +974,8 @@ export default function FileUploadPage() {
       <div
         style={{
           marginTop: 24,
-          display: "flex",
-          flexWrap: "wrap",
+          display: "grid",
+          gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
           gap: 16,
         }}
       >
@@ -1381,7 +1381,7 @@ function SlotCard({
   return (
     <div
       style={{
-        flex: "1 1 460px",
+        minWidth: 0,                  // grid item 이 컬럼 폭을 넘어 늘어나지 않게
         border: "1px solid #E5E7EB",
         background: "#fff",
         padding: 18,
