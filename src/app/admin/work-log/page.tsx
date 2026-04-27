@@ -47,7 +47,8 @@ const WORK_PART_ORDER: Record<string, number> = Object.fromEntries(
 const DETAIL_HEAD_TOP = 22;
 const DETAIL_HEAD_SUB = 18;
 const DETAIL_HEAD_TOTAL = DETAIL_HEAD_TOP + DETAIL_HEAD_SUB;
-const DETAIL_LEFT_WIDTHS = [72, 78, 88, 62, 72, 50] as const;
+const DETAIL_LEFT_WIDTHS = [92, 78, 88, 62, 72, 50] as const;
+const DETAIL_ORDER_STORAGE_KEY = "workLog:detailProfileOrder";
 const DETAIL_LEFT_STICKY = [
   0,
   DETAIL_LEFT_WIDTHS[0],
@@ -335,6 +336,7 @@ export default function WorkLogPage() {
   const [editDraft, setEditDraft] = useState<Record<number, { in: string; out: string }>>({});
   const [savingDay, setSavingDay] = useState<number | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
+  const [customOrder, setCustomOrder] = useState<string[]>([]);
 
   const getAccessToken = useCallback(async () => {
     const { data: authData } = await supabase.auth.getSession();
@@ -390,6 +392,64 @@ export default function WorkLogPage() {
   const detailDays = useMemo(() => Array.from({ length: monthLastDay }, (_, i) => i + 1), [monthLastDay]);
   const detailProfile = useMemo(() => profiles.find((p) => p.id === detailUserId) ?? null, [profiles, detailUserId]);
   const canEditShift = isMainAdmin || isCompanyAdminRole;
+
+  const orderedProfiles = useMemo(() => {
+    if (!customOrder.length) return profiles;
+    const remaining = new Map(profiles.map((p) => [p.id, p]));
+    const out: Profile[] = [];
+    for (const id of customOrder) {
+      const p = remaining.get(id);
+      if (p) {
+        out.push(p);
+        remaining.delete(id);
+      }
+    }
+    for (const p of profiles) {
+      if (remaining.has(p.id)) out.push(p);
+    }
+    return out;
+  }, [profiles, customOrder]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DETAIL_ORDER_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.every((v) => typeof v === "string")) {
+        setCustomOrder(parsed);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const persistCustomOrder = useCallback((next: string[]) => {
+    setCustomOrder(next);
+    try {
+      if (next.length) localStorage.setItem(DETAIL_ORDER_STORAGE_KEY, JSON.stringify(next));
+      else localStorage.removeItem(DETAIL_ORDER_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const moveProfile = useCallback(
+    (id: string, delta: -1 | 1) => {
+      const ids = orderedProfiles.map((p) => p.id);
+      const idx = ids.indexOf(id);
+      if (idx < 0) return;
+      const target = idx + delta;
+      if (target < 0 || target >= ids.length) return;
+      const next = ids.slice();
+      [next[idx], next[target]] = [next[target], next[idx]];
+      persistCustomOrder(next);
+    },
+    [orderedProfiles, persistCustomOrder]
+  );
+
+  const resetOrder = useCallback(() => {
+    persistCustomOrder([]);
+  }, [persistCustomOrder]);
 
   const shiftByUserDay = useMemo(() => {
     const m = new Map<string, Map<number, Shift>>();
@@ -571,7 +631,7 @@ export default function WorkLogPage() {
     const dayHeaders = days.map((d) => String(d).padStart(2, "0"));
     const headers = ["성명", "입사일", "소속", "파트", "근무구분", "항목", ...dayHeaders, "계"];
 
-    for (const p of profiles) {
+    for (const p of orderedProfiles) {
       const dm = shiftByUserDay.get(p.id) ?? new Map<number, Shift>();
       const schedule = parseWorkSchedule(p.work_table, p.work_part);
 
@@ -672,6 +732,15 @@ export default function WorkLogPage() {
               </Link>
             ))}
           </div>
+          {tab === "detail" && customOrder.length > 0 && (
+            <button
+              onClick={resetOrder}
+              title="저장된 사용자 정의 순서를 초기화하고 기본 정렬로 되돌립니다."
+              style={{ height: 38, padding: "0 14px", borderRadius: 7, border: "1px solid #CBD5E1", background: "#fff", color: "#475569", fontWeight: 700, fontSize: 12, cursor: "pointer" }}
+            >
+              정렬초기화
+            </button>
+          )}
           <button
             onClick={() => (tab === "basic" ? downloadBasic() : downloadDetail())}
             disabled={loading || (tab === "basic" ? basicRows.length === 0 : profiles.length === 0)}
@@ -882,7 +951,7 @@ export default function WorkLogPage() {
               </tr>
             </thead>
             <tbody>
-              {!profiles.length && !loading ? <tr><td colSpan={days.length + 7} style={{ padding: 16, color: "#64748B" }}>데이터가 없습니다.</td></tr> : profiles.map((p, idx) => {
+              {!orderedProfiles.length && !loading ? <tr><td colSpan={days.length + 7} style={{ padding: 16, color: "#64748B" }}>데이터가 없습니다.</td></tr> : orderedProfiles.map((p, idx) => {
                 const dm = shiftByUserDay.get(p.id) ?? new Map<number, Shift>();
                 const bg = idx % 2 ? "#fff" : "#F8FAFC";
                 const schedule = parseWorkSchedule(p.work_table, p.work_part);
@@ -927,16 +996,34 @@ export default function WorkLogPage() {
                   { key: "hol", label: "휴/연", vals: holVals, total: one(th) },
                 ];
 
+                const isFirstRow = idx === 0;
+                const isLastRow = idx === orderedProfiles.length - 1;
                 return rows.map((r, ridx) => <tr key={`${p.id}-${r.key}`}>
                   {ridx === 0 && <>
-                    <td rowSpan={5} title={p.name ?? ""} style={{ position: "sticky", left: DETAIL_LEFT_STICKY[0], zIndex: 20, border: "1px solid #CBD5E1", padding: "5px 3px", textAlign: "center", background: "#F3E8E8", fontWeight: 900, fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      <button
-                        onClick={() => setDetailUserId(p.id)}
-                        style={{ border: "none", background: "transparent", padding: 0, margin: 0, cursor: "pointer", fontWeight: 900, fontSize: 11, color: "#0F172A", textDecoration: "underline" }}
-                        title={`${p.name ?? "(이름없음)"} 상세 보기`}
-                      >
-                        {p.name ?? "(이름없음)"}
-                      </button>
+                    <td rowSpan={5} title={p.name ?? ""} style={{ position: "sticky", left: DETAIL_LEFT_STICKY[0], zIndex: 20, border: "1px solid #CBD5E1", padding: "4px 4px", textAlign: "center", background: "#F3E8E8", fontWeight: 900, fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4 }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                          <button
+                            onClick={() => moveProfile(p.id, -1)}
+                            disabled={isFirstRow}
+                            title="위로 이동"
+                            style={{ width: 18, height: 14, padding: 0, border: "1px solid #CBD5E1", borderRadius: 3, background: isFirstRow ? "#F1F5F9" : "#fff", color: isFirstRow ? "#CBD5E1" : "#475569", cursor: isFirstRow ? "not-allowed" : "pointer", fontSize: 9, lineHeight: "12px", fontWeight: 900 }}
+                          >▲</button>
+                          <button
+                            onClick={() => moveProfile(p.id, 1)}
+                            disabled={isLastRow}
+                            title="아래로 이동"
+                            style={{ width: 18, height: 14, padding: 0, border: "1px solid #CBD5E1", borderRadius: 3, background: isLastRow ? "#F1F5F9" : "#fff", color: isLastRow ? "#CBD5E1" : "#475569", cursor: isLastRow ? "not-allowed" : "pointer", fontSize: 9, lineHeight: "12px", fontWeight: 900 }}
+                          >▼</button>
+                        </div>
+                        <button
+                          onClick={() => setDetailUserId(p.id)}
+                          style={{ flex: 1, border: "none", background: "transparent", padding: 0, margin: 0, cursor: "pointer", fontWeight: 900, fontSize: 11, color: "#0F172A", textDecoration: "underline", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                          title={`${p.name ?? "(이름없음)"} 상세 보기`}
+                        >
+                          {p.name ?? "(이름없음)"}
+                        </button>
+                      </div>
                     </td>
                     <td rowSpan={5} style={{ position: "sticky", left: DETAIL_LEFT_STICKY[1], zIndex: 20, border: "1px solid #CBD5E1", padding: "5px 2px", textAlign: "center", background: bg, fontSize: 10 }}>{p.join_date ?? "-"}</td>
                     <td rowSpan={5} title={p.company_name ?? ""} style={{ position: "sticky", left: DETAIL_LEFT_STICKY[2], zIndex: 20, border: "1px solid #CBD5E1", padding: "5px 3px", textAlign: "center", background: "#EEF2A6", fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.company_name ?? "-"}</td>
