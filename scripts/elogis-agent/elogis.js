@@ -388,6 +388,13 @@ async function setGridPageSizeAll(page, log, label) {
         );
       };
 
+      // PagingToolbar 의 store 강제 reload (combobox/numberfield 변경 후)
+      const reloadToolbarStore = (tb) => {
+        const st = tb.store;
+        if (!st) return;
+        try { st.loadPage ? st.loadPage(1) : st.load(); } catch (_) {}
+      };
+
       // 1) PagingToolbar 안에서 combobox 또는 numberfield 우선
       for (const tb of Ext.ComponentQuery.query("pagingtoolbar")) {
         if (tb.isVisible && !tb.isVisible()) continue;
@@ -407,12 +414,17 @@ async function setGridPageSizeAll(page, log, label) {
             const useVal = useRec.get(combo.valueField || "field1");
             combo.setValue(useVal);
             combo.fireEvent("select", combo, [useRec]);
+            reloadToolbarStore(tb);
             return { method: `combo:${useVal}`, debug };
           }
         }
         // 1-b) numberfield/spinnerfield (스피너 ↑↓ 형) — BMS "페이지당 행 갯수"
         for (const nf of Ext.ComponentQuery.query("numberfield,spinnerfield", tb)) {
-          if (nf.isVisible && nf.isVisible(true)) return { method: tryNumberField(nf), debug };
+          if (nf.isVisible && nf.isVisible(true)) {
+            const m = tryNumberField(nf);
+            reloadToolbarStore(tb);
+            return { method: m, debug };
+          }
         }
       }
 
@@ -957,11 +969,12 @@ async function downloadWmsFile(page, context, fileConfig, log) {
   }
 
   // 전체행 설정 후 재조회 (allRowsBeforeDownload: true)
+  // setGridPageSizeAll 내부에서 store.pageSize 갱신 + loadPage(1) 로 reload 까지 수행하므로
+  // 외부에서 조회 버튼을 다시 누르지 않는다 (조회 핸들러가 default limit 으로 store 를 reset 하는 케이스 회피).
   if (allRowsBeforeDownload) {
     await setGridPageSizeAll(page, log, label);
-    await clickSearchButton(page, log, label);
     const waitMs = uiDateSearch?.waitAfterSearch ?? uiDateRange?.find(dr => dr.waitAfterSearch)?.waitAfterSearch ?? 10_000;
-    log(`${label}: 전체행 재조회 후 ${waitMs}ms 대기...`);
+    log(`${label}: 페이지 크기 변경 후 reload, ${waitMs}ms 대기...`);
     await page.waitForTimeout(waitMs);
     await waitForGridData(page, log, label);
     // 데이터 없음 모달이 떠 있으면 닫음 (이후 엑셀 클릭이 막히지 않도록)
