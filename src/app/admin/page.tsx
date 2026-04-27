@@ -977,13 +977,11 @@ function DpsProgressCard() {
         }
       }
     } catch { /* ignore */ }
-    finally { setLoading(false); }
   }, [saveCompletion]);
 
   useEffect(() => {
     allDoneRef.current = false;
-    readR2();
-    void loadCarRefTimes();
+    Promise.all([readR2(), loadCarRefTimes()]).finally(() => setLoading(false));
     intervalRef.current = setInterval(readR2, 5 * 60 * 1000);
     return () => {
       if (intervalRef.current !== null) {
