@@ -184,15 +184,32 @@ export async function POST(req: NextRequest) {
     }
 
     // ── action: download-url — meta key 전체 허용 (store-master 포함) ─────
+    // 이력 보관 ON 슬롯은 R2 에 옛 파일이 누적되어 있으므로, 메타 JSON 의 현재 fileName 을
+    // 우선 사용한다. R2 listObjects 는 사전식 오름차순으로 반환하기 때문에 keys[0] 만 보면
+    // 가장 오래된 파일이 받아지는 문제가 있었음.
     if (action === "download-url") {
       if (!isMetaKey(slotKey)) {
         return NextResponse.json({ ok: false, message: `유효하지 않은 슬롯: ${slotKey}` }, { status: 400 });
       }
-      const keys = await listR2Keys(slotPrefix(slotKey));
-      if (keys.length === 0) {
-        return NextResponse.json({ ok: false, message: "파일이 없습니다." }, { status: 404 });
+      let targetKey: string | null = null;
+      // 1) 메타 우선 — UI 가 표시하는 "현재 서버 파일" 과 동일한 파일을 받음
+      try {
+        const text = await getR2ObjectText(metaKey(slotKey));
+        if (text) {
+          const meta = JSON.parse(text) as { fileName?: string };
+          if (meta?.fileName) targetKey = `${slotPrefix(slotKey)}${meta.fileName}`;
+        }
+      } catch {}
+      // 2) 폴백 — 메타 없거나 파싱 실패 시 listR2Keys 의 가장 최신 (사전순 마지막)
+      if (!targetKey) {
+        const keys = await listR2Keys(slotPrefix(slotKey));
+        if (keys.length === 0) {
+          return NextResponse.json({ ok: false, message: "파일이 없습니다." }, { status: 404 });
+        }
+        const sorted = [...keys].sort();
+        targetKey = sorted[sorted.length - 1];
       }
-      const downloadUrl = await getViewPresignedUrl(keys[0]);
+      const downloadUrl = await getViewPresignedUrl(targetKey);
       return NextResponse.json({ ok: true, downloadUrl });
     }
 
