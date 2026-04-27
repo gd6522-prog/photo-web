@@ -272,7 +272,10 @@ async function setDateFieldByLabel(page, dateLabel, daysOffset, log, slotLabel, 
 
 // 페이징 툴바의 행 수 콤보(combobox) 또는 스피너(numberfield)를 '전체' / totalCount 로 변경
 async function setGridPageSizeAll(page, log, label) {
-  // ── 0) Playwright 로 page-size input 에 직접 타이핑 (사용자 manual flow 동등) ──
+  // 진입 직전에 정보 모달 닫기 — ExtJS x-mask 가 input pointer 이벤트를 가로채는 케이스 방지
+  await dismissInfoDialog(page, log, label);
+
+  // ── 0) page-size input 에 native setter 로 직접 값 주입 (mask 무관) ──
   //    ExtJS setValue/store.pageSize 우회가 BMS 에 안 먹히는 케이스용
   const frames = getElogisFrames(page);
   log(`${label}: [DEBUG] 페이지 크기 input 탐색 — frame ${frames.length}개`);
@@ -306,19 +309,31 @@ async function setGridPageSizeAll(page, log, label) {
     if (p.inputId) selector = `#${p.inputId.replace(/[^\w-]/g, (c) => "\\" + c)}`;
     else if (p.inputName) selector = `input[name="${p.inputName}"]`;
     if (!selector) continue;
+    // mask 가 click 을 가로채는 BMS 환경 대응 — Playwright click 대신 evaluate 로 native setter + 이벤트 디스패치
     try {
-      const inp = frame.locator(selector).first();
-      const cnt = await inp.count();
-      if (cnt === 0) { log(`${label}: [DEBUG] selector ${selector} count=0 in frame ...${url}`); continue; }
       const target = "999999";
-      await inp.click();
-      await inp.press("Control+A");
-      await inp.fill(target);
-      await inp.press("Enter");
-      log(`${label}: 페이지 크기 input ${selector} → ${target} fill+Enter`);
-      return;
+      const ok = await frame.evaluate(({ inputId, inputName, value }) => {
+        const inp = (inputId && document.getElementById(inputId))
+          || (inputName && document.querySelector(`input[name="${inputName}"]`));
+        if (!inp) return false;
+        inp.focus();
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+        setter.call(inp, value);
+        inp.dispatchEvent(new Event("input", { bubbles: true }));
+        inp.dispatchEvent(new Event("change", { bubbles: true }));
+        inp.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter", keyCode: 13, which: 13 }));
+        inp.dispatchEvent(new KeyboardEvent("keypress", { bubbles: true, key: "Enter", keyCode: 13, which: 13 }));
+        inp.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "Enter", keyCode: 13, which: 13 }));
+        inp.blur();
+        return true;
+      }, { inputId: p.inputId, inputName: p.inputName, value: target });
+      if (ok) {
+        log(`${label}: 페이지 크기 input ${selector} → ${target} (native setter + Enter)`);
+        return;
+      }
+      log(`${label}: [DEBUG] native setter 실패 — element 미발견 ${selector}`);
     } catch (e) {
-      log(`${label}: input direct manipulation 실패 (${selector}): ${e?.message ?? e}`);
+      log(`${label}: input native setter 실패 (${selector}): ${e?.message ?? e}`);
     }
   }
   // 위 직접 조작 실패 시 기존 ExtJS API 경로로 폴백
