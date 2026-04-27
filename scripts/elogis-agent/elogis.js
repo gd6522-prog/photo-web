@@ -270,22 +270,43 @@ async function setDateFieldByLabel(page, dateLabel, daysOffset, log, slotLabel, 
 
 // ── 그리드 데이터 로딩 완료 대기 ────────────────────────────────────────────
 
-// 페이징 툴바의 행 수 콤보를 '전체' 또는 최대값으로 변경
+// 페이징 툴바의 행 수 콤보(combobox) 또는 스피너(numberfield)를 '전체' / totalCount 로 변경
 async function setGridPageSizeAll(page, log, label) {
   for (const target of getElogisFrames(page)) {
     const ok = await target.evaluate(() => {
       if (typeof Ext === "undefined") return false;
-      // PagingToolbar 안의 combobox 탐색
-      const toolbars = Ext.ComponentQuery.query("pagingtoolbar");
-      for (const tb of toolbars) {
+
+      // 그리드의 현재 totalCount 산출 (numberfield 에 넣을 값)
+      const getTotalCount = () => {
+        let max = 0;
+        for (const g of Ext.ComponentQuery.query("gridpanel")) {
+          if (g.isVisible && !g.isVisible(true)) continue;
+          const st = g.store || (g.getStore && g.getStore());
+          const t = st && (st.getTotalCount ? st.getTotalCount() : (st.totalCount || 0));
+          if (t > max) max = t;
+        }
+        return max;
+      };
+
+      const tryNumberField = (nf) => {
+        const total = getTotalCount();
+        const target = total > 0 ? total : 999999;
+        // maxValue cap 우회 — setValue 가 cap 적용 전이라도 maxValue 를 먼저 늘림
+        try { if (typeof nf.setMaxValue === "function") nf.setMaxValue(Number.MAX_SAFE_INTEGER); else nf.maxValue = Number.MAX_SAFE_INTEGER; } catch (_) {}
+        nf.setValue(target);
+        try { nf.fireEvent("change", nf, target); } catch (_) {}
+        try { nf.fireEvent("specialkey", nf, { getKey: () => 13, ENTER: 13, stopEvent: () => {} }); } catch (_) {}
+        return `numberfield:${target}`;
+      };
+
+      // 1) PagingToolbar 안에서 combobox 또는 numberfield 우선
+      for (const tb of Ext.ComponentQuery.query("pagingtoolbar")) {
         if (tb.isVisible && !tb.isVisible()) continue;
-        const combos = Ext.ComponentQuery.query("combobox,combo", tb);
-        for (const combo of combos) {
+        // 1-a) combobox (드롭다운형)
+        for (const combo of Ext.ComponentQuery.query("combobox,combo", tb)) {
           const store = combo.store;
           if (!store) continue;
-          let allRec = null;
-          let maxRec = null;
-          let maxVal = -Infinity;
+          let allRec = null, maxRec = null, maxVal = -Infinity;
           store.each((rec) => {
             const vals = Object.values(rec.data || {});
             if (vals.some((v) => String(v).includes("전체") || v === -1)) allRec = rec;
@@ -297,11 +318,44 @@ async function setGridPageSizeAll(page, log, label) {
             const useVal = useRec.get(combo.valueField || "field1");
             combo.setValue(useVal);
             combo.fireEvent("select", combo, [useRec]);
-            return `${useVal}`;
+            return `combo:${useVal}`;
           }
         }
+        // 1-b) numberfield (스피너 ↑↓ 형) — BMS "페이지당 행 갯수" 같은 케이스
+        for (const nf of Ext.ComponentQuery.query("numberfield", tb)) {
+          if (nf.isVisible && nf.isVisible(true)) return tryNumberField(nf);
+        }
       }
-      // DOM fallback: <select> 안의 전체 옵션
+
+      // 2) 툴바 밖의 numberfield — fieldLabel/name 으로 페이지 크기 필드 탐색
+      for (const nf of Ext.ComponentQuery.query("numberfield")) {
+        if (nf.isVisible && !nf.isVisible(true)) continue;
+        const lbl = (nf.fieldLabel || nf.emptyText || "").replace(/\s/g, "");
+        const nm = (nf.name || "").replace(/\s/g, "");
+        if (
+          lbl.includes("페이지당") || lbl.includes("행갯수") || lbl.includes("행개수") ||
+          nm.includes("PAGE_SIZE") || nm.includes("PAGESIZE") || nm.includes("PAGE_ROWS")
+        ) {
+          return tryNumberField(nf);
+        }
+      }
+
+      // 3) 폴백 — 그리드 store 의 pageSize 를 직접 키워서 reload
+      let storeChanged = null;
+      for (const g of Ext.ComponentQuery.query("gridpanel")) {
+        if (g.isVisible && !g.isVisible(true)) continue;
+        const st = g.store || (g.getStore && g.getStore());
+        if (!st) continue;
+        const total = (st.getTotalCount ? st.getTotalCount() : (st.totalCount || 0));
+        const target = total > 0 ? total : 999999;
+        st.pageSize = target;
+        try { st.load(); } catch (_) {}
+        storeChanged = `store-pageSize:${target}`;
+        break;
+      }
+      if (storeChanged) return storeChanged;
+
+      // 4) DOM fallback: <select> 안의 전체 옵션
       for (const sel of document.querySelectorAll("select")) {
         for (const opt of sel.options) {
           if (opt.text.includes("전체") || opt.value === "-1") {
