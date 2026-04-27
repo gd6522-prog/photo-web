@@ -318,6 +318,38 @@ async function setGridPageSizeAll(page, log, label) {
   log(`${label}: [WARN] 전체행 콤보 미발견`);
 }
 
+// "조회 결과가 없습니다" 등 정보 모달이 떠 있으면 확인 버튼 클릭하여 닫음
+async function dismissInfoDialog(page, log, label) {
+  for (const target of getElogisFrames(page)) {
+    const closed = await target.evaluate(() => {
+      try {
+        if (typeof Ext === "undefined") return false;
+        // ExtJS MessageBox 인스턴스 탐색
+        const wins = Ext.ComponentQuery.query("window,messagebox");
+        for (const w of wins) {
+          if (!w.isVisible || !w.isVisible(true)) continue;
+          const txt = (w.msg || w.getEl?.()?.dom?.innerText || "").replace(/\s+/g, "");
+          if (!txt.includes("조회결과가없습니다") && !txt.includes("결과가없습니다") && !txt.includes("data")) continue;
+          // 확인 버튼 찾기
+          const btns = w.query ? w.query("button") : [];
+          for (const b of btns) {
+            if (b.isVisible && b.isVisible(true) && /확인|OK|Ok|닫기/.test(b.text || "")) {
+              if (typeof b.handler === "function") b.handler.call(b.scope || b, b);
+              else b.fireEvent("click", b);
+              return true;
+            }
+          }
+          // 버튼 못찾으면 close
+          if (w.close) { w.close(); return true; }
+        }
+      } catch (_) {}
+      return false;
+    }).catch(() => false);
+    if (closed) { log(`${label}: 정보 모달 닫음`); return true; }
+  }
+  return false;
+}
+
 async function waitForGridData(page, log, label, timeoutMs = 20_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -612,13 +644,23 @@ async function fillSearchInputs(page, searchInputs, log) {
 // UI의 commonExcelDownPrepare body(세션토큰/SES 값 등)를 그대로 가져와 특정 파라미터만 교체.
 
 async function downloadViaInterceptAndApi(page, fileConfig, log) {
-  const { label, prepareOverride } = fileConfig;
+  const { label, prepareOverride, downloadMenuText } = fileConfig;
 
   // Step 1: commonExcelDownPrepare 를 가로채 abort + body 캡처
   let capturedBody = null;
   await page.route("**/utilService/commonExcelDownPrepare", async (route) => {
     capturedBody = route.request().postData() || "";
     log(`[DEBUG] prepare body 캡처 (${capturedBody.length} chars)`);
+    try {
+      const safeLabel = label.replace(/[/\\:*?"<>|]/g, "_");
+      const dumpPath = path.join(__dirname, `_prepare_body_${safeLabel}.txt`);
+      fs.writeFileSync(dumpPath, decodeURIComponent(capturedBody.replace(/\+/g, " ")), "utf8");
+      log(`[DEBUG] prepare body dump → ${dumpPath}`);
+    } catch (_) {}
+    try {
+      const p0 = new URLSearchParams(capturedBody);
+      log(`${label}: [PREPARE-원본] SEARCH_URL=${p0.get("SEARCH_URL")} MENUCODE=${p0.get("CURRENT_MENUCODE")}`);
+    } catch (_) {}
     await route.abort();
   });
 
@@ -652,17 +694,28 @@ async function downloadViaInterceptAndApi(page, fileConfig, log) {
     if (excelClicked) { log(`${label}: 엑셀 버튼 클릭 (intercept 모드)`); break; }
   }
   await page.waitForTimeout(800);
-  // 드롭다운 → 전체 데이터 다운로드
+  // 드롭다운 → downloadMenuText 우선 (예: "현재 그리드 데이터 다운로드"), 없으면 "전체 데이터 다운로드"
   for (const target of targets) {
-    const ok = await target.evaluate(() => {
+    const ok = await target.evaluate((prefer) => {
       const normalize = (s) => (s || "").replace(/\s+/g, "").trim();
-      for (const el of document.querySelectorAll(".x-menu-item-text, .x-menu-item")) {
+      const items = document.querySelectorAll(".x-menu-item-text, .x-menu-item");
+      if (prefer) {
+        const normPrefer = normalize(prefer);
+        for (const el of items) {
+          if (normalize(el.textContent).includes(normPrefer)) { el.click(); return `prefer:${prefer}`; }
+        }
+      }
+      for (const el of items) {
         const t = normalize(el.textContent);
-        if (t === "전체데이터다운로드" || t.includes("다운로드")) { el.click(); return true; }
+        if (t === "전체데이터다운로드") { el.click(); return "전체데이터다운로드"; }
+      }
+      for (const el of items) {
+        const t = normalize(el.textContent);
+        if (t.includes("다운로드")) { el.click(); return t; }
       }
       return false;
-    }).catch(() => false);
-    if (ok) { log(`${label}: 드롭다운 클릭`); break; }
+    }, downloadMenuText ?? null).catch(() => false);
+    if (ok) { log(`${label}: 드롭다운 → ${ok} 클릭`); break; }
   }
 
   // Step 3: prepare body 캡처 대기 (최대 10초)
@@ -755,6 +808,8 @@ async function downloadWmsFile(page, context, fileConfig, log) {
     log(`${label}: 전체행 재조회 후 ${waitMs}ms 대기...`);
     await page.waitForTimeout(waitMs);
     await waitForGridData(page, log, label);
+    // 데이터 없음 모달이 떠 있으면 닫음 (이후 엑셀 클릭이 막히지 않도록)
+    await dismissInfoDialog(page, log, label);
   }
 
   // 다운로드 직전 탭 재활성화 — allRowsBeforeDownload 중 탭이 바뀔 수 있으므로 마지막 메뉴 아이템(탭)을 다시 선택
@@ -784,6 +839,8 @@ async function downloadWmsFile(page, context, fileConfig, log) {
         break;
       }
     }
+    // 탭 재활성화 직후에도 정보 모달이 떠 있을 수 있으므로 닫음
+    await dismissInfoDialog(page, log, label);
   }
 
   // prepareOverride가 있으면 UI prepare 요청을 가로채 수정 후 API 재전송
