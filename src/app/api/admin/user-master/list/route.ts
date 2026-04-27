@@ -17,6 +17,7 @@ type ProfileRow = {
   join_date: string | null;
   leave_date: string | null;
   nationality: string | null;
+  employment_type?: string | null;
   is_admin?: boolean | null;
   is_general_admin?: boolean | null;
   is_center_admin?: boolean | null;
@@ -59,7 +60,7 @@ export async function GET(req: NextRequest) {
     .select("user_id,clock_in_at,clock_out_at")
     .eq("work_date", kstTodayYMD());
 
-  const loadProfiles = async (includeRoleFlags: boolean) => {
+  const loadProfiles = async (includeRoleFlags: boolean, includeEmploymentType: boolean) => {
     const columns = [
       "id",
       "approval_status",
@@ -77,6 +78,9 @@ export async function GET(req: NextRequest) {
     ];
     if (includeRoleFlags) {
       columns.push("is_general_admin", "is_center_admin", "is_company_admin");
+    }
+    if (includeEmploymentType) {
+      columns.push("employment_type");
     }
 
     let q = guard.sbAdmin
@@ -101,9 +105,12 @@ export async function GET(req: NextRequest) {
     .limit(500);
 
   // profiles 목록과 오늘 출퇴근을 병렬로 실행
-  let [{ data, error }, shiftsResult, nationalityResult] = await Promise.all([loadProfiles(true), shiftsPromise, nationalityOptionsPromise]);
+  let [{ data, error }, shiftsResult, nationalityResult] = await Promise.all([loadProfiles(true, true), shiftsPromise, nationalityOptionsPromise]);
+  if (isMissingColumnError(error, "employment_type")) {
+    ({ data, error } = await loadProfiles(true, false));
+  }
   if (isMissingColumnError(error, "is_general_admin") || isMissingColumnError(error, "is_center_admin") || isMissingColumnError(error, "is_company_admin")) {
-    ({ data, error } = await loadProfiles(false));
+    ({ data, error } = await loadProfiles(false, false));
   }
   if (isMissingColumnError(error, "nationality")) {
     error = null;

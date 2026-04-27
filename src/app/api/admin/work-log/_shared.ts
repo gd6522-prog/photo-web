@@ -34,16 +34,17 @@ export async function getWorkLogScope(sbAdmin: SupabaseClient, uid: string) {
 export async function getWorkLogProfiles(
   sbAdmin: SupabaseClient,
   scope: { isCompanyAdminRole: boolean },
-  filters: { nameQ?: string; company?: string; workPart?: string; workTable?: string; includeResigned?: boolean }
+  filters: { nameQ?: string; company?: string; workPart?: string; workTable?: string; includeResigned?: boolean; excludeTemporary?: boolean }
 ) {
   const qName = String(filters.nameQ ?? "").trim();
   const qCompany = String(filters.company ?? "").trim();
   const qWorkPart = String(filters.workPart ?? "").trim();
   const qWorkTable = String(filters.workTable ?? "").trim();
   const includeResigned = !!filters.includeResigned;
+  const excludeTemporary = !!filters.excludeTemporary;
   const effectiveCompany = scope.isCompanyAdminRole && qCompany === BLOCKED_COMPANY ? "" : qCompany;
 
-  const load = async (includeWorkTable: boolean, includeJoinDate: boolean) => {
+  const load = async (includeWorkTable: boolean, includeJoinDate: boolean, applyEmploymentFilter: boolean) => {
     const columns = ["id", "name", "work_part", "company_name"];
     if (includeWorkTable) columns.push("work_table");
     if (includeJoinDate) columns.push("join_date");
@@ -60,17 +61,26 @@ export async function getWorkLogProfiles(
     if (effectiveCompany) q = q.eq("company_name", effectiveCompany);
     if (qWorkPart) q = q.eq("work_part", qWorkPart);
     if (qWorkTable && includeWorkTable) q = q.eq("work_table", qWorkTable);
+    if (excludeTemporary && applyEmploymentFilter) {
+      q = q.or("employment_type.is.null,employment_type.neq.temporary");
+    }
 
     return await q;
   };
 
-  let result = await load(true, true);
+  let result = await load(true, true, true);
+  if (result.error && isMissingColumnError(result.error, "employment_type")) {
+    result = await load(true, true, false);
+  }
   if (result.error && (isMissingColumnError(result.error, "work_table") || isMissingColumnError(result.error, "join_date"))) {
     const includeWorkTable = !isMissingColumnError(result.error, "work_table");
     const includeJoinDate = !isMissingColumnError(result.error, "join_date");
-    result = await load(includeWorkTable, includeJoinDate);
+    result = await load(includeWorkTable, includeJoinDate, true);
+    if (result.error && isMissingColumnError(result.error, "employment_type")) {
+      result = await load(includeWorkTable, includeJoinDate, false);
+    }
     if (result.error && (isMissingColumnError(result.error, "work_table") || isMissingColumnError(result.error, "join_date"))) {
-      result = await load(false, false);
+      result = await load(false, false, false);
     }
   }
   if (result.error) throw result.error;

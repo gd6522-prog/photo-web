@@ -18,6 +18,9 @@ export async function POST(req: NextRequest) {
   const userId = String(body.userId ?? "").trim();
   if (!userId) return json(false, "userId가 필요합니다.", null, 400);
 
+  const empRaw = String(body.employment_type ?? "").trim();
+  const employmentType = empRaw === "regular" || empRaw === "temporary" ? empRaw : null;
+
   const payload: Record<string, unknown> = {
     name: body.name ?? null,
     phone: body.phone ?? null,
@@ -30,6 +33,7 @@ export async function POST(req: NextRequest) {
     leave_date: body.leave_date ?? null,
     nationality: body.nationality ?? null,
     visa: body.visa ?? null,
+    employment_type: employmentType,
     is_admin: !!body.is_admin,
     is_general_admin: !!body.is_general_admin,
     is_center_admin: !!body.is_center_admin,

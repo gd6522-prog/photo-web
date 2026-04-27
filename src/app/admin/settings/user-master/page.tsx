@@ -17,11 +17,14 @@ type ProfileRow = {
   leave_date: string | null;
   nationality: string | null;
   visa: string | null;
+  employment_type?: string | null;
   is_admin?: boolean | null;
   is_general_admin?: boolean | null;
   is_center_admin?: boolean | null;
   is_company_admin?: boolean | null;
 };
+
+type EmploymentType = "regular" | "temporary";
 
 type TodayShiftMap = Record<string, { inAt: string | null; outAt: string | null }>;
 const BLOCKED_COMPANY = "한익스프레스";
@@ -230,6 +233,7 @@ export default function UserMasterPage() {
     leave_date: "",
     nationality: "",
     visa: "",
+    employment_type: "regular" as EmploymentType,
     is_admin: false,
     is_general_admin: false,
     is_center_admin: false,
@@ -348,6 +352,7 @@ export default function UserMasterPage() {
       leave_date: r.leave_date ?? "",
       nationality: isCustomNat ? "__custom__" : nat,
       visa: r.visa ?? "",
+      employment_type: r.employment_type === "temporary" ? "temporary" : "regular",
       is_admin: !!r.is_admin,
       is_general_admin: !!r.is_general_admin,
       is_center_admin: !!r.is_center_admin,
@@ -408,6 +413,7 @@ export default function UserMasterPage() {
         leave_date: f.leave_date || null,
         nationality: nat || null,
         visa: (nat && nat.toUpperCase() !== "KR" && nat !== "한국") ? (f.visa.trim() || null) : null,
+        employment_type: f.employment_type,
         is_admin: lockedIsAdmin,
         is_general_admin: f.is_general_admin,
         is_center_admin: f.is_center_admin,
@@ -834,6 +840,26 @@ export default function UserMasterPage() {
                   <div>
                     <div style={fieldLabelStyle()}>퇴사일</div>
                     <input type="date" value={f.leave_date} onChange={(e) => setF((p) => ({ ...p, leave_date: e.target.value }))} style={inputStyle()} />
+                  </div>
+                  <div>
+                    <div style={fieldLabelStyle()}>고용형태 <span style={{ fontSize: 10, color: "#94A3B8", fontWeight: 400 }}>(임시직은 상세근태에서 제외)</span></div>
+                    <div style={{ display: "flex", gap: 14, alignItems: "center", height: 38 }}>
+                      {([
+                        { v: "regular" as const, label: "정규직" },
+                        { v: "temporary" as const, label: "임시직" },
+                      ]).map(({ v, label }) => (
+                        <label key={v} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#374151", cursor: "pointer" }}>
+                          <input
+                            type="radio"
+                            name="employment_type"
+                            value={v}
+                            checked={f.employment_type === v}
+                            onChange={() => setF((p) => ({ ...p, employment_type: v }))}
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 </div>
                 <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
