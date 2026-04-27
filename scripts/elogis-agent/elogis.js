@@ -297,7 +297,63 @@ async function setGridPageSizeAll(page, log, label) {
           const lbl = (c.fieldLabel || c.emptyText || c.boxLabel || "").trim();
           const nm = (c.name || "").trim();
           const val = c.getValue ? c.getValue() : null;
-          if (lbl || nm) debug.push(`${xtype} lbl="${lbl}" name="${nm}" val=${val}`);
+          const max = c.maxValue ?? "?";
+          if (lbl || nm) debug.push(`${xtype} lbl="${lbl}" name="${nm}" val=${val} max=${max}`);
+        }
+      } catch (_) {}
+
+      // BMS 패턴: numberfield name 이 "gridXXPageSize-inputEl" 형태
+      //   → grid prefix(예: grid05)로 그 그리드를 정확히 찾아 store.pageSize 변경 + load
+      //   numberfield setValue 만으로는 maxValue cap 으로 trim 되거나 store 에 반영 안 되는 경우가 있어
+      //   동일 prefix 의 grid 를 직접 잡아 store proxy 까지 변경한 뒤 loadPage(1) 으로 강제 reload
+      try {
+        for (const nf of Ext.ComponentQuery.query("numberfield")) {
+          if (!nf.isVisible || !nf.isVisible(true)) continue;
+          const nm = nf.name || "";
+          const m = nm.match(/^(grid\w+?)PageSize/i);
+          if (!m) continue;
+          const gridPrefix = m[1];
+          // 같은 prefix 의 grid 찾기 — id 또는 itemId 매칭
+          let theGrid = null;
+          for (const g of Ext.ComponentQuery.query("gridpanel,grid")) {
+            if (!g.isVisible || !g.isVisible(true)) continue;
+            const gid = (g.id || "") + "|" + (g.itemId || "");
+            if (gid.includes(gridPrefix)) { theGrid = g; break; }
+          }
+          // 못 찾으면 첫 번째 visible grid 폴백
+          if (!theGrid) {
+            for (const g of Ext.ComponentQuery.query("gridpanel")) {
+              if (g.isVisible && g.isVisible(true)) { theGrid = g; break; }
+            }
+          }
+          if (!theGrid) break;
+          const st = theGrid.store || (theGrid.getStore && theGrid.getStore());
+          if (!st) break;
+          const totalNow = (st.getTotalCount ? st.getTotalCount() : (st.totalCount || 0));
+          // totalCount 가 0 이어도 충분히 큰 값으로 시도 (서버 cap 우회용 — 보통 6477 같은 실제값 사용)
+          const target = totalNow > 0 ? totalNow : 100000;
+          // 1) numberfield setValue (UI 표시 갱신)
+          try { nf.setMaxValue && nf.setMaxValue(Number.MAX_SAFE_INTEGER); } catch (_) {}
+          nf.setValue(target);
+          try { nf.fireEvent("change", nf, target); } catch (_) {}
+          // 2) store.pageSize + proxy.extraParams 동시 변경
+          st.pageSize = target;
+          try {
+            if (st.getProxy) {
+              const px = st.getProxy();
+              if (px) {
+                if (px.extraParams) {
+                  px.extraParams.limit = target;
+                  px.extraParams.PAGE_SIZE = target;
+                  px.extraParams.PAGING = "N";
+                }
+                px.limit = target;
+              }
+            }
+          } catch (_) {}
+          // 3) loadPage(1) 로 강제 reload — page 1 부터 target 건 만큼
+          try { (st.loadPage ? st.loadPage(1) : st.load()); } catch (_) {}
+          return { method: `${gridPrefix}-store.pageSize:${target}(total=${totalNow})`, debug };
         }
       } catch (_) {}
 
