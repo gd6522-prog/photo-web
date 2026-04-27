@@ -18,6 +18,15 @@ type SyncStatus = {
   hasGlobalJob?: boolean;        // target_slots null/[] 인 "전체 동기화" 잡이 떠있는지
   runningSlots?: string[];       // 현재 running 상태인 잡들의 슬롯
   pendingSlots?: string[];       // 현재 pending 상태인 잡들의 슬롯
+  // 활성(running/pending) 잡들의 진행 정보 — 슬롯별 게이지바/메시지 계산용
+  activeJobs?: Array<{
+    id: number;
+    status: string;
+    target_slots: string[] | null;
+    started_at: string | null;
+    requested_at: string;
+    log_tail: string[] | null;
+  }>;
   latest: {
     id: number;
     status: string;
@@ -1265,8 +1274,11 @@ function SlotCard({
   const [nextRunLabel, setNextRunLabel] = React.useState("");
 
   // 이 슬롯이 현재 실행 중인지 계산 — 동시 실행 시 슬롯별로 판정
-  // 백엔드의 runningSlots/pendingSlots/hasGlobalJob (활성 잡 전체 합집합) 우선,
-  // 미지원 시 latest 1건 기준 폴백.
+  // activeJobs 에서 자기 슬롯을 포함하는(또는 전체 동기화) 잡을 찾음 — 그 잡의 started_at/log_tail 사용
+  const myActiveJob = (syncStatus?.activeJobs ?? []).find((j) => {
+    const slots = j.target_slots;
+    return !Array.isArray(slots) || slots.length === 0 || slots.includes(config.key);
+  }) ?? null;
   const job = syncStatus?.latest ?? null;
   const hasGlobalJob = !!syncStatus?.hasGlobalJob;
   const slotIsRunning = !!syncStatus?.runningSlots?.includes(config.key);
@@ -1283,16 +1295,18 @@ function SlotCard({
   const isSlotBusy = isJobActive;
   const estimatedSec = SLOT_ESTIMATED_SEC[config.key] ?? 60;
 
-  // 새 작업 시작 시 게이지바 초기화
+  // 새 작업 시작 시 게이지바 초기화 — 자기 슬롯의 활성 잡 id 기준 (동시 실행 시 슬롯별 독립)
   React.useEffect(() => {
     maxBarRef.current = 0;
     setBarWidth(0);
-  }, [job?.id]);
+  }, [myActiveJob?.id]);
 
   // 경과 시간 카운터 + 게이지바 (절대 뒤로 안 감)
   React.useEffect(() => {
     if (!isJobActive || isSlotDone) { setElapsed(0); return; }
-    const startedAt = job?.started_at ? new Date(job.started_at).getTime() : Date.now();
+    const startedAt = myActiveJob?.started_at
+      ? new Date(myActiveJob.started_at).getTime()
+      : (job?.started_at ? new Date(job.started_at).getTime() : Date.now()); // 폴백
     const est = SLOT_ESTIMATED_SEC[config.key] ?? 60;
     const tick = () => {
       const sec = Math.floor((Date.now() - startedAt) / 1000);
@@ -1306,7 +1320,7 @@ function SlotCard({
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [isJobActive, isSlotDone, job?.started_at, job?.id, config.key]);
+  }, [isJobActive, isSlotDone, myActiveJob?.started_at, myActiveJob?.id, job?.started_at, job?.id, config.key]);
 
   const remaining = Math.max(0, estimatedSec - elapsed);
 
@@ -1482,7 +1496,8 @@ function SlotCard({
       {isJobActive && !isSlotDone && (
         <div style={{ marginBottom: 10 }}>
           {(() => {
-            const logTail = syncStatus?.latest?.log_tail ?? [];
+            // 자기 슬롯의 활성 잡 log_tail 우선, 없으면 latest 폴백
+            const logTail = myActiveJob?.log_tail ?? syncStatus?.latest?.log_tail ?? [];
             // 병렬 실행 시 이 슬롯의 라벨로 시작하는 줄만 필터링
             const slotLines = logTail.filter((l) => l.includes(`] ${config.label}:`));
             const lastLine = slotLines.length > 0

@@ -21,8 +21,9 @@ export async function GET() {
         .maybeSingle(),
       supabase
         .from("elogis_sync_log")
-        .select("id, status, target_slots")
-        .in("status", ["running", "pending"]),
+        .select("id, status, target_slots, started_at, requested_at, log_tail")
+        .in("status", ["running", "pending"])
+        .order("requested_at", { ascending: false }),
       supabase
         .from("elogis_agent_status")
         .select("last_heartbeat_at")
@@ -59,6 +60,8 @@ export async function GET() {
       hasGlobalJob,
       runningSlots: Array.from(runningSlotSet),
       pendingSlots: Array.from(pendingSlotSet),
+      // 슬롯별 게이지바/진행 메시지 표시용 — 활성 잡들의 진행 정보
+      activeJobs: actives ?? [],
     });
   } catch (err: any) {
     return NextResponse.json({ ok: false, message: err?.message ?? String(err) }, { status: 500 });
