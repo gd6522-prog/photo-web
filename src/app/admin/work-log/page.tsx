@@ -448,18 +448,62 @@ export default function WorkLogPage() {
   const [dragSourceId, setDragSourceId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const detailScrollRef = useRef<HTMLDivElement | null>(null);
+  const dragStateRef = useRef<{
+    pending: boolean;
+    active: boolean;
+    sourceId: string;
+    startX: number;
+    startY: number;
+  } | null>(null);
 
   useEffect(() => {
-    if (!dragSourceId) return;
-    const container = detailScrollRef.current;
-    if (!container) return;
-    const onWheel = (e: WheelEvent) => {
-      container.scrollTop += e.deltaY;
-      e.preventDefault();
+    const findRowUid = (clientX: number, clientY: number): string | null => {
+      const el = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
+      const tr = el?.closest("tr[data-uid]") as HTMLElement | null;
+      return tr?.dataset.uid ?? null;
     };
-    window.addEventListener("wheel", onWheel, { passive: false, capture: true });
-    return () => window.removeEventListener("wheel", onWheel, { capture: true } as EventListenerOptions);
-  }, [dragSourceId]);
+
+    const onMove = (e: MouseEvent) => {
+      const st = dragStateRef.current;
+      if (!st) return;
+      if (!st.active) {
+        const dx = e.clientX - st.startX;
+        const dy = e.clientY - st.startY;
+        if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+        st.pending = false;
+        st.active = true;
+        setDragSourceId(st.sourceId);
+        document.body.style.cursor = "grabbing";
+        document.body.style.userSelect = "none";
+      }
+      const target = findRowUid(e.clientX, e.clientY);
+      if (target && target !== st.sourceId) setDragOverId(target);
+      else setDragOverId(null);
+    };
+
+    const onUp = (e: MouseEvent) => {
+      const st = dragStateRef.current;
+      if (!st) return;
+      if (st.active) {
+        const target = findRowUid(e.clientX, e.clientY);
+        if (target && target !== st.sourceId) reorderProfile(st.sourceId, target);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        setDragSourceId(null);
+        setDragOverId(null);
+      } else if (st.pending) {
+        setDetailUserId(st.sourceId);
+      }
+      dragStateRef.current = null;
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+  }, [reorderProfile]);
 
   const shiftByUserDay = useMemo(() => {
     const m = new Map<string, Map<number, Shift>>();
@@ -1015,36 +1059,25 @@ export default function WorkLogPage() {
                   return ids.indexOf(dragSourceId!) > ids.indexOf(p.id);
                 })();
                 const dropBelow = isDropTarget && !dropAbove;
-                const handleDragOver = (e: React.DragEvent) => {
-                  if (!dragSourceId || dragSourceId === p.id) return;
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = "move";
-                  if (dragOverId !== p.id) setDragOverId(p.id);
-                };
-                const handleDrop = (e: React.DragEvent) => {
-                  e.preventDefault();
-                  if (dragSourceId && dragSourceId !== p.id) reorderProfile(dragSourceId, p.id);
-                  setDragSourceId(null);
-                  setDragOverId(null);
-                };
                 return rows.map((r, ridx) => <tr
                   key={`${p.id}-${r.key}`}
-                  onDragOver={handleDragOver}
-                  onDrop={handleDrop}
+                  data-uid={p.id}
                   style={{ opacity: isDragging ? 0.4 : 1 }}
                 >
                   {ridx === 0 && <>
                     <td
                       rowSpan={5}
-                      title={`${p.name ?? "(이름없음)"} (꾹 눌러 위아래로 드래그하면 순서 변경, 클릭은 상세 보기)`}
-                      draggable
-                      onDragStart={(e) => {
-                        setDragSourceId(p.id);
-                        e.dataTransfer.effectAllowed = "move";
-                        try { e.dataTransfer.setData("text/plain", p.id); } catch { /* noop */ }
+                      title={`${p.name ?? "(이름없음)"} (꾹 눌러 위아래로 드래그하면 순서 변경, 짧게 클릭하면 상세 보기. 드래그 중 마우스휠로 스크롤)`}
+                      onMouseDown={(e) => {
+                        if (e.button !== 0) return;
+                        dragStateRef.current = {
+                          pending: true,
+                          active: false,
+                          sourceId: p.id,
+                          startX: e.clientX,
+                          startY: e.clientY,
+                        };
                       }}
-                      onDragEnd={() => { setDragSourceId(null); setDragOverId(null); }}
-                      onClick={() => { if (!dragSourceId) setDetailUserId(p.id); }}
                       style={{
                         position: "sticky",
                         left: DETAIL_LEFT_STICKY[0],
@@ -1060,7 +1093,7 @@ export default function WorkLogPage() {
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
-                        cursor: "grab",
+                        cursor: isDragging ? "grabbing" : "grab",
                         userSelect: "none",
                         textDecoration: "underline",
                         color: "#0F172A",
