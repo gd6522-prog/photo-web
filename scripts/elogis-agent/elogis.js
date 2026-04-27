@@ -273,8 +273,8 @@ async function setDateFieldByLabel(page, dateLabel, daysOffset, log, slotLabel, 
 // 페이징 툴바의 행 수 콤보(combobox) 또는 스피너(numberfield)를 '전체' / totalCount 로 변경
 async function setGridPageSizeAll(page, log, label) {
   for (const target of getElogisFrames(page)) {
-    const ok = await target.evaluate(() => {
-      if (typeof Ext === "undefined") return false;
+    const result = await target.evaluate(() => {
+      if (typeof Ext === "undefined") return { method: false };
 
       // 그리드의 현재 totalCount 산출 (numberfield 에 넣을 값)
       const getTotalCount = () => {
@@ -288,15 +288,48 @@ async function setGridPageSizeAll(page, log, label) {
         return max;
       };
 
+      // 디버그용: 보이는 입력필드 dump
+      const debug = [];
+      try {
+        for (const c of Ext.ComponentQuery.query("numberfield,spinnerfield,triggerfield,combobox,combo")) {
+          if (!c.isVisible || !c.isVisible(true)) continue;
+          const xtype = c.xtype || "?";
+          const lbl = (c.fieldLabel || c.emptyText || c.boxLabel || "").trim();
+          const nm = (c.name || "").trim();
+          const val = c.getValue ? c.getValue() : null;
+          if (lbl || nm) debug.push(`${xtype} lbl="${lbl}" name="${nm}" val=${val}`);
+        }
+      } catch (_) {}
+
       const tryNumberField = (nf) => {
         const total = getTotalCount();
         const target = total > 0 ? total : 999999;
-        // maxValue cap 우회 — setValue 가 cap 적용 전이라도 maxValue 를 먼저 늘림
         try { if (typeof nf.setMaxValue === "function") nf.setMaxValue(Number.MAX_SAFE_INTEGER); else nf.maxValue = Number.MAX_SAFE_INTEGER; } catch (_) {}
         nf.setValue(target);
         try { nf.fireEvent("change", nf, target); } catch (_) {}
         try { nf.fireEvent("specialkey", nf, { getKey: () => 13, ENTER: 13, stopEvent: () => {} }); } catch (_) {}
+        // input DOM 에 직접 값 + change/keyup 도 발행
+        try {
+          const inp = nf.inputEl && nf.inputEl.dom;
+          if (inp) {
+            inp.value = String(target);
+            inp.dispatchEvent(new Event("input", { bubbles: true }));
+            inp.dispatchEvent(new Event("change", { bubbles: true }));
+            inp.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "Enter", keyCode: 13 }));
+          }
+        } catch (_) {}
         return `numberfield:${target}`;
+      };
+
+      // 페이지 크기 라벨 매칭
+      const isPageSizeLabel = (lbl, nm) => {
+        const L = (lbl || "").replace(/\s/g, "");
+        const N = (nm || "").replace(/\s/g, "");
+        return (
+          L.includes("페이지당") || L.includes("행갯수") || L.includes("행개수") ||
+          L.includes("페이지크기") || L.includes("PageSize") ||
+          /PAGE_?SIZE|PAGE_?ROWS|PAGE_?CNT|ROWS_?PER_?PAGE/i.test(N)
+        );
       };
 
       // 1) PagingToolbar 안에서 combobox 또는 numberfield 우선
@@ -318,29 +351,24 @@ async function setGridPageSizeAll(page, log, label) {
             const useVal = useRec.get(combo.valueField || "field1");
             combo.setValue(useVal);
             combo.fireEvent("select", combo, [useRec]);
-            return `combo:${useVal}`;
+            return { method: `combo:${useVal}`, debug };
           }
         }
-        // 1-b) numberfield (스피너 ↑↓ 형) — BMS "페이지당 행 갯수" 같은 케이스
-        for (const nf of Ext.ComponentQuery.query("numberfield", tb)) {
-          if (nf.isVisible && nf.isVisible(true)) return tryNumberField(nf);
+        // 1-b) numberfield/spinnerfield (스피너 ↑↓ 형) — BMS "페이지당 행 갯수"
+        for (const nf of Ext.ComponentQuery.query("numberfield,spinnerfield", tb)) {
+          if (nf.isVisible && nf.isVisible(true)) return { method: tryNumberField(nf), debug };
         }
       }
 
-      // 2) 툴바 밖의 numberfield — fieldLabel/name 으로 페이지 크기 필드 탐색
-      for (const nf of Ext.ComponentQuery.query("numberfield")) {
+      // 2) 툴바 밖의 numberfield/spinnerfield/triggerfield — fieldLabel/name 매칭
+      for (const nf of Ext.ComponentQuery.query("numberfield,spinnerfield,triggerfield")) {
         if (nf.isVisible && !nf.isVisible(true)) continue;
-        const lbl = (nf.fieldLabel || nf.emptyText || "").replace(/\s/g, "");
-        const nm = (nf.name || "").replace(/\s/g, "");
-        if (
-          lbl.includes("페이지당") || lbl.includes("행갯수") || lbl.includes("행개수") ||
-          nm.includes("PAGE_SIZE") || nm.includes("PAGESIZE") || nm.includes("PAGE_ROWS")
-        ) {
-          return tryNumberField(nf);
+        if (isPageSizeLabel(nf.fieldLabel || nf.emptyText, nf.name)) {
+          return { method: tryNumberField(nf), debug };
         }
       }
 
-      // 3) 폴백 — 그리드 store 의 pageSize 를 직접 키워서 reload
+      // 3) 폴백 — 그리드 store 의 pageSize 와 proxy.limitParam 까지 무력화 후 reload
       let storeChanged = null;
       for (const g of Ext.ComponentQuery.query("gridpanel")) {
         if (g.isVisible && !g.isVisible(true)) continue;
@@ -349,11 +377,23 @@ async function setGridPageSizeAll(page, log, label) {
         const total = (st.getTotalCount ? st.getTotalCount() : (st.totalCount || 0));
         const target = total > 0 ? total : 999999;
         st.pageSize = target;
-        try { st.load(); } catch (_) {}
+        // proxy 의 페이징 파라미터까지 늘려서 서버측 cap 우회 시도
+        try {
+          if (st.getProxy) {
+            const px = st.getProxy();
+            if (px && px.extraParams) {
+              px.extraParams.limit = target;
+              px.extraParams.PAGING = "N";
+              px.extraParams.PAGE_SIZE = target;
+            }
+            if (px) px.limit = target;
+          }
+        } catch (_) {}
+        try { st.loadPage ? st.loadPage(1) : st.load(); } catch (_) {}
         storeChanged = `store-pageSize:${target}`;
         break;
       }
-      if (storeChanged) return storeChanged;
+      if (storeChanged) return { method: storeChanged, debug };
 
       // 4) DOM fallback: <select> 안의 전체 옵션
       for (const sel of document.querySelectorAll("select")) {
@@ -361,15 +401,21 @@ async function setGridPageSizeAll(page, log, label) {
           if (opt.text.includes("전체") || opt.value === "-1") {
             sel.value = opt.value;
             sel.dispatchEvent(new Event("change", { bubbles: true }));
-            return `dom-전체`;
+            return { method: "dom-전체", debug };
           }
         }
       }
-      return false;
-    }).catch(() => false);
-    if (ok) { log(`${label}: 전체행 설정 (${ok})`); return; }
+      return { method: false, debug };
+    }).catch(() => ({ method: false }));
+
+    // 디버그 dump 항상 출력 (필드 미매칭 시 어떤 입력 컴포넌트가 있는지 파악용)
+    if (result?.debug && result.debug.length > 0) {
+      log(`${label}: [DEBUG] 보이는 입력필드 ${result.debug.length}개`);
+      for (const line of result.debug.slice(0, 30)) log(`  ${line}`);
+    }
+    if (result?.method) { log(`${label}: 전체행 설정 (${result.method})`); return; }
   }
-  log(`${label}: [WARN] 전체행 콤보 미발견`);
+  log(`${label}: [WARN] 페이지당 행 갯수 필드 미발견`);
 }
 
 // "조회 결과가 없습니다" 등 정보 모달이 떠 있으면 확인 버튼 클릭하여 닫음
