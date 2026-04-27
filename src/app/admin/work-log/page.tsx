@@ -96,6 +96,14 @@ function fmtKstTime(ts: string | null) {
   return `${hh}:${mm}:${ss}`;
 }
 
+function kstHHmm(ts: string | null) {
+  if (!ts) return "";
+  const d = new Date(new Date(ts).getTime() + 9 * 60 * 60 * 1000);
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
 function diffMin(a: string | null, b: string | null) {
   if (!a || !b) return null;
   const aa = new Date(a).getTime();
@@ -301,12 +309,16 @@ export default function WorkLogPage() {
   const [workPartOptions, setWorkPartOptions] = useState<string[]>([]);
   const [workTableOptions, setWorkTableOptions] = useState<string[]>([]);
   const [isCompanyAdminRole, setIsCompanyAdminRole] = useState(false);
+  const [isMainAdmin, setIsMainAdmin] = useState(false);
 
   const [basicRows, setBasicRows] = useState<BasicRow[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [monthShifts, setMonthShifts] = useState<Shift[]>([]);
   const [holidaySet, setHolidaySet] = useState<Set<string>>(new Set());
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<Record<number, { in: string; out: string }>>({});
+  const [savingDay, setSavingDay] = useState<number | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const getAccessToken = useCallback(async () => {
     const { data: authData } = await supabase.auth.getSession();
@@ -422,6 +434,7 @@ export default function WorkLogPage() {
       ok?: boolean;
       message?: string;
       isCompanyAdminRole?: boolean;
+      isMainAdmin?: boolean;
       profiles?: Profile[];
       monthShifts?: Shift[];
       holidayDates?: string[];
@@ -429,6 +442,7 @@ export default function WorkLogPage() {
     if (!res.ok || !payload?.ok) throw new Error(payload?.message || "상세근태를 불러오지 못했습니다.");
 
     setIsCompanyAdminRole(!!payload.isCompanyAdminRole);
+    setIsMainAdmin(!!payload.isMainAdmin);
     const ps = sortProfilesLikeUserMaster(payload.profiles ?? []);
     setProfiles(ps);
     if (!ps.length) {
@@ -463,6 +477,59 @@ export default function WorkLogPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    setEditDraft({});
+    setEditError(null);
+  }, [detailUserId, month]);
+
+  const saveShift = useCallback(
+    async (day: number) => {
+      if (!detailUserId) return;
+      const draft = editDraft[day] ?? { in: "", out: "" };
+      const workDate = `${month}-${String(day).padStart(2, "0")}`;
+      setSavingDay(day);
+      setEditError(null);
+      try {
+        const token = await getAccessToken();
+        const res = await fetch("/api/admin/work-log/shift", {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: detailUserId,
+            work_date: workDate,
+            clock_in_at: draft.in.trim() || null,
+            clock_out_at: draft.out.trim() || null,
+          }),
+        });
+        const payload = (await res.json()) as { ok?: boolean; message?: string; shift?: Shift };
+        if (!res.ok || !payload?.ok || !payload.shift) {
+          throw new Error(payload?.message || "저장에 실패했습니다.");
+        }
+        const saved = payload.shift;
+        setMonthShifts((prev) => {
+          const idx = prev.findIndex((s) => s.id === saved.id);
+          if (idx >= 0) {
+            const copy = prev.slice();
+            copy[idx] = { ...prev[idx], ...saved };
+            return copy;
+          }
+          return [saved, ...prev];
+        });
+        setEditDraft((prev) => {
+          const next = { ...prev };
+          delete next[day];
+          return next;
+        });
+      } catch (e: unknown) {
+        const msg = typeof e === "object" && e && "message" in e ? String((e as { message?: string }).message ?? "") : String(e ?? "");
+        setEditError(msg || "저장 실패");
+      } finally {
+        setSavingDay(null);
+      }
+    },
+    [detailUserId, editDraft, month, getAccessToken]
+  );
 
   function downloadBasic() {
     const rows = basicRows.map(({ profile, shift }) => ({
@@ -885,19 +952,24 @@ export default function WorkLogPage() {
           onMouseDown={(e) => { if (e.target === e.currentTarget) setDetailUserId(null); }}
           style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
         >
-          <div style={{ width: "min(520px, 100%)", maxHeight: "90vh", display: "flex", flexDirection: "column", background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 24px 60px rgba(2,6,23,0.28)" }}>
+          <div style={{ width: isMainAdmin ? "min(720px, 100%)" : "min(520px, 100%)", maxHeight: "90vh", display: "flex", flexDirection: "column", background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 24px 60px rgba(2,6,23,0.28)" }}>
             <div style={{ padding: "18px 22px", borderBottom: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <div style={{ fontWeight: 800, fontSize: 16, color: "#0F172A" }}>{detailProfile.name ?? "(이름없음)"}</div>
-                <div style={{ marginTop: 2, fontSize: 12, color: "#94A3B8" }}>{month} 월 상세근태</div>
+                <div style={{ marginTop: 2, fontSize: 12, color: "#94A3B8" }}>
+                  {month} 월 상세근태{isMainAdmin ? " · 출퇴근 수정 가능 (메인관리자)" : ""}
+                </div>
               </div>
               <button onClick={() => setDetailUserId(null)} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid #E8EDF2", background: "#F8FAFC", fontSize: 16, cursor: "pointer", color: "#64748B", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
             </div>
+            {editError && (
+              <div style={{ margin: "10px 22px 0", padding: "8px 12px", borderRadius: 8, background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: 12, fontWeight: 700 }}>{editError}</div>
+            )}
             <div style={{ overflowY: "auto", padding: "14px 22px" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: "#F8FAFC" }}>
-                    {["일자", "요일", "출근", "퇴근", "근무시간"].map((h) => (
+                    {(isMainAdmin ? ["일자", "요일", "출근", "퇴근", "근무시간", "저장"] : ["일자", "요일", "출근", "퇴근", "근무시간"]).map((h) => (
                       <th key={h} style={{ padding: "9px 10px", fontWeight: 700, color: "#64748B", fontSize: 12, textAlign: "center", borderBottom: "2px solid #E8EDF2" }}>{h}</th>
                     ))}
                   </tr>
@@ -908,13 +980,61 @@ export default function WorkLogPage() {
                     const mins = diffMin(s?.clock_in_at ?? null, s?.clock_out_at ?? null);
                     const hol = isWeekend(month, d) || holidaySet.has(`${month}-${String(d).padStart(2, "0")}`);
                     const dayBg = hol ? "#FFFBEB" : "#fff";
+                    const baseIn = kstHHmm(s?.clock_in_at ?? null);
+                    const baseOut = kstHHmm(s?.clock_out_at ?? null);
+                    const draft = editDraft[d];
+                    const inVal = draft?.in ?? baseIn;
+                    const outVal = draft?.out ?? baseOut;
+                    const dirty = !!draft && (draft.in !== baseIn || draft.out !== baseOut);
+                    const saving = savingDay === d;
                     return (
                       <tr key={`detail-row-${d}`} style={{ borderBottom: "1px solid #F1F5F9" }}>
                         <td style={{ padding: "8px 10px", textAlign: "center", background: dayBg, fontWeight: 700, color: "#0F172A" }}>{String(d).padStart(2, "0")}</td>
                         <td style={{ padding: "8px 10px", textAlign: "center", background: dayBg, color: hol ? "#DC2626" : "#64748B", fontWeight: hol ? 800 : 600 }}>{wkKo(month, d)}</td>
-                        <td style={{ padding: "8px 10px", textAlign: "center", color: "#374151" }}>{fmtKstTime(s?.clock_in_at ?? null)}</td>
-                        <td style={{ padding: "8px 10px", textAlign: "center", color: "#374151" }}>{fmtKstTime(s?.clock_out_at ?? null)}</td>
+                        {isMainAdmin ? (
+                          <>
+                            <td style={{ padding: "6px 6px", textAlign: "center" }}>
+                              <input
+                                type="time"
+                                value={inVal}
+                                onChange={(e) => setEditDraft((prev) => ({ ...prev, [d]: { in: e.target.value, out: prev[d]?.out ?? baseOut } }))}
+                                style={{ height: 30, padding: "0 6px", borderRadius: 6, border: "1px solid #D1D9E0", fontSize: 12, color: "#0F172A", width: 110, background: "#fff" }}
+                              />
+                            </td>
+                            <td style={{ padding: "6px 6px", textAlign: "center" }}>
+                              <input
+                                type="time"
+                                value={outVal}
+                                onChange={(e) => setEditDraft((prev) => ({ ...prev, [d]: { in: prev[d]?.in ?? baseIn, out: e.target.value } }))}
+                                style={{ height: 30, padding: "0 6px", borderRadius: 6, border: "1px solid #D1D9E0", fontSize: 12, color: "#0F172A", width: 110, background: "#fff" }}
+                              />
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td style={{ padding: "8px 10px", textAlign: "center", color: "#374151" }}>{fmtKstTime(s?.clock_in_at ?? null)}</td>
+                            <td style={{ padding: "8px 10px", textAlign: "center", color: "#374151" }}>{fmtKstTime(s?.clock_out_at ?? null)}</td>
+                          </>
+                        )}
                         <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 700, color: mins ? "#1D4ED8" : "#CBD5E1" }}>{hhmm(mins)}</td>
+                        {isMainAdmin && (
+                          <td style={{ padding: "6px 6px", textAlign: "center" }}>
+                            <button
+                              onClick={() => saveShift(d)}
+                              disabled={!dirty || saving}
+                              style={{
+                                height: 28, padding: "0 10px", borderRadius: 6, border: "none",
+                                background: dirty ? "#0F766E" : "#E2E8F0",
+                                color: dirty ? "#fff" : "#94A3B8",
+                                fontWeight: 700, fontSize: 12,
+                                cursor: !dirty || saving ? "not-allowed" : "pointer",
+                                opacity: saving ? 0.6 : 1,
+                              }}
+                            >
+                              {saving ? "저장중" : "저장"}
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}

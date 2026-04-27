@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 
     const ids = profiles.map((p) => p.id);
     if (ids.length === 0) {
-      return json(true, undefined, { isCompanyAdminRole: scope.isCompanyAdminRole, profiles: [], monthShifts: [], holidayDates: [] });
+      return json(true, undefined, { isCompanyAdminRole: scope.isCompanyAdminRole, isMainAdmin: guard.isMainAdmin, profiles: [], monthShifts: [], holidayDates: [] });
     }
 
     const r = monthRange(month);
@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
     const holidayDates = ((hs.data ?? []) as Array<{ date?: string | null }>).map((x) => x.date).filter((v): v is string => !!v);
     return json(true, undefined, {
       isCompanyAdminRole: scope.isCompanyAdminRole,
+      isMainAdmin: guard.isMainAdmin,
       profiles,
       monthShifts: (ss.data ?? []) as ShiftRow[],
       holidayDates,
