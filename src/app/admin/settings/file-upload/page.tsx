@@ -1568,9 +1568,9 @@ function SlotCard({
           color: "#374151",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontWeight: 700 }}>현재 서버 파일</span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, flexWrap: "nowrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexShrink: 1 }}>
+            <span style={{ fontWeight: 700, whiteSpace: "nowrap" }}>현재 서버 파일</span>
             <button
               onClick={async () => {
                 if (persistLoading) return;
@@ -1580,21 +1580,24 @@ function SlotCard({
               disabled={persistLoading}
               title={persist ? "이력 보관 켜짐 — 클릭하면 끄기" : "이력 보관 꺼짐 — 클릭하면 켜기"}
               style={{
-                fontSize: 11,
-                padding: "3px 10px",
-                border: "2px solid",
+                fontSize: 10,
+                padding: "2px 7px",
+                border: "1px solid",
+                borderRadius: 3,
+                whiteSpace: "nowrap",
+                lineHeight: 1.4,
                 borderColor: persistLoading ? "#D1D5DB" : persist ? "#16A34A" : "#D1D5DB",
                 background: persistLoading ? "#F3F4F6" : persist ? "#16A34A" : "#fff",
                 color: persistLoading ? "#9CA3AF" : persist ? "#fff" : "#6B7280",
                 cursor: persistLoading ? "not-allowed" : "pointer",
-                fontWeight: 700,
+                fontWeight: 800,
                 transition: "all 150ms ease",
               }}
             >
-              {persistLoading ? "저장 중..." : persist ? "📌 이력보관 ON" : "📌 이력보관 OFF"}
+              {persistLoading ? "저장중" : persist ? "이력 ON" : "이력 OFF"}
             </button>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
             <button
               onClick={onMoveUp}
               disabled={isFirst}
