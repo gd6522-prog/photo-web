@@ -71,7 +71,7 @@ async function appendLog(jobId, lines) {
 
 // ── 메인 동기화 로직 ──────────────────────────────────────────────────────────
 
-async function runSync(jobId) {
+async function runSync(jobId, browserRegistry = null) {
   const addLog = async (msg) => {
     log(msg);
     if (jobId) await appendLog(jobId, [`[${now()}] ${msg}`]);
@@ -111,7 +111,8 @@ async function runSync(jobId) {
   }
 
   // 각 슬롯을 독립적인 브라우저 세션으로 병렬 실행
-  const activeBrowsers = new Set();
+  // 외부에서 browserRegistry(Set) 가 주어지면 그 Set 에 등록 (shutdown 시 일괄 닫기용)
+  const activeBrowsers = browserRegistry ?? new Set();
 
   // ── 재시도 가능 에러 판별 ──────────────────────────────────────────────────
   // 설정 문제나 데이터 없음(빈 파일)은 재시도해도 소용없으므로 제외합니다.
@@ -191,9 +192,6 @@ async function runSync(jobId) {
   };
 
 
-  // 종료 시 강제 닫기용 (currentBrowser 대신 Set으로 관리)
-  currentBrowserSet = activeBrowsers;
-
   // DPS 스크래핑 병렬 추가
   const allTasks = [...targets.map(downloadOne)];
   if (shouldScrapeDps) {
@@ -201,7 +199,6 @@ async function runSync(jobId) {
   }
 
   const settled = await Promise.allSettled(allTasks);
-  currentBrowserSet = null;
 
   const results = settled.map((s) =>
     s.status === "fulfilled" ? s.value : { ok: false, message: String(s.reason) }
@@ -243,16 +240,25 @@ async function scrapeDpsAndPost(fileConfig, addLog) {
 
 // ── 작업 처리 ─────────────────────────────────────────────────────────────────
 
-let isProcessing = false;
-let currentBrowserSet = null; // 병렬 브라우저 Set (종료 시 강제 닫기용)
-let currentJobId = null;      // 종료 시 DB 상태 정리용
+// 슬롯별 동시 실행 락
+//  - runningSlots: 현재 실행 중인 slotKey 들 (같은 슬롯 중복 트리거 방지)
+//  - runningJobs:  jobId → { slotKey, browsers } (shutdown 시 일괄 정리용)
+const runningSlots = new Set();
+const runningJobs = new Map();
 
-async function processJob(jobId) {
-  if (isProcessing) return;
-  isProcessing = true;
-  currentJobId = jobId;
+async function processJob(jobId, slotKey = null) {
+  // 같은 슬롯이 이미 돌고 있으면 거절 (다른 슬롯 동시 실행은 허용)
+  if (slotKey && runningSlots.has(slotKey)) {
+    log(`이미 처리 중인 슬롯 — 작업 #${jobId} 시작 건너뜀: ${slotKey}`);
+    return;
+  }
+  if (runningJobs.has(jobId)) return;
 
-  log(`작업 #${jobId} 시작`);
+  if (slotKey) runningSlots.add(slotKey);
+  const browsers = new Set();
+  runningJobs.set(jobId, { slotKey, browsers });
+
+  log(`작업 #${jobId} 시작${slotKey ? ` (${slotKey})` : ""} — 동시 실행 ${runningJobs.size}건`);
 
   await supabase
     .from("elogis_sync_log")
@@ -260,7 +266,7 @@ async function processJob(jobId) {
     .eq("id", jobId);
 
   try {
-    const results = await runSync(jobId);
+    const results = await runSync(jobId, browsers);
     const allOk = results.every((r) => r.ok);
 
     await supabase.from("elogis_sync_log").update({
@@ -280,8 +286,8 @@ async function processJob(jobId) {
       error_text: msg,
     }).eq("id", jobId);
   } finally {
-    isProcessing = false;
-    currentJobId = null;
+    runningJobs.delete(jobId);
+    if (slotKey) runningSlots.delete(slotKey);
   }
 }
 
@@ -290,21 +296,25 @@ async function processJob(jobId) {
 async function shutdown(signal) {
   log(`\n[${signal}] 에이전트 종료 중...`);
 
-  // 실행 중인 브라우저 전체 닫기
-  if (currentBrowserSet && currentBrowserSet.size > 0) {
-    log(`브라우저 ${currentBrowserSet.size}개 닫는 중...`);
-    await Promise.all([...currentBrowserSet].map((b) => b.close().catch(() => {})));
-    currentBrowserSet = null;
+  // 모든 실행 중 브라우저 닫기
+  const closeTasks = [];
+  for (const { browsers } of runningJobs.values()) {
+    for (const b of browsers) closeTasks.push(b.close().catch(() => {}));
+  }
+  if (closeTasks.length > 0) {
+    log(`브라우저 ${closeTasks.length}개 닫는 중...`);
+    await Promise.all(closeTasks);
   }
 
-  // 중단된 작업 DB 상태 정리
-  if (currentJobId) {
-    log(`작업 #${currentJobId} → 중단됨 (interrupted)`);
+  // 중단된 작업들 DB 상태 정리
+  if (runningJobs.size > 0) {
+    const ids = [...runningJobs.keys()];
+    log(`작업 ${ids.length}건 중단 처리: #${ids.join(", #")}`);
     await supabase.from("elogis_sync_log").update({
       status: "failed",
       completed_at: new Date().toISOString(),
       error_text: `에이전트가 강제 종료되었습니다 (${signal})`,
-    }).eq("id", currentJobId).catch(() => {});
+    }).in("id", ids).catch(() => {});
   }
 
   log("에이전트 종료 완료");
@@ -343,8 +353,9 @@ async function fetchSlotSchedules() {
  * (브라우저 page.tsx의 handleSyncTrigger와 동일한 방식)
  */
 async function triggerSlot(slotKey) {
-  if (isProcessing) {
-    log(`이미 처리 중 — 슬롯 트리거 건너뜀: ${slotKey}`);
+  // 같은 슬롯만 중복 차단 — 다른 슬롯 동시 실행은 허용
+  if (runningSlots.has(slotKey)) {
+    log(`이미 처리 중인 슬롯 — 트리거 건너뜀: ${slotKey}`);
     return;
   }
 
@@ -360,7 +371,7 @@ async function triggerSlot(slotKey) {
     return;
   }
   log(`스케줄 트리거 → 슬롯: ${slotKey}, 작업 #${data.id}`);
-  await processJob(data.id);
+  await processJob(data.id, slotKey);
 }
 
 /**
@@ -383,7 +394,7 @@ async function checkSchedules() {
     // enabled: true이고 시/분이 정확히 일치할 때만 트리거
     if (sched.enabled && sched.hour === h && sched.minute === m) {
       log(`[스케줄] ${slotKey} → ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} 도달, 트리거`);
-      // 비동기로 실행 (동시에 여러 슬롯이 맞아도 순차 처리됨 — isProcessing 플래그)
+      // 비동기로 실행 — 슬롯별 락이라 다른 슬롯 동시 실행 허용 (같은 슬롯만 중복 차단)
       triggerSlot(slotKey).catch((e) => log(`[ERROR] 슬롯 트리거 오류 (${slotKey}): ${e?.message}`));
     }
   }
@@ -392,18 +403,28 @@ async function checkSchedules() {
 // ── 폴링 루프 (수동 실행 요청 처리) ─────────────────────────────────────────
 
 async function poll() {
-  if (isProcessing) return;
-
+  // pending 잡들 중 락이 안 걸린 첫 잡을 백그라운드로 실행 (동시 실행 허용)
   const { data } = await supabase
     .from("elogis_sync_log")
-    .select("id")
+    .select("id, target_slots")
     .eq("status", "pending")
     .order("requested_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .limit(10);
 
-  if (data) {
-    await processJob(data.id);
+  if (!data || data.length === 0) return;
+
+  for (const row of data) {
+    if (runningJobs.has(row.id)) continue;
+    const slots = Array.isArray(row.target_slots) ? row.target_slots : [];
+    // target_slots 가 단일 슬롯이면 그 슬롯의 락만 검사 (다른 슬롯 동시 실행 허용)
+    // 여러 슬롯/전체 동기화 잡이면 락 잡힌 슬롯이 하나라도 있으면 다음 폴링까지 보류
+    const blockedSlot = slots.find((s) => runningSlots.has(s));
+    if (blockedSlot) continue;
+
+    const slotKey = slots.length === 1 ? slots[0] : null;
+    // await 하지 않고 백그라운드로 실행 → 다음 poll 에서 또 다른 잡 시작 가능
+    processJob(row.id, slotKey).catch((e) => log(`[ERROR] poll job #${row.id}: ${e?.message}`));
+    return; // 한 번의 poll 에서는 1잡만 시작 (DB 부하 분산)
   }
 }
 
