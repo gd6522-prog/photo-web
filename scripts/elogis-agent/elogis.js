@@ -1454,6 +1454,8 @@ async function scrapeDomData(page, fileConfig, log) {
         }
 
         // 첫 번째 배치 zones 집계
+        // 완료 판정 캐스케이드: 1차 작업 시작시간 → 2차 작업 종료시간 → 3차 확정여부(CONF_YN=Y) → 4차 PGS_STAT_CD=03
+        // (시간 동기화 누락 시에도 확정여부로 완료 인식)
         const zones = {};
         for (const r of records) {
           const d = r.getData ? r.getData() : r.data;
@@ -1462,7 +1464,7 @@ async function scrapeDomData(page, fileConfig, log) {
           const car = String(d.CHG_CARDOC_CD ?? "");
           if (!zones[code]) zones[code] = { done: 0, total: 0, minPendingCar: null };
           zones[code].total++;
-          const isDone = pgs === "03";
+          const isDone = !!d.TASK_ST_TTM || !!d.TASK_ED_TTM || String(d.CONF_YN ?? "") === "Y" || pgs === "03";
           if (isDone) {
             zones[code].done++;
           } else if (car) {
@@ -1524,7 +1526,7 @@ async function scrapeDomData(page, fileConfig, log) {
             const car = String(d.CHG_CARDOC_CD ?? "");
             if (!zones[code]) zones[code] = { done: 0, total: 0, minPendingCar: null };
             zones[code].total++;
-            const isDone = pgs === "03";
+            const isDone = !!d.TASK_ST_TTM || !!d.TASK_ED_TTM || String(d.CONF_YN ?? "") === "Y" || pgs === "03";
             if (isDone) {
               zones[code].done++;
             } else if (car) {
