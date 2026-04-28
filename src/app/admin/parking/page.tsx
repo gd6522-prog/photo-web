@@ -16,7 +16,12 @@ type ParkingRow = {
   reject_reason: string | null;
   admin_memo: string | null;
   created_at: string;
+  sregist_registered: boolean | null;
+  sregist_registered_at: string | null;
+  sregist_response: string | null;
 };
+
+type SregistHealth = { autoRegisterEnabled: boolean; reachable: boolean; message?: string } | null;
 
 type StatusFilter = "all" | "pending" | "approved" | "rejected" | "expired";
 
@@ -46,12 +51,6 @@ function todayKST(): string {
   return `${kst.getUTCFullYear()}-${pad2(kst.getUTCMonth() + 1)}-${pad2(kst.getUTCDate())}`;
 }
 
-function addDaysYMD(ymd: string, days: number): string {
-  const d = new Date(`${ymd}T00:00:00+09:00`);
-  d.setDate(d.getDate() + days);
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-}
-
 function fmtDateTime(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
@@ -72,7 +71,7 @@ const tabBtn = (active: boolean): React.CSSProperties => ({
   whiteSpace: "nowrap",
 });
 
-const actionBtn = (variant: "approve" | "reject" | "memo"): React.CSSProperties => ({
+const actionBtn = (variant: "approve" | "reject" | "memo" | "retry"): React.CSSProperties => ({
   height: 28,
   padding: "0 10px",
   borderRadius: 6,
@@ -86,6 +85,8 @@ const actionBtn = (variant: "approve" | "reject" | "memo"): React.CSSProperties 
       ? "linear-gradient(135deg,#0f766e 0%,#14b8a6 100%)"
       : variant === "reject"
       ? "linear-gradient(135deg,#b91c1c 0%,#ef4444 100%)"
+      : variant === "retry"
+      ? "linear-gradient(135deg,#b45309 0%,#f59e0b 100%)"
       : "linear-gradient(135deg,#475569 0%,#64748b 100%)",
 });
 
@@ -114,6 +115,8 @@ export default function AdminParkingPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [memoTarget, setMemoTarget] = useState<ParkingRow | null>(null);
   const [memoText, setMemoText] = useState("");
+
+  const [sregistHealth, setSregistHealth] = useState<SregistHealth>(null);
 
   const today = useMemo(() => todayKST(), []);
 
@@ -189,34 +192,92 @@ export default function AdminParkingPage() {
     void loadStats();
   }, [loadStats]);
 
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess?.session?.access_token;
+        if (!token) return;
+        const res = await fetch("/api/admin/sregist-status", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!alive) return;
+        const data = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          autoRegisterEnabled?: boolean;
+          reachable?: boolean;
+          message?: string;
+        };
+        if (data.ok === false) return;
+        setSregistHealth({
+          autoRegisterEnabled: !!data.autoRegisterEnabled,
+          reachable: !!data.reachable,
+          message: data.message,
+        });
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const callAdminApi = async (
+    path: string,
+    init: RequestInit = {}
+  ): Promise<{ ok: boolean; message?: string; data?: Record<string, unknown> }> => {
+    const { data: sess } = await supabase.auth.getSession();
+    const token = sess?.session?.access_token;
+    if (!token) return { ok: false, message: "세션이 없습니다. 다시 로그인해 주세요." };
+    const res = await fetch(path, {
+      method: "POST",
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...(init.headers ?? {}),
+      },
+    });
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok || data.ok === false) {
+      return { ok: false, message: typeof data.message === "string" ? data.message : `HTTP ${res.status}` };
+    }
+    return { ok: true, data };
+  };
+
   const onApprove = async (row: ParkingRow) => {
     if (!confirm(`승인하시겠습니까?\n${row.company} / ${row.name} / ${row.car_number}`)) return;
-    const expire =
-      row.type === "regular"
-        ? "2999-12-31"
-        : row.visit_date
-        ? addDaysYMD(row.visit_date, 2)
-        : addDaysYMD(today, 2);
 
-    const { data: sess } = await supabase.auth.getSession();
-    const uid = sess?.session?.user?.id ?? null;
-
-    const { error } = await supabase
-      .from("parking_requests")
-      .update({
-        status: "approved",
-        expire_date: expire,
-        approved_at: new Date().toISOString(),
-        approved_by: uid,
-        reject_reason: null,
-      })
-      .eq("id", row.id);
-
-    if (error) {
-      alert(`승인 실패: ${error.message}`);
+    const r = await callAdminApi(`/api/admin/parking/${row.id}/approve`);
+    if (!r.ok) {
+      alert(`승인 실패: ${r.message}`);
       return;
     }
+
+    if (r.data?.sregistAttempted === true && r.data?.sregistRegistered === false) {
+      alert(
+        `승인은 처리됐지만 주차관제 자동등록은 실패했습니다.\n사유: ${
+          (r.data?.sregistError as string) ?? "알 수 없음"
+        }\n\n[재등록] 버튼으로 다시 시도할 수 있습니다.`
+      );
+    }
+
     await Promise.all([loadRows(), loadStats()]);
+  };
+
+  const onSregistRetry = async (row: ParkingRow) => {
+    if (!confirm(`주차관제에 재등록하시겠습니까?\n${row.company} / ${row.name} / ${row.car_number}`)) return;
+    const r = await callAdminApi(`/api/admin/parking/${row.id}/sregist-retry`);
+    if (!r.ok) {
+      alert(`재등록 실패: ${r.message}`);
+      return;
+    }
+    if (r.data?.sregistRegistered === false) {
+      alert(`재등록 실패: ${(r.data?.sregistError as string) ?? "알 수 없음"}`);
+    }
+    await loadRows();
   };
 
   const onSubmitReject = async () => {
@@ -260,9 +321,45 @@ export default function AdminParkingPage() {
 
   return (
     <div style={{ padding: "8px 0", maxWidth: 1700, margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
         <h1 style={{ fontSize: 20, fontWeight: 900, color: "#0b2536", margin: 0 }}>주차 신청 관리</h1>
-        <div style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>총 {total.toLocaleString()}건</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {sregistHealth ? (
+            <span
+              title={sregistHealth.message ?? ""}
+              style={{
+                padding: "4px 10px",
+                borderRadius: 999,
+                fontSize: 11,
+                fontWeight: 800,
+                background: !sregistHealth.autoRegisterEnabled
+                  ? "#e2e8f0"
+                  : sregistHealth.reachable
+                  ? "#dcfce7"
+                  : "#fee2e2",
+                color: !sregistHealth.autoRegisterEnabled
+                  ? "#475569"
+                  : sregistHealth.reachable
+                  ? "#166534"
+                  : "#991b1b",
+                border: "1px solid",
+                borderColor: !sregistHealth.autoRegisterEnabled
+                  ? "#cbd5e1"
+                  : sregistHealth.reachable
+                  ? "#bbf7d0"
+                  : "#fecaca",
+              }}
+            >
+              주차관제 연결:{" "}
+              {!sregistHealth.autoRegisterEnabled
+                ? "자동등록 OFF"
+                : sregistHealth.reachable
+                ? "정상"
+                : "오류"}
+            </span>
+          ) : null}
+          <div style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>총 {total.toLocaleString()}건</div>
+        </div>
       </div>
 
       {/* 통계 카드 */}
@@ -420,20 +517,57 @@ export default function AdminParkingPage() {
                     <td style={td}>{r.visit_date ?? "-"}</td>
                     <td style={td}>{r.expire_date ?? "-"}</td>
                     <td style={td}>
-                      <span
-                        style={{
-                          padding: "2px 8px",
-                          borderRadius: 4,
-                          background: c.bg,
-                          color: c.fg,
-                          border: `1px solid ${c.bd}`,
-                          fontWeight: 800,
-                          fontSize: 11,
-                        }}
-                        title={r.status === "rejected" && r.reject_reason ? `사유: ${r.reject_reason}` : undefined}
-                      >
-                        {STATUS_LABEL[r.status]}
-                      </span>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
+                        <span
+                          style={{
+                            padding: "2px 8px",
+                            borderRadius: 4,
+                            background: c.bg,
+                            color: c.fg,
+                            border: `1px solid ${c.bd}`,
+                            fontWeight: 800,
+                            fontSize: 11,
+                          }}
+                          title={r.status === "rejected" && r.reject_reason ? `사유: ${r.reject_reason}` : undefined}
+                        >
+                          {STATUS_LABEL[r.status]}
+                        </span>
+                        {r.status === "approved" && r.sregist_response ? (
+                          r.sregist_registered ? (
+                            <span
+                              title={r.sregist_registered_at ? `등록 시각: ${fmtDateTime(r.sregist_registered_at)}` : undefined}
+                              style={{
+                                padding: "2px 8px",
+                                borderRadius: 4,
+                                background: "#ecfdf5",
+                                color: "#047857",
+                                border: "1px solid #a7f3d0",
+                                fontWeight: 800,
+                                fontSize: 10,
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              주차관제 등록완료
+                            </span>
+                          ) : (
+                            <span
+                              title={r.sregist_response ?? ""}
+                              style={{
+                                padding: "2px 8px",
+                                borderRadius: 4,
+                                background: "#fef2f2",
+                                color: "#b91c1c",
+                                border: "1px solid #fecaca",
+                                fontWeight: 800,
+                                fontSize: 10,
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              주차관제 등록실패
+                            </span>
+                          )
+                        ) : null}
+                      </div>
                     </td>
                     <td style={{ ...td, maxWidth: 200, color: "#475569" }}>
                       <div
@@ -448,7 +582,7 @@ export default function AdminParkingPage() {
                       </div>
                     </td>
                     <td style={{ ...td, textAlign: "right", paddingRight: 12 }}>
-                      <div style={{ display: "inline-flex", gap: 4 }}>
+                      <div style={{ display: "inline-flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
                         {r.status === "pending" ? (
                           <>
                             <button style={actionBtn("approve")} onClick={() => onApprove(r)}>
@@ -464,6 +598,11 @@ export default function AdminParkingPage() {
                               거절
                             </button>
                           </>
+                        ) : null}
+                        {r.status === "approved" && r.sregist_response && !r.sregist_registered ? (
+                          <button style={actionBtn("retry")} onClick={() => onSregistRetry(r)} title="주차관제에 다시 등록 시도">
+                            재등록
+                          </button>
                         ) : null}
                         <button
                           style={actionBtn("memo")}
