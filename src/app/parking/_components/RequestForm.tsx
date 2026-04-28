@@ -111,11 +111,23 @@ export default function RequestForm({ type }: Props) {
   if (done) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center" }}>
-        <div style={{ fontSize: 22, fontWeight: 900, color: "#ffffff", marginBottom: 12 }}>신청이 접수되었습니다</div>
+        <div style={{ fontSize: 22, fontWeight: 900, color: "#ffffff", marginBottom: 12 }}>
+          {type === "visitor" ? "방문 신청이 등록되었습니다" : "신청이 접수되었습니다"}
+        </div>
         <div style={{ fontSize: 15, color: "#9fb3c7", lineHeight: 1.7, maxWidth: 360 }}>
-          관리자 승인 후 입차 가능합니다.
-          <br />
-          결과는 추후 안내됩니다.
+          {type === "visitor" ? (
+            <>
+              방문일 +1일까지 입차 가능합니다.
+              <br />
+              차량번호로 자동 인식됩니다.
+            </>
+          ) : (
+            <>
+              관리자 승인 후 입차 가능합니다.
+              <br />
+              결과는 추후 안내됩니다.
+            </>
+          )}
         </div>
         <Link
           href="/parking"
