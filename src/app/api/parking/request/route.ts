@@ -166,6 +166,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, message: "신청 처리 중 오류가 발생했습니다." }, { status: 500 });
   }
 
+  // 정기신청 신규 등록 시 → 메인/센터 관리자에게 Expo Push 발송 (fire-and-forget)
+  if (!isVisitor) {
+    try {
+      const fnUrl = `${url.replace(/\/$/, "")}/functions/v1/send-parking-push`;
+      void fetch(fnUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${serviceKey}`,
+          apikey: serviceKey,
+        },
+        body: JSON.stringify({
+          request_id: inserted.id,
+          company,
+          name,
+          car_number,
+        }),
+      }).catch((e) => console.error("[send-parking-push 호출 실패]", e));
+    } catch (e) {
+      console.error("[send-parking-push 호출 예외]", e);
+    }
+  }
+
   // 방문 + 자동등록 활성 시 sregist 즉시 등록 (실패해도 사용자 응답은 성공 — 관리자 페이지에서 재등록 가능)
   if (isVisitor && process.env.SREGIST_AUTO_REGISTER === "true" && expire_date) {
     try {
