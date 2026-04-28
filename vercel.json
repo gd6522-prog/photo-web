@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/sync-photos-to-r2",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/expire-parking",
+      "schedule": "0 15 * * *"
     }
   ]
 }

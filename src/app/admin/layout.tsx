@@ -675,6 +675,15 @@ const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
                   </div>
                 ) : null}
 
+                {/* 주차 */}
+                <Link
+                  href="/admin/parking"
+                  className={isActive("/admin/parking") ? "nav-pill-active" : "nav-pill"}
+                  style={pillStyle(isActive("/admin/parking"))}
+                >
+                  주차
+                </Link>
+
                 {/* 설정 */}
                 {visibleSettingsItems.length > 0 ? (
                   <div

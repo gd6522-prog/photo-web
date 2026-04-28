@@ -26,6 +26,7 @@ export const MENU_REGISTRY: MenuItem[] = [
     match: (p) => p === "/admin/notice" || p.startsWith("/admin/notice/"),
   },
   { key: "admin_work_log",  label: "근태",   href: "/admin/work-log",   group: "nav", order: 40 },
+  { key: "admin_parking",   label: "주차",   href: "/admin/parking",    group: "nav", order: 50 },
   // ── 사진 하위
   { key: "admin_photos_field",    label: "현장사진", href: "/admin/photos",                     group: "nav", order: 21, parent: "admin_photos" },
   { key: "admin_photos_delivery", label: "배송사진", href: "/admin/photos/delivery",            group: "nav", order: 22, parent: "admin_photos" },
