@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sregist } from "@/lib/sregist";
 
@@ -166,27 +166,36 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, message: "신청 처리 중 오류가 발생했습니다." }, { status: 500 });
   }
 
-  // 정기신청 신규 등록 시 → 메인/센터 관리자에게 Expo Push 발송 (fire-and-forget)
+  // 정기신청 신규 등록 시 → 메인/센터 관리자에게 Expo Push 발송.
+  // Vercel serverless 에서 `void fetch(...)` 패턴은 응답 직후 함수 컨테이너가 freeze 되어
+  // 실제 송신이 누락되는 사례가 있어, Next.js 의 `after()` API 로 응답 후 백그라운드 작업을
+  // 명시적으로 보장한다.
   if (!isVisitor) {
-    try {
-      const fnUrl = `${url.replace(/\/$/, "")}/functions/v1/send-parking-push`;
-      void fetch(fnUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${serviceKey}`,
-          apikey: serviceKey,
-        },
-        body: JSON.stringify({
-          request_id: inserted.id,
-          company,
-          name,
-          car_number,
-        }),
-      }).catch((e) => console.error("[send-parking-push 호출 실패]", e));
-    } catch (e) {
-      console.error("[send-parking-push 호출 예외]", e);
-    }
+    after(async () => {
+      try {
+        const fnUrl = `${url.replace(/\/$/, "")}/functions/v1/send-parking-push`;
+        const res = await fetch(fnUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${serviceKey}`,
+            apikey: serviceKey,
+          },
+          body: JSON.stringify({
+            request_id: inserted.id,
+            company,
+            name,
+            car_number,
+          }),
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => "");
+          console.error("[send-parking-push 응답 실패]", res.status, txt.slice(0, 200));
+        }
+      } catch (e) {
+        console.error("[send-parking-push 호출 실패]", e);
+      }
+    });
   }
 
   // 방문 + 자동등록 활성 시 sregist 즉시 등록 (실패해도 사용자 응답은 성공 — 관리자 페이지에서 재등록 가능)
