@@ -171,7 +171,7 @@ export default function RequestForm({ type }: Props) {
         >
           ← 뒤로
         </Link>
-        <div style={{ fontSize: 13, fontWeight: 800, color: "#64748b" }}>한익스프레스</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: "#64748b" }}>한익스프레스 화성센터</div>
       </div>
 
       <h1 style={{ fontSize: 26, fontWeight: 900, color: "#ffffff", margin: "4px 0 22px" }}>{title}</h1>

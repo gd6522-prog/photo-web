@@ -14,21 +14,27 @@ export default function ParkingHome() {
       }}
     >
       <div style={{ textAlign: "center" }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/hanex-logo.png"
+          alt="한익스프레스"
+          style={{ width: 240, maxWidth: "75vw", height: "auto", display: "block", margin: "0 auto" }}
+        />
         <div
           style={{
-            fontSize: 28,
+            marginTop: 14,
+            fontSize: 20,
             fontWeight: 900,
-            letterSpacing: -0.5,
             color: "#ffffff",
-            lineHeight: 1.2,
+            letterSpacing: -0.3,
           }}
         >
-          한익스프레스
+          화성센터
         </div>
         <div
           style={{
-            marginTop: 10,
-            fontSize: 16,
+            marginTop: 8,
+            fontSize: 14,
             fontWeight: 700,
             color: "#9fb3c7",
           }}
