@@ -13,8 +13,9 @@ export interface SregistVehicle {
   carNumber: string;
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD
-  company?: string;
-  memo?: string;
+  company?: string; // sregist 'corp' 필드
+  dept?: string;    // sregist 'dept' 필드 (현재 신청자 이름 매핑에 사용)
+  memo?: string;    // sregist 'memo' 필드 (현재 신청자 연락처 매핑에 사용)
 }
 
 export type SregistResult =
@@ -112,7 +113,7 @@ class SregistClient {
           sdate: vehicle.startDate,
           edate: vehicle.endDate,
           corp: vehicle.company ?? "",
-          dept: "",
+          dept: vehicle.dept ?? "",
           memo: vehicle.memo ?? "",
         }).toString();
 

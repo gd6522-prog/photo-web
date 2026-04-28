@@ -69,6 +69,7 @@ export async function POST(req: NextRequest) {
   const car_number = sanitizeStr(body.car_number, 20).replace(/\s+/g, "");
   const phone = sanitizeStr(body.phone, 20);
   const visit_date_raw = sanitizeStr(body.visit_date, 16);
+  const visit_purpose_raw = sanitizeStr(body.visit_purpose, 200);
 
   if (type !== "regular" && type !== "visitor") {
     return NextResponse.json({ ok: false, message: "신청 종류가 올바르지 않습니다." }, { status: 400 });
@@ -152,6 +153,7 @@ export async function POST(req: NextRequest) {
       car_number,
       phone,
       visit_date,
+      visit_purpose: isVisitor && visit_purpose_raw ? visit_purpose_raw : null,
       expire_date,
       status: isVisitor ? "approved" : "pending",
       approved_at: isVisitor ? nowIso : null,
@@ -173,7 +175,8 @@ export async function POST(req: NextRequest) {
         startDate: today,
         endDate: expire_date,
         company,
-        memo: `Drido 방문 #${String(inserted.id).slice(0, 8)}`,
+        dept: name,
+        memo: phone,
       });
 
       const responseSummary = result.success

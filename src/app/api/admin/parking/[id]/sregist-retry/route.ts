@@ -9,6 +9,8 @@ type ParkingRow = {
   id: string;
   type: "regular" | "visitor";
   company: string;
+  name: string;
+  phone: string;
   car_number: string;
   visit_date: string | null;
   expire_date: string | null;
@@ -34,7 +36,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
     const { data: row, error: rErr } = await guard.sbAdmin
       .from("parking_requests")
-      .select("id, type, company, car_number, visit_date, expire_date, status")
+      .select("id, type, company, name, phone, car_number, visit_date, expire_date, status")
       .eq("id", id)
       .maybeSingle();
 
@@ -56,7 +58,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       startDate: today,
       endDate: r.expire_date,
       company: r.company,
-      memo: `Drido 재등록 #${r.id.slice(0, 8)}`,
+      dept: r.name,
+      memo: r.phone,
     });
 
     const responseSummary = result.success

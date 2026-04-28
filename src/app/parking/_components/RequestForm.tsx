@@ -53,6 +53,7 @@ export default function RequestForm({ type }: Props) {
   const [carNumber, setCarNumber] = useState("");
   const [phone, setPhone] = useState("");
   const [visitDate, setVisitDate] = useState("");
+  const [visitPurpose, setVisitPurpose] = useState("");
 
   const [busy, setBusy] = useState(false);
   const [errMsg, setErrMsg] = useState("");
@@ -93,6 +94,7 @@ export default function RequestForm({ type }: Props) {
           car_number: carNumber.trim(),
           phone: phone.trim(),
           visit_date: type === "visitor" ? visitDate : undefined,
+          visit_purpose: type === "visitor" ? visitPurpose.trim() : undefined,
         }),
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string };
@@ -227,16 +229,28 @@ export default function RequestForm({ type }: Props) {
         </div>
 
         {type === "visitor" ? (
-          <div>
-            <label style={fieldLabel}>방문 날짜 *</label>
-            <input
-              type="date"
-              style={fieldInput}
-              value={visitDate}
-              min={today}
-              onChange={(e) => setVisitDate(e.target.value)}
-            />
-          </div>
+          <>
+            <div>
+              <label style={fieldLabel}>방문 날짜 *</label>
+              <input
+                type="date"
+                style={fieldInput}
+                value={visitDate}
+                min={today}
+                onChange={(e) => setVisitDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <label style={fieldLabel}>방문 목적 (선택)</label>
+              <input
+                style={fieldInput}
+                value={visitPurpose}
+                onChange={(e) => setVisitPurpose(e.target.value)}
+                placeholder="예: 거래처 미팅"
+                maxLength={200}
+              />
+            </div>
+          </>
         ) : null}
 
         {errMsg ? (

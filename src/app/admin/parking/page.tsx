@@ -11,6 +11,7 @@ type ParkingRow = {
   car_number: string;
   phone: string;
   visit_date: string | null;
+  visit_purpose: string | null;
   expire_date: string | null;
   status: "pending" | "approved" | "rejected" | "expired";
   reject_reason: string | null;
@@ -497,18 +498,36 @@ export default function AdminParkingPage() {
                   <tr key={r.id} style={{ borderTop: "1px solid #e2e8f0" }}>
                     <td style={td}>{fmtDateTime(r.created_at)}</td>
                     <td style={td}>
-                      <span
-                        style={{
-                          padding: "2px 8px",
-                          borderRadius: 4,
-                          background: r.type === "regular" ? "#ccfbf1" : "#dbeafe",
-                          color: r.type === "regular" ? "#115e59" : "#1e40af",
-                          fontWeight: 800,
-                          fontSize: 11,
-                        }}
-                      >
-                        {r.type === "regular" ? "정기" : "방문"}
-                      </span>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 3 }}>
+                        <span
+                          style={{
+                            padding: "2px 8px",
+                            borderRadius: 4,
+                            background: r.type === "regular" ? "#ccfbf1" : "#dbeafe",
+                            color: r.type === "regular" ? "#115e59" : "#1e40af",
+                            fontWeight: 800,
+                            fontSize: 11,
+                          }}
+                        >
+                          {r.type === "regular" ? "정기" : "방문"}
+                        </span>
+                        {r.type === "visitor" && r.visit_purpose ? (
+                          <span
+                            title={r.visit_purpose}
+                            style={{
+                              fontSize: 11,
+                              color: "#475569",
+                              maxWidth: 140,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {r.visit_purpose}
+                          </span>
+                        ) : null}
+                      </div>
                     </td>
                     <td style={td}>{r.company}</td>
                     <td style={td}>{r.name}</td>
