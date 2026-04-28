@@ -532,40 +532,22 @@ export default function AdminParkingPage() {
                         >
                           {STATUS_LABEL[r.status]}
                         </span>
-                        {r.status === "approved" && r.sregist_response ? (
-                          r.sregist_registered ? (
-                            <span
-                              title={r.sregist_registered_at ? `등록 시각: ${fmtDateTime(r.sregist_registered_at)}` : undefined}
-                              style={{
-                                padding: "2px 8px",
-                                borderRadius: 4,
-                                background: "#ecfdf5",
-                                color: "#047857",
-                                border: "1px solid #a7f3d0",
-                                fontWeight: 800,
-                                fontSize: 10,
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              주차관제 등록완료
-                            </span>
-                          ) : (
-                            <span
-                              title={r.sregist_response ?? ""}
-                              style={{
-                                padding: "2px 8px",
-                                borderRadius: 4,
-                                background: "#fef2f2",
-                                color: "#b91c1c",
-                                border: "1px solid #fecaca",
-                                fontWeight: 800,
-                                fontSize: 10,
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              주차관제 등록실패
-                            </span>
-                          )
+                        {r.status === "approved" && r.sregist_response && !r.sregist_registered ? (
+                          <span
+                            title={r.sregist_response ?? ""}
+                            style={{
+                              padding: "2px 8px",
+                              borderRadius: 4,
+                              background: "#fef2f2",
+                              color: "#b91c1c",
+                              border: "1px solid #fecaca",
+                              fontWeight: 800,
+                              fontSize: 10,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            주차관제 등록실패
+                          </span>
                         ) : null}
                       </div>
                     </td>
