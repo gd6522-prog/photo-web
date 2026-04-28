@@ -117,7 +117,7 @@ export default function RequestForm({ type }: Props) {
         <div style={{ fontSize: 15, color: "#9fb3c7", lineHeight: 1.7, maxWidth: 360 }}>
           {type === "visitor" ? (
             <>
-              방문일 +1일까지 입차 가능합니다.
+              방문일 다음날까지 입차 가능합니다.
               <br />
               차량번호로 자동 인식됩니다.
             </>

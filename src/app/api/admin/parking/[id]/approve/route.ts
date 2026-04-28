@@ -53,7 +53,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const today = todayKST();
 
     const expireDate =
-      r.type === "regular" ? "2999-12-31" : r.visit_date ? addDaysYMD(r.visit_date, 1) : addDaysYMD(today, 1);
+      r.type === "regular" ? "2999-12-31" : r.visit_date ? addDaysYMD(r.visit_date, 2) : addDaysYMD(today, 2);
 
     // 1) DB 승인 처리
     const { error: uErr } = await guard.sbAdmin
