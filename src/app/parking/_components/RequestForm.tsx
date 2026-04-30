@@ -54,10 +54,14 @@ export default function RequestForm({ type }: Props) {
   const [phone, setPhone] = useState("");
   const [visitDate, setVisitDate] = useState("");
   const [visitPurpose, setVisitPurpose] = useState("");
+  const [immediateEntry, setImmediateEntry] = useState<boolean | null>(null);
 
   const [busy, setBusy] = useState(false);
   const [errMsg, setErrMsg] = useState("");
   const [done, setDone] = useState(false);
+  const [doneGateInfo, setDoneGateInfo] = useState<{ gateOpened: boolean | null; gateError?: string }>({
+    gateOpened: null,
+  });
 
   const today = useMemo(() => todayKST(), []);
 
@@ -69,6 +73,7 @@ export default function RequestForm({ type }: Props) {
     if (type === "visitor") {
       if (!visitDate) return "방문 날짜를 선택해 주세요.";
       if (visitDate < today) return "방문 날짜는 오늘 이후로 선택해 주세요.";
+      if (immediateEntry === null) return "바로입차 여부를 선택해 주세요.";
     }
     return null;
   };
@@ -95,13 +100,20 @@ export default function RequestForm({ type }: Props) {
           phone: phone.trim(),
           visit_date: type === "visitor" ? visitDate : undefined,
           visit_purpose: type === "visitor" ? visitPurpose.trim() : undefined,
+          immediate_entry: type === "visitor" ? immediateEntry : undefined,
         }),
       });
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string };
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        message?: string;
+        gateOpened?: boolean | null;
+        gateError?: string;
+      };
       if (!res.ok || !data.ok) {
         setErrMsg(data.message || "신청 처리 중 오류가 발생했습니다.");
         return;
       }
+      setDoneGateInfo({ gateOpened: data.gateOpened ?? null, gateError: data.gateError });
       setDone(true);
     } catch {
       setErrMsg("네트워크 오류입니다. 잠시 후 다시 시도해 주세요.");
@@ -118,11 +130,26 @@ export default function RequestForm({ type }: Props) {
         </div>
         <div style={{ fontSize: 15, color: "#9fb3c7", lineHeight: 1.7, maxWidth: 360 }}>
           {type === "visitor" ? (
-            <>
-              방문일 다음날까지 입차 가능합니다.
-              <br />
-              차량번호로 자동 인식됩니다.
-            </>
+            doneGateInfo.gateOpened === true ? (
+              <>
+                입구 게이트가 열립니다.
+                <br />
+                바로 입차해 주세요.
+              </>
+            ) : doneGateInfo.gateOpened === false ? (
+              <span style={{ color: "#fecaca" }}>
+                신청은 등록됐지만 게이트 자동개방에 실패했습니다.
+                <br />
+                관리원에게 문의해 주세요.
+                {doneGateInfo.gateError ? <><br /><span style={{ fontSize: 12, opacity: 0.85 }}>({doneGateInfo.gateError})</span></> : null}
+              </span>
+            ) : (
+              <>
+                방문일 다음날까지 입차 가능합니다.
+                <br />
+                차량번호로 자동 인식됩니다.
+              </>
+            )
           ) : (
             <>
               관리자 승인 후 입차 가능합니다.
@@ -249,6 +276,42 @@ export default function RequestForm({ type }: Props) {
                 placeholder="예: 거래처 미팅"
                 maxLength={200}
               />
+            </div>
+            <div>
+              <label style={fieldLabel}>바로입차 *</label>
+              <div style={{ display: "flex", gap: 10 }}>
+                {[
+                  { v: true, label: "예 (지금 입차)" },
+                  { v: false, label: "아니오" },
+                ].map((opt) => {
+                  const active = immediateEntry === opt.v;
+                  return (
+                    <button
+                      key={String(opt.v)}
+                      type="button"
+                      onClick={() => setImmediateEntry(opt.v)}
+                      style={{
+                        flex: 1,
+                        height: 52,
+                        borderRadius: 12,
+                        border: active
+                          ? "2px solid #14b8a6"
+                          : "1px solid rgba(255,255,255,0.10)",
+                        background: active ? "rgba(20,184,166,0.18)" : "rgba(255,255,255,0.04)",
+                        color: active ? "#5eead4" : "#e6eef7",
+                        fontSize: 15,
+                        fontWeight: 800,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ marginTop: 6, fontSize: 11, color: "#64748b", lineHeight: 1.5 }}>
+                예 선택 시 신청과 동시에 입구 게이트가 자동으로 열립니다.
+              </div>
             </div>
           </>
         ) : null}

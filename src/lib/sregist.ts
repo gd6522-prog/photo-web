@@ -101,6 +101,56 @@ class SregistClient {
     }
   }
 
+  /**
+   * 게이트 개방 명령. /api/xp_sendgate.php 호출.
+   * - 입구 GATE01 / 출구 GATE31 (현장 셋업에 따라 다를 수 있음)
+   * - 응답 본문이 "OK" 이면 성공, 그 외 텍스트는 에러 메시지로 취급.
+   */
+  async openGate(gateid: string, command: "OPEN" | "OPENLOCK" | "CLOSE" = "OPEN"): Promise<SregistResult> {
+    try {
+      const { baseUrl } = getEnv();
+      if (!this.sessionCookie) await this.login();
+
+      const buildBody = () =>
+        new URLSearchParams({ gateid, command }).toString();
+
+      const callOnce = async () =>
+        fetch(`${baseUrl}/api/xp_sendgate.php`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Cookie: `PHPSESSID=${this.sessionCookie}`,
+          },
+          body: buildBody(),
+        });
+
+      let res = await callOnce();
+      let text = await res.text();
+
+      const sessionExpired =
+        res.status === 401 || res.status === 302 || (res.status === 200 && looksLikeLoginPage(text));
+
+      if (sessionExpired) {
+        this.sessionCookie = null;
+        await this.login();
+        res = await callOnce();
+        text = await res.text();
+      }
+
+      if (!res.ok) {
+        return { success: false, error: `HTTP ${res.status}`, raw: text.slice(0, 500) };
+      }
+      const trimmed = text.trim();
+      if (trimmed !== "OK") {
+        return { success: false, error: trimmed.slice(0, 200) || "응답이 OK 가 아님", raw: text.slice(0, 500) };
+      }
+
+      return { success: true, raw: trimmed };
+    } catch (e: unknown) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
   async registerVehicle(vehicle: SregistVehicle): Promise<SregistResult> {
     try {
       const { baseUrl } = getEnv();

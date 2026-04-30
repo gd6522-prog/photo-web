@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
   const phone = sanitizeStr(body.phone, 20);
   const visit_date_raw = sanitizeStr(body.visit_date, 16);
   const visit_purpose_raw = sanitizeStr(body.visit_purpose, 200);
+  const immediate_entry_raw = body.immediate_entry;
 
   if (type !== "regular" && type !== "visitor") {
     return NextResponse.json({ ok: false, message: "신청 종류가 올바르지 않습니다." }, { status: 400 });
@@ -84,6 +85,7 @@ export async function POST(req: NextRequest) {
   }
 
   let visit_date: string | null = null;
+  let immediate_entry: boolean | null = null;
   if (type === "visitor") {
     if (!isValidDateYMD(visit_date_raw)) {
       return NextResponse.json({ ok: false, message: "방문 날짜가 올바르지 않습니다." }, { status: 400 });
@@ -92,6 +94,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, message: "방문 날짜는 오늘 이후로 선택해 주세요." }, { status: 400 });
     }
     visit_date = visit_date_raw;
+
+    // 바로입차: 방문 신청은 반드시 Y/N 명시 선택해야 한다.
+    if (immediate_entry_raw !== true && immediate_entry_raw !== false) {
+      return NextResponse.json({ ok: false, message: "바로입차 여부를 선택해 주세요." }, { status: 400 });
+    }
+    immediate_entry = immediate_entry_raw;
   }
 
   const ip = getClientIp(req);
@@ -154,6 +162,7 @@ export async function POST(req: NextRequest) {
       phone,
       visit_date,
       visit_purpose: isVisitor && visit_purpose_raw ? visit_purpose_raw : null,
+      immediate_entry: isVisitor ? immediate_entry : null,
       expire_date,
       status: isVisitor ? "approved" : "pending",
       approved_at: isVisitor ? nowIso : null,
@@ -198,7 +207,10 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // 방문 + 자동등록 활성 시 sregist 즉시 등록 (실패해도 사용자 응답은 성공 — 관리자 페이지에서 재등록 가능)
+  // 방문 + 자동등록 활성 시 sregist 즉시 등록 + (immediate_entry 면) 입구 게이트 개방
+  let gateOpened: boolean | null = null;
+  let gateError: string | undefined;
+
   if (isVisitor && process.env.SREGIST_AUTO_REGISTER === "true" && expire_date) {
     try {
       const today = todayKST();
@@ -230,7 +242,28 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       console.error("[sregist 방문 자동등록 예외]", e);
     }
+
+    // 바로입차 → 입구 게이트 개방 (등록 성공 여부와 무관하게 시도; 게이트 통과 자체가 핵심)
+    if (immediate_entry === true) {
+      try {
+        const gateId = process.env.SREGIST_ENTRY_GATE_ID || "GATE01";
+        const gr = await sregist.openGate(gateId, "OPEN");
+        gateOpened = gr.success;
+        if (!gr.success) gateError = gr.error;
+
+        await sb.from("parking_requests").update({ gate_opened: gr.success }).eq("id", inserted.id);
+
+        if (!gr.success) {
+          console.error("[sregist 게이트 개방 실패]", { id: inserted.id, gateId, error: gr.error });
+        }
+      } catch (e) {
+        gateOpened = false;
+        gateError = e instanceof Error ? e.message : String(e);
+        console.error("[sregist 게이트 개방 예외]", e);
+        await sb.from("parking_requests").update({ gate_opened: false }).eq("id", inserted.id);
+      }
+    }
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, gateOpened, gateError });
 }
