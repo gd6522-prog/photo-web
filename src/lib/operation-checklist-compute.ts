@@ -2,7 +2,7 @@ import * as XLSX from "xlsx";
 import { getR2ObjectBuffer, getR2ObjectText, listR2Keys, putR2Object } from "@/lib/r2";
 
 // ── 캐시 키 (계산 로직 변경 시 버전 bump) ─────────────────────────────
-const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v8.json";
+const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v9.json";
 
 // ── 타입 ─────────────────────────────────────────────────────────────
 type StrategyRow = {
@@ -326,10 +326,15 @@ function tally(
     const row = strategy.get(code);
     const productName = row?.product_name || sku.product_name || "";
 
+    // 상품명에 "공P" 가 포함된 SKU 는 작업구분 미지정 카운트에서 제외 (공병/특수 처리 품목)
+    const isGongP = productName.replace(/\s+/g, "").includes("공P");
+
     if (!row) {
       // 전략관리 미등록은 로케이션 + 작업구분 둘 다 미지정으로 간주
       details.location_missing.push({ product_code: code, product_name: productName });
-      details.work_type_missing.push({ product_code: code, product_name: productName });
+      if (!isGongP) {
+        details.work_type_missing.push({ product_code: code, product_name: productName });
+      }
     } else {
       // 1) 로케이션 미지정
       if (!row.picking_cell) {
@@ -338,14 +343,14 @@ function tally(
           product_name: productName,
         });
       }
-      // 2) 작업구분 미지정
-      if (!row.work_type) {
+      // 2) 작업구분 미지정 (상품명에 "공P" 포함 시 제외)
+      if (!row.work_type && !isGongP) {
         details.work_type_missing.push({
           product_code: code,
           product_name: productName,
           picking_cell: row.picking_cell,
         });
-      } else if (row.picking_cell) {
+      } else if (row.work_type && row.picking_cell) {
         // 3) 작업구분 설정오류
         const prefix = getCellPrefix(row.picking_cell);
         const expected = CELL_PREFIX_TO_WORK_TYPE[prefix];
