@@ -43,6 +43,7 @@ const HOME_NOTICE_CACHE_KEY = "admin-home-notices-v1";
 const HOME_WEATHER_CACHE_KEY = "admin-home-weather-v1";
 const HOME_OUTBOUND_CACHE_KEY = "admin-home-outbound-v1";
 const HOME_PENDING_SUMMARY_CACHE_KEY = "admin-home-pending-summary-v1";
+const HOME_CHECKLIST_CACHE_KEY = "admin-home-checklist-v1";
 
 // 달력 크기는 유지하고, 공지 영역을 좌측으로 더 붙이기 위해 컬럼 폭 조정
 const LEFT_COL_W = 290;
@@ -271,6 +272,55 @@ function formatDeliveryDateLabel(value: string) {
 
 function formatOutboundCount(value: number) {
   return value === 0 ? "-" : value.toLocaleString("ko-KR");
+}
+
+type ChecklistCounts = {
+  location_missing: number;
+  work_type_missing: number;
+  work_type_misconfigured: number;
+  full_box_missing: number;
+  shipment_below_standard: number;
+};
+
+function getChecklistBadge(counts: ChecklistCounts | null) {
+  if (!counts) {
+    return {
+      text: "통합체크리스트 0건",
+      dot: "#16A34A",
+      glow: "0 0 0 3px rgba(22,163,74,0.15)",
+    };
+  }
+  const total =
+    counts.location_missing +
+    counts.work_type_missing +
+    counts.work_type_misconfigured +
+    counts.full_box_missing +
+    counts.shipment_below_standard;
+  const hasRed =
+    counts.location_missing > 0 ||
+    counts.work_type_missing > 0 ||
+    counts.work_type_misconfigured > 0;
+  const hasOrange = counts.full_box_missing > 0 || counts.shipment_below_standard > 0;
+
+  if (hasRed) {
+    return {
+      text: `통합체크리스트 ${total}건`,
+      dot: "#DC2626",
+      glow: "0 0 0 3px rgba(220,38,38,0.15)",
+    };
+  }
+  if (hasOrange) {
+    return {
+      text: `통합체크리스트 ${total}건`,
+      dot: "#F97316",
+      glow: "0 0 0 3px rgba(249,115,22,0.18)",
+    };
+  }
+  return {
+    text: "통합체크리스트 0건",
+    dot: "#16A34A",
+    glow: "0 0 0 3px rgba(22,163,74,0.15)",
+  };
 }
 
 function getHazardSummaryBadge(openCount: number, waitingCount: number) {
@@ -2592,6 +2642,7 @@ export default function AdminHomePage() {
   const [pendingRedeliveryCount, setPendingRedeliveryCount] = useState(0);
   const [pendingHazardCount, setPendingHazardCount] = useState(0);
   const [hazardWaitingCount, setHazardWaitingCount] = useState(0);
+  const [checklistCounts, setChecklistCounts] = useState<ChecklistCounts | null>(null);
 
   const mounted = useRef(false);
 
@@ -2866,6 +2917,38 @@ export default function AdminHomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, checking, isAdmin]);
 
+  const fetchChecklistCounts = async () => {
+    const {
+      data: { session },
+      error: sessionErr,
+    } = await supabase.auth.getSession();
+    if (sessionErr) return;
+    const token = session?.access_token;
+    if (!token) return;
+    const res = await fetch("/api/admin/operation-checklist", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    const payload = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      counts?: ChecklistCounts;
+    };
+    if (!res.ok || !payload.ok || !payload.counts) return;
+    setChecklistCounts(payload.counts);
+    writeHomeCache(HOME_CHECKLIST_CACHE_KEY, payload.counts);
+  };
+
+  useEffect(() => {
+    if (!ready) return;
+    if (checking) return;
+    if (!isAdmin) return;
+    const cached = readHomeCache<ChecklistCounts>(HOME_CHECKLIST_CACHE_KEY);
+    if (cached) setChecklistCounts(cached);
+    void fetchChecklistCounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, checking, isAdmin]);
+
   const eventsByDate = useMemo(() => {
     const map: Record<string, EventRow[]> = {};
     for (const e of events) {
@@ -2885,6 +2968,8 @@ export default function AdminHomePage() {
     () => getHazardSummaryBadge(pendingHazardCount, hazardWaitingCount),
     [pendingHazardCount, hazardWaitingCount]
   );
+
+  const checklistBadge = useMemo(() => getChecklistBadge(checklistCounts), [checklistCounts]);
 
   const countFor = (ymd: string) => (eventsByDate[ymd] ?? []).length;
 
@@ -2934,6 +3019,34 @@ export default function AdminHomePage() {
       >
         <div className="homeGrid">
           <div className="leftCol" style={{ flexDirection: "column", gap: 8 }}>
+            <div
+              style={{
+                border: "1px solid #bdd0de",
+                borderRadius: 0,
+                background: "#fff",
+                padding: 8,
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                boxShadow: "0 10px 24px rgba(2,32,46,0.08)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1px solid #d9e6ef", borderRadius: 0, padding: "6px 8px", color: "#113247", fontSize: 12, fontWeight: 900, background: "#fff" }}>
+                <span style={{ width: 9, height: 9, borderRadius: 4, background: checklistBadge.dot, boxShadow: checklistBadge.glow, flex: "0 0 auto" }} />
+                <span style={{ flex: 1, color: "#113247" }}>{checklistBadge.text}</span>
+                <Link href="/admin/operation/checklist" style={{ width: 20, height: 20, borderRadius: 4, border: "1px solid #c4d5e3", color: "#113247", textDecoration: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, lineHeight: 1, fontWeight: 900, background: "#fff" }} title="통합체크리스트 페이지로 이동">&gt;</Link>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1px solid #d9e6ef", borderRadius: 0, padding: "6px 8px", color: "#113247", fontSize: 12, fontWeight: 900, background: "#fff" }}>
+                <span style={{ width: 9, height: 9, borderRadius: 4, background: pendingRedeliveryCount > 0 ? "#DC2626" : "#16A34A", boxShadow: pendingRedeliveryCount > 0 ? "0 0 0 3px rgba(220,38,38,0.15)" : "0 0 0 3px rgba(22,163,74,0.15)", flex: "0 0 auto" }} />
+                <span style={{ flex: 1, color: "#113247" }}>재배송 미처리 {pendingRedeliveryCount}건</span>
+                <Link href="/admin/photos/delivery" style={{ width: 20, height: 20, borderRadius: 4, border: "1px solid #c4d5e3", color: "#113247", textDecoration: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, lineHeight: 1, fontWeight: 900, background: "#fff" }} title="배송사진 페이지로 이동">&gt;</Link>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1px solid #d9e6ef", borderRadius: 0, padding: "6px 8px", color: "#113247", fontSize: 12, fontWeight: 900, background: "#fff" }}>
+                <span style={{ width: 9, height: 9, borderRadius: 4, background: hazardSummaryBadge.dot, boxShadow: hazardSummaryBadge.glow, flex: "0 0 auto" }} />
+                <span style={{ flex: 1, color: "#113247" }}>{hazardSummaryBadge.text}</span>
+                <Link href="/admin/hazards" style={{ width: 20, height: 20, borderRadius: 4, border: "1px solid #c4d5e3", color: "#113247", textDecoration: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, lineHeight: 1, fontWeight: 900, background: "#fff" }} title="위험요인 페이지로 이동">&gt;</Link>
+              </div>
+            </div>
             <Card
               title={monthLabel}
               minHeight={CARD_MIN_H}
@@ -3100,29 +3213,6 @@ export default function AdminHomePage() {
                 </div>
               </div>
             </Card>
-            <div
-              style={{
-                border: "1px solid #bdd0de",
-                borderRadius: 0,
-                background: "#fff",
-                padding: 8,
-                display: "flex",
-                flexDirection: "column",
-                gap: 6,
-                boxShadow: "0 10px 24px rgba(2,32,46,0.08)",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1px solid #d9e6ef", borderRadius: 0, padding: "6px 8px", color: "#113247", fontSize: 12, fontWeight: 900, background: "#fff" }}>
-                <span style={{ width: 9, height: 9, borderRadius: 4, background: pendingRedeliveryCount > 0 ? "#DC2626" : "#16A34A", boxShadow: pendingRedeliveryCount > 0 ? "0 0 0 3px rgba(220,38,38,0.15)" : "0 0 0 3px rgba(22,163,74,0.15)", flex: "0 0 auto" }} />
-                <span style={{ flex: 1, color: "#113247" }}>재배송 미처리 {pendingRedeliveryCount}건</span>
-                <Link href="/admin/photos/delivery" style={{ width: 20, height: 20, borderRadius: 4, border: "1px solid #c4d5e3", color: "#113247", textDecoration: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, lineHeight: 1, fontWeight: 900, background: "#fff" }} title="배송사진 페이지로 이동">&gt;</Link>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1px solid #d9e6ef", borderRadius: 0, padding: "6px 8px", color: "#113247", fontSize: 12, fontWeight: 900, background: "#fff" }}>
-                <span style={{ width: 9, height: 9, borderRadius: 4, background: hazardSummaryBadge.dot, boxShadow: hazardSummaryBadge.glow, flex: "0 0 auto" }} />
-                <span style={{ flex: 1, color: "#113247" }}>{hazardSummaryBadge.text}</span>
-                <Link href="/admin/hazards" style={{ width: 20, height: 20, borderRadius: 4, border: "1px solid #c4d5e3", color: "#113247", textDecoration: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, lineHeight: 1, fontWeight: 900, background: "#fff" }} title="위험요인 페이지로 이동">&gt;</Link>
-              </div>
-            </div>
           </div>
 
           <div className="midCol">
