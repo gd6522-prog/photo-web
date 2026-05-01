@@ -63,7 +63,7 @@ async function getAdminToken(): Promise<string> {
 export default function OperationChecklistPage() {
   const [counts, setCounts] = useState<Counts | null>(null);
   const [details, setDetails] = useState<Details | null>(null);
-  const [expanded, setExpanded] = useState<ItemKey | null>(null);
+  const [expanded, setExpanded] = useState<Set<ItemKey>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -148,7 +148,7 @@ export default function OperationChecklistPage() {
                 ? "…"
                 : count.toLocaleString();
               const isAlert = !pending && (count ?? 0) > 0;
-              const isOpen = expanded === item.key;
+              const isOpen = expanded.has(item.key);
               const clickable = isAlert && !pending;
               const itemDetails = details?.[item.key] ?? [];
 
@@ -157,7 +157,12 @@ export default function OperationChecklistPage() {
                   <tr
                     onClick={() => {
                       if (!clickable) return;
-                      setExpanded((prev) => (prev === item.key ? null : item.key));
+                      setExpanded((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(item.key)) next.delete(item.key);
+                        else next.add(item.key);
+                        return next;
+                      });
                     }}
                     style={{
                       borderTop: "1px solid #e2e8f0",
