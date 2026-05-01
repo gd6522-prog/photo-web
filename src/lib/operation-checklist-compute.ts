@@ -13,7 +13,7 @@ let strategyMemCache: { key: string; parsed: StrategyParsed } | null = null;
 
 // ── R2 결과 캐시 (모든 인스턴스 공유) ────────────────────────────────────
 // 캐시 키에 버전 suffix 를 두어 계산 로직이 바뀌면 자동으로 옛 캐시가 무효화되도록.
-const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v5.json";
+const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v6.json";
 
 export type ChecklistCounts = {
   location_missing: number;
@@ -97,7 +97,8 @@ async function fetchAndParseInventory(key: string): Promise<InventoryParsed> {
   const rawHeaders = (rows[0] ?? []).map((c) => String(c ?? ""));
   const headers = rows[0].map(normalizeHeader);
   const codeIdx = findHeaderIndex(headers, ["상품코드"]);
-  const qtyIdx = findHeaderIndex(headers, ["가용재고"]);
+  // 재고 판단 기준: 가용수량 (=가용재고). 파일별 표기 대비
+  const qtyIdx = findHeaderIndex(headers, ["가용수량", "가용재고"]);
   if (codeIdx < 0 || qtyIdx < 0) {
     return { ...empty, rawHeaders, matched: { code: codeIdx, qty: qtyIdx }, totalRows: rows.length };
   }
