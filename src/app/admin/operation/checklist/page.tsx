@@ -22,9 +22,13 @@ type Diagnostic = {
   full_box_value_distribution: Record<string, number>;
   inventory_headers?: string[];
   strategy_headers?: string[];
+  inventory_matched?: { code: number; qty: number };
   strategy_matched?: { code: number; cell: number; workType: number; fullBox: number };
   inventory_key_tail?: string;
   strategy_key_tail?: string;
+  inventory_total_rows?: number;
+  inventory_with_code_rows?: number;
+  inventory_with_qty_rows?: number;
 };
 
 type ChecklistItem = {
@@ -147,6 +151,29 @@ export default function OperationChecklistPage() {
             <div style={{ paddingLeft: 8, fontSize: 11, color: "#475569", wordBreak: "break-all" }}>
               <div>재고: …{diagnostic.inventory_key_tail ?? "(없음)"}</div>
               <div>전략: …{diagnostic.strategy_key_tail ?? "(없음)"}</div>
+            </div>
+          </div>
+          <div>
+            <div style={{ marginBottom: 4, fontWeight: 600 }}>재고 파일 컬럼 매칭 (-1 이면 못찾음)</div>
+            <div style={{ paddingLeft: 8 }}>
+              상품코드: <strong style={{ color: (diagnostic.inventory_matched?.code ?? -1) < 0 ? "#dc2626" : "#0f172a" }}>{diagnostic.inventory_matched?.code ?? "-"}</strong>{" / "}
+              가용재고: <strong style={{ color: (diagnostic.inventory_matched?.qty ?? -1) < 0 ? "#dc2626" : "#0f172a" }}>{diagnostic.inventory_matched?.qty ?? "-"}</strong>
+            </div>
+          </div>
+          <div>
+            <div style={{ marginBottom: 4, fontWeight: 600 }}>재고 파일 행수</div>
+            <div style={{ paddingLeft: 8 }}>
+              전체: <strong>{(diagnostic.inventory_total_rows ?? 0).toLocaleString()}</strong>{" / "}
+              상품코드有: <strong>{(diagnostic.inventory_with_code_rows ?? 0).toLocaleString()}</strong>{" / "}
+              가용재고&gt;0: <strong>{(diagnostic.inventory_with_qty_rows ?? 0).toLocaleString()}</strong>
+            </div>
+          </div>
+          <div>
+            <div style={{ marginBottom: 4, fontWeight: 600 }}>재고 파일 헤더 (원문)</div>
+            <div style={{ paddingLeft: 8, fontSize: 11, color: "#475569", wordBreak: "break-all" }}>
+              {(diagnostic.inventory_headers ?? []).map((h, i) => (
+                <span key={i} style={{ display: "inline-block", marginRight: 8 }}>[{i}] {h || "(빈칸)"}</span>
+              ))}
             </div>
           </div>
           <div>

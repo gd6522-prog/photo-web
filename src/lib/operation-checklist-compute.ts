@@ -13,7 +13,7 @@ let strategyMemCache: { key: string; parsed: StrategyParsed } | null = null;
 
 // ── R2 결과 캐시 (모든 인스턴스 공유) ────────────────────────────────────
 // 캐시 키에 버전 suffix 를 두어 계산 로직이 바뀌면 자동으로 옛 캐시가 무효화되도록.
-const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v4.json";
+const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v5.json";
 
 export type ChecklistCounts = {
   location_missing: number;
@@ -70,34 +70,59 @@ async function getLatestKey(prefix: string): Promise<string | null> {
 type InventoryParsed = {
   data: Set<string>;
   rawHeaders: string[];
+  matched: { code: number; qty: number };
+  totalRows: number;
+  withCodeRows: number;
+  withQtyRows: number;
 };
 
 async function fetchAndParseInventory(key: string): Promise<InventoryParsed> {
+  const empty: InventoryParsed = {
+    data: new Set(),
+    rawHeaders: [],
+    matched: { code: -1, qty: -1 },
+    totalRows: 0,
+    withCodeRows: 0,
+    withQtyRows: 0,
+  };
   const buffer = await getR2ObjectBuffer(key);
-  if (!buffer) return { data: new Set(), rawHeaders: [] };
+  if (!buffer) return empty;
   const wb = XLSX.read(buffer, { type: "buffer" });
   const sheet = wb.Sheets[wb.SheetNames[0]];
-  if (!sheet) return { data: new Set(), rawHeaders: [] };
+  if (!sheet) return empty;
 
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" }) as string[][];
-  if (rows.length < 2) return { data: new Set(), rawHeaders: [] };
+  if (rows.length < 2) return { ...empty, totalRows: rows.length };
 
   const rawHeaders = (rows[0] ?? []).map((c) => String(c ?? ""));
   const headers = rows[0].map(normalizeHeader);
   const codeIdx = findHeaderIndex(headers, ["상품코드"]);
   const qtyIdx = findHeaderIndex(headers, ["가용재고"]);
-  if (codeIdx < 0 || qtyIdx < 0) return { data: new Set(), rawHeaders };
+  if (codeIdx < 0 || qtyIdx < 0) {
+    return { ...empty, rawHeaders, matched: { code: codeIdx, qty: qtyIdx }, totalRows: rows.length };
+  }
 
   const result = new Set<string>();
+  let withCodeRows = 0;
+  let withQtyRows = 0;
   for (let i = 1; i < rows.length; i++) {
     const code = String(rows[i][codeIdx] ?? "").trim();
+    if (code) withCodeRows += 1;
     if (!code) continue;
     const qtyRaw = String(rows[i][qtyIdx] ?? "").replace(/,/g, "");
     const qty = parseFloat(qtyRaw);
     if (!Number.isFinite(qty) || qty <= 0) continue;
+    withQtyRows += 1;
     result.add(code);
   }
-  return { data: result, rawHeaders };
+  return {
+    data: result,
+    rawHeaders,
+    matched: { code: codeIdx, qty: qtyIdx },
+    totalRows: rows.length,
+    withCodeRows,
+    withQtyRows,
+  };
 }
 
 type StrategyParsed = {
@@ -197,11 +222,16 @@ export type ChecklistDiagnostic = {
   // 실제 파일에서 읽은 헤더(원문) — 컬럼명 디버깅용
   inventory_headers?: string[];
   strategy_headers?: string[];
-  // 상품별 전략관리 파일 컬럼 매칭 결과 (-1 이면 못찾음)
+  // 컬럼 매칭 결과 (-1 이면 못찾음)
+  inventory_matched?: { code: number; qty: number };
   strategy_matched?: { code: number; cell: number; workType: number; fullBox: number };
   // 사용된 R2 키 (마지막 50자만)
   inventory_key_tail?: string;
   strategy_key_tail?: string;
+  // 재고 파일 행수 통계
+  inventory_total_rows?: number;
+  inventory_with_code_rows?: number;
+  inventory_with_qty_rows?: number;
 };
 
 function tally(stockSet: Set<string>, strategy: Map<string, StrategyRow>): {
@@ -334,9 +364,13 @@ export async function computeChecklistCounts(opts?: { force?: boolean }): Promis
     ...tallyDiag,
     inventory_headers: inventoryParsed.rawHeaders,
     strategy_headers: strategyParsed.rawHeaders,
+    inventory_matched: inventoryParsed.matched,
     strategy_matched: strategyParsed.matched,
     inventory_key_tail: inventoryKey.slice(-50),
     strategy_key_tail: strategyKey.slice(-50),
+    inventory_total_rows: inventoryParsed.totalRows,
+    inventory_with_code_rows: inventoryParsed.withCodeRows,
+    inventory_with_qty_rows: inventoryParsed.withQtyRows,
   };
 
   // R2 캐시에 저장
