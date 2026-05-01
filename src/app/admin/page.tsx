@@ -300,7 +300,8 @@ function getChecklistBadge(counts: ChecklistCounts | null) {
     counts.location_missing > 0 ||
     counts.work_type_missing > 0 ||
     counts.work_type_misconfigured > 0;
-  const hasOrange = counts.full_box_missing > 0 || counts.shipment_below_standard > 0;
+  // 완박스작업 미지정은 메인 배지 카운트·색상에 영향 주지 않음
+  const hasOrange = counts.shipment_below_standard > 0;
 
   if (hasRed) {
     return {
