@@ -49,15 +49,8 @@ async function loadInventoryStockSet(): Promise<Set<string>> {
 
   const headers = rows[0].map(normalizeHeader);
   const codeIdx = findHeaderIndex(headers, ["상품코드"]);
-  const qtyIdx = findHeaderIndex(headers, [
-    "재고수량",
-    "가용재고수량",
-    "가용재고",
-    "현재고수량",
-    "현재고",
-    "총재고",
-    "재고",
-  ]);
+  // 재고 판단 기준: 가용재고만 사용 (다른 재고 컬럼은 무시)
+  const qtyIdx = findHeaderIndex(headers, ["가용재고", "가용재고수량"]);
 
   if (codeIdx < 0 || qtyIdx < 0) return new Set();
 
