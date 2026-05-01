@@ -42,7 +42,7 @@ type ChecklistItem = {
 };
 
 const ITEMS: ChecklistItem[] = [
-  { key: "location_missing", label: "로케이션 미지정" },
+  { key: "location_missing", label: "피킹셀 미지정" },
   { key: "work_type_missing", label: "작업구분 미지정" },
   { key: "work_type_misconfigured", label: "작업구분 설정오류" },
   { key: "full_box_missing", label: "완박스작업 미지정" },

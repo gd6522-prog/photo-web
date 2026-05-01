@@ -2,7 +2,7 @@ import * as XLSX from "xlsx";
 import { getR2ObjectBuffer, getR2ObjectText, listR2Keys, putR2Object } from "@/lib/r2";
 
 // ── 캐시 키 (계산 로직 변경 시 버전 bump) ─────────────────────────────
-const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v11.json";
+const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v12.json";
 
 // ── 타입 ─────────────────────────────────────────────────────────────
 type StrategyRow = {
@@ -298,14 +298,16 @@ async function fetchAndParseWorkcenter(key: string): Promise<WorkcenterParsed> {
 
     if (centerIdx >= 0) {
       const center = normalizeCenterName(rows[i][centerIdx]);
-      if (center === inactiveNormalized) {
+      // 센터명이 비어있거나 "미사용_화성2(상온)" 인 행은 비활성으로 간주
+      if (!center || center === inactiveNormalized) {
         codeHasInactive.set(code, true);
-      } else if (center) {
+      } else {
         codeHasActive.set(code, true);
       }
     }
   }
 
+  // 모든 행이 비활성(미사용 또는 센터명 빈 칸) 인 SKU 만 제외 대상
   for (const [code] of codeHasInactive) {
     if (!codeHasActive.has(code)) inactiveOnlySkus.add(code);
   }
