@@ -49,8 +49,8 @@ async function loadInventoryStockSet(): Promise<Set<string>> {
 
   const headers = rows[0].map(normalizeHeader);
   const codeIdx = findHeaderIndex(headers, ["상품코드"]);
-  // 재고 판단 기준: 가용재고만 사용 (다른 재고 컬럼은 무시)
-  const qtyIdx = findHeaderIndex(headers, ["가용재고", "가용재고수량"]);
+  // 재고 판단 기준: 가용재고만 사용
+  const qtyIdx = findHeaderIndex(headers, ["가용재고"]);
 
   if (codeIdx < 0 || qtyIdx < 0) return new Set();
 
@@ -85,8 +85,8 @@ async function loadProductStrategy(): Promise<Map<string, StrategyRow>> {
   const headers = rows[0].map(normalizeHeader);
   const codeIdx = findHeaderIndex(headers, ["상품코드"]);
   const cellIdx = findHeaderIndex(headers, ["피킹셀"]);
-  const workTypeIdx = findHeaderIndex(headers, ["작업구분", "작업구분코드"]);
-  const fullBoxIdx = findHeaderIndex(headers, ["완박스작업여부", "풀박스작업여부", "완박스여부"]);
+  const workTypeIdx = findHeaderIndex(headers, ["작업구분"]);
+  const fullBoxIdx = findHeaderIndex(headers, ["완박스작업여부"]);
 
   if (codeIdx < 0) return new Map();
 
