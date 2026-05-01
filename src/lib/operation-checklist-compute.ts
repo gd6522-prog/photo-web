@@ -2,7 +2,7 @@ import * as XLSX from "xlsx";
 import { getR2ObjectBuffer, getR2ObjectText, listR2Keys, putR2Object } from "@/lib/r2";
 
 // ── 캐시 키 (계산 로직 변경 시 버전 bump) ─────────────────────────────
-const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v10.json";
+const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v11.json";
 
 // ── 타입 ─────────────────────────────────────────────────────────────
 type StrategyRow = {
@@ -29,6 +29,13 @@ type InventoryLot = {
 
 type WorkcenterRow = {
   shipment_standard_days: number; // 출고기준일수
+};
+
+type WorkcenterParsed = {
+  data: Map<string, WorkcenterRow>;
+  // 작업센터마스터에 등록되어 있으나 모든 행이 "미사용_화성2(상온)" 인 SKU
+  // (로케이션/작업구분 미지정 카운트에서 제외)
+  inactiveOnlySkus: Set<string>;
 };
 
 export type ChecklistCounts = {
@@ -83,7 +90,7 @@ type InventoryParsed = {
 };
 let inventoryMemCache: { key: string; data: InventoryParsed } | null = null;
 let strategyMemCache: { key: string; data: Map<string, StrategyRow> } | null = null;
-let workcenterMemCache: { key: string; data: Map<string, WorkcenterRow> } | null = null;
+let workcenterMemCache: { key: string; data: WorkcenterParsed } | null = null;
 
 // ── 헬퍼 ───────────────────────────────────────────────────────────────
 function normalizeHeader(value: unknown): string {
@@ -251,30 +258,59 @@ async function fetchAndParseStrategy(key: string): Promise<Map<string, StrategyR
 }
 
 // ── 파싱: 작업센터별 취급상품마스터 ─────────────────────────────────────
-async function fetchAndParseWorkcenter(key: string): Promise<Map<string, WorkcenterRow>> {
-  const map = new Map<string, WorkcenterRow>();
+const INACTIVE_CENTER_NAME = "미사용_화성2(상온)";
+
+function normalizeCenterName(value: unknown): string {
+  return String(value ?? "").normalize("NFC").replace(/\s+/g, "");
+}
+
+async function fetchAndParseWorkcenter(key: string): Promise<WorkcenterParsed> {
+  const data = new Map<string, WorkcenterRow>();
+  const inactiveOnlySkus = new Set<string>();
   const buffer = await getR2ObjectBuffer(key);
-  if (!buffer) return map;
+  if (!buffer) return { data, inactiveOnlySkus };
   const wb = XLSX.read(buffer, { type: "buffer" });
   const sheet = wb.Sheets[wb.SheetNames[0]];
-  if (!sheet) return map;
+  if (!sheet) return { data, inactiveOnlySkus };
 
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" }) as string[][];
-  if (rows.length < 2) return map;
+  if (rows.length < 2) return { data, inactiveOnlySkus };
 
   const headers = rows[0].map(normalizeHeader);
   const codeIdx = findHeaderIndex(headers, ["상품코드"]);
   const stdIdx = findHeaderIndex(headers, ["출고기준일수", "출고기준일"]);
-  if (codeIdx < 0 || stdIdx < 0) return map;
+  const centerIdx = findHeaderIndex(headers, ["센터명", "작업센터명", "센터"]);
+  if (codeIdx < 0) return { data, inactiveOnlySkus };
+
+  // SKU 별로 active center 가 하나라도 있는지 추적 → 모두 미사용일 때만 제외
+  const codeHasActive = new Map<string, boolean>();
+  const codeHasInactive = new Map<string, boolean>();
+  const inactiveNormalized = normalizeCenterName(INACTIVE_CENTER_NAME);
 
   for (let i = 1; i < rows.length; i++) {
     const code = String(rows[i][codeIdx] ?? "").trim();
     if (!code) continue;
-    const days = parseFloat(String(rows[i][stdIdx] ?? "").replace(/,/g, ""));
-    if (!Number.isFinite(days)) continue;
-    map.set(code, { shipment_standard_days: days });
+
+    if (stdIdx >= 0 && !data.has(code)) {
+      const days = parseFloat(String(rows[i][stdIdx] ?? "").replace(/,/g, ""));
+      if (Number.isFinite(days)) data.set(code, { shipment_standard_days: days });
+    }
+
+    if (centerIdx >= 0) {
+      const center = normalizeCenterName(rows[i][centerIdx]);
+      if (center === inactiveNormalized) {
+        codeHasInactive.set(code, true);
+      } else if (center) {
+        codeHasActive.set(code, true);
+      }
+    }
   }
-  return map;
+
+  for (const [code] of codeHasInactive) {
+    if (!codeHasActive.has(code)) inactiveOnlySkus.add(code);
+  }
+
+  return { data, inactiveOnlySkus };
 }
 
 async function getInventory(key: string): Promise<InventoryParsed> {
@@ -291,7 +327,7 @@ async function getStrategy(key: string): Promise<Map<string, StrategyRow>> {
   return data;
 }
 
-async function getWorkcenter(key: string): Promise<Map<string, WorkcenterRow>> {
+async function getWorkcenter(key: string): Promise<WorkcenterParsed> {
   if (workcenterMemCache && workcenterMemCache.key === key) return workcenterMemCache.data;
   const data = await fetchAndParseWorkcenter(key);
   workcenterMemCache = { key, data };
@@ -331,7 +367,7 @@ function isFullBoxYes(value: string): boolean {
 function tally(
   inventory: InventoryParsed,
   strategy: Map<string, StrategyRow>,
-  workcenter: Map<string, WorkcenterRow>,
+  workcenter: WorkcenterParsed,
   todayISO: string
 ): {
   counts: ChecklistCounts;
@@ -353,23 +389,29 @@ function tally(
 
     // 상품명에 "공P" 가 포함된 SKU 는 작업구분 미지정 카운트에서 제외 (공병/특수 처리 품목)
     const isGongP = productName.replace(/\s+/g, "").includes("공P");
+    // 작업센터마스터의 모든 행이 "미사용_화성2(상온)" 인 SKU 는 로케이션·작업구분 미지정에서 제외
+    const isInactiveOnly = workcenter.inactiveOnlySkus.has(code);
+    const skipLocation = isInactiveOnly;
+    const skipWorkType = isInactiveOnly || isGongP;
 
     if (!row) {
       // 전략관리 미등록은 로케이션 + 작업구분 둘 다 미지정으로 간주
-      details.location_missing.push({ product_code: code, product_name: productName });
-      if (!isGongP) {
+      if (!skipLocation) {
+        details.location_missing.push({ product_code: code, product_name: productName });
+      }
+      if (!skipWorkType) {
         details.work_type_missing.push({ product_code: code, product_name: productName });
       }
     } else {
       // 1) 로케이션 미지정
-      if (!row.picking_cell) {
+      if (!row.picking_cell && !skipLocation) {
         details.location_missing.push({
           product_code: code,
           product_name: productName,
         });
       }
-      // 2) 작업구분 미지정 (상품명에 "공P" 포함 시 제외)
-      if (!row.work_type && !isGongP) {
+      // 2) 작업구분 미지정 (상품명 "공P" 또는 미사용 전용 SKU 제외)
+      if (!row.work_type && !skipWorkType) {
         details.work_type_missing.push({
           product_code: code,
           product_name: productName,
@@ -408,7 +450,7 @@ function tally(
   // 5) 출고기준미달: (상품코드 + 소비기한) 별 합산된 로트 단위로 검사
   for (const lot of inventory.lots) {
     if (!lot.expiry_date) continue;
-    const wc = workcenter.get(lot.product_code);
+    const wc = workcenter.data.get(lot.product_code);
     if (!wc) continue;
     const cutoff = addDaysToISO(todayISO, wc.shipment_standard_days + 1);
     if (lot.expiry_date > cutoff) continue;
@@ -530,7 +572,9 @@ export async function computeChecklistCounts(opts?: { force?: boolean }): Promis
   const [inventory, strategy, workcenter] = await Promise.all([
     getInventory(inventoryKey),
     getStrategy(strategyKey),
-    workcenterKey ? getWorkcenter(workcenterKey) : Promise.resolve(new Map<string, WorkcenterRow>()),
+    workcenterKey
+      ? getWorkcenter(workcenterKey)
+      : Promise.resolve<WorkcenterParsed>({ data: new Map(), inactiveOnlySkus: new Set() }),
   ]);
 
   const { counts, sources, details } = tally(inventory, strategy, workcenter, todayISO);
