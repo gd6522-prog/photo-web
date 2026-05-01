@@ -13,7 +13,7 @@ let strategyMemCache: { key: string; data: Map<string, StrategyRow> } | null = n
 
 // ── R2 결과 캐시 (모든 인스턴스 공유) ────────────────────────────────────
 // 캐시 키에 버전 suffix 를 두어 계산 로직이 바뀌면 자동으로 옛 캐시가 무효화되도록.
-const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v2.json";
+const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v3.json";
 
 export type ChecklistCounts = {
   location_missing: number;
@@ -33,6 +33,7 @@ type ChecklistCacheEntry = {
   strategy_key: string;
   counts: ChecklistCounts;
   sources: ChecklistSources;
+  diagnostic?: ChecklistDiagnostic;
   computed_at: string;
 };
 
@@ -162,18 +163,33 @@ function isFullBoxYes(value: string): boolean {
   return v === "예" || v === "y" || v === "yes" || v === "true" || v === "1" || v === "o";
 }
 
+export type ChecklistDiagnostic = {
+  // 재고 SKU 중 전략관리에 등록 안 된 수
+  stock_no_strategy: number;
+  // 재고 + 전략관리 매칭 SKU 의 picking_cell prefix 분포
+  prefix_distribution: Record<string, number>;
+  // 07/21~25 매칭 SKU 의 완박스작업여부 raw 값 분포
+  full_box_value_distribution: Record<string, number>;
+};
+
 function tally(stockSet: Set<string>, strategy: Map<string, StrategyRow>): {
   counts: ChecklistCounts;
   sources: ChecklistSources;
+  diagnostic: ChecklistDiagnostic;
 } {
   let locationMissing = 0;
   let workTypeMissing = 0;
   let workTypeMisconfigured = 0;
   let fullBoxMissing = 0;
 
+  let stockNoStrategy = 0;
+  const prefixDistribution: Record<string, number> = {};
+  const fullBoxValueDistribution: Record<string, number> = {};
+
   for (const code of stockSet) {
     const row = strategy.get(code);
     if (!row) {
+      stockNoStrategy += 1;
       locationMissing += 1;
       workTypeMissing += 1;
       continue;
@@ -190,8 +206,13 @@ function tally(stockSet: Set<string>, strategy: Map<string, StrategyRow>): {
     }
     if (row.picking_cell) {
       const prefix = getCellPrefix(row.picking_cell);
-      if (FULL_BOX_REQUIRED_PREFIXES.has(prefix) && !isFullBoxYes(row.full_box_yn)) {
-        fullBoxMissing += 1;
+      prefixDistribution[prefix] = (prefixDistribution[prefix] ?? 0) + 1;
+      if (FULL_BOX_REQUIRED_PREFIXES.has(prefix)) {
+        const rawKey = row.full_box_yn || "(빈칸)";
+        fullBoxValueDistribution[rawKey] = (fullBoxValueDistribution[rawKey] ?? 0) + 1;
+        if (!isFullBoxYes(row.full_box_yn)) {
+          fullBoxMissing += 1;
+        }
       }
     }
   }
@@ -207,6 +228,11 @@ function tally(stockSet: Set<string>, strategy: Map<string, StrategyRow>): {
     sources: {
       inventory_stock_count: stockSet.size,
       strategy_count: strategy.size,
+    },
+    diagnostic: {
+      stock_no_strategy: stockNoStrategy,
+      prefix_distribution: prefixDistribution,
+      full_box_value_distribution: fullBoxValueDistribution,
     },
   };
 }
@@ -237,6 +263,7 @@ async function writeCountsCache(entry: ChecklistCacheEntry): Promise<void> {
 export async function computeChecklistCounts(opts?: { force?: boolean }): Promise<{
   counts: ChecklistCounts;
   sources: ChecklistSources;
+  diagnostic?: ChecklistDiagnostic;
   cache_hit: boolean;
 }> {
   const [inventoryKey, strategyKey] = await Promise.all([
@@ -248,7 +275,7 @@ export async function computeChecklistCounts(opts?: { force?: boolean }): Promis
   if (!opts?.force && inventoryKey && strategyKey) {
     const cached = await readCountsCache();
     if (cached && cached.inventory_key === inventoryKey && cached.strategy_key === strategyKey) {
-      return { counts: cached.counts, sources: cached.sources, cache_hit: true };
+      return { counts: cached.counts, sources: cached.sources, diagnostic: cached.diagnostic, cache_hit: true };
     }
   }
 
@@ -269,7 +296,7 @@ export async function computeChecklistCounts(opts?: { force?: boolean }): Promis
     getStrategy(strategyKey),
   ]);
 
-  const { counts, sources } = tally(stockSet, strategy);
+  const { counts, sources, diagnostic } = tally(stockSet, strategy);
 
   // R2 캐시에 저장
   await writeCountsCache({
@@ -277,8 +304,9 @@ export async function computeChecklistCounts(opts?: { force?: boolean }): Promis
     strategy_key: strategyKey,
     counts,
     sources,
+    diagnostic,
     computed_at: new Date().toISOString(),
   });
 
-  return { counts, sources, cache_hit: false };
+  return { counts, sources, diagnostic, cache_hit: false };
 }

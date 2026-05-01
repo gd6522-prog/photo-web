@@ -9,8 +9,8 @@ export async function GET(req: NextRequest) {
   if (!guard.ok) return guard.res;
 
   try {
-    const { counts, sources } = await computeChecklistCounts();
-    return json(true, undefined, { counts, sources });
+    const { counts, sources, diagnostic } = await computeChecklistCounts();
+    return json(true, undefined, { counts, sources, diagnostic });
   } catch (e) {
     return json(false, e instanceof Error ? e.message : String(e), null, 500);
   }

@@ -16,6 +16,12 @@ type Sources = {
   strategy_count: number;
 };
 
+type Diagnostic = {
+  stock_no_strategy: number;
+  prefix_distribution: Record<string, number>;
+  full_box_value_distribution: Record<string, number>;
+};
+
 type ChecklistItem = {
   label: string;
   count: number | null;
@@ -36,6 +42,8 @@ async function getAdminToken(): Promise<string> {
 export default function OperationChecklistPage() {
   const [counts, setCounts] = useState<Counts | null>(null);
   const [, setSources] = useState<Sources | null>(null);
+  const [diagnostic, setDiagnostic] = useState<Diagnostic | null>(null);
+  const [showDiagnostic, setShowDiagnostic] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -48,13 +56,14 @@ export default function OperationChecklistPage() {
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
       });
-      const payload = (await res.json()) as { ok?: boolean; message?: string; counts?: Counts; sources?: Sources };
+      const payload = (await res.json()) as { ok?: boolean; message?: string; counts?: Counts; sources?: Sources; diagnostic?: Diagnostic };
       if (!res.ok || !payload.ok) {
         setError(payload.message || "데이터를 불러오지 못했습니다.");
         return;
       }
       setCounts(payload.counts ?? null);
       setSources(payload.sources ?? null);
+      setDiagnostic(payload.diagnostic ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "오류가 발생했습니다.");
     } finally {
@@ -80,29 +89,75 @@ export default function OperationChecklistPage() {
     <div style={{ display: "grid", gap: 12, maxWidth: 480, width: "100%", margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: "#0f172a" }}>통합체크리스트</h1>
-        <button
-          type="button"
-          onClick={() => void load()}
-          disabled={loading}
-          style={{
-            border: "1px solid #cbd5f5",
-            background: "#fff",
-            color: "#1f2a44",
-            borderRadius: 6,
-            padding: "5px 12px",
-            fontSize: 12,
-            fontWeight: 700,
-            cursor: loading ? "default" : "pointer",
-            opacity: loading ? 0.6 : 1,
-          }}
-        >
-          {loading ? "불러오는 중…" : "새로고침"}
-        </button>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button
+            type="button"
+            onClick={() => setShowDiagnostic((v) => !v)}
+            style={{
+              border: "1px solid #cbd5f5",
+              background: showDiagnostic ? "#eef2ff" : "#fff",
+              color: "#1f2a44",
+              borderRadius: 6,
+              padding: "5px 12px",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            진단
+          </button>
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={loading}
+            style={{
+              border: "1px solid #cbd5f5",
+              background: "#fff",
+              color: "#1f2a44",
+              borderRadius: 6,
+              padding: "5px 12px",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: loading ? "default" : "pointer",
+              opacity: loading ? 0.6 : 1,
+            }}
+          >
+            {loading ? "불러오는 중…" : "새로고침"}
+          </button>
+        </div>
       </div>
 
       {error && (
         <div style={{ background: "#fee2e2", color: "#991b1b", border: "1px solid #fca5a5", borderRadius: 6, padding: "8px 12px", fontSize: 13 }}>
           {error}
+        </div>
+      )}
+
+      {showDiagnostic && diagnostic && (
+        <div style={{ border: "1px dashed #94a3b8", background: "#f8fafc", padding: 12, fontSize: 12, color: "#334155", display: "grid", gap: 8 }}>
+          <div style={{ fontWeight: 700, color: "#0f172a" }}>진단 정보</div>
+          <div>전략관리에 등록되지 않은 재고 SKU: <strong>{diagnostic.stock_no_strategy.toLocaleString()}</strong>건</div>
+          <div>
+            <div style={{ marginBottom: 4 }}>피킹셀 prefix(앞 2자리) 분포 (재고+전략 매칭):</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 12px", paddingLeft: 8 }}>
+              {Object.entries(diagnostic.prefix_distribution)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([prefix, n]) => (
+                  <span key={prefix}>{prefix}: <strong>{n.toLocaleString()}</strong></span>
+                ))}
+            </div>
+          </div>
+          <div>
+            <div style={{ marginBottom: 4 }}>07 / 21~25 셀의 완박스작업여부 값 분포:</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 12px", paddingLeft: 8 }}>
+              {Object.entries(diagnostic.full_box_value_distribution).length === 0 && <span style={{ color: "#94a3b8" }}>해당 SKU 없음</span>}
+              {Object.entries(diagnostic.full_box_value_distribution)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([val, n]) => (
+                  <span key={val}>{val}: <strong>{n.toLocaleString()}</strong></span>
+                ))}
+            </div>
+          </div>
         </div>
       )}
 
