@@ -77,7 +77,7 @@ export default function OperationChecklistPage() {
   }, [counts]);
 
   return (
-    <div style={{ display: "grid", gap: 12, maxWidth: 480 }}>
+    <div style={{ display: "grid", gap: 12, maxWidth: 480, width: "100%", margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: "#0f172a" }}>통합체크리스트</h1>
         <button

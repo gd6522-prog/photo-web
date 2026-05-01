@@ -25,22 +25,25 @@ function findHeaderIndex(headers: string[], labels: string[]): number {
   return -1;
 }
 
-async function readFirstWorkbook(prefix: string): Promise<XLSX.WorkBook | null> {
+// ── 인메모리 캐시: 파일의 R2 key(타임스탬프 포함)가 같으면 재파싱 안 함 ─────
+type StrategyRow = {
+  picking_cell: string;
+  work_type: string;
+  full_box_yn: string;
+};
+
+let inventoryCache: { key: string; data: Set<string> } | null = null;
+let strategyCache: { key: string; data: Map<string, StrategyRow> } | null = null;
+
+async function getLatestKey(prefix: string): Promise<string | null> {
   const keys = await listR2Keys(prefix);
-  if (keys.length === 0) return null;
-  const buffer = await getR2ObjectBuffer(keys[0]);
-  if (!buffer) return null;
-  try {
-    return XLSX.read(buffer, { type: "buffer" });
-  } catch {
-    return null;
-  }
+  return keys.length === 0 ? null : keys[0];
 }
 
-// ── 재고현황: 상품코드 → 재고수량 매핑 (재고 > 0 인 SKU만) ────────────────
-async function loadInventoryStockSet(): Promise<Set<string>> {
-  const wb = await readFirstWorkbook("file-uploads/inventory-status/");
-  if (!wb) return new Set();
+async function fetchAndParseInventory(key: string): Promise<Set<string>> {
+  const buffer = await getR2ObjectBuffer(key);
+  if (!buffer) return new Set();
+  const wb = XLSX.read(buffer, { type: "buffer" });
   const sheet = wb.Sheets[wb.SheetNames[0]];
   if (!sheet) return new Set();
 
@@ -51,7 +54,6 @@ async function loadInventoryStockSet(): Promise<Set<string>> {
   const codeIdx = findHeaderIndex(headers, ["상품코드"]);
   // 재고 판단 기준: 가용재고만 사용
   const qtyIdx = findHeaderIndex(headers, ["가용재고"]);
-
   if (codeIdx < 0 || qtyIdx < 0) return new Set();
 
   const result = new Set<string>();
@@ -66,16 +68,10 @@ async function loadInventoryStockSet(): Promise<Set<string>> {
   return result;
 }
 
-// ── 상품별 전략관리: 상품코드 → { 피킹셀, 작업구분, 완박스작업여부 } ─────────
-type StrategyRow = {
-  picking_cell: string;
-  work_type: string;
-  full_box_yn: string;
-};
-
-async function loadProductStrategy(): Promise<Map<string, StrategyRow>> {
-  const wb = await readFirstWorkbook("file-uploads/product-strategy/");
-  if (!wb) return new Map();
+async function fetchAndParseStrategy(key: string): Promise<Map<string, StrategyRow>> {
+  const buffer = await getR2ObjectBuffer(key);
+  if (!buffer) return new Map();
+  const wb = XLSX.read(buffer, { type: "buffer" });
   const sheet = wb.Sheets[wb.SheetNames[0]];
   if (!sheet) return new Map();
 
@@ -87,7 +83,6 @@ async function loadProductStrategy(): Promise<Map<string, StrategyRow>> {
   const cellIdx = findHeaderIndex(headers, ["피킹셀"]);
   const workTypeIdx = findHeaderIndex(headers, ["작업구분"]);
   const fullBoxIdx = findHeaderIndex(headers, ["완박스작업여부"]);
-
   if (codeIdx < 0) return new Map();
 
   const map = new Map<string, StrategyRow>();
@@ -101,6 +96,24 @@ async function loadProductStrategy(): Promise<Map<string, StrategyRow>> {
     });
   }
   return map;
+}
+
+async function getInventory(): Promise<Set<string>> {
+  const key = await getLatestKey("file-uploads/inventory-status/");
+  if (!key) return new Set();
+  if (inventoryCache && inventoryCache.key === key) return inventoryCache.data;
+  const data = await fetchAndParseInventory(key);
+  inventoryCache = { key, data };
+  return data;
+}
+
+async function getStrategy(): Promise<Map<string, StrategyRow>> {
+  const key = await getLatestKey("file-uploads/product-strategy/");
+  if (!key) return new Map();
+  if (strategyCache && strategyCache.key === key) return strategyCache.data;
+  const data = await fetchAndParseStrategy(key);
+  strategyCache = { key, data };
+  return data;
 }
 
 // ── 피킹셀 prefix(앞 2자리) → 작업구분명 매핑표 ──────────────────────────
@@ -141,10 +154,7 @@ export async function GET(req: NextRequest) {
   if (!guard.ok) return guard.res;
 
   try {
-    const [stockSet, strategy] = await Promise.all([
-      loadInventoryStockSet(),
-      loadProductStrategy(),
-    ]);
+    const [stockSet, strategy] = await Promise.all([getInventory(), getStrategy()]);
 
     let locationMissing = 0;
     let workTypeMissing = 0;
@@ -160,16 +170,11 @@ export async function GET(req: NextRequest) {
         continue;
       }
 
-      // 1) 로케이션 미지정: 피킹셀이 빈 SKU
-      if (!row.picking_cell) {
-        locationMissing += 1;
-      }
+      if (!row.picking_cell) locationMissing += 1;
 
-      // 2) 작업구분 미지정: 작업구분이 빈 SKU
       if (!row.work_type) {
         workTypeMissing += 1;
       } else if (row.picking_cell) {
-        // 3) 작업구분 설정오류: 피킹셀 prefix와 작업구분이 매핑표와 안맞음
         const prefix = getCellPrefix(row.picking_cell);
         const expected = CELL_PREFIX_TO_WORK_TYPE[prefix];
         if (expected && normalizeWorkType(expected) !== normalizeWorkType(row.work_type)) {
@@ -177,7 +182,6 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // 4) 완박스작업 미지정: 07 또는 21~25 인데 완박스작업여부가 "예"가 아닌 SKU
       if (row.picking_cell) {
         const prefix = getCellPrefix(row.picking_cell);
         if (FULL_BOX_REQUIRED_PREFIXES.has(prefix) && !isFullBoxYes(row.full_box_yn)) {
