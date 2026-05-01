@@ -1609,26 +1609,34 @@ function buildCargoDraftWithSep(rows: ProductRow[], sepMap: Record<string, numbe
 // cargoRows 재계산 후 note/support_excluded만 보존 (파일 업로드 시 사용)
 function mergeCargoPreserve(existing: CargoRow[], rebuilt: CargoRow[]): CargoRow[] {
   const existingMap = new Map(existing.map((r) => [r.id, r]));
-  return rebuilt.map((newRow) => {
+  const merged = rebuilt.map((newRow) => {
     const ex = existingMap.get(newRow.id);
     if (!ex) return newRow;
     return { ...newRow, note: ex.note, support_excluded: ex.support_excluded };
   });
+  // 점포마스터에서 가져온 발주 없는 점포(rebuilt에 없는 점포명) 유지
+  const rebuiltNameSet = new Set(rebuilt.map((r) => normalizeStoreName(r.store_name)));
+  const preserved = existing.filter((r) => !rebuiltNameSet.has(normalizeStoreName(r.store_name)));
+  return [...merged, ...preserved];
 }
 
 // sep 재계산 시 사용자 수동 수정값(기존값 != 재계산값인 필드) 보존
 const CARGO_NUMERIC_KEYS = ['large_box', 'large_inner', 'large_other', 'large_day2l', 'large_nb2l', 'small_low', 'small_high', 'event', 'tobacco', 'certificate', 'cdc', 'pbox'] as const;
 function mergeCargoPreserveSmart(existing: CargoRow[], rebuilt: CargoRow[]): CargoRow[] {
   const existingMap = new Map(existing.map((r) => [r.id, r]));
-  return rebuilt.map((newRow) => {
+  const merged = rebuilt.map((newRow) => {
     const ex = existingMap.get(newRow.id);
     if (!ex) return newRow;
-    const merged: CargoRow = { ...newRow, note: ex.note, support_excluded: ex.support_excluded };
+    const mergedRow: CargoRow = { ...newRow, note: ex.note, support_excluded: ex.support_excluded };
     for (const key of CARGO_NUMERIC_KEYS) {
-      if (ex[key] !== newRow[key]) merged[key] = ex[key]; // 사용자 수동 수정값 유지
+      if (ex[key] !== newRow[key]) mergedRow[key] = ex[key]; // 사용자 수동 수정값 유지
     }
-    return merged;
+    return mergedRow;
   });
+  // 점포마스터에서 가져온 발주 없는 점포(rebuilt에 없는 점포명) 유지
+  const rebuiltNameSet = new Set(rebuilt.map((r) => normalizeStoreName(r.store_name)));
+  const preserved = existing.filter((r) => !rebuiltNameSet.has(normalizeStoreName(r.store_name)));
+  return [...merged, ...preserved];
 }
 
 function buildCargoDraft(rows: ProductRow[]) {
