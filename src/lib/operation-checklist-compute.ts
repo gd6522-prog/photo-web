@@ -12,7 +12,8 @@ let inventoryMemCache: { key: string; data: Set<string> } | null = null;
 let strategyMemCache: { key: string; data: Map<string, StrategyRow> } | null = null;
 
 // ── R2 결과 캐시 (모든 인스턴스 공유) ────────────────────────────────────
-const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache.json";
+// 캐시 키에 버전 suffix 를 두어 계산 로직이 바뀌면 자동으로 옛 캐시가 무효화되도록.
+const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v2.json";
 
 export type ChecklistCounts = {
   location_missing: number;
@@ -149,9 +150,11 @@ const CELL_PREFIX_TO_WORK_TYPE: Record<string, string> = {
 const FULL_BOX_REQUIRED_PREFIXES = new Set(["07", "21", "22", "23", "24", "25"]);
 
 function getCellPrefix(cell: string): string {
+  // 피킹셀은 00-00-000(7자리) 형식. Excel 이 숫자로 저장하며 선두 0 을 잘라낸 경우(예: "07" → 7)
+  // 7자리로 좌측 0 패딩한 뒤 앞 2자리를 prefix 로 사용한다.
   const digits = cell.replace(/\D/g, "");
-  if (digits.length < 2) return "";
-  return digits.slice(0, 2);
+  if (!digits) return "";
+  return digits.padStart(7, "0").slice(0, 2);
 }
 
 function isFullBoxYes(value: string): boolean {
