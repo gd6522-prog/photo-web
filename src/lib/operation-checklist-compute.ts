@@ -2,7 +2,7 @@ import * as XLSX from "xlsx";
 import { getR2ObjectBuffer, getR2ObjectText, listR2Keys, putR2Object } from "@/lib/r2";
 
 // ── 캐시 키 (계산 로직 변경 시 버전 bump) ─────────────────────────────
-const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v9.json";
+const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v10.json";
 
 // ── 타입 ─────────────────────────────────────────────────────────────
 type StrategyRow = {
@@ -15,8 +15,16 @@ type StrategyRow = {
 type InventorySku = {
   product_code: string;
   product_name: string;
-  qty: number; // 가용수량 합계
+  qty: number; // 가용수량 합계 (모든 로트)
   expiry_date: string; // 가장 빠른 소비기한 (YYYY-MM-DD)
+};
+
+// (상품코드 + 소비기한) 단위로 합쳐진 로트 — 로트는 다르지만 같은 소비기한이면 합산
+type InventoryLot = {
+  product_code: string;
+  product_name: string;
+  expiry_date: string;
+  qty: number;
 };
 
 type WorkcenterRow = {
@@ -69,7 +77,11 @@ type ChecklistCacheEntry = {
 };
 
 // ── 모듈 인메모리 캐시 ─────────────────────────────────────────────────
-let inventoryMemCache: { key: string; data: Map<string, InventorySku> } | null = null;
+type InventoryParsed = {
+  byCode: Map<string, InventorySku>;
+  lots: InventoryLot[];
+};
+let inventoryMemCache: { key: string; data: InventoryParsed } | null = null;
 let strategyMemCache: { key: string; data: Map<string, StrategyRow> } | null = null;
 let workcenterMemCache: { key: string; data: Map<string, WorkcenterRow> } | null = null;
 
@@ -150,23 +162,24 @@ function diffDaysISO(iso1: string, iso2: string): number {
 }
 
 // ── 파싱: 재고현황 ─────────────────────────────────────────────────────
-async function fetchAndParseInventory(key: string): Promise<Map<string, InventorySku>> {
-  const result = new Map<string, InventorySku>();
+async function fetchAndParseInventory(key: string): Promise<InventoryParsed> {
+  const byCode = new Map<string, InventorySku>();
+  const lotMap = new Map<string, InventoryLot>(); // key = `${code}|${expiry}`
   const buffer = await getR2ObjectBuffer(key);
-  if (!buffer) return result;
+  if (!buffer) return { byCode, lots: [] };
   const wb = XLSX.read(buffer, { type: "buffer" });
   const sheet = wb.Sheets[wb.SheetNames[0]];
-  if (!sheet) return result;
+  if (!sheet) return { byCode, lots: [] };
 
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" }) as string[][];
-  if (rows.length < 2) return result;
+  if (rows.length < 2) return { byCode, lots: [] };
 
   const headers = rows[0].map(normalizeHeader);
   const codeIdx = findHeaderIndex(headers, ["상품코드"]);
   const nameIdx = findHeaderIndex(headers, ["상품명"]);
   const qtyIdx = findHeaderIndex(headers, ["가용수량", "가용재고"]);
   const expiryIdx = findHeaderIndex(headers, ["소비기한", "유통기한"]);
-  if (codeIdx < 0 || qtyIdx < 0) return result;
+  if (codeIdx < 0 || qtyIdx < 0) return { byCode, lots: [] };
 
   for (let i = 1; i < rows.length; i++) {
     const code = String(rows[i][codeIdx] ?? "").trim();
@@ -178,19 +191,30 @@ async function fetchAndParseInventory(key: string): Promise<Map<string, Inventor
     const name = nameIdx >= 0 ? String(rows[i][nameIdx] ?? "").trim() : "";
     const expiry = expiryIdx >= 0 ? normalizeDate(rows[i][expiryIdx]) : "";
 
-    const existing = result.get(code);
+    // 상품코드별 집계 (전체 합산, 가장 빠른 소비기한)
+    const existing = byCode.get(code);
     if (!existing) {
-      result.set(code, { product_code: code, product_name: name, qty, expiry_date: expiry });
+      byCode.set(code, { product_code: code, product_name: name, qty, expiry_date: expiry });
     } else {
       existing.qty += qty;
-      // 가장 빠른(=작은) 소비기한 유지
       if (expiry && (!existing.expiry_date || expiry < existing.expiry_date)) {
         existing.expiry_date = expiry;
       }
       if (!existing.product_name && name) existing.product_name = name;
     }
+
+    // (상품코드 + 소비기한) 별 로트 합산 — 로트는 다르지만 같은 소비기한이면 가용수량 합산
+    const lotKey = `${code}|${expiry}`;
+    const lot = lotMap.get(lotKey);
+    if (!lot) {
+      lotMap.set(lotKey, { product_code: code, product_name: name, expiry_date: expiry, qty });
+    } else {
+      lot.qty += qty;
+      if (!lot.product_name && name) lot.product_name = name;
+    }
   }
-  return result;
+
+  return { byCode, lots: [...lotMap.values()] };
 }
 
 // ── 파싱: 상품별 전략관리 ──────────────────────────────────────────────
@@ -253,7 +277,7 @@ async function fetchAndParseWorkcenter(key: string): Promise<Map<string, Workcen
   return map;
 }
 
-async function getInventory(key: string): Promise<Map<string, InventorySku>> {
+async function getInventory(key: string): Promise<InventoryParsed> {
   if (inventoryMemCache && inventoryMemCache.key === key) return inventoryMemCache.data;
   const data = await fetchAndParseInventory(key);
   inventoryMemCache = { key, data };
@@ -305,7 +329,7 @@ function isFullBoxYes(value: string): boolean {
 
 // ── 집계 ───────────────────────────────────────────────────────────────
 function tally(
-  inventory: Map<string, InventorySku>,
+  inventory: InventoryParsed,
   strategy: Map<string, StrategyRow>,
   workcenter: Map<string, WorkcenterRow>,
   todayISO: string
@@ -322,7 +346,8 @@ function tally(
     shipment_below_standard: [],
   };
 
-  for (const [code, sku] of inventory) {
+  // 상품코드 단위 검사 (로케이션/작업구분/완박스)
+  for (const [code, sku] of inventory.byCode) {
     const row = strategy.get(code);
     const productName = row?.product_name || sku.product_name || "";
 
@@ -378,23 +403,26 @@ function tally(
       }
     }
 
-    // 5) 출고기준미달: 가용수량≥1 인 SKU 의 소비기한 ≤ 오늘 + 출고기준일수 + 1
-    const wc = workcenter.get(code);
-    if (wc && sku.expiry_date) {
-      const cutoff = addDaysToISO(todayISO, wc.shipment_standard_days + 1);
-      if (sku.expiry_date <= cutoff) {
-        details.shipment_below_standard.push({
-          product_code: code,
-          product_name: productName,
-          picking_cell: row?.picking_cell ?? "",
-          expiry_date: sku.expiry_date,
-          shipment_standard_days: wc.shipment_standard_days,
-          cutoff_date: cutoff,
-          qty: sku.qty,
-          days_short: diffDaysISO(cutoff, sku.expiry_date),
-        });
-      }
-    }
+  }
+
+  // 5) 출고기준미달: (상품코드 + 소비기한) 별 합산된 로트 단위로 검사
+  for (const lot of inventory.lots) {
+    if (!lot.expiry_date) continue;
+    const wc = workcenter.get(lot.product_code);
+    if (!wc) continue;
+    const cutoff = addDaysToISO(todayISO, wc.shipment_standard_days + 1);
+    if (lot.expiry_date > cutoff) continue;
+    const stratRow = strategy.get(lot.product_code);
+    details.shipment_below_standard.push({
+      product_code: lot.product_code,
+      product_name: stratRow?.product_name || lot.product_name,
+      picking_cell: stratRow?.picking_cell ?? "",
+      expiry_date: lot.expiry_date,
+      shipment_standard_days: wc.shipment_standard_days,
+      cutoff_date: cutoff,
+      qty: lot.qty,
+      days_short: diffDaysISO(cutoff, lot.expiry_date),
+    });
   }
 
   // 정렬
@@ -405,8 +433,10 @@ function tally(
   details.full_box_missing.sort((a, b) =>
     (a.picking_cell ?? "").localeCompare(b.picking_cell ?? "", "ko", { numeric: true })
   );
-  // 출고기준미달: 미달일수 큰 순(가장 시급한 것부터)
-  details.shipment_below_standard.sort((a, b) => (b.days_short ?? 0) - (a.days_short ?? 0));
+  // 출고기준미달: 피킹셀 오름차순
+  details.shipment_below_standard.sort((a, b) =>
+    (a.picking_cell ?? "").localeCompare(b.picking_cell ?? "", "ko", { numeric: true })
+  );
 
   return {
     counts: {
@@ -417,7 +447,7 @@ function tally(
       shipment_below_standard: details.shipment_below_standard.length,
     },
     sources: {
-      inventory_stock_count: inventory.size,
+      inventory_stock_count: inventory.byCode.size,
       strategy_count: strategy.size,
     },
     details,

@@ -251,10 +251,18 @@ type DetailColumn = {
   muted?: boolean;
 };
 
+function formatPickingCell(cell: string): string {
+  if (!cell) return "-";
+  const digits = cell.replace(/\D/g, "");
+  if (!digits) return cell;
+  const padded = digits.padStart(7, "0");
+  return `${padded.slice(0, 2)}-${padded.slice(2, 4)}-${padded.slice(4, 7)}`;
+}
+
 function detailColumns(kind: ItemKey): DetailColumn[] {
   const codeCol: DetailColumn = { key: "code", label: "상품코드", render: (it) => it.product_code, align: "center" };
-  const nameCol: DetailColumn = { key: "name", label: "상품명", render: (it) => it.product_name || "-" };
-  const cellCol: DetailColumn = { key: "cell", label: "피킹셀", render: (it) => it.picking_cell || "-", align: "center" };
+  const nameCol: DetailColumn = { key: "name", label: "상품명", render: (it) => it.product_name || "-", align: "center" };
+  const cellCol: DetailColumn = { key: "cell", label: "피킹셀", render: (it) => formatPickingCell(it.picking_cell ?? ""), align: "center" };
 
   switch (kind) {
     case "location_missing":
@@ -281,14 +289,14 @@ function detailColumns(kind: ItemKey): DetailColumn[] {
         cellCol,
         codeCol,
         nameCol,
-        { key: "qty", label: "가용수량", render: (it) => (it.qty ?? 0).toLocaleString(), align: "right" },
+        { key: "qty", label: "가용수량", render: (it) => (it.qty ?? 0).toLocaleString(), align: "center" },
         { key: "exp", label: "소비기한", render: (it) => it.expiry_date || "-", align: "center" },
         { key: "cut", label: "기준일", render: (it) => it.cutoff_date || "-", align: "center", muted: true },
         {
           key: "ds",
           label: "미달일수",
           render: (it) => (it.days_short != null ? `${it.days_short.toLocaleString()}일` : "-"),
-          align: "right",
+          align: "center",
         },
       ];
     default:
