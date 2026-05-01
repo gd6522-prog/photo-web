@@ -8,12 +8,12 @@ type StrategyRow = {
   full_box_yn: string;
 };
 
-let inventoryMemCache: { key: string; data: Set<string> } | null = null;
-let strategyMemCache: { key: string; data: Map<string, StrategyRow> } | null = null;
+let inventoryMemCache: { key: string; parsed: InventoryParsed } | null = null;
+let strategyMemCache: { key: string; parsed: StrategyParsed } | null = null;
 
 // ── R2 결과 캐시 (모든 인스턴스 공유) ────────────────────────────────────
 // 캐시 키에 버전 suffix 를 두어 계산 로직이 바뀌면 자동으로 옛 캐시가 무효화되도록.
-const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v3.json";
+const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v4.json";
 
 export type ChecklistCounts = {
   location_missing: number;
@@ -39,6 +39,7 @@ type ChecklistCacheEntry = {
 
 function normalizeHeader(value: unknown): string {
   return String(value ?? "")
+    .normalize("NFC") // 한글 자모 분리 형태(ㅍㅣㅋㅣㅇㅅㅔㄹ) → 완성형 통일
     .trim()
     .replace(/\s+/g, "")
     .replace(/\*/g, "")
@@ -59,23 +60,33 @@ function findHeaderIndex(headers: string[], labels: string[]): number {
 
 async function getLatestKey(prefix: string): Promise<string | null> {
   const keys = await listR2Keys(prefix);
-  return keys.length === 0 ? null : keys[0];
+  if (keys.length === 0) return null;
+  // R2 list 는 lexicographic ASC 반환. 파일명에 _YYYYMMDD_ 패턴이 있으면
+  // 사전순 가장 큰 값이 최신이므로 desc 정렬 후 첫 번째 사용.
+  const sorted = [...keys].sort().reverse();
+  return sorted[0];
 }
 
-async function fetchAndParseInventory(key: string): Promise<Set<string>> {
+type InventoryParsed = {
+  data: Set<string>;
+  rawHeaders: string[];
+};
+
+async function fetchAndParseInventory(key: string): Promise<InventoryParsed> {
   const buffer = await getR2ObjectBuffer(key);
-  if (!buffer) return new Set();
+  if (!buffer) return { data: new Set(), rawHeaders: [] };
   const wb = XLSX.read(buffer, { type: "buffer" });
   const sheet = wb.Sheets[wb.SheetNames[0]];
-  if (!sheet) return new Set();
+  if (!sheet) return { data: new Set(), rawHeaders: [] };
 
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" }) as string[][];
-  if (rows.length < 2) return new Set();
+  if (rows.length < 2) return { data: new Set(), rawHeaders: [] };
 
+  const rawHeaders = (rows[0] ?? []).map((c) => String(c ?? ""));
   const headers = rows[0].map(normalizeHeader);
   const codeIdx = findHeaderIndex(headers, ["상품코드"]);
   const qtyIdx = findHeaderIndex(headers, ["가용재고"]);
-  if (codeIdx < 0 || qtyIdx < 0) return new Set();
+  if (codeIdx < 0 || qtyIdx < 0) return { data: new Set(), rawHeaders };
 
   const result = new Set<string>();
   for (let i = 1; i < rows.length; i++) {
@@ -86,25 +97,38 @@ async function fetchAndParseInventory(key: string): Promise<Set<string>> {
     if (!Number.isFinite(qty) || qty <= 0) continue;
     result.add(code);
   }
-  return result;
+  return { data: result, rawHeaders };
 }
 
-async function fetchAndParseStrategy(key: string): Promise<Map<string, StrategyRow>> {
+type StrategyParsed = {
+  data: Map<string, StrategyRow>;
+  rawHeaders: string[];
+  matched: { code: number; cell: number; workType: number; fullBox: number };
+};
+
+async function fetchAndParseStrategy(key: string): Promise<StrategyParsed> {
+  const empty: StrategyParsed = {
+    data: new Map(),
+    rawHeaders: [],
+    matched: { code: -1, cell: -1, workType: -1, fullBox: -1 },
+  };
   const buffer = await getR2ObjectBuffer(key);
-  if (!buffer) return new Map();
+  if (!buffer) return empty;
   const wb = XLSX.read(buffer, { type: "buffer" });
   const sheet = wb.Sheets[wb.SheetNames[0]];
-  if (!sheet) return new Map();
+  if (!sheet) return empty;
 
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" }) as string[][];
-  if (rows.length < 2) return new Map();
+  if (rows.length < 2) return empty;
 
+  const rawHeaders = (rows[0] ?? []).map((c) => String(c ?? ""));
   const headers = rows[0].map(normalizeHeader);
   const codeIdx = findHeaderIndex(headers, ["상품코드"]);
   const cellIdx = findHeaderIndex(headers, ["피킹셀"]);
   const workTypeIdx = findHeaderIndex(headers, ["작업구분"]);
   const fullBoxIdx = findHeaderIndex(headers, ["완박스작업여부"]);
-  if (codeIdx < 0) return new Map();
+  const matched = { code: codeIdx, cell: cellIdx, workType: workTypeIdx, fullBox: fullBoxIdx };
+  if (codeIdx < 0) return { ...empty, rawHeaders, matched };
 
   const map = new Map<string, StrategyRow>();
   for (let i = 1; i < rows.length; i++) {
@@ -116,21 +140,21 @@ async function fetchAndParseStrategy(key: string): Promise<Map<string, StrategyR
       full_box_yn: fullBoxIdx >= 0 ? String(rows[i][fullBoxIdx] ?? "").trim() : "",
     });
   }
-  return map;
+  return { data: map, rawHeaders, matched };
 }
 
-async function getInventory(key: string): Promise<Set<string>> {
-  if (inventoryMemCache && inventoryMemCache.key === key) return inventoryMemCache.data;
-  const data = await fetchAndParseInventory(key);
-  inventoryMemCache = { key, data };
-  return data;
+async function getInventory(key: string): Promise<InventoryParsed> {
+  if (inventoryMemCache && inventoryMemCache.key === key) return inventoryMemCache.parsed;
+  const parsed = await fetchAndParseInventory(key);
+  inventoryMemCache = { key, parsed };
+  return parsed;
 }
 
-async function getStrategy(key: string): Promise<Map<string, StrategyRow>> {
-  if (strategyMemCache && strategyMemCache.key === key) return strategyMemCache.data;
-  const data = await fetchAndParseStrategy(key);
-  strategyMemCache = { key, data };
-  return data;
+async function getStrategy(key: string): Promise<StrategyParsed> {
+  if (strategyMemCache && strategyMemCache.key === key) return strategyMemCache.parsed;
+  const parsed = await fetchAndParseStrategy(key);
+  strategyMemCache = { key, parsed };
+  return parsed;
 }
 
 const CELL_PREFIX_TO_WORK_TYPE: Record<string, string> = {
@@ -170,6 +194,14 @@ export type ChecklistDiagnostic = {
   prefix_distribution: Record<string, number>;
   // 07/21~25 매칭 SKU 의 완박스작업여부 raw 값 분포
   full_box_value_distribution: Record<string, number>;
+  // 실제 파일에서 읽은 헤더(원문) — 컬럼명 디버깅용
+  inventory_headers?: string[];
+  strategy_headers?: string[];
+  // 상품별 전략관리 파일 컬럼 매칭 결과 (-1 이면 못찾음)
+  strategy_matched?: { code: number; cell: number; workType: number; fullBox: number };
+  // 사용된 R2 키 (마지막 50자만)
+  inventory_key_tail?: string;
+  strategy_key_tail?: string;
 };
 
 function tally(stockSet: Set<string>, strategy: Map<string, StrategyRow>): {
@@ -291,12 +323,21 @@ export async function computeChecklistCounts(opts?: { force?: boolean }): Promis
     return { counts: empty, sources: { inventory_stock_count: 0, strategy_count: 0 }, cache_hit: false };
   }
 
-  const [stockSet, strategy] = await Promise.all([
+  const [inventoryParsed, strategyParsed] = await Promise.all([
     getInventory(inventoryKey),
     getStrategy(strategyKey),
   ]);
 
-  const { counts, sources, diagnostic } = tally(stockSet, strategy);
+  const { counts, sources, diagnostic: tallyDiag } = tally(inventoryParsed.data, strategyParsed.data);
+
+  const diagnostic: ChecklistDiagnostic = {
+    ...tallyDiag,
+    inventory_headers: inventoryParsed.rawHeaders,
+    strategy_headers: strategyParsed.rawHeaders,
+    strategy_matched: strategyParsed.matched,
+    inventory_key_tail: inventoryKey.slice(-50),
+    strategy_key_tail: strategyKey.slice(-50),
+  };
 
   // R2 캐시에 저장
   await writeCountsCache({

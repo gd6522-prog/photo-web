@@ -20,6 +20,11 @@ type Diagnostic = {
   stock_no_strategy: number;
   prefix_distribution: Record<string, number>;
   full_box_value_distribution: Record<string, number>;
+  inventory_headers?: string[];
+  strategy_headers?: string[];
+  strategy_matched?: { code: number; cell: number; workType: number; fullBox: number };
+  inventory_key_tail?: string;
+  strategy_key_tail?: string;
 };
 
 type ChecklistItem = {
@@ -134,12 +139,37 @@ export default function OperationChecklistPage() {
       )}
 
       {showDiagnostic && diagnostic && (
-        <div style={{ border: "1px dashed #94a3b8", background: "#f8fafc", padding: 12, fontSize: 12, color: "#334155", display: "grid", gap: 8 }}>
+        <div style={{ border: "1px dashed #94a3b8", background: "#f8fafc", padding: 12, fontSize: 12, color: "#334155", display: "grid", gap: 10 }}>
           <div style={{ fontWeight: 700, color: "#0f172a" }}>진단 정보</div>
-          <div>전략관리에 등록되지 않은 재고 SKU: <strong>{diagnostic.stock_no_strategy.toLocaleString()}</strong>건</div>
+          <div>전략관리 미등록 재고 SKU: <strong>{diagnostic.stock_no_strategy.toLocaleString()}</strong>건</div>
           <div>
-            <div style={{ marginBottom: 4 }}>피킹셀 prefix(앞 2자리) 분포 (재고+전략 매칭):</div>
+            <div style={{ marginBottom: 4, fontWeight: 600 }}>사용 파일</div>
+            <div style={{ paddingLeft: 8, fontSize: 11, color: "#475569", wordBreak: "break-all" }}>
+              <div>재고: …{diagnostic.inventory_key_tail ?? "(없음)"}</div>
+              <div>전략: …{diagnostic.strategy_key_tail ?? "(없음)"}</div>
+            </div>
+          </div>
+          <div>
+            <div style={{ marginBottom: 4, fontWeight: 600 }}>전략관리 컬럼 매칭 (-1 이면 못찾음)</div>
+            <div style={{ paddingLeft: 8 }}>
+              상품코드: <strong>{diagnostic.strategy_matched?.code ?? "-"}</strong>{" / "}
+              피킹셀: <strong style={{ color: (diagnostic.strategy_matched?.cell ?? -1) < 0 ? "#dc2626" : "#0f172a" }}>{diagnostic.strategy_matched?.cell ?? "-"}</strong>{" / "}
+              작업구분: <strong style={{ color: (diagnostic.strategy_matched?.workType ?? -1) < 0 ? "#dc2626" : "#0f172a" }}>{diagnostic.strategy_matched?.workType ?? "-"}</strong>{" / "}
+              완박스: <strong style={{ color: (diagnostic.strategy_matched?.fullBox ?? -1) < 0 ? "#dc2626" : "#0f172a" }}>{diagnostic.strategy_matched?.fullBox ?? "-"}</strong>
+            </div>
+          </div>
+          <div>
+            <div style={{ marginBottom: 4, fontWeight: 600 }}>전략관리 파일 헤더 (원문)</div>
+            <div style={{ paddingLeft: 8, fontSize: 11, color: "#475569", wordBreak: "break-all" }}>
+              {(diagnostic.strategy_headers ?? []).map((h, i) => (
+                <span key={i} style={{ display: "inline-block", marginRight: 8 }}>[{i}] {h || "(빈칸)"}</span>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div style={{ marginBottom: 4, fontWeight: 600 }}>피킹셀 prefix(앞 2자리) 분포</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 12px", paddingLeft: 8 }}>
+              {Object.entries(diagnostic.prefix_distribution).length === 0 && <span style={{ color: "#94a3b8" }}>없음</span>}
               {Object.entries(diagnostic.prefix_distribution)
                 .sort(([a], [b]) => a.localeCompare(b))
                 .map(([prefix, n]) => (
@@ -148,7 +178,7 @@ export default function OperationChecklistPage() {
             </div>
           </div>
           <div>
-            <div style={{ marginBottom: 4 }}>07 / 21~25 셀의 완박스작업여부 값 분포:</div>
+            <div style={{ marginBottom: 4, fontWeight: 600 }}>07 / 21~25 셀의 완박스작업여부 값 분포</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 12px", paddingLeft: 8 }}>
               {Object.entries(diagnostic.full_box_value_distribution).length === 0 && <span style={{ color: "#94a3b8" }}>해당 SKU 없음</span>}
               {Object.entries(diagnostic.full_box_value_distribution)
