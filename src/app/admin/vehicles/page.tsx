@@ -3025,7 +3025,9 @@ export function VehiclePageScreen({
     iframe.style.left = "-10000px";
     iframe.style.top = "0";
     iframe.style.width = "1200px";
-    iframe.style.height = "900px";
+    // Chrome 일부 환경에서 iframe 가시 높이만큼만 인쇄되어 뒷페이지가 흰 종이로 나오는 문제 방지.
+    // 페이지(shell) 1개당 약 794px(A4 가로 기준 210mm)이라 여유분 포함하여 높이 동적 계산.
+    iframe.style.height = `${Math.max(900, shells.length * 800 + 200)}px`;
     iframe.style.border = "0";
     iframe.style.opacity = "0";
     iframe.style.pointerEvents = "none";
