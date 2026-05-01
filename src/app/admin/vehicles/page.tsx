@@ -3029,20 +3029,22 @@ export function VehiclePageScreen({
     // 페이지(shell) 1개당 약 794px(A4 가로 기준 210mm)이라 여유분 포함하여 높이 동적 계산.
     iframe.style.height = `${Math.max(900, shells.length * 800 + 200)}px`;
     iframe.style.border = "0";
-    iframe.style.opacity = "0";
+    // opacity:0 또는 visibility:hidden 은 Chrome 의 페인팅 최적화로 일부 페이지가
+    // 렌더링되지 않은 채 인쇄될 수 있어 사용하지 않는다. 좌측으로 충분히 밀어 화면 밖으로만 빼둔다.
     iframe.style.pointerEvents = "none";
     document.body.appendChild(iframe);
 
     // Chrome은 onafterprint를 인쇄 다이얼로그가 닫힌 직후(실제 스풀 도중) 발생시키므로,
     // iframe을 즉시 제거하면 페이지가 많을 때 끝부분이 빈 페이지로 출력된다.
-    // 충분히 긴 지연(15초) 후에만 정리한다.
+    // 페이지 수에 비례하여 충분히 긴 지연 후에만 정리한다 (페이지 1개당 약 1.2초, 최소 15초).
+    const cleanupDelayMs = Math.max(15000, shells.length * 1200);
     let cleanupTimerId = 0;
     const cleanup = () => {
       window.clearTimeout(cleanupTimerId);
       cleanupTimerId = window.setTimeout(() => {
         iframe.remove();
         onAfterPrint?.();
-      }, 15000);
+      }, cleanupDelayMs);
     };
 
     const printWindow = iframe.contentWindow;
@@ -3222,8 +3224,25 @@ export function VehiclePageScreen({
         if (fonts?.ready) {
           try { await fonts.ready; } catch {}
         }
-        // 강제 reflow로 모든 페이지 레이아웃이 계산되었는지 확인
+        // 이미지(로고 등) 로드 대기 — 페인팅이 완료되지 않은 채 print()가 발사되면 빈 페이지로 출력됨
+        const images = Array.from(printWindow.document.images);
+        await Promise.all(
+          images.map((img) =>
+            img.complete && img.naturalWidth > 0
+              ? Promise.resolve()
+              : new Promise<void>((resolve) => {
+                  const done = () => resolve();
+                  img.addEventListener("load", done, { once: true });
+                  img.addEventListener("error", done, { once: true });
+                })
+          )
+        );
+        // 강제 reflow + 두 번의 rAF 로 모든 페이지 레이아웃·페인팅이 완료되도록 보장
         void printWindow.document.body.offsetHeight;
+        await new Promise<void>((resolve) => printWindow.requestAnimationFrame(() => resolve()));
+        await new Promise<void>((resolve) => printWindow.requestAnimationFrame(() => resolve()));
+        // 페이지 수에 비례한 추가 안정화 시간 (호차당 60ms, 최대 2초)
+        await new Promise<void>((resolve) => window.setTimeout(resolve, Math.min(2000, shells.length * 60)));
         printWindow.focus();
         printWindow.print();
       } catch {
