@@ -543,7 +543,7 @@ const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
                     onMouseLeave={() => closeDropdownDelayed("operation")}
                     style={{ position: "relative" }}
                   >
-                    <Link href="/admin/operation" className={isOperationActive ? "nav-pill-active" : "nav-pill"} style={pillStyle(isOperationActive)} onMouseEnter={() => openDropdown("operation")}>
+                    <Link href="/admin/operation/checklist" className={isOperationActive ? "nav-pill-active" : "nav-pill"} style={pillStyle(isOperationActive)} onMouseEnter={() => openDropdown("operation")}>
                       운영
                     </Link>
 
