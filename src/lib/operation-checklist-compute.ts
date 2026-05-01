@@ -2,7 +2,7 @@ import * as XLSX from "xlsx";
 import { getR2ObjectBuffer, getR2ObjectText, listR2Keys, putR2Object } from "@/lib/r2";
 
 // ── 캐시 키 (계산 로직 변경 시 버전 bump) ─────────────────────────────
-const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v12.json";
+const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v13.json";
 
 // ── 타입 ─────────────────────────────────────────────────────────────
 type StrategyRow = {
@@ -33,9 +33,11 @@ type WorkcenterRow = {
 
 type WorkcenterParsed = {
   data: Map<string, WorkcenterRow>;
-  // 작업센터마스터에 등록되어 있으나 모든 행이 "미사용_화성2(상온)" 인 SKU
-  // (로케이션/작업구분 미지정 카운트에서 제외)
-  inactiveOnlySkus: Set<string>;
+  // 활성 센터(미사용_화성2(상온) 도 아니고 빈칸도 아닌)에 한 행이라도 등록된 SKU.
+  // 피킹셀/작업구분 미지정 체크는 이 집합에 포함된 SKU 만 대상으로 함.
+  activeSkus: Set<string>;
+  // 작업센터마스터 파일이 업로드되어 있는지 여부 (파일 없으면 필터링 미적용)
+  filePresent: boolean;
 };
 
 export type ChecklistCounts = {
@@ -266,25 +268,22 @@ function normalizeCenterName(value: unknown): string {
 
 async function fetchAndParseWorkcenter(key: string): Promise<WorkcenterParsed> {
   const data = new Map<string, WorkcenterRow>();
-  const inactiveOnlySkus = new Set<string>();
+  const activeSkus = new Set<string>();
   const buffer = await getR2ObjectBuffer(key);
-  if (!buffer) return { data, inactiveOnlySkus };
+  if (!buffer) return { data, activeSkus, filePresent: false };
   const wb = XLSX.read(buffer, { type: "buffer" });
   const sheet = wb.Sheets[wb.SheetNames[0]];
-  if (!sheet) return { data, inactiveOnlySkus };
+  if (!sheet) return { data, activeSkus, filePresent: true };
 
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" }) as string[][];
-  if (rows.length < 2) return { data, inactiveOnlySkus };
+  if (rows.length < 2) return { data, activeSkus, filePresent: true };
 
   const headers = rows[0].map(normalizeHeader);
   const codeIdx = findHeaderIndex(headers, ["상품코드"]);
   const stdIdx = findHeaderIndex(headers, ["출고기준일수", "출고기준일"]);
   const centerIdx = findHeaderIndex(headers, ["센터명", "작업센터명", "센터"]);
-  if (codeIdx < 0) return { data, inactiveOnlySkus };
+  if (codeIdx < 0) return { data, activeSkus, filePresent: true };
 
-  // SKU 별로 active center 가 하나라도 있는지 추적 → 모두 미사용일 때만 제외
-  const codeHasActive = new Map<string, boolean>();
-  const codeHasInactive = new Map<string, boolean>();
   const inactiveNormalized = normalizeCenterName(INACTIVE_CENTER_NAME);
 
   for (let i = 1; i < rows.length; i++) {
@@ -298,21 +297,17 @@ async function fetchAndParseWorkcenter(key: string): Promise<WorkcenterParsed> {
 
     if (centerIdx >= 0) {
       const center = normalizeCenterName(rows[i][centerIdx]);
-      // 센터명이 비어있거나 "미사용_화성2(상온)" 인 행은 비활성으로 간주
-      if (!center || center === inactiveNormalized) {
-        codeHasInactive.set(code, true);
-      } else {
-        codeHasActive.set(code, true);
+      // 센터명이 비어있거나 "미사용_화성2(상온)" 이 아닌 행이 있으면 활성 SKU 로 등록
+      if (center && center !== inactiveNormalized) {
+        activeSkus.add(code);
       }
+    } else {
+      // 센터명 컬럼이 없는 파일은 행이 있다는 사실만으로 활성으로 간주
+      activeSkus.add(code);
     }
   }
 
-  // 모든 행이 비활성(미사용 또는 센터명 빈 칸) 인 SKU 만 제외 대상
-  for (const [code] of codeHasInactive) {
-    if (!codeHasActive.has(code)) inactiveOnlySkus.add(code);
-  }
-
-  return { data, inactiveOnlySkus };
+  return { data, activeSkus, filePresent: true };
 }
 
 async function getInventory(key: string): Promise<InventoryParsed> {
@@ -391,10 +386,11 @@ function tally(
 
     // 상품명에 "공P" 가 포함된 SKU 는 작업구분 미지정 카운트에서 제외 (공병/특수 처리 품목)
     const isGongP = productName.replace(/\s+/g, "").includes("공P");
-    // 작업센터마스터의 모든 행이 "미사용_화성2(상온)" 인 SKU 는 로케이션·작업구분 미지정에서 제외
-    const isInactiveOnly = workcenter.inactiveOnlySkus.has(code);
-    const skipLocation = isInactiveOnly;
-    const skipWorkType = isInactiveOnly || isGongP;
+    // 작업센터마스터에 활성 센터로 등록되지 않은 SKU 는 피킹셀·작업구분 미지정에서 제외.
+    // 등록 자체가 없는 SKU 도 자동으로 제외됨. 단 마스터 파일이 미업로드 상태면 필터 미적용.
+    const inWorkcenter = !workcenter.filePresent || workcenter.activeSkus.has(code);
+    const skipLocation = !inWorkcenter;
+    const skipWorkType = !inWorkcenter || isGongP;
 
     if (!row) {
       // 전략관리 미등록은 로케이션 + 작업구분 둘 다 미지정으로 간주
@@ -576,7 +572,7 @@ export async function computeChecklistCounts(opts?: { force?: boolean }): Promis
     getStrategy(strategyKey),
     workcenterKey
       ? getWorkcenter(workcenterKey)
-      : Promise.resolve<WorkcenterParsed>({ data: new Map(), inactiveOnlySkus: new Set() }),
+      : Promise.resolve<WorkcenterParsed>({ data: new Map(), activeSkus: new Set(), filePresent: false }),
   ]);
 
   const { counts, sources, details } = tally(inventory, strategy, workcenter, todayISO);
