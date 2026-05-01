@@ -290,11 +290,11 @@ function getChecklistBadge(counts: ChecklistCounts | null) {
       glow: "0 0 0 3px rgba(22,163,74,0.15)",
     };
   }
+  // 메인 화면 카운트는 완박스작업 미지정 제외 (사용자 요청)
   const total =
     counts.location_missing +
     counts.work_type_missing +
     counts.work_type_misconfigured +
-    counts.full_box_missing +
     counts.shipment_below_standard;
   const hasRed =
     counts.location_missing > 0 ||
