@@ -15,7 +15,7 @@ export const MENU_REGISTRY: MenuItem[] = [
   // ── 상단 Nav (최상위)
   { key: "admin_home",      label: "메인",   href: "/admin",            group: "nav", order: 10 },
   { key: "admin_photos",    label: "사진",   href: "/admin/photos",     group: "nav", order: 20 },
-  { key: "admin_operation", label: "운영",   href: "/admin/operation",  group: "nav", order: 24 },
+  { key: "admin_operation", label: "운영",   href: "/admin/operation/checklist", group: "nav", order: 24 },
   { key: "admin_vehicle",   label: "차량",   href: "/admin/vehicles",   group: "nav", order: 25 },
   {
     key: "admin_notice",
@@ -33,9 +33,10 @@ export const MENU_REGISTRY: MenuItem[] = [
   { key: "admin_photos_hazard",   label: "위험요인", href: "/admin/hazards",                    group: "nav", order: 23, parent: "admin_photos" },
 
   // ── 운영 하위
-  { key: "admin_operation_unit",     label: "단품별",   href: "/admin/operation",               group: "nav", order: 241, parent: "admin_operation" },
-  { key: "admin_operation_cdc",      label: "CDC",      href: "/admin/vehicles/cdc",            group: "nav", order: 242, parent: "admin_operation" },
-  { key: "admin_operation_separate", label: "별도작업", href: "/admin/operation/separate",      group: "nav", order: 243, parent: "admin_operation" },
+  { key: "admin_operation_checklist", label: "통합체크리스트", href: "/admin/operation/checklist", group: "nav", order: 240, parent: "admin_operation" },
+  { key: "admin_operation_unit",      label: "단품별",         href: "/admin/operation",           group: "nav", order: 241, parent: "admin_operation" },
+  { key: "admin_operation_cdc",       label: "CDC",            href: "/admin/vehicles/cdc",        group: "nav", order: 242, parent: "admin_operation" },
+  { key: "admin_operation_separate",  label: "별도작업",       href: "/admin/operation/separate",  group: "nav", order: 243, parent: "admin_operation" },
 
   // ── 차량 하위
   { key: "admin_vehicle_cargo",    label: "물동량",   href: "/admin/vehicles",                  group: "nav", order: 251, parent: "admin_vehicle" },
