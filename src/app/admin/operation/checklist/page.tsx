@@ -22,6 +22,7 @@ type DetailItem = {
   shipment_standard_days?: number;
   cutoff_date?: string;
   qty?: number;
+  days_short?: number;
 };
 
 type Details = {
@@ -251,41 +252,47 @@ type DetailColumn = {
 };
 
 function detailColumns(kind: ItemKey): DetailColumn[] {
-  const base: DetailColumn[] = [
-    { key: "code", label: "상품코드", render: (it) => it.product_code, align: "center" },
-    { key: "name", label: "상품명", render: (it) => it.product_name || "-" },
-  ];
+  const codeCol: DetailColumn = { key: "code", label: "상품코드", render: (it) => it.product_code, align: "center" };
+  const nameCol: DetailColumn = { key: "name", label: "상품명", render: (it) => it.product_name || "-" };
+  const cellCol: DetailColumn = { key: "cell", label: "피킹셀", render: (it) => it.picking_cell || "-", align: "center" };
+
   switch (kind) {
     case "location_missing":
-      return base;
+      return [codeCol, nameCol];
     case "work_type_missing":
-      return [
-        ...base,
-        { key: "cell", label: "피킹셀", render: (it) => it.picking_cell || "-", align: "center", muted: true },
-      ];
+      return [codeCol, nameCol, { ...cellCol, muted: true }];
     case "work_type_misconfigured":
       return [
-        ...base,
-        { key: "cell", label: "피킹셀", render: (it) => it.picking_cell || "-", align: "center" },
+        codeCol,
+        nameCol,
+        cellCol,
         { key: "wt", label: "현재 작업구분", render: (it) => it.work_type || "-", align: "center" },
         { key: "ewt", label: "기대값", render: (it) => it.expected_work_type || "-", align: "center", muted: true },
       ];
     case "full_box_missing":
       return [
-        ...base,
-        { key: "cell", label: "피킹셀", render: (it) => it.picking_cell || "-", align: "center" },
-        { key: "fb", label: "완박스", render: (it) => it.full_box_yn || "-", align: "center" },
+        cellCol,
+        codeCol,
+        nameCol,
+        { key: "fb", label: "완박스여부", render: (it) => it.full_box_yn || "-", align: "center" },
       ];
     case "shipment_below_standard":
       return [
-        ...base,
+        cellCol,
+        codeCol,
+        nameCol,
         { key: "qty", label: "가용수량", render: (it) => (it.qty ?? 0).toLocaleString(), align: "right" },
         { key: "exp", label: "소비기한", render: (it) => it.expiry_date || "-", align: "center" },
-        { key: "std", label: "기준일수", render: (it) => it.shipment_standard_days ?? "-", align: "right", muted: true },
         { key: "cut", label: "기준일", render: (it) => it.cutoff_date || "-", align: "center", muted: true },
+        {
+          key: "ds",
+          label: "미달일수",
+          render: (it) => (it.days_short != null ? `${it.days_short.toLocaleString()}일` : "-"),
+          align: "right",
+        },
       ];
     default:
-      return base;
+      return [codeCol, nameCol];
   }
 }
 

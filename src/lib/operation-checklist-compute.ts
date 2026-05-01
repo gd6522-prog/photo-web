@@ -2,7 +2,7 @@ import * as XLSX from "xlsx";
 import { getR2ObjectBuffer, getR2ObjectText, listR2Keys, putR2Object } from "@/lib/r2";
 
 // ── 캐시 키 (계산 로직 변경 시 버전 bump) ─────────────────────────────
-const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v7.json";
+const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v8.json";
 
 // ── 타입 ─────────────────────────────────────────────────────────────
 type StrategyRow = {
@@ -47,6 +47,7 @@ export type DetailItem = {
   shipment_standard_days?: number;
   cutoff_date?: string;
   qty?: number;
+  days_short?: number; // 출고기준미달용: cutoff_date - expiry_date (일수)
 };
 
 export type ChecklistDetails = {
@@ -137,6 +138,15 @@ function addDaysToISO(iso: string, days: number): string {
   const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
   const dd = String(dt.getUTCDate()).padStart(2, "0");
   return `${yy}-${mm}-${dd}`;
+}
+
+// iso1 - iso2 (일 단위). 둘 다 YYYY-MM-DD 형식이어야 함.
+function diffDaysISO(iso1: string, iso2: string): number {
+  const [y1, m1, d1] = iso1.split("-").map(Number);
+  const [y2, m2, d2] = iso2.split("-").map(Number);
+  const t1 = Date.UTC(y1, m1 - 1, d1);
+  const t2 = Date.UTC(y2, m2 - 1, d2);
+  return Math.round((t1 - t2) / 86400000);
 }
 
 // ── 파싱: 재고현황 ─────────────────────────────────────────────────────
@@ -371,10 +381,12 @@ function tally(
         details.shipment_below_standard.push({
           product_code: code,
           product_name: productName,
+          picking_cell: row?.picking_cell ?? "",
           expiry_date: sku.expiry_date,
           shipment_standard_days: wc.shipment_standard_days,
           cutoff_date: cutoff,
           qty: sku.qty,
+          days_short: diffDaysISO(cutoff, sku.expiry_date),
         });
       }
     }
@@ -384,11 +396,12 @@ function tally(
   details.location_missing.sort((a, b) => a.product_code.localeCompare(b.product_code));
   details.work_type_missing.sort((a, b) => a.product_code.localeCompare(b.product_code));
   details.work_type_misconfigured.sort((a, b) => a.product_code.localeCompare(b.product_code));
-  details.full_box_missing.sort((a, b) => a.product_code.localeCompare(b.product_code));
-  // 출고기준미달은 소비기한 빠른 순
-  details.shipment_below_standard.sort((a, b) =>
-    (a.expiry_date ?? "").localeCompare(b.expiry_date ?? "")
+  // 완박스작업 미지정: 피킹셀 오름차순
+  details.full_box_missing.sort((a, b) =>
+    (a.picking_cell ?? "").localeCompare(b.picking_cell ?? "", "ko", { numeric: true })
   );
+  // 출고기준미달: 미달일수 큰 순(가장 시급한 것부터)
+  details.shipment_below_standard.sort((a, b) => (b.days_short ?? 0) - (a.days_short ?? 0));
 
   return {
     counts: {
