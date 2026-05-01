@@ -1,19 +1,27 @@
 import * as XLSX from "xlsx";
 import { getR2ObjectBuffer, getR2ObjectText, listR2Keys, putR2Object } from "@/lib/r2";
 
-// ── 모듈 인메모리 캐시 ─────────────────────────────────────────────────
+// ── 캐시 키 (계산 로직 변경 시 버전 bump) ─────────────────────────────
+const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v7.json";
+
+// ── 타입 ─────────────────────────────────────────────────────────────
 type StrategyRow = {
+  product_name: string;
   picking_cell: string;
   work_type: string;
   full_box_yn: string;
 };
 
-let inventoryMemCache: { key: string; parsed: InventoryParsed } | null = null;
-let strategyMemCache: { key: string; parsed: StrategyParsed } | null = null;
+type InventorySku = {
+  product_code: string;
+  product_name: string;
+  qty: number; // 가용수량 합계
+  expiry_date: string; // 가장 빠른 소비기한 (YYYY-MM-DD)
+};
 
-// ── R2 결과 캐시 (모든 인스턴스 공유) ────────────────────────────────────
-// 캐시 키에 버전 suffix 를 두어 계산 로직이 바뀌면 자동으로 옛 캐시가 무효화되도록.
-const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v6.json";
+type WorkcenterRow = {
+  shipment_standard_days: number; // 출고기준일수
+};
 
 export type ChecklistCounts = {
   location_missing: number;
@@ -28,18 +36,46 @@ export type ChecklistSources = {
   strategy_count: number;
 };
 
+export type DetailItem = {
+  product_code: string;
+  product_name?: string;
+  picking_cell?: string;
+  work_type?: string;
+  expected_work_type?: string;
+  full_box_yn?: string;
+  expiry_date?: string;
+  shipment_standard_days?: number;
+  cutoff_date?: string;
+  qty?: number;
+};
+
+export type ChecklistDetails = {
+  location_missing: DetailItem[];
+  work_type_missing: DetailItem[];
+  work_type_misconfigured: DetailItem[];
+  full_box_missing: DetailItem[];
+  shipment_below_standard: DetailItem[];
+};
+
 type ChecklistCacheEntry = {
   inventory_key: string;
   strategy_key: string;
+  workcenter_key: string;
   counts: ChecklistCounts;
   sources: ChecklistSources;
-  diagnostic?: ChecklistDiagnostic;
+  details: ChecklistDetails;
   computed_at: string;
 };
 
+// ── 모듈 인메모리 캐시 ─────────────────────────────────────────────────
+let inventoryMemCache: { key: string; data: Map<string, InventorySku> } | null = null;
+let strategyMemCache: { key: string; data: Map<string, StrategyRow> } | null = null;
+let workcenterMemCache: { key: string; data: Map<string, WorkcenterRow> } | null = null;
+
+// ── 헬퍼 ───────────────────────────────────────────────────────────────
 function normalizeHeader(value: unknown): string {
   return String(value ?? "")
-    .normalize("NFC") // 한글 자모 분리 형태(ㅍㅣㅋㅣㅇㅅㅔㄹ) → 완성형 통일
+    .normalize("NFC")
     .trim()
     .replace(/\s+/g, "")
     .replace(/\*/g, "")
@@ -61,128 +97,174 @@ function findHeaderIndex(headers: string[], labels: string[]): number {
 async function getLatestKey(prefix: string): Promise<string | null> {
   const keys = await listR2Keys(prefix);
   if (keys.length === 0) return null;
-  // R2 list 는 lexicographic ASC 반환. 파일명에 _YYYYMMDD_ 패턴이 있으면
-  // 사전순 가장 큰 값이 최신이므로 desc 정렬 후 첫 번째 사용.
-  const sorted = [...keys].sort().reverse();
-  return sorted[0];
+  return [...keys].sort().reverse()[0];
 }
 
-type InventoryParsed = {
-  data: Set<string>;
-  rawHeaders: string[];
-  matched: { code: number; qty: number };
-  totalRows: number;
-  withCodeRows: number;
-  withQtyRows: number;
-};
+// 다양한 형식의 날짜 문자열을 YYYY-MM-DD 로 정규화 ("" 반환 시 파싱 실패)
+function normalizeDate(value: unknown): string {
+  const s = String(value ?? "").trim();
+  if (!s) return "";
+  // YYYY-MM-DD or YYYY/MM/DD or YYYY.MM.DD
+  const m1 = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (m1) return `${m1[1]}-${m1[2].padStart(2, "0")}-${m1[3].padStart(2, "0")}`;
+  // YYYYMMDD
+  const m2 = s.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (m2) return `${m2[1]}-${m2[2]}-${m2[3]}`;
+  // Excel serial date number (1900-01-01 = 1, 윤년 버그 보정)
+  const num = Number(s);
+  if (Number.isFinite(num) && num > 25569 && num < 60000) {
+    const ms = Math.round((num - 25569) * 86400 * 1000);
+    const d = new Date(ms);
+    const y = d.getUTCFullYear();
+    const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(d.getUTCDate()).padStart(2, "0");
+    return `${y}-${mo}-${dd}`;
+  }
+  return "";
+}
 
-async function fetchAndParseInventory(key: string): Promise<InventoryParsed> {
-  const empty: InventoryParsed = {
-    data: new Set(),
-    rawHeaders: [],
-    matched: { code: -1, qty: -1 },
-    totalRows: 0,
-    withCodeRows: 0,
-    withQtyRows: 0,
-  };
+function todayKstISO(): string {
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return kst.toISOString().slice(0, 10);
+}
+
+function addDaysToISO(iso: string, days: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  const yy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getUTCDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
+// ── 파싱: 재고현황 ─────────────────────────────────────────────────────
+async function fetchAndParseInventory(key: string): Promise<Map<string, InventorySku>> {
+  const result = new Map<string, InventorySku>();
   const buffer = await getR2ObjectBuffer(key);
-  if (!buffer) return empty;
+  if (!buffer) return result;
   const wb = XLSX.read(buffer, { type: "buffer" });
   const sheet = wb.Sheets[wb.SheetNames[0]];
-  if (!sheet) return empty;
+  if (!sheet) return result;
 
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" }) as string[][];
-  if (rows.length < 2) return { ...empty, totalRows: rows.length };
+  if (rows.length < 2) return result;
 
-  const rawHeaders = (rows[0] ?? []).map((c) => String(c ?? ""));
   const headers = rows[0].map(normalizeHeader);
   const codeIdx = findHeaderIndex(headers, ["상품코드"]);
-  // 재고 판단 기준: 가용수량 (=가용재고). 파일별 표기 대비
+  const nameIdx = findHeaderIndex(headers, ["상품명"]);
   const qtyIdx = findHeaderIndex(headers, ["가용수량", "가용재고"]);
-  if (codeIdx < 0 || qtyIdx < 0) {
-    return { ...empty, rawHeaders, matched: { code: codeIdx, qty: qtyIdx }, totalRows: rows.length };
-  }
+  const expiryIdx = findHeaderIndex(headers, ["소비기한", "유통기한"]);
+  if (codeIdx < 0 || qtyIdx < 0) return result;
 
-  const result = new Set<string>();
-  let withCodeRows = 0;
-  let withQtyRows = 0;
   for (let i = 1; i < rows.length; i++) {
     const code = String(rows[i][codeIdx] ?? "").trim();
-    if (code) withCodeRows += 1;
     if (!code) continue;
     const qtyRaw = String(rows[i][qtyIdx] ?? "").replace(/,/g, "");
     const qty = parseFloat(qtyRaw);
     if (!Number.isFinite(qty) || qty <= 0) continue;
-    withQtyRows += 1;
-    result.add(code);
+
+    const name = nameIdx >= 0 ? String(rows[i][nameIdx] ?? "").trim() : "";
+    const expiry = expiryIdx >= 0 ? normalizeDate(rows[i][expiryIdx]) : "";
+
+    const existing = result.get(code);
+    if (!existing) {
+      result.set(code, { product_code: code, product_name: name, qty, expiry_date: expiry });
+    } else {
+      existing.qty += qty;
+      // 가장 빠른(=작은) 소비기한 유지
+      if (expiry && (!existing.expiry_date || expiry < existing.expiry_date)) {
+        existing.expiry_date = expiry;
+      }
+      if (!existing.product_name && name) existing.product_name = name;
+    }
   }
-  return {
-    data: result,
-    rawHeaders,
-    matched: { code: codeIdx, qty: qtyIdx },
-    totalRows: rows.length,
-    withCodeRows,
-    withQtyRows,
-  };
+  return result;
 }
 
-type StrategyParsed = {
-  data: Map<string, StrategyRow>;
-  rawHeaders: string[];
-  matched: { code: number; cell: number; workType: number; fullBox: number };
-};
-
-async function fetchAndParseStrategy(key: string): Promise<StrategyParsed> {
-  const empty: StrategyParsed = {
-    data: new Map(),
-    rawHeaders: [],
-    matched: { code: -1, cell: -1, workType: -1, fullBox: -1 },
-  };
+// ── 파싱: 상품별 전략관리 ──────────────────────────────────────────────
+async function fetchAndParseStrategy(key: string): Promise<Map<string, StrategyRow>> {
+  const map = new Map<string, StrategyRow>();
   const buffer = await getR2ObjectBuffer(key);
-  if (!buffer) return empty;
+  if (!buffer) return map;
   const wb = XLSX.read(buffer, { type: "buffer" });
   const sheet = wb.Sheets[wb.SheetNames[0]];
-  if (!sheet) return empty;
+  if (!sheet) return map;
 
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" }) as string[][];
-  if (rows.length < 2) return empty;
+  if (rows.length < 2) return map;
 
-  const rawHeaders = (rows[0] ?? []).map((c) => String(c ?? ""));
   const headers = rows[0].map(normalizeHeader);
   const codeIdx = findHeaderIndex(headers, ["상품코드"]);
+  const nameIdx = findHeaderIndex(headers, ["상품명"]);
   const cellIdx = findHeaderIndex(headers, ["피킹셀"]);
   const workTypeIdx = findHeaderIndex(headers, ["작업구분"]);
   const fullBoxIdx = findHeaderIndex(headers, ["완박스작업여부"]);
-  const matched = { code: codeIdx, cell: cellIdx, workType: workTypeIdx, fullBox: fullBoxIdx };
-  if (codeIdx < 0) return { ...empty, rawHeaders, matched };
+  if (codeIdx < 0) return map;
 
-  const map = new Map<string, StrategyRow>();
   for (let i = 1; i < rows.length; i++) {
     const code = String(rows[i][codeIdx] ?? "").trim();
     if (!code) continue;
     map.set(code, {
+      product_name: nameIdx >= 0 ? String(rows[i][nameIdx] ?? "").trim() : "",
       picking_cell: cellIdx >= 0 ? String(rows[i][cellIdx] ?? "").trim() : "",
       work_type: workTypeIdx >= 0 ? String(rows[i][workTypeIdx] ?? "").trim() : "",
       full_box_yn: fullBoxIdx >= 0 ? String(rows[i][fullBoxIdx] ?? "").trim() : "",
     });
   }
-  return { data: map, rawHeaders, matched };
+  return map;
 }
 
-async function getInventory(key: string): Promise<InventoryParsed> {
-  if (inventoryMemCache && inventoryMemCache.key === key) return inventoryMemCache.parsed;
-  const parsed = await fetchAndParseInventory(key);
-  inventoryMemCache = { key, parsed };
-  return parsed;
+// ── 파싱: 작업센터별 취급상품마스터 ─────────────────────────────────────
+async function fetchAndParseWorkcenter(key: string): Promise<Map<string, WorkcenterRow>> {
+  const map = new Map<string, WorkcenterRow>();
+  const buffer = await getR2ObjectBuffer(key);
+  if (!buffer) return map;
+  const wb = XLSX.read(buffer, { type: "buffer" });
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  if (!sheet) return map;
+
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" }) as string[][];
+  if (rows.length < 2) return map;
+
+  const headers = rows[0].map(normalizeHeader);
+  const codeIdx = findHeaderIndex(headers, ["상품코드"]);
+  const stdIdx = findHeaderIndex(headers, ["출고기준일수", "출고기준일"]);
+  if (codeIdx < 0 || stdIdx < 0) return map;
+
+  for (let i = 1; i < rows.length; i++) {
+    const code = String(rows[i][codeIdx] ?? "").trim();
+    if (!code) continue;
+    const days = parseFloat(String(rows[i][stdIdx] ?? "").replace(/,/g, ""));
+    if (!Number.isFinite(days)) continue;
+    map.set(code, { shipment_standard_days: days });
+  }
+  return map;
 }
 
-async function getStrategy(key: string): Promise<StrategyParsed> {
-  if (strategyMemCache && strategyMemCache.key === key) return strategyMemCache.parsed;
-  const parsed = await fetchAndParseStrategy(key);
-  strategyMemCache = { key, parsed };
-  return parsed;
+async function getInventory(key: string): Promise<Map<string, InventorySku>> {
+  if (inventoryMemCache && inventoryMemCache.key === key) return inventoryMemCache.data;
+  const data = await fetchAndParseInventory(key);
+  inventoryMemCache = { key, data };
+  return data;
 }
 
+async function getStrategy(key: string): Promise<Map<string, StrategyRow>> {
+  if (strategyMemCache && strategyMemCache.key === key) return strategyMemCache.data;
+  const data = await fetchAndParseStrategy(key);
+  strategyMemCache = { key, data };
+  return data;
+}
+
+async function getWorkcenter(key: string): Promise<Map<string, WorkcenterRow>> {
+  if (workcenterMemCache && workcenterMemCache.key === key) return workcenterMemCache.data;
+  const data = await fetchAndParseWorkcenter(key);
+  workcenterMemCache = { key, data };
+  return data;
+}
+
+// ── 매핑표 ─────────────────────────────────────────────────────────────
 const CELL_PREFIX_TO_WORK_TYPE: Record<string, string> = {
   "01": "박스수기", "02": "박스수기", "03": "박스수기",
   "04": "박스존1", "05": "박스존1",
@@ -201,8 +283,6 @@ const CELL_PREFIX_TO_WORK_TYPE: Record<string, string> = {
 const FULL_BOX_REQUIRED_PREFIXES = new Set(["07", "21", "22", "23", "24", "25"]);
 
 function getCellPrefix(cell: string): string {
-  // 피킹셀은 00-00-000(7자리) 형식. Excel 이 숫자로 저장하며 선두 0 을 잘라낸 경우(예: "07" → 7)
-  // 7자리로 좌측 0 패딩한 뒤 앞 2자리를 prefix 로 사용한다.
   const digits = cell.replace(/\D/g, "");
   if (!digits) return "";
   return digits.padStart(7, "0").slice(0, 2);
@@ -213,90 +293,116 @@ function isFullBoxYes(value: string): boolean {
   return v === "예" || v === "y" || v === "yes" || v === "true" || v === "1" || v === "o";
 }
 
-export type ChecklistDiagnostic = {
-  // 재고 SKU 중 전략관리에 등록 안 된 수
-  stock_no_strategy: number;
-  // 재고 + 전략관리 매칭 SKU 의 picking_cell prefix 분포
-  prefix_distribution: Record<string, number>;
-  // 07/21~25 매칭 SKU 의 완박스작업여부 raw 값 분포
-  full_box_value_distribution: Record<string, number>;
-  // 실제 파일에서 읽은 헤더(원문) — 컬럼명 디버깅용
-  inventory_headers?: string[];
-  strategy_headers?: string[];
-  // 컬럼 매칭 결과 (-1 이면 못찾음)
-  inventory_matched?: { code: number; qty: number };
-  strategy_matched?: { code: number; cell: number; workType: number; fullBox: number };
-  // 사용된 R2 키 (마지막 50자만)
-  inventory_key_tail?: string;
-  strategy_key_tail?: string;
-  // 재고 파일 행수 통계
-  inventory_total_rows?: number;
-  inventory_with_code_rows?: number;
-  inventory_with_qty_rows?: number;
-};
-
-function tally(stockSet: Set<string>, strategy: Map<string, StrategyRow>): {
+// ── 집계 ───────────────────────────────────────────────────────────────
+function tally(
+  inventory: Map<string, InventorySku>,
+  strategy: Map<string, StrategyRow>,
+  workcenter: Map<string, WorkcenterRow>,
+  todayISO: string
+): {
   counts: ChecklistCounts;
   sources: ChecklistSources;
-  diagnostic: ChecklistDiagnostic;
+  details: ChecklistDetails;
 } {
-  let locationMissing = 0;
-  let workTypeMissing = 0;
-  let workTypeMisconfigured = 0;
-  let fullBoxMissing = 0;
+  const details: ChecklistDetails = {
+    location_missing: [],
+    work_type_missing: [],
+    work_type_misconfigured: [],
+    full_box_missing: [],
+    shipment_below_standard: [],
+  };
 
-  let stockNoStrategy = 0;
-  const prefixDistribution: Record<string, number> = {};
-  const fullBoxValueDistribution: Record<string, number> = {};
-
-  for (const code of stockSet) {
+  for (const [code, sku] of inventory) {
     const row = strategy.get(code);
+    const productName = row?.product_name || sku.product_name || "";
+
     if (!row) {
-      stockNoStrategy += 1;
-      locationMissing += 1;
-      workTypeMissing += 1;
-      continue;
-    }
-    if (!row.picking_cell) locationMissing += 1;
-    if (!row.work_type) {
-      workTypeMissing += 1;
-    } else if (row.picking_cell) {
-      const prefix = getCellPrefix(row.picking_cell);
-      const expected = CELL_PREFIX_TO_WORK_TYPE[prefix];
-      if (expected && normalizeWorkType(expected) !== normalizeWorkType(row.work_type)) {
-        workTypeMisconfigured += 1;
+      // 전략관리 미등록은 로케이션 + 작업구분 둘 다 미지정으로 간주
+      details.location_missing.push({ product_code: code, product_name: productName });
+      details.work_type_missing.push({ product_code: code, product_name: productName });
+    } else {
+      // 1) 로케이션 미지정
+      if (!row.picking_cell) {
+        details.location_missing.push({
+          product_code: code,
+          product_name: productName,
+        });
+      }
+      // 2) 작업구분 미지정
+      if (!row.work_type) {
+        details.work_type_missing.push({
+          product_code: code,
+          product_name: productName,
+          picking_cell: row.picking_cell,
+        });
+      } else if (row.picking_cell) {
+        // 3) 작업구분 설정오류
+        const prefix = getCellPrefix(row.picking_cell);
+        const expected = CELL_PREFIX_TO_WORK_TYPE[prefix];
+        if (expected && normalizeWorkType(expected) !== normalizeWorkType(row.work_type)) {
+          details.work_type_misconfigured.push({
+            product_code: code,
+            product_name: productName,
+            picking_cell: row.picking_cell,
+            work_type: row.work_type,
+            expected_work_type: expected,
+          });
+        }
+      }
+      // 4) 완박스작업 미지정
+      if (row.picking_cell) {
+        const prefix = getCellPrefix(row.picking_cell);
+        if (FULL_BOX_REQUIRED_PREFIXES.has(prefix) && !isFullBoxYes(row.full_box_yn)) {
+          details.full_box_missing.push({
+            product_code: code,
+            product_name: productName,
+            picking_cell: row.picking_cell,
+            full_box_yn: row.full_box_yn,
+          });
+        }
       }
     }
-    if (row.picking_cell) {
-      const prefix = getCellPrefix(row.picking_cell);
-      prefixDistribution[prefix] = (prefixDistribution[prefix] ?? 0) + 1;
-      if (FULL_BOX_REQUIRED_PREFIXES.has(prefix)) {
-        const rawKey = row.full_box_yn || "(빈칸)";
-        fullBoxValueDistribution[rawKey] = (fullBoxValueDistribution[rawKey] ?? 0) + 1;
-        if (!isFullBoxYes(row.full_box_yn)) {
-          fullBoxMissing += 1;
-        }
+
+    // 5) 출고기준미달: 가용수량≥1 인 SKU 의 소비기한 ≤ 오늘 + 출고기준일수 + 1
+    const wc = workcenter.get(code);
+    if (wc && sku.expiry_date) {
+      const cutoff = addDaysToISO(todayISO, wc.shipment_standard_days + 1);
+      if (sku.expiry_date <= cutoff) {
+        details.shipment_below_standard.push({
+          product_code: code,
+          product_name: productName,
+          expiry_date: sku.expiry_date,
+          shipment_standard_days: wc.shipment_standard_days,
+          cutoff_date: cutoff,
+          qty: sku.qty,
+        });
       }
     }
   }
 
+  // 정렬
+  details.location_missing.sort((a, b) => a.product_code.localeCompare(b.product_code));
+  details.work_type_missing.sort((a, b) => a.product_code.localeCompare(b.product_code));
+  details.work_type_misconfigured.sort((a, b) => a.product_code.localeCompare(b.product_code));
+  details.full_box_missing.sort((a, b) => a.product_code.localeCompare(b.product_code));
+  // 출고기준미달은 소비기한 빠른 순
+  details.shipment_below_standard.sort((a, b) =>
+    (a.expiry_date ?? "").localeCompare(b.expiry_date ?? "")
+  );
+
   return {
     counts: {
-      location_missing: locationMissing,
-      work_type_missing: workTypeMissing,
-      work_type_misconfigured: workTypeMisconfigured,
-      full_box_missing: fullBoxMissing,
-      shipment_below_standard: 0, // TODO
+      location_missing: details.location_missing.length,
+      work_type_missing: details.work_type_missing.length,
+      work_type_misconfigured: details.work_type_misconfigured.length,
+      full_box_missing: details.full_box_missing.length,
+      shipment_below_standard: details.shipment_below_standard.length,
     },
     sources: {
-      inventory_stock_count: stockSet.size,
+      inventory_stock_count: inventory.size,
       strategy_count: strategy.size,
     },
-    diagnostic: {
-      stock_no_strategy: stockNoStrategy,
-      prefix_distribution: prefixDistribution,
-      full_box_value_distribution: fullBoxValueDistribution,
-    },
+    details,
   };
 }
 
@@ -319,70 +425,77 @@ async function writeCountsCache(entry: ChecklistCacheEntry): Promise<void> {
 }
 
 /**
- * 통합체크리스트 카운트 계산.
+ * 통합체크리스트 카운트 + 상세 계산.
  * R2 결과 캐시(파일 R2 key 기준) 우선, miss 시 파싱·계산 후 저장.
  * @param opts.force true 시 캐시 무시하고 강제 재계산 (cron 워밍 등)
  */
 export async function computeChecklistCounts(opts?: { force?: boolean }): Promise<{
   counts: ChecklistCounts;
   sources: ChecklistSources;
-  diagnostic?: ChecklistDiagnostic;
+  details: ChecklistDetails;
   cache_hit: boolean;
 }> {
-  const [inventoryKey, strategyKey] = await Promise.all([
+  const [inventoryKey, strategyKey, workcenterKey] = await Promise.all([
     getLatestKey("file-uploads/inventory-status/"),
     getLatestKey("file-uploads/product-strategy/"),
+    getLatestKey("file-uploads/workcenter-product-master/"),
   ]);
 
-  // R2 캐시 조회 (force 모드면 스킵)
+  const todayISO = todayKstISO();
+
+  // R2 캐시 조회 (force 모드면 스킵). 출고기준미달은 날짜 기반이라 캐시 entry 의 computed_at 일자가 오늘과 같을 때만 유효.
   if (!opts?.force && inventoryKey && strategyKey) {
     const cached = await readCountsCache();
-    if (cached && cached.inventory_key === inventoryKey && cached.strategy_key === strategyKey) {
-      return { counts: cached.counts, sources: cached.sources, diagnostic: cached.diagnostic, cache_hit: true };
+    if (
+      cached &&
+      cached.inventory_key === inventoryKey &&
+      cached.strategy_key === strategyKey &&
+      cached.workcenter_key === (workcenterKey ?? "") &&
+      cached.computed_at.slice(0, 10) === todayISO
+    ) {
+      return { counts: cached.counts, sources: cached.sources, details: cached.details, cache_hit: true };
     }
   }
 
-  // 파일이 하나라도 없으면 빈 결과
   if (!inventoryKey || !strategyKey) {
-    const empty: ChecklistCounts = {
-      location_missing: 0,
-      work_type_missing: 0,
-      work_type_misconfigured: 0,
-      full_box_missing: 0,
-      shipment_below_standard: 0,
+    const empty: ChecklistDetails = {
+      location_missing: [],
+      work_type_missing: [],
+      work_type_misconfigured: [],
+      full_box_missing: [],
+      shipment_below_standard: [],
     };
-    return { counts: empty, sources: { inventory_stock_count: 0, strategy_count: 0 }, cache_hit: false };
+    return {
+      counts: {
+        location_missing: 0,
+        work_type_missing: 0,
+        work_type_misconfigured: 0,
+        full_box_missing: 0,
+        shipment_below_standard: 0,
+      },
+      sources: { inventory_stock_count: 0, strategy_count: 0 },
+      details: empty,
+      cache_hit: false,
+    };
   }
 
-  const [inventoryParsed, strategyParsed] = await Promise.all([
+  const [inventory, strategy, workcenter] = await Promise.all([
     getInventory(inventoryKey),
     getStrategy(strategyKey),
+    workcenterKey ? getWorkcenter(workcenterKey) : Promise.resolve(new Map<string, WorkcenterRow>()),
   ]);
 
-  const { counts, sources, diagnostic: tallyDiag } = tally(inventoryParsed.data, strategyParsed.data);
+  const { counts, sources, details } = tally(inventory, strategy, workcenter, todayISO);
 
-  const diagnostic: ChecklistDiagnostic = {
-    ...tallyDiag,
-    inventory_headers: inventoryParsed.rawHeaders,
-    strategy_headers: strategyParsed.rawHeaders,
-    inventory_matched: inventoryParsed.matched,
-    strategy_matched: strategyParsed.matched,
-    inventory_key_tail: inventoryKey.slice(-50),
-    strategy_key_tail: strategyKey.slice(-50),
-    inventory_total_rows: inventoryParsed.totalRows,
-    inventory_with_code_rows: inventoryParsed.withCodeRows,
-    inventory_with_qty_rows: inventoryParsed.withQtyRows,
-  };
-
-  // R2 캐시에 저장
   await writeCountsCache({
     inventory_key: inventoryKey,
     strategy_key: strategyKey,
+    workcenter_key: workcenterKey ?? "",
     counts,
     sources,
-    diagnostic,
+    details,
     computed_at: new Date().toISOString(),
   });
 
-  return { counts, sources, diagnostic, cache_hit: false };
+  return { counts, sources, details, cache_hit: false };
 }
