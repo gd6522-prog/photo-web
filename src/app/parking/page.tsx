@@ -92,9 +92,9 @@ export default function ParkingHome() {
           lineHeight: 1.6,
         }}
       >
-        신청 후 관리자 승인이 필요합니다.
+        정기 신청 후 관리자 승인이 필요합니다.
         <br />
-        결과는 추후 안내됩니다.
+        방문 신청은 별도 승인없이 바로 출입 가능합니다.
       </div>
     </div>
   );
