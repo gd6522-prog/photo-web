@@ -7,8 +7,6 @@ export async function POST(req: NextRequest) {
     const r = await requireAdmin(req);
     if (!r.ok) return r.res;
 
-    if (!r.isMainAdmin && !r.isCenterAdmin) return json(false, "Forbidden (main admin only)", null, 403);
-
     const body = await req.json().catch(() => null);
 
     const id = body?.id ? String(body.id).trim() : "";
@@ -23,6 +21,19 @@ export async function POST(req: NextRequest) {
     const storedBody = buildNoticeBoardBody(board_key, noticeBody);
 
     if (id) {
+      // 수정: 메인/센터 관리자 또는 본인 작성글만 가능
+      if (!r.isMainAdmin && !r.isCenterAdmin) {
+        const { data: post, error: fetchErr } = await r.sbAdmin
+          .from("notices")
+          .select("created_by")
+          .eq("id", id)
+          .maybeSingle();
+        if (fetchErr) return json(false, fetchErr.message, null, 500);
+        if (!post) return json(false, "Not found", null, 404);
+        const isOwnAuthor = !!(post as { created_by?: string }).created_by && (post as { created_by?: string }).created_by === r.uid;
+        if (!isOwnAuthor) return json(false, "Forbidden", null, 403);
+      }
+
       const { error } = await r.sbAdmin
         .from("notices")
         .update({ title, body: storedBody, is_pinned, board_key })
@@ -31,6 +42,9 @@ export async function POST(req: NextRequest) {
       if (error) return json(false, error.message, null, 500);
       return json(true);
     }
+
+    // 신규 등록은 메인/센터 관리자만 (기존 정책 유지)
+    if (!r.isMainAdmin && !r.isCenterAdmin) return json(false, "Forbidden (main/center admin only)", null, 403);
 
     const { error } = await r.sbAdmin.from("notices").insert({
       title,

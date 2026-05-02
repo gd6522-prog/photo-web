@@ -45,6 +45,8 @@ export async function GET(req: NextRequest) {
     const authorName = String((profileResult.data as { name?: string | null } | null)?.name ?? "").trim() || "-";
     const parsed = parseNoticeBoardBody(row.body);
 
+    const isOwnAuthor = !!row.created_by && row.created_by === guard.uid;
+
     return json(true, undefined, {
       item: {
         id: row.id,
@@ -59,6 +61,9 @@ export async function GET(req: NextRequest) {
         view_count: newViewCount,
       },
       canManageAll: guard.isMainAdmin,
+      // 본인 작성글은 수정·삭제 가능
+      canEdit: guard.isMainAdmin || isOwnAuthor,
+      canDelete: guard.isMainAdmin || isOwnAuthor,
     });
   } catch (e: unknown) {
     return json(false, e instanceof Error ? e.message : String(e), null, 500);

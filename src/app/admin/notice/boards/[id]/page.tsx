@@ -26,7 +26,8 @@ export default function BoardDetailPage() {
   const router = useRouter();
   const id = String(params?.id ?? "");
   const [item, setItem] = useState<NoticePost | null>(null);
-  const [canManageAll, setCanManageAll] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
+  const [canDelete, setCanDelete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
@@ -45,10 +46,11 @@ export default function BoardDetailPage() {
           headers: { Authorization: `Bearer ${token}` },
           cache: "no-store",
         });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string; item?: NoticePost; canManageAll?: boolean };
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string; item?: NoticePost; canEdit?: boolean; canDelete?: boolean };
         if (!res.ok || !json.ok) throw new Error(json.message || "게시글 조회에 실패했습니다.");
         setItem((json.item ?? null) as NoticePost | null);
-        setCanManageAll(!!json.canManageAll);
+        setCanEdit(!!json.canEdit);
+        setCanDelete(!!json.canDelete);
       } catch (e: unknown) {
         setErr(e instanceof Error ? e.message : "게시글 조회에 실패했습니다.");
         setItem(null);
@@ -119,12 +121,16 @@ export default function BoardDetailPage() {
           <Link href={`/admin/notice/boards/write?board=${item.board_key}`} style={toolBtn}>
             ✏ 새글쓰기
           </Link>
-          {canManageAll && (
+          {canEdit && (
             <>
               <span style={divider} />
               <Link href={`/admin/notice/boards/${item.id}/edit`} style={toolBtn}>
                 ✎ 수정
               </Link>
+            </>
+          )}
+          {canDelete && (
+            <>
               <span style={divider} />
               <button onClick={onDelete} style={{ ...toolBtn, color: "#b42318" }}>
                 🗑 삭제
