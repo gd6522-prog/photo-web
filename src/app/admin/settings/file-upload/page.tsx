@@ -1233,9 +1233,103 @@ function HistoryCalendarModal({ slotKey, label, onClose }: { slotKey: string; la
               <div style={{ width: 14, height: 14, background: "#2563EB", borderRadius: "50%", flexShrink: 0 }} />
               <span>파일 있는 날짜 — 클릭해서 다운로드</span>
             </div>
+
+            {/* 기간 합산 다운로드 — logistics-cost-by-store 슬롯 전용 */}
+            {slotKey === "logistics-cost-by-store" && (
+              <RangeMergeDownload slotKey={slotKey} />
+            )}
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function RangeMergeDownload({ slotKey: _slotKey }: { slotKey: string }) {
+  const [from, setFrom] = React.useState<string>("");
+  const [to, setTo] = React.useState<string>("");
+  const [busy, setBusy] = React.useState(false);
+  const [msg, setMsg] = React.useState<string>("");
+
+  const onDownload = async () => {
+    setMsg("");
+    if (!from || !to) {
+      setMsg("시작·종료일을 모두 선택해 주세요.");
+      return;
+    }
+    if (from > to) {
+      setMsg("시작일이 종료일보다 늦을 수 없습니다.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch("/api/admin/logistics-cost-merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from, to }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        setMsg((j as { message?: string }).message || `요청 실패 (${res.status})`);
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `물류비조회_작업구분별_합산_${from.replace(/-/g, "")}-${to.replace(/-/g, "")}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      const days = res.headers.get("X-Merged-Days");
+      const rows = res.headers.get("X-Merged-Rows");
+      setMsg(`완료: ${days}일치 / ${Number(rows ?? 0).toLocaleString()}행 합산`);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "다운로드 실패");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px dashed #E5E7EB" }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6 }}>기간 합산 다운로드</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+        <input
+          type="date"
+          value={from}
+          onChange={(e) => setFrom(e.target.value)}
+          style={{ flex: 1, height: 30, fontSize: 12, padding: "0 6px", border: "1px solid #D1D5DB", borderRadius: 4 }}
+        />
+        <span style={{ fontSize: 11, color: "#6B7280" }}>~</span>
+        <input
+          type="date"
+          value={to}
+          onChange={(e) => setTo(e.target.value)}
+          style={{ flex: 1, height: 30, fontSize: 12, padding: "0 6px", border: "1px solid #D1D5DB", borderRadius: 4 }}
+        />
+      </div>
+      <button
+        onClick={onDownload}
+        disabled={busy}
+        style={{
+          width: "100%",
+          height: 32,
+          background: busy ? "#9CA3AF" : "#0F766E",
+          color: "#fff",
+          border: "none",
+          borderRadius: 4,
+          fontSize: 12,
+          fontWeight: 800,
+          cursor: busy ? "default" : "pointer",
+        }}
+      >
+        {busy ? "합산 중..." : "기간 합산 다운로드"}
+      </button>
+      {msg && (
+        <div style={{ marginTop: 6, fontSize: 11, color: msg.startsWith("완료") ? "#0F766E" : "#B91C1C" }}>
+          {msg}
+        </div>
+      )}
     </div>
   );
 }
