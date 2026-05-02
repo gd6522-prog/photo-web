@@ -78,8 +78,14 @@ function buildPlan(keys: string[]): { plans: RenamePlan[]; skipped: { key: strin
 }
 
 export async function GET(req: NextRequest) {
-  const guard = await requireAdmin(req);
-  if (!guard.ok) return guard.res;
+  // 서비스 역할 키로 직접 호출하는 경우 (CLI 일괄 정리 작업) admin 인증 건너뛰기
+  const auth = req.headers.get("authorization") ?? "";
+  const token = auth.startsWith("Bearer ") ? auth.slice("Bearer ".length) : "";
+  const isServiceRole = !!process.env.SUPABASE_SERVICE_ROLE_KEY && token === process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!isServiceRole) {
+    const guard = await requireAdmin(req);
+    if (!guard.ok) return guard.res;
+  }
 
   try {
     const keys = await listR2Keys(PREFIX);
@@ -98,8 +104,14 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const guard = await requireAdmin(req);
-  if (!guard.ok) return guard.res;
+  // 서비스 역할 키로 직접 호출하는 경우 (CLI 일괄 정리 작업) admin 인증 건너뛰기
+  const auth = req.headers.get("authorization") ?? "";
+  const token = auth.startsWith("Bearer ") ? auth.slice("Bearer ".length) : "";
+  const isServiceRole = !!process.env.SUPABASE_SERVICE_ROLE_KEY && token === process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!isServiceRole) {
+    const guard = await requireAdmin(req);
+    if (!guard.ok) return guard.res;
+  }
 
   let body: { confirm?: boolean } = {};
   try { body = await req.json(); } catch { /* empty body OK */ }
