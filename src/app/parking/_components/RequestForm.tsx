@@ -258,26 +258,6 @@ export default function RequestForm({ type }: Props) {
         {type === "visitor" ? (
           <>
             <div>
-              <label style={fieldLabel}>방문 날짜 *</label>
-              <input
-                type="date"
-                style={fieldInput}
-                value={visitDate}
-                min={today}
-                onChange={(e) => setVisitDate(e.target.value)}
-              />
-            </div>
-            <div>
-              <label style={fieldLabel}>방문 목적 (선택)</label>
-              <input
-                style={fieldInput}
-                value={visitPurpose}
-                onChange={(e) => setVisitPurpose(e.target.value)}
-                placeholder="예: 거래처 미팅"
-                maxLength={200}
-              />
-            </div>
-            <div>
               <label style={fieldLabel}>바로입차 *</label>
               <div style={{ display: "flex", gap: 10 }}>
                 {[
@@ -289,7 +269,11 @@ export default function RequestForm({ type }: Props) {
                     <button
                       key={String(opt.v)}
                       type="button"
-                      onClick={() => setImmediateEntry(opt.v)}
+                      onClick={() => {
+                        setImmediateEntry(opt.v);
+                        // 예(지금 입차) 선택 시 방문 날짜를 오늘로 자동 설정
+                        if (opt.v) setVisitDate(today);
+                      }}
                       style={{
                         flex: 1,
                         height: 52,
@@ -312,6 +296,33 @@ export default function RequestForm({ type }: Props) {
               <div style={{ marginTop: 6, fontSize: 11, color: "#64748b", lineHeight: 1.5 }}>
                 예 선택 시 신청과 동시에 입구 게이트가 자동으로 열립니다.
               </div>
+            </div>
+            <div>
+              <label style={fieldLabel}>방문 날짜 *</label>
+              <input
+                type="date"
+                style={{
+                  ...fieldInput,
+                  // iOS/Android 의 native date 컨트롤이 fieldInput 보다 크게 그려지는 문제 보정
+                  WebkitAppearance: "none",
+                  appearance: "none",
+                  lineHeight: "52px",
+                  colorScheme: "dark",
+                }}
+                value={visitDate}
+                min={today}
+                onChange={(e) => setVisitDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <label style={fieldLabel}>방문 목적 (선택)</label>
+              <input
+                style={fieldInput}
+                value={visitPurpose}
+                onChange={(e) => setVisitPurpose(e.target.value)}
+                placeholder="예: 거래처 미팅"
+                maxLength={200}
+              />
             </div>
           </>
         ) : null}
