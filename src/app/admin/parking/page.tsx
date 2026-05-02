@@ -498,36 +498,18 @@ export default function AdminParkingPage() {
                   <tr key={r.id} style={{ borderTop: "1px solid #e2e8f0" }}>
                     <td style={td}>{fmtDateTime(r.created_at)}</td>
                     <td style={td}>
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 3 }}>
-                        <span
-                          style={{
-                            padding: "2px 8px",
-                            borderRadius: 4,
-                            background: r.type === "regular" ? "#ccfbf1" : "#dbeafe",
-                            color: r.type === "regular" ? "#115e59" : "#1e40af",
-                            fontWeight: 800,
-                            fontSize: 11,
-                          }}
-                        >
-                          {r.type === "regular" ? "정기" : "방문"}
-                        </span>
-                        {r.type === "visitor" && r.visit_purpose ? (
-                          <span
-                            title={r.visit_purpose}
-                            style={{
-                              fontSize: 11,
-                              color: "#475569",
-                              maxWidth: 140,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                              fontWeight: 600,
-                            }}
-                          >
-                            {r.visit_purpose}
-                          </span>
-                        ) : null}
-                      </div>
+                      <span
+                        style={{
+                          padding: "2px 8px",
+                          borderRadius: 4,
+                          background: r.type === "regular" ? "#ccfbf1" : "#dbeafe",
+                          color: r.type === "regular" ? "#115e59" : "#1e40af",
+                          fontWeight: 800,
+                          fontSize: 11,
+                        }}
+                      >
+                        {r.type === "regular" ? "정기" : "방문"}
+                      </span>
                     </td>
                     <td style={td}>{r.company}</td>
                     <td style={td}>{r.name}</td>
@@ -571,16 +553,29 @@ export default function AdminParkingPage() {
                       </div>
                     </td>
                     <td style={{ ...td, maxWidth: 200, color: "#475569" }}>
-                      <div
-                        style={{
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                        title={r.admin_memo ?? ""}
-                      >
-                        {r.admin_memo || "-"}
-                      </div>
+                      {r.type === "visitor" ? (
+                        <div
+                          style={{
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                          title={r.visit_purpose ?? ""}
+                        >
+                          {r.visit_purpose || "-"}
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                          title={r.admin_memo ?? ""}
+                        >
+                          {r.admin_memo || "-"}
+                        </div>
+                      )}
                     </td>
                     <td style={{ ...td, textAlign: "right", paddingRight: 12 }}>
                       <div style={{ display: "inline-flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
@@ -605,15 +600,17 @@ export default function AdminParkingPage() {
                             재등록
                           </button>
                         ) : null}
-                        <button
-                          style={actionBtn("memo")}
-                          onClick={() => {
-                            setMemoTarget(r);
-                            setMemoText(r.admin_memo ?? "");
-                          }}
-                        >
-                          메모
-                        </button>
+                        {r.type === "regular" ? (
+                          <button
+                            style={actionBtn("memo")}
+                            onClick={() => {
+                              setMemoTarget(r);
+                              setMemoText(r.admin_memo ?? "");
+                            }}
+                          >
+                            메모
+                          </button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
