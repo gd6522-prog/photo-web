@@ -2,7 +2,7 @@ import * as XLSX from "xlsx";
 import { getR2ObjectBuffer, getR2ObjectText, listR2Keys, putR2Object } from "@/lib/r2";
 
 // ── 캐시 키 (계산 로직 변경 시 버전 bump) ─────────────────────────────
-const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v13.json";
+const R2_COUNTS_CACHE_KEY = "file-uploads/_operation-checklist-cache-v14.json";
 
 // ── 타입 ─────────────────────────────────────────────────────────────
 type StrategyRow = {
@@ -27,6 +27,14 @@ type InventoryLot = {
   qty: number;
 };
 
+// (상품코드 + 셀) 단위로 합쳐진 로우 — 같은 셀에 분산된 같은 SKU 는 가용수량 합산
+type InventoryCellRow = {
+  product_code: string;
+  product_name: string;
+  cell: string; // 현재고셀 (재고현황의 '셀')
+  qty: number;
+};
+
 type WorkcenterRow = {
   shipment_standard_days: number; // 출고기준일수
 };
@@ -44,6 +52,7 @@ export type ChecklistCounts = {
   location_missing: number;
   work_type_missing: number;
   work_type_misconfigured: number;
+  cell_mismatch: number;
   full_box_missing: number;
   shipment_below_standard: number;
 };
@@ -65,12 +74,14 @@ export type DetailItem = {
   cutoff_date?: string;
   qty?: number;
   days_short?: number; // 출고기준미달용: cutoff_date - expiry_date (일수)
+  current_cell?: string; // 현재고 피킹셀 정위치 여부용: 재고현황의 셀
 };
 
 export type ChecklistDetails = {
   location_missing: DetailItem[];
   work_type_missing: DetailItem[];
   work_type_misconfigured: DetailItem[];
+  cell_mismatch: DetailItem[];
   full_box_missing: DetailItem[];
   shipment_below_standard: DetailItem[];
 };
@@ -89,6 +100,7 @@ type ChecklistCacheEntry = {
 type InventoryParsed = {
   byCode: Map<string, InventorySku>;
   lots: InventoryLot[];
+  cellRows: InventoryCellRow[]; // (상품코드 + 셀) 단위 합산 — 정위치 검사용
 };
 let inventoryMemCache: { key: string; data: InventoryParsed } | null = null;
 let strategyMemCache: { key: string; data: Map<string, StrategyRow> } | null = null;
@@ -174,21 +186,23 @@ function diffDaysISO(iso1: string, iso2: string): number {
 async function fetchAndParseInventory(key: string): Promise<InventoryParsed> {
   const byCode = new Map<string, InventorySku>();
   const lotMap = new Map<string, InventoryLot>(); // key = `${code}|${expiry}`
+  const cellMap = new Map<string, InventoryCellRow>(); // key = `${code}|${cellNorm}`
   const buffer = await getR2ObjectBuffer(key);
-  if (!buffer) return { byCode, lots: [] };
+  if (!buffer) return { byCode, lots: [], cellRows: [] };
   const wb = XLSX.read(buffer, { type: "buffer" });
   const sheet = wb.Sheets[wb.SheetNames[0]];
-  if (!sheet) return { byCode, lots: [] };
+  if (!sheet) return { byCode, lots: [], cellRows: [] };
 
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" }) as string[][];
-  if (rows.length < 2) return { byCode, lots: [] };
+  if (rows.length < 2) return { byCode, lots: [], cellRows: [] };
 
   const headers = rows[0].map(normalizeHeader);
   const codeIdx = findHeaderIndex(headers, ["상품코드"]);
   const nameIdx = findHeaderIndex(headers, ["상품명"]);
   const qtyIdx = findHeaderIndex(headers, ["가용수량", "가용재고"]);
   const expiryIdx = findHeaderIndex(headers, ["소비기한", "유통기한"]);
-  if (codeIdx < 0 || qtyIdx < 0) return { byCode, lots: [] };
+  const cellIdx = findHeaderIndex(headers, ["셀", "로케이션", "로케이션코드"]);
+  if (codeIdx < 0 || qtyIdx < 0) return { byCode, lots: [], cellRows: [] };
 
   for (let i = 1; i < rows.length; i++) {
     const code = String(rows[i][codeIdx] ?? "").trim();
@@ -199,6 +213,7 @@ async function fetchAndParseInventory(key: string): Promise<InventoryParsed> {
 
     const name = nameIdx >= 0 ? String(rows[i][nameIdx] ?? "").trim() : "";
     const expiry = expiryIdx >= 0 ? normalizeDate(rows[i][expiryIdx]) : "";
+    const cell = cellIdx >= 0 ? String(rows[i][cellIdx] ?? "").trim() : "";
 
     // 상품코드별 집계 (전체 합산, 가장 빠른 소비기한)
     const existing = byCode.get(code);
@@ -212,7 +227,7 @@ async function fetchAndParseInventory(key: string): Promise<InventoryParsed> {
       if (!existing.product_name && name) existing.product_name = name;
     }
 
-    // (상품코드 + 소비기한) 별 로트 합산 — 로트는 다르지만 같은 소비기한이면 가용수량 합산
+    // (상품코드 + 소비기한) 별 로트 합산
     const lotKey = `${code}|${expiry}`;
     const lot = lotMap.get(lotKey);
     if (!lot) {
@@ -221,9 +236,20 @@ async function fetchAndParseInventory(key: string): Promise<InventoryParsed> {
       lot.qty += qty;
       if (!lot.product_name && name) lot.product_name = name;
     }
+
+    // (상품코드 + 셀) 별 합산 — 정위치 검사용
+    const cellNorm = normalizeCellForCompare(cell);
+    const cellKey = `${code}|${cellNorm}`;
+    const cellRow = cellMap.get(cellKey);
+    if (!cellRow) {
+      cellMap.set(cellKey, { product_code: code, product_name: name, cell, qty });
+    } else {
+      cellRow.qty += qty;
+      if (!cellRow.product_name && name) cellRow.product_name = name;
+    }
   }
 
-  return { byCode, lots: [...lotMap.values()] };
+  return { byCode, lots: [...lotMap.values()], cellRows: [...cellMap.values()] };
 }
 
 // ── 파싱: 상품별 전략관리 ──────────────────────────────────────────────
@@ -355,6 +381,13 @@ function getCellPrefix(cell: string): string {
   return digits.padStart(7, "0").slice(0, 2);
 }
 
+// 셀 비교용 정규화: 숫자만 추출 후 7자리 좌측 0 패딩 ("07-12-345" 와 "712345" 가 같게)
+function normalizeCellForCompare(cell: string): string {
+  const digits = cell.replace(/\D/g, "");
+  if (!digits) return "";
+  return digits.padStart(7, "0");
+}
+
 function isFullBoxYes(value: string): boolean {
   const v = value.trim().toLowerCase();
   return v === "예" || v === "y" || v === "yes" || v === "true" || v === "1" || v === "o";
@@ -375,6 +408,7 @@ function tally(
     location_missing: [],
     work_type_missing: [],
     work_type_misconfigured: [],
+    cell_mismatch: [],
     full_box_missing: [],
     shipment_below_standard: [],
   };
@@ -445,7 +479,26 @@ function tally(
 
   }
 
-  // 5) 출고기준미달: (상품코드 + 소비기한) 별 합산된 로트 단위로 검사
+  // 5) 현재고 피킹셀 정위치 여부:
+  // 가용수량>0 인 (상품코드+셀) 행 중, 전략관리의 피킹셀과 현재고셀이 다른 것
+  for (const inv of inventory.cellRows) {
+    if (inv.qty <= 0) continue;
+    const stratRow = strategy.get(inv.product_code);
+    if (!stratRow || !stratRow.picking_cell) continue;
+    const stratCellNorm = normalizeCellForCompare(stratRow.picking_cell);
+    const invCellNorm = normalizeCellForCompare(inv.cell);
+    if (!stratCellNorm || !invCellNorm) continue;
+    if (stratCellNorm === invCellNorm) continue;
+    details.cell_mismatch.push({
+      product_code: inv.product_code,
+      product_name: stratRow.product_name || inv.product_name,
+      picking_cell: stratRow.picking_cell,
+      qty: inv.qty,
+      current_cell: inv.cell,
+    });
+  }
+
+  // 6) 출고기준미달: (상품코드 + 소비기한) 별 합산된 로트 단위로 검사
   for (const lot of inventory.lots) {
     if (!lot.expiry_date) continue;
     const wc = workcenter.data.get(lot.product_code);
@@ -473,6 +526,10 @@ function tally(
   details.full_box_missing.sort((a, b) =>
     (a.picking_cell ?? "").localeCompare(b.picking_cell ?? "", "ko", { numeric: true })
   );
+  // 현재고 피킹셀 정위치 여부: 피킹셀 오름차순
+  details.cell_mismatch.sort((a, b) =>
+    (a.picking_cell ?? "").localeCompare(b.picking_cell ?? "", "ko", { numeric: true })
+  );
   // 출고기준미달: 피킹셀 오름차순
   details.shipment_below_standard.sort((a, b) =>
     (a.picking_cell ?? "").localeCompare(b.picking_cell ?? "", "ko", { numeric: true })
@@ -483,6 +540,7 @@ function tally(
       location_missing: details.location_missing.length,
       work_type_missing: details.work_type_missing.length,
       work_type_misconfigured: details.work_type_misconfigured.length,
+      cell_mismatch: details.cell_mismatch.length,
       full_box_missing: details.full_box_missing.length,
       shipment_below_standard: details.shipment_below_standard.length,
     },
@@ -550,6 +608,7 @@ export async function computeChecklistCounts(opts?: { force?: boolean }): Promis
       location_missing: [],
       work_type_missing: [],
       work_type_misconfigured: [],
+      cell_mismatch: [],
       full_box_missing: [],
       shipment_below_standard: [],
     };
@@ -558,6 +617,7 @@ export async function computeChecklistCounts(opts?: { force?: boolean }): Promis
         location_missing: 0,
         work_type_missing: 0,
         work_type_misconfigured: 0,
+        cell_mismatch: 0,
         full_box_missing: 0,
         shipment_below_standard: 0,
       },

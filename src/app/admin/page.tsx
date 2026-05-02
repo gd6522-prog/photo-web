@@ -278,6 +278,7 @@ type ChecklistCounts = {
   location_missing: number;
   work_type_missing: number;
   work_type_misconfigured: number;
+  cell_mismatch: number;
   full_box_missing: number;
   shipment_below_standard: number;
 };
@@ -295,13 +296,15 @@ function getChecklistBadge(counts: ChecklistCounts | null) {
     counts.location_missing +
     counts.work_type_missing +
     counts.work_type_misconfigured +
+    counts.cell_mismatch +
     counts.shipment_below_standard;
   const hasRed =
     counts.location_missing > 0 ||
     counts.work_type_missing > 0 ||
     counts.work_type_misconfigured > 0;
   // 완박스작업 미지정은 메인 배지 카운트·색상에 영향 주지 않음
-  const hasOrange = counts.shipment_below_standard > 0;
+  // 현재고 피킹셀 정위치 여부 / 출고기준미달 → 주황
+  const hasOrange = counts.shipment_below_standard > 0 || counts.cell_mismatch > 0;
 
   if (hasRed) {
     return {

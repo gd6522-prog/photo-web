@@ -7,6 +7,7 @@ type Counts = {
   location_missing: number;
   work_type_missing: number;
   work_type_misconfigured: number;
+  cell_mismatch: number;
   full_box_missing: number;
   shipment_below_standard: number;
 };
@@ -23,12 +24,14 @@ type DetailItem = {
   cutoff_date?: string;
   qty?: number;
   days_short?: number;
+  current_cell?: string;
 };
 
 type Details = {
   location_missing: DetailItem[];
   work_type_missing: DetailItem[];
   work_type_misconfigured: DetailItem[];
+  cell_mismatch: DetailItem[];
   full_box_missing: DetailItem[];
   shipment_below_standard: DetailItem[];
 };
@@ -45,6 +48,7 @@ const ITEMS: ChecklistItem[] = [
   { key: "location_missing", label: "피킹셀 미지정" },
   { key: "work_type_missing", label: "작업구분 미지정" },
   { key: "work_type_misconfigured", label: "작업구분 설정오류" },
+  { key: "cell_mismatch", label: "현재고 피킹셀 정위치 여부" },
   { key: "full_box_missing", label: "완박스작업 미지정" },
   { key: "shipment_below_standard", label: "출고기준미달" },
 ];
@@ -281,6 +285,14 @@ function detailColumns(kind: ItemKey): DetailColumn[] {
         cellCol,
         { key: "wt", label: "현재 작업구분", render: (it) => it.work_type || "-", align: "center" },
         { key: "ewt", label: "기대값", render: (it) => it.expected_work_type || "-", align: "center", muted: true },
+      ];
+    case "cell_mismatch":
+      return [
+        cellCol,
+        codeCol,
+        nameCol,
+        { key: "qty", label: "가용수량", render: (it) => (it.qty ?? 0).toLocaleString(), align: "center" },
+        { key: "cur", label: "현재고셀", render: (it) => formatPickingCell(it.current_cell ?? ""), align: "center" },
       ];
     case "full_box_missing":
       return [
