@@ -363,7 +363,8 @@ const FILE_CONFIGS = [
   // SEARCH_URL 은 캡처된 원본 그대로 사용 (활성 탭에 따라 자동 결정) — 원본 SEARCH_URL 은 _prepare_body_*.txt 와 [PREPARE-원본] 로그로 확인 가능.
   {
     slotKey: "logistics-cost-by-store",
-    label: "점포별물류비조회(일)_작업구분별",
+    label: "점포별물류비조회",
+    fileNameLabel: "물류비조회_작업구분별",
     type: "generic",
     pageUrl: "https://elogis.emart24.co.kr/",
     menuPath: ["정산관리 (BMS)", "물류용역수수료", "점포별물류비조회(일)", "점포별/일자별/작업구분별"],

@@ -302,7 +302,7 @@ const SLOT_CONFIGS: SlotConfig[] = [
   },
   {
     key: "logistics-cost-by-store",
-    label: "점포별물류비조회(일)_작업구분별",
+    label: "점포별물류비조회",
     description: "기준일자 D-2 자동 조회",
     accept: ".xlsx,.xls",
     type: "generic",
@@ -453,6 +453,20 @@ function formatUploadedAt(iso: string) {
   } catch {
     return iso;
   }
+}
+
+// 주어진 ISO timestamp 가 오늘(KST 00:00 ~ 23:59) 에 해당하는지 판단
+function isUploadedTodayKst(iso: string | undefined | null): boolean {
+  if (!iso) return false;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return false;
+  const nowKst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const tsKst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  return (
+    nowKst.getUTCFullYear() === tsKst.getUTCFullYear() &&
+    nowKst.getUTCMonth() === tsKst.getUTCMonth() &&
+    nowKst.getUTCDate() === tsKst.getUTCDate()
+  );
 }
 
 // ─── Page Component ────────────────────────────────────────────────────────────
@@ -1378,19 +1392,38 @@ function SlotCard({
     localInputRef.current?.click();
   };
 
+  const uploadedToday = isUploadedTodayKst(serverFile?.uploadedAt);
+
   return (
     <div
       style={{
         minWidth: 0,                  // grid item 이 컬럼 폭을 넘어 늘어나지 않게
-        border: "1px solid #E5E7EB",
-        background: "#fff",
-        padding: 18,
+        border: uploadedToday ? "2px solid #16A34A" : "1px solid #E5E7EB",
+        background: uploadedToday ? "#F0FDF4" : "#fff",
+        padding: uploadedToday ? 17 : 18,
+        boxShadow: uploadedToday ? "0 0 0 2px rgba(22,163,74,0.10)" : "none",
+        transition: "background 0.15s, border-color 0.15s",
       }}
     >
       {/* 슬롯 헤더 */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 4 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
           <span style={{ fontWeight: 900, fontSize: 16 }}>{config.label}</span>
+          {uploadedToday && (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 800,
+                background: "#16A34A",
+                color: "#fff",
+                padding: "2px 8px",
+                borderRadius: 999,
+                whiteSpace: "nowrap",
+              }}
+            >
+              오늘 완료
+            </span>
+          )}
           {config.type === "store-master" && (
             <span
               style={{

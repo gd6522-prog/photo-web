@@ -17,8 +17,9 @@ const XLSX_CONTENT_TYPE =
  * @param {function} log      로그 함수
  */
 async function uploadToAdmin(adminUrl, fileConfig, buffer, log) {
-  const { slotKey, label, type } = fileConfig;
-  const fileName = `${label}_${formatDate(new Date())}.xlsx`;
+  const { slotKey, label, fileNameLabel, type } = fileConfig;
+  // fileNameLabel 이 정의되어 있으면 파일명에 그것을 사용, 아니면 label 사용 (UI 표시명과 분리)
+  const fileName = `${fileNameLabel || label}_${formatDate(new Date())}.xlsx`;
 
   if (type === "store-master") {
     await uploadStoreMaster(adminUrl, slotKey, label, fileName, buffer, log);
