@@ -51,6 +51,11 @@ function buildPlan(keys: string[]): { plans: RenamePlan[]; skipped: { key: strin
       skipped.push({ key: oldKey, reason: "엑셀 파일 아님" });
       continue;
     }
+    // 이미 새 라벨로 시작하는 파일은 이미 납품예정일 기준이라 건너뜀 (idempotent)
+    if (oldFileName.startsWith(`${NEW_LABEL}_`)) {
+      skipped.push({ key: oldKey, reason: "이미 새 라벨 (rename 불필요)" });
+      continue;
+    }
     const m = oldFileName.match(/_(\d{8})_(\d{6})\.xlsx?$/);
     if (!m) {
       skipped.push({ key: oldKey, reason: "_YYYYMMDD_HHMMSS 패턴 없음" });
