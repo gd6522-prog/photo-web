@@ -246,7 +246,7 @@ const SLOT_CONFIGS: SlotConfig[] = [
   },
   {
     key: "workcenter-product-master",
-    label: "작업센터별 취급상품 마스터",
+    label: "취급상품 마스터",
     description: "",
     accept: ".xlsx,.xls",
     type: "generic",
@@ -1409,21 +1409,6 @@ function SlotCard({
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 4 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
           <span style={{ fontWeight: 900, fontSize: 16 }}>{config.label}</span>
-          {uploadedToday && (
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 800,
-                background: "#16A34A",
-                color: "#fff",
-                padding: "2px 8px",
-                borderRadius: 999,
-                whiteSpace: "nowrap",
-              }}
-            >
-              오늘 완료
-            </span>
-          )}
           {config.type === "store-master" && (
             <span
               style={{

@@ -63,10 +63,10 @@ const FILE_CONFIGS = [
     },
   },
 
-  // ── 3. 작업센터별 취급상품 마스터 (메뉴 클릭 + 검색 입력 후 3단계 API) ────
+  // ── 3. 취급상품 마스터 (메뉴 클릭 + 검색 입력 후 3단계 API) ────
   {
     slotKey: "workcenter-product-master",
-    label: "작업센터별 취급상품 마스터",
+    label: "취급상품 마스터",
     type: "generic",
     pageUrl: "https://elogis.emart24.co.kr/",
     menuPath: ["즐겨찾기", "마스터관리 (MDM)", "상품관리", "작업센터 취급상품 마스터"],
