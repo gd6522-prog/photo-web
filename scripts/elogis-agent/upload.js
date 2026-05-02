@@ -19,7 +19,10 @@ const XLSX_CONTENT_TYPE =
 async function uploadToAdmin(adminUrl, fileConfig, buffer, log) {
   const { slotKey, label, fileNameLabel, type } = fileConfig;
   // fileNameLabel 이 정의되어 있으면 파일명에 그것을 사용, 아니면 label 사용 (UI 표시명과 분리)
-  const fileName = `${fileNameLabel || label}_${formatDate(new Date())}.xlsx`;
+  // 날짜 부분은 데이터 기준일 (uiDateSearch.daysOffset 있으면 그 기준일, 없으면 오늘),
+  // 시각 부분은 다운로드 시각. 이렇게 해야 이력 달력이 데이터 기준일로 정렬됨.
+  const refDate = computeReferenceDate(fileConfig);
+  const fileName = `${fileNameLabel || label}_${formatDateOnly(refDate)}_${formatTimeOnly(new Date())}.xlsx`;
 
   if (type === "store-master") {
     await uploadStoreMaster(adminUrl, slotKey, label, fileName, buffer, log);
@@ -82,14 +85,28 @@ async function uploadStoreMaster(adminUrl, slotKey, label, fileName, buffer, log
 
 // ── 날짜 포맷 헬퍼 ────────────────────────────────────────────────────────
 
-function formatDate(d) {
+function formatDateOnly(d) {
   const yy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
+  return `${yy}${mm}${dd}`;
+}
+
+function formatTimeOnly(d) {
   const hh = String(d.getHours()).padStart(2, "0");
   const mi = String(d.getMinutes()).padStart(2, "0");
   const ss = String(d.getSeconds()).padStart(2, "0");
-  return `${yy}${mm}${dd}_${hh}${mi}${ss}`;
+  return `${hh}${mi}${ss}`;
+}
+
+// 데이터 기준일 산출 — uiDateSearch.daysOffset 있으면 그 만큼 오프셋, 없으면 오늘
+function computeReferenceDate(fileConfig) {
+  const ds = fileConfig.uiDateSearch;
+  const d = new Date();
+  if (ds && typeof ds.daysOffset === "number") {
+    d.setDate(d.getDate() + ds.daysOffset);
+  }
+  return d;
 }
 
 module.exports = { uploadToAdmin };
