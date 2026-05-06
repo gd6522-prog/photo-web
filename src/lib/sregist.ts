@@ -203,6 +203,88 @@ class SregistClient {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
+
+  /**
+   * 등록된 차량을 sn 단위로 삭제 (POST /api/xp_delticket.php).
+   * 응답이 "OK" 이면 성공.
+   */
+  async deleteVehicle(sn: string): Promise<SregistResult> {
+    try {
+      const { baseUrl } = getEnv();
+      if (!this.sessionCookie) await this.login();
+
+      const callOnce = async () =>
+        fetch(`${baseUrl}/api/xp_delticket.php`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Cookie: `PHPSESSID=${this.sessionCookie}`,
+          },
+          body: new URLSearchParams({ sn }).toString(),
+        });
+
+      let res = await callOnce();
+      let text = await res.text();
+      const sessionExpired =
+        res.status === 401 || res.status === 302 || (res.status === 200 && looksLikeLoginPage(text));
+      if (sessionExpired) {
+        this.sessionCookie = null;
+        await this.login();
+        res = await callOnce();
+        text = await res.text();
+      }
+
+      if (!res.ok) return { success: false, error: `HTTP ${res.status}`, raw: text.slice(0, 500) };
+      const trimmed = text.trim();
+      if (trimmed !== "OK") {
+        return { success: false, error: trimmed.slice(0, 200) || "응답이 OK 가 아님", raw: text.slice(0, 500) };
+      }
+      return { success: true, raw: trimmed };
+    } catch (e: unknown) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
+  /**
+   * 등록된 모든 차량 목록을 수집한다.
+   * sregist 의 검색 API(/api/getsearch_regist.php)는 carnum 부분일치 검색만 지원하고
+   * "전체 조회" 모드가 노출돼 있지 않으므로, 차량번호에 흔히 들어가는 "00"~"99" 두 자리
+   * 숫자 100가지로 부분일치 검색을 병렬 발사 → setdata(...) 패턴 파싱 → sn 기준 dedupe.
+   */
+  async listAllVehicles(): Promise<Array<{ sn: string; vNo: string; sdate: string; edate: string; corp: string; dept: string; memo: string }>> {
+    const { baseUrl } = getEnv();
+    if (!this.sessionCookie) await this.login();
+
+    const queries = Array.from({ length: 100 }, (_, i) => String(i).padStart(2, "0"));
+    const re = /setdata\("([^"]*)","([^"]*)","([^"]*)","([^"]*)","([^"]*)","([^"]*)","([^"]*)"\)/g;
+    const map = new Map<string, { sn: string; vNo: string; sdate: string; edate: string; corp: string; dept: string; memo: string }>();
+
+    // 한 번에 10개씩 병렬 호출
+    for (let i = 0; i < queries.length; i += 10) {
+      const batch = queries.slice(i, i + 10);
+      const results = await Promise.all(
+        batch.map((carnum) =>
+          fetch(`${baseUrl}/api/getsearch_regist.php`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              Cookie: `PHPSESSID=${this.sessionCookie}`,
+            },
+            body: new URLSearchParams({ carnum, sn: "" }).toString(),
+          })
+            .then((r) => r.text())
+            .catch(() => "")
+        )
+      );
+      for (const text of results) {
+        for (const m of text.matchAll(re)) {
+          const [, sn, vNo, sdate, edate, corp, dept, memo] = m;
+          if (!map.has(sn)) map.set(sn, { sn, vNo, sdate, edate, corp, dept, memo });
+        }
+      }
+    }
+    return Array.from(map.values());
+  }
 }
 
 // 모듈 싱글턴
