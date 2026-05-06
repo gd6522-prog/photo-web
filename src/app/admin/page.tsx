@@ -1832,6 +1832,9 @@ function InboundSummaryCard() {
     return () => window.clearTimeout(t);
   }, [copyMsg]);
 
+  // 담배존/담배수기 행이 있는 날에만 "담배제외" 합계를 보여준다.
+  const hasTobaccoRow = summaryRows.some((r) => r.label === "담배존" || r.label === "담배수기");
+
   const handleCopy = async () => {
     setCopying(true);
     try {
@@ -1842,7 +1845,7 @@ function InboundSummaryCard() {
       const DPR = 2, PAD = 14, ROW_H = 26, HEAD_H = 36, TITLE_H = 38, FOOT_H = 28;
       const COL_LABEL = 110, COL_COUNT = 52, COL_PRICE = 110;
       const W = PAD + COL_LABEL + COL_COUNT + COL_PRICE + PAD;
-      const H = TITLE_H + HEAD_H + ROW_H * summaryRows.length + FOOT_H * 2;
+      const H = TITLE_H + HEAD_H + ROW_H * summaryRows.length + FOOT_H * (hasTobaccoRow ? 2 : 1);
 
       const canvas = document.createElement("canvas");
       canvas.width = W * DPR; canvas.height = H * DPR;
@@ -1895,13 +1898,15 @@ function InboundSummaryCard() {
       drawRight(fmt(summaryTotal.count), PAD + COL_LABEL + COL_COUNT, footY + FOOT_H / 2, 13, "#113247", true);
       drawRight(fmt(Math.round(summaryTotal.ord_price)), PAD + COL_LABEL + COL_COUNT + COL_PRICE, footY + FOOT_H / 2, 13, "#0f2940", true);
 
-      const foot2Y = footY + FOOT_H;
-      ctx.fillStyle = "#eef4f9"; ctx.fillRect(0, foot2Y, W, FOOT_H);
-      ctx.strokeStyle = "#d9e6ef"; ctx.beginPath(); ctx.moveTo(0, foot2Y); ctx.lineTo(W, foot2Y); ctx.stroke();
-      ctx.fillStyle = "#103b53"; ctx.font = `bold 13px -apple-system, "Malgun Gothic", sans-serif`; ctx.textBaseline = "middle";
-      ctx.fillText("담배제외", PAD, foot2Y + FOOT_H / 2);
-      drawRight(fmt(summaryNoTobacco.count), PAD + COL_LABEL + COL_COUNT, foot2Y + FOOT_H / 2, 13, "#113247", true);
-      drawRight(fmt(Math.round(summaryNoTobacco.ord_price)), PAD + COL_LABEL + COL_COUNT + COL_PRICE, foot2Y + FOOT_H / 2, 13, "#0f2940", true);
+      if (hasTobaccoRow) {
+        const foot2Y = footY + FOOT_H;
+        ctx.fillStyle = "#eef4f9"; ctx.fillRect(0, foot2Y, W, FOOT_H);
+        ctx.strokeStyle = "#d9e6ef"; ctx.beginPath(); ctx.moveTo(0, foot2Y); ctx.lineTo(W, foot2Y); ctx.stroke();
+        ctx.fillStyle = "#103b53"; ctx.font = `bold 13px -apple-system, "Malgun Gothic", sans-serif`; ctx.textBaseline = "middle";
+        ctx.fillText("담배제외", PAD, foot2Y + FOOT_H / 2);
+        drawRight(fmt(summaryNoTobacco.count), PAD + COL_LABEL + COL_COUNT, foot2Y + FOOT_H / 2, 13, "#113247", true);
+        drawRight(fmt(Math.round(summaryNoTobacco.ord_price)), PAD + COL_LABEL + COL_COUNT + COL_PRICE, foot2Y + FOOT_H / 2, 13, "#0f2940", true);
+      }
 
       ctx.strokeStyle = "#d9e6ef"; ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
 
@@ -1975,11 +1980,13 @@ function InboundSummaryCard() {
               <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums" }}>{fmt(summaryTotal.count)}</td>
               <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 950, color: "#0f2940", fontVariantNumeric: "tabular-nums" }}>{fmt(Math.round(summaryTotal.ord_price))}</td>
             </tr>
-            <tr style={{ borderTop: "1px solid #d9e6ef", background: "#eef4f9" }}>
-              <td style={{ padding: "5px 10px", fontWeight: 950, color: "#103b53" }}>담배제외</td>
-              <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums" }}>{fmt(summaryNoTobacco.count)}</td>
-              <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 950, color: "#0f2940", fontVariantNumeric: "tabular-nums" }}>{fmt(Math.round(summaryNoTobacco.ord_price))}</td>
-            </tr>
+            {hasTobaccoRow ? (
+              <tr style={{ borderTop: "1px solid #d9e6ef", background: "#eef4f9" }}>
+                <td style={{ padding: "5px 10px", fontWeight: 950, color: "#103b53" }}>담배제외</td>
+                <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 900, color: "#113247", fontVariantNumeric: "tabular-nums" }}>{fmt(summaryNoTobacco.count)}</td>
+                <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 950, color: "#0f2940", fontVariantNumeric: "tabular-nums" }}>{fmt(Math.round(summaryNoTobacco.ord_price))}</td>
+              </tr>
+            ) : null}
           </tfoot>
         </table>
       )}
