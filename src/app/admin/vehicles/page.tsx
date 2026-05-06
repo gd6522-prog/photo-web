@@ -2548,18 +2548,21 @@ export function VehiclePageScreen({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productRows]);
 
-  // separateQtyMap 변경 시 재계산: 별도수량 편집 반영 + 사용자 수동 수정값 스마트 보존
+  // separateQtyMap 변경 시 재계산.
+  // - upload  : 신규 업로드 후 첫 sep → 전체 재계산
+  // - server  : 서버 로드 직후 첫 sep → 저장된 수동 수정값 보존(스마트)
+  // - active  : 사용자가 별도수량을 직접 편집 → 새 sep 값을 그대로 적용 (수동 수정값보다 sep 우선)
   useEffect(() => {
     if (productRows.length === 0) return;
     if (!allowedTabs.includes("cargo")) return;
-    const isUploadFresh = cargoSourceRef.current === 'upload';
+    const source = cargoSourceRef.current;
     cargoSourceRef.current = 'active';
-    if (isUploadFresh) {
-      // 신규 파일 업로드 후 첫 sep: 전체 재계산 (수동 수정값 없음)
-      setCargoRows((prev) => mergeCargoPreserve(prev, buildCargoDraftWithSep(productRows, separateQtyMap)));
-    } else {
-      // 서버 로드 or 별도수량 편집: 사용자 수동 수정값 보존하며 재계산
+    if (source === 'server') {
+      // 서버 로드 직후: 저장된 수동 수정값 보존
       setCargoRows((prev) => mergeCargoPreserveSmart(prev, buildCargoDraftWithSep(productRows, separateQtyMap)));
+    } else {
+      // upload(첫 sep) 또는 active(별도수량 편집): 새 계산값으로 재계산
+      setCargoRows((prev) => mergeCargoPreserve(prev, buildCargoDraftWithSep(productRows, separateQtyMap)));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [separateQtyMap]);
