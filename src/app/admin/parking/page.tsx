@@ -20,6 +20,8 @@ type ParkingRow = {
   sregist_registered: boolean | null;
   sregist_registered_at: string | null;
   sregist_response: string | null;
+  last_entry_at: string | null;
+  is_stale: boolean | null;
 };
 
 type SregistHealth = { autoRegisterEnabled: boolean; reachable: boolean; message?: string } | null;
@@ -129,9 +131,11 @@ export default function AdminParkingPage() {
       const from = (page - 1) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
 
+      // is_stale=true (30일 미입차) 행을 항상 상단으로 정렬
       let q = supabase
-        .from("parking_requests")
+        .from("parking_requests_with_stale")
         .select("*", { count: "exact" })
+        .order("is_stale", { ascending: false })
         .order("created_at", { ascending: false })
         .range(from, to);
 
@@ -554,6 +558,27 @@ export default function AdminParkingPage() {
                         >
                           {STATUS_LABEL[r.status]}
                         </span>
+                        {r.is_stale ? (
+                          <span
+                            title={
+                              r.last_entry_at
+                                ? `최근 입차: ${fmtDateTime(r.last_entry_at)}`
+                                : "입차 기록 없음"
+                            }
+                            style={{
+                              padding: "2px 8px",
+                              borderRadius: 4,
+                              background: "#fef2f2",
+                              color: "#b91c1c",
+                              border: "1px solid #fecaca",
+                              fontWeight: 800,
+                              fontSize: 10,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            30일간 미입차
+                          </span>
+                        ) : null}
                         {r.status === "approved" && r.sregist_response && !r.sregist_registered ? (
                           <span
                             title={r.sregist_response ?? ""}

@@ -21,6 +21,10 @@
       "schedule": "30 15 * * *"
     },
     {
+      "path": "/api/cron/sync-last-entry",
+      "schedule": "0 16 * * *"
+    },
+    {
       "path": "/api/cron/warm-operation-checklist",
       "schedule": "0 0 * * *"
     }
