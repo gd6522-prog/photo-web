@@ -67,6 +67,8 @@ type CargoRow = {
   pbox: number;
   standard_time: string;
   address: string;
+  // 사용자가 수동 편집한 numeric 필드 키 → true. sep 재계산 시 dirty 표시된 필드는 보존.
+  user_dirty?: Partial<Record<string, boolean>>;
 };
 
 type StoreMapMatch = {
@@ -1606,13 +1608,28 @@ function buildCargoDraftWithSep(rows: ProductRow[], sepMap: Record<string, numbe
   });
 }
 
-// cargoRows 재계산 후 note/support_excluded만 보존 (파일 업로드 시 사용)
+const CARGO_NUMERIC_KEYS = ['large_box', 'large_inner', 'large_other', 'large_day2l', 'large_nb2l', 'small_low', 'small_high', 'event', 'tobacco', 'certificate', 'cdc', 'pbox'] as const;
+
+// cargoRows 재계산 후 사용자 수동 편집값(user_dirty 표시된 필드) + note + support_excluded 보존.
+// rebuilt 에 없는 기존 행(점포마스터 발주없는 점포) 도 유지.
 function mergeCargoPreserve(existing: CargoRow[], rebuilt: CargoRow[]): CargoRow[] {
   const existingMap = new Map(existing.map((r) => [r.id, r]));
   const merged = rebuilt.map((newRow) => {
     const ex = existingMap.get(newRow.id);
     if (!ex) return newRow;
-    return { ...newRow, note: ex.note, support_excluded: ex.support_excluded };
+    const mergedRow: CargoRow = {
+      ...newRow,
+      note: ex.note,
+      support_excluded: ex.support_excluded,
+      user_dirty: ex.user_dirty,
+    };
+    // dirty 표시된 numeric 필드만 기존 값 유지 (사용자가 직접 수정한 값)
+    if (ex.user_dirty) {
+      for (const key of CARGO_NUMERIC_KEYS) {
+        if (ex.user_dirty[key]) (mergedRow as Record<string, unknown>)[key] = ex[key];
+      }
+    }
+    return mergedRow;
   });
   // 점포마스터에서 가져온 발주 없는 점포(rebuilt에 없는 점포명) 유지
   const rebuiltNameSet = new Set(rebuilt.map((r) => normalizeStoreName(r.store_name)));
@@ -1620,20 +1637,24 @@ function mergeCargoPreserve(existing: CargoRow[], rebuilt: CargoRow[]): CargoRow
   return [...merged, ...preserved];
 }
 
-// sep 재계산 시 사용자 수동 수정값(기존값 != 재계산값인 필드) 보존
-const CARGO_NUMERIC_KEYS = ['large_box', 'large_inner', 'large_other', 'large_day2l', 'large_nb2l', 'small_low', 'small_high', 'event', 'tobacco', 'certificate', 'cdc', 'pbox'] as const;
+// 서버 로드 직후 호환용 — 저장된 값과 rebuild 값이 다르면 (= 저장 시점 sep 와 현재 sep 가 다른 경우)
+// 저장된 값을 그대로 유지. user_dirty 가 명시되지 않은 옛 스냅샷에서도 동작 보장.
 function mergeCargoPreserveSmart(existing: CargoRow[], rebuilt: CargoRow[]): CargoRow[] {
   const existingMap = new Map(existing.map((r) => [r.id, r]));
   const merged = rebuilt.map((newRow) => {
     const ex = existingMap.get(newRow.id);
     if (!ex) return newRow;
-    const mergedRow: CargoRow = { ...newRow, note: ex.note, support_excluded: ex.support_excluded };
+    const mergedRow: CargoRow = {
+      ...newRow,
+      note: ex.note,
+      support_excluded: ex.support_excluded,
+      user_dirty: ex.user_dirty,
+    };
     for (const key of CARGO_NUMERIC_KEYS) {
-      if (ex[key] !== newRow[key]) mergedRow[key] = ex[key]; // 사용자 수동 수정값 유지
+      if (ex[key] !== newRow[key]) (mergedRow as Record<string, unknown>)[key] = ex[key];
     }
     return mergedRow;
   });
-  // 점포마스터에서 가져온 발주 없는 점포(rebuilt에 없는 점포명) 유지
   const rebuiltNameSet = new Set(rebuilt.map((r) => normalizeStoreName(r.store_name)));
   const preserved = existing.filter((r) => !rebuiltNameSet.has(normalizeStoreName(r.store_name)));
   return [...merged, ...preserved];
@@ -2713,7 +2734,12 @@ export function VehiclePageScreen({
         if (rowIndex !== index) return row;
         if (key === "note") return { ...row, [key]: value };
         if (key === "car_no" || key === "store_code" || key === "store_name") return { ...row, [key]: value };
-        return { ...row, [key]: toNumber(value) } as CargoRow;
+        // numeric 필드: dirty 표시하여 sep 재계산 시 사용자 편집값 보존
+        return {
+          ...row,
+          [key]: toNumber(value),
+          user_dirty: { ...(row.user_dirty ?? {}), [key as string]: true },
+        } as CargoRow;
       })
     );
   };
