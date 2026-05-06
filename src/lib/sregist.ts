@@ -246,6 +246,85 @@ class SregistClient {
   }
 
   /**
+   * 입출차 내역 조회 (POST /api/searchinoutlist.php).
+   * - corp_sn=2 (현장 셋업 값. 필요시 SREGIST_CORP_SN 으로 오버라이드)
+   * - 응답 형식: "<tr> rows ####totalPages####totalCount" 또는 "NODATA"
+   * - row: <tr><td>vNo</td><td>vType</td><td>inTime</td><td>outTime</td></tr>
+   *   vType 예: 등록차량 / 영업차량 / 배송차량
+   *   outTime 이 빈 문자열이면 아직 출차 안 됨.
+   */
+  async searchInoutHistory(params: {
+    startdate: string; // YYYY-MM-DD
+    enddate: string;
+    vehicle?: string;
+    page?: number;
+  }): Promise<{
+    success: true;
+    items: Array<{ vNo: string; vType: string; inTime: string; outTime: string }>;
+    totalPages: number;
+    totalCount: number;
+  } | { success: false; error: string }> {
+    try {
+      const { baseUrl } = getEnv();
+      if (!this.sessionCookie) await this.login();
+
+      const corpSn = process.env.SREGIST_CORP_SN || "2";
+      const callOnce = async () =>
+        fetch(`${baseUrl}/api/searchinoutlist.php`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Cookie: `PHPSESSID=${this.sessionCookie}`,
+          },
+          body: new URLSearchParams({
+            corp_sn: corpSn,
+            startdate: params.startdate,
+            enddate: params.enddate,
+            vehicle: params.vehicle ?? "",
+            p: String(params.page ?? 1),
+          }).toString(),
+        });
+
+      let res = await callOnce();
+      let text = await res.text();
+      const sessionExpired =
+        res.status === 401 || res.status === 302 || (res.status === 200 && looksLikeLoginPage(text));
+      if (sessionExpired) {
+        this.sessionCookie = null;
+        await this.login();
+        res = await callOnce();
+        text = await res.text();
+      }
+      if (!res.ok) return { success: false, error: `HTTP ${res.status}` };
+
+      const trimmed = text.trim();
+      if (trimmed === "NODATA" || trimmed === "") {
+        return { success: true, items: [], totalPages: 0, totalCount: 0 };
+      }
+
+      const parts = trimmed.split("####");
+      const rowsHtml = parts[0] ?? "";
+      const totalPages = Number((parts[1] ?? "0").trim()) || 0;
+      const totalCount = Number((parts[2] ?? "0").trim().replace(/,/g, "")) || 0;
+
+      const items: Array<{ vNo: string; vType: string; inTime: string; outTime: string }> = [];
+      const rowRe = /<tr[^>]*>\s*<td[^>]*>([^<]*)<\/td>\s*<td[^>]*>([^<]*)<\/td>\s*<td[^>]*>([^<]*)<\/td>\s*<td[^>]*>([^<]*)<\/td>\s*<\/tr>/g;
+      for (const m of rowsHtml.matchAll(rowRe)) {
+        items.push({
+          vNo: m[1].trim(),
+          vType: m[2].trim(),
+          inTime: m[3].trim(),
+          outTime: m[4].trim(),
+        });
+      }
+
+      return { success: true, items, totalPages, totalCount };
+    } catch (e: unknown) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
+  /**
    * 등록된 모든 차량 목록을 수집한다.
    * sregist 의 검색 API(/api/getsearch_regist.php)는 carnum 부분일치 검색만 지원하고
    * "전체 조회" 모드가 노출돼 있지 않으므로, 차량번호에 흔히 들어가는 "00"~"99" 두 자리
