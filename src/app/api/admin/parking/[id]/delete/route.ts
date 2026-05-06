@@ -36,7 +36,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     let sregistDeleted: boolean | null = null;
     let sregistError: string | undefined;
 
-    if (process.env.SREGIST_AUTO_REGISTER === "true") {
+    if (String(process.env.SREGIST_AUTO_REGISTER ?? "").trim().toLowerCase() === "true") {
       try {
         const found = await sregist.findRegisteredVehicle(r.car_number);
         if (found.ok && found.exists) {

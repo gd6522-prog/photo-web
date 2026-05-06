@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
   // sregist(주차관제) 측 중복 체크: Drido DB 에는 없어도 sregist 에 이미 같은 차량번호로
   // 등록되어 있는 경우(이전 수동 등록 등) 신청을 차단 — 승인 단계에서 sregist 등록이 무조건
   // 실패하므로 미리 거른다. sregist 호출 자체가 실패하면 graceful 통과.
-  if (process.env.SREGIST_AUTO_REGISTER === "true") {
+  if (String(process.env.SREGIST_AUTO_REGISTER ?? "").trim().toLowerCase() === "true") {
     try {
       const found = await sregist.findRegisteredVehicle(car_number);
       if (found.ok && found.exists) {
@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
   let gateOpened: boolean | null = null;
   let gateError: string | undefined;
 
-  if (isVisitor && process.env.SREGIST_AUTO_REGISTER === "true" && expire_date) {
+  if (isVisitor && String(process.env.SREGIST_AUTO_REGISTER ?? "").trim().toLowerCase() === "true" && expire_date) {
     try {
       const today = todayKST();
       const result = await sregist.registerVehicle({

@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     const guard = await requireAdmin(req);
     if (!guard.ok) return guard.res;
 
-    const autoRegisterEnabled = process.env.SREGIST_AUTO_REGISTER === "true";
+    const autoRegisterEnabled = String(process.env.SREGIST_AUTO_REGISTER ?? "").trim().toLowerCase() === "true";
     const r = await sregist.healthCheck();
 
     return json(true, undefined, {

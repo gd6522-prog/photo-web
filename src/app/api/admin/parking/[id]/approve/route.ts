@@ -91,7 +91,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     });
 
     // 2) sregist 자동등록 (활성화된 경우만)
-    const autoRegisterEnabled = process.env.SREGIST_AUTO_REGISTER === "true";
+    const autoRegisterEnabled = String(process.env.SREGIST_AUTO_REGISTER ?? "").trim().toLowerCase() === "true";
 
     if (!autoRegisterEnabled) {
       return json(true, undefined, { sregistAttempted: false });
