@@ -312,15 +312,11 @@ export default function AdminParkingPage() {
       alert("거절 사유를 입력해 주세요.");
       return;
     }
-    const { error } = await supabase
-      .from("parking_requests")
-      .update({
-        status: "rejected",
-        reject_reason: rejectReason.trim(),
-      })
-      .eq("id", rejectTarget.id);
-    if (error) {
-      alert(`거절 실패: ${error.message}`);
+    const r = await callAdminApi(`/api/admin/parking/${rejectTarget.id}/reject`, {
+      body: JSON.stringify({ reason: rejectReason.trim() }),
+    });
+    if (!r.ok) {
+      alert(`거절 실패: ${r.message}`);
       return;
     }
     setRejectTarget(null);

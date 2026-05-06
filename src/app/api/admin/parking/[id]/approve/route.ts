@@ -1,6 +1,7 @@
-import { NextRequest } from "next/server";
+import { NextRequest, after } from "next/server";
 import { json, requireAdmin } from "../../../notices/_shared";
 import { sregist } from "@/lib/sregist";
+import { sendApprovalAlimtalk } from "@/lib/solapi";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -70,6 +71,24 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       .eq("id", id);
 
     if (uErr) return json(false, uErr.message, null, 500);
+
+    // 신청자에게 "승인 완료" 알림톡 (응답 후 백그라운드)
+    after(async () => {
+      try {
+        const ar = await sendApprovalAlimtalk({
+          to: r.phone,
+          name: r.name,
+          carNumber: r.car_number,
+          type: r.type,
+          expireDate,
+        });
+        if (!ar.success) {
+          console.error("[알림톡 승인 발송 실패]", { id, error: ar.error });
+        }
+      } catch (e) {
+        console.error("[알림톡 승인 발송 예외]", e);
+      }
+    });
 
     // 2) sregist 자동등록 (활성화된 경우만)
     const autoRegisterEnabled = process.env.SREGIST_AUTO_REGISTER === "true";
