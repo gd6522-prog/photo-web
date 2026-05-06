@@ -131,6 +131,56 @@ export default function ParkingIoHistoryPage() {
     void load({ force: true });
   };
 
+  const [exporting, setExporting] = useState(false);
+  const onExportExcel = async () => {
+    if (exporting) return;
+    setExporting(true);
+    setErrMsg("");
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess?.session?.access_token;
+      if (!token) {
+        setErrMsg("세션이 없습니다. 다시 로그인해 주세요.");
+        return;
+      }
+      const url = new URL("/api/admin/parking/inout-history/export", window.location.origin);
+      url.searchParams.set("startdate", startDate);
+      url.searchParams.set("enddate", endDate);
+      if (vehicle) url.searchParams.set("vehicle", vehicle);
+
+      const res = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        setErrMsg(`다운로드 실패: HTTP ${res.status}${txt ? ` — ${txt.slice(0, 120)}` : ""}`);
+        return;
+      }
+      const blob = await res.blob();
+
+      // Content-Disposition 의 filename* 우선 추출
+      const cd = res.headers.get("content-disposition") ?? "";
+      let filename = `입출차내역_${startDate}_${endDate}.xlsx`;
+      const star = cd.match(/filename\*=UTF-8''([^;]+)/i);
+      if (star) {
+        try { filename = decodeURIComponent(star[1]); } catch { /* keep default */ }
+      }
+
+      const dlUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = dlUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(dlUrl);
+    } catch (e) {
+      setErrMsg(e instanceof Error ? e.message : "다운로드 실패");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div style={{ padding: "8px 0", maxWidth: 1700, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 12 }}>
@@ -186,6 +236,20 @@ export default function ParkingIoHistoryPage() {
           }}
         >
           새로고침
+        </button>
+        <button
+          type="button"
+          onClick={onExportExcel}
+          disabled={exporting}
+          title={`${startDate} ~ ${endDate} 전체 데이터를 Excel 로 다운로드`}
+          style={{
+            height: 36, padding: "0 12px", borderRadius: 6, border: "none",
+            background: exporting ? "#94a3b8" : "linear-gradient(135deg,#0f766e 0%,#14b8a6 100%)",
+            color: "#fff", fontWeight: 800, fontSize: 13,
+            cursor: exporting ? "not-allowed" : "pointer",
+          }}
+        >
+          {exporting ? "내보내는 중..." : "엑셀 다운로드"}
         </button>
         {vehicle || startDate !== today || endDate !== today ? (
           <button
