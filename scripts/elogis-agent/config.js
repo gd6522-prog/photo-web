@@ -366,6 +366,8 @@ const FILE_CONFIGS = [
     label: "점포별물류비조회",
     fileNameLabel: "물류비조회_작업구분별",
     type: "generic",
+    // 일요일에도 자동 실행 (다른 슬롯은 일요일 skip 이 기본)
+    runOnSunday: true,
     pageUrl: "https://elogis.emart24.co.kr/",
     menuPath: ["정산관리 (BMS)", "물류용역수수료", "점포별물류비조회(일)", "점포별/일자별/작업구분별"],
     uiDateSearch: { label: "기준일자", extName: "A.BASE_YMD", daysOffset: -2, waitAfterSearch: 10000 },

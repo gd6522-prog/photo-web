@@ -386,17 +386,19 @@ async function checkSchedules() {
   const nowKst = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
   const h = nowKst.getHours();
   const m = nowKst.getMinutes();
-
-  // 일요일(0)은 자동 실행 건너뜀
-  if (nowKst.getDay() === 0) return;
+  const isSunday = nowKst.getDay() === 0;
 
   for (const [slotKey, sched] of Object.entries(schedules)) {
     // enabled: true이고 시/분이 정확히 일치할 때만 트리거
-    if (sched.enabled && sched.hour === h && sched.minute === m) {
-      log(`[스케줄] ${slotKey} → ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} 도달, 트리거`);
-      // 비동기로 실행 — 슬롯별 락이라 다른 슬롯 동시 실행 허용 (같은 슬롯만 중복 차단)
-      triggerSlot(slotKey).catch((e) => log(`[ERROR] 슬롯 트리거 오류 (${slotKey}): ${e?.message}`));
+    if (!sched.enabled || sched.hour !== h || sched.minute !== m) continue;
+    // 일요일은 runOnSunday: true 로 명시한 슬롯만 자동 실행
+    if (isSunday) {
+      const cfg = FILE_CONFIGS.find((c) => c.slotKey === slotKey);
+      if (!cfg?.runOnSunday) continue;
     }
+    log(`[스케줄] ${slotKey} → ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} 도달, 트리거`);
+    // 비동기로 실행 — 슬롯별 락이라 다른 슬롯 동시 실행 허용 (같은 슬롯만 중복 차단)
+    triggerSlot(slotKey).catch((e) => log(`[ERROR] 슬롯 트리거 오류 (${slotKey}): ${e?.message}`));
   }
 }
 
@@ -475,10 +477,15 @@ async function main() {
       const schedules = await fetchSlotSchedules();
       if (!schedules || typeof schedules !== "object") return;
       const nowKst = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
-      if (nowKst.getDay() === 0) return;
+      const isSunday = nowKst.getDay() === 0;
       const nowMin = nowKst.getHours() * 60 + nowKst.getMinutes();
       for (const [slotKey, sched] of Object.entries(schedules)) {
         if (!sched.enabled) continue;
+        // 일요일은 runOnSunday: true 슬롯만 catchup
+        if (isSunday) {
+          const cfg = FILE_CONFIGS.find((c) => c.slotKey === slotKey);
+          if (!cfg?.runOnSunday) continue;
+        }
         const schedMin = sched.hour * 60 + sched.minute;
         const diff = nowMin - schedMin;
         if (diff > 0 && diff <= 10) {
