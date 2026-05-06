@@ -22,7 +22,7 @@ export const PARKING_CONSENT_TEXT = `[개인정보 수집·이용 동의 (필수
    - 단, 관계 법령에 따라 보존이 필요한 경우 해당 기간 보관
 
 4. 처리 위탁
-   - 입차 통제를 위해 외부 주차관제 시스템(sregist) 운영업체에
+   - 입차 통제를 위해 외부 주차관제 시스템 운영업체(ADT캡스)에
      차량번호·이름·연락처를 제공·위탁합니다.
 
 5. 동의 거부 권리 및 불이익
@@ -31,4 +31,4 @@ export const PARKING_CONSENT_TEXT = `[개인정보 수집·이용 동의 (필수
 
 본 안내를 충분히 읽고 이해하였으며, 위와 같이 개인정보를 수집·이용하는 것에 동의합니다.`;
 
-export const PARKING_CONSENT_VERSION = "v1.2026-05-06";
+export const PARKING_CONSENT_VERSION = "v2.2026-05-06";
