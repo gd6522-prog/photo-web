@@ -7,7 +7,9 @@ export const runtime = "nodejs";
 
 const RATE_LIMIT_PER_MIN = 5;
 
-const CAR_NUMBER_RE = /^[0-9]{2,3}[가-힣][0-9]{4}$/;
+// 일반: "12가3456" / "123가4567"
+// 영업·지역: "경기12가3456" / "서울123가4567" 등 (앞에 한글 2글자 지역명 prefix 허용)
+const CAR_NUMBER_RE = /^([가-힣]{2})?[0-9]{2,3}[가-힣][0-9]{4}$/;
 const PHONE_RE = /^01[016789]-\d{3,4}-\d{4}$/;
 
 function getClientIp(req: NextRequest): string {
@@ -79,7 +81,10 @@ export async function POST(req: NextRequest) {
   if (!company) return NextResponse.json({ ok: false, message: "소속(회사명)을 입력해 주세요." }, { status: 400 });
   if (!name) return NextResponse.json({ ok: false, message: "이름을 입력해 주세요." }, { status: 400 });
   if (!CAR_NUMBER_RE.test(car_number)) {
-    return NextResponse.json({ ok: false, message: "차량번호 형식이 올바르지 않습니다. (예: 12가3456)" }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, message: "차량번호 형식이 올바르지 않습니다. (예: 12가3456 / 경기12가3456)" },
+      { status: 400 }
+    );
   }
   if (!PHONE_RE.test(phone)) {
     return NextResponse.json({ ok: false, message: "연락처 형식이 올바르지 않습니다. (예: 010-0000-0000)" }, { status: 400 });

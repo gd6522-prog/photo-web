@@ -6,7 +6,9 @@ import { PARKING_CONSENT_TEXT } from "@/lib/parking-consent";
 
 type Props = { type: "regular" | "visitor" };
 
-const CAR_NUMBER_RE = /^[0-9]{2,3}[가-힣][0-9]{4}$/;
+// 일반: "12가3456" / "123가4567"
+// 영업·지역: "경기12가3456" / "서울123가4567" 등 (앞에 한글 2글자 지역명 prefix 허용)
+const CAR_NUMBER_RE = /^([가-힣]{2})?[0-9]{2,3}[가-힣][0-9]{4}$/;
 const PHONE_RE = /^01[016789]-\d{3,4}-\d{4}$/;
 
 function formatPhone(raw: string): string {
@@ -71,7 +73,7 @@ export default function RequestForm({ type }: Props) {
   const validate = (): string | null => {
     if (!company.trim()) return "소속(회사명)을 입력해 주세요.";
     if (!name.trim()) return "이름을 입력해 주세요.";
-    if (!CAR_NUMBER_RE.test(carNumber.trim())) return "차량번호 형식이 올바르지 않습니다. (예: 12가3456)";
+    if (!CAR_NUMBER_RE.test(carNumber.trim())) return "차량번호 형식이 올바르지 않습니다. (예: 12가3456 / 경기12가3456)";
     if (!PHONE_RE.test(phone.trim())) return "연락처 형식이 올바르지 않습니다. (예: 010-0000-0000)";
     if (type === "visitor") {
       if (!visitDate) return "방문 날짜를 선택해 주세요.";
@@ -241,7 +243,7 @@ export default function RequestForm({ type }: Props) {
             style={fieldInput}
             value={carNumber}
             onChange={(e) => setCarNumber(e.target.value.replace(/\s+/g, ""))}
-            placeholder="예: 12가3456"
+            placeholder="예: 12가3456 / 경기12가3456"
             maxLength={20}
             inputMode="text"
           />
