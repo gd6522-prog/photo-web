@@ -1263,9 +1263,15 @@ function RangeMergeDownload({ slotKey: _slotKey }: { slotKey: string }) {
     }
     setBusy(true);
     try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess?.session?.access_token;
+      if (!token) {
+        setMsg("로그인 정보가 없습니다. 새로고침 후 다시 로그인해 주세요.");
+        return;
+      }
       const res = await fetch("/api/admin/logistics-cost-merge", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ from, to }),
       });
       if (!res.ok) {
