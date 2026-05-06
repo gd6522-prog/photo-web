@@ -38,12 +38,16 @@ const td: React.CSSProperties = {
 
 export default function ParkingIoHistoryPage() {
   const today = useMemo(() => todayKST(), []);
-  // 기본 기간: 오늘 하루만 (sregist 응답 속도 고려)
+  // "applied" 상태 — 실제 조회에 사용되는 값. 검색 버튼 / 페이지 이동 시에만 변경.
   const [startDate, setStartDate] = useState(() => todayKST());
   const [endDate, setEndDate] = useState(() => todayKST());
   const [vehicle, setVehicle] = useState("");
-  const [vehicleInput, setVehicleInput] = useState("");
   const [page, setPage] = useState(1);
+
+  // "draft" 상태 — 사용자가 폼에서 편집 중인 값. 입력만 저장되고 조회는 안 됨.
+  const [startInput, setStartInput] = useState(() => todayKST());
+  const [endInput, setEndInput] = useState(() => todayKST());
+  const [vehicleInput, setVehicleInput] = useState("");
 
   const [items, setItems] = useState<Item[]>([]);
   const [totalPages, setTotalPages] = useState(0);
@@ -51,7 +55,7 @@ export default function ParkingIoHistoryPage() {
   const [loading, setLoading] = useState(false);
   const [errMsg, setErrMsg] = useState("");
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { force?: boolean }) => {
     setLoading(true);
     setErrMsg("");
     try {
@@ -66,6 +70,7 @@ export default function ParkingIoHistoryPage() {
       url.searchParams.set("enddate", endDate);
       if (vehicle) url.searchParams.set("vehicle", vehicle);
       url.searchParams.set("page", String(page));
+      if (opts?.force) url.searchParams.set("nocache", "1");
 
       const res = await fetch(url.toString(), {
         headers: { Authorization: `Bearer ${token}` },
@@ -100,13 +105,27 @@ export default function ParkingIoHistoryPage() {
 
   const onSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    if (startInput > endInput) {
+      setErrMsg("시작일은 종료일 이전이어야 합니다.");
+      return;
+    }
+    setStartDate(startInput);
+    setEndDate(endInput);
     setVehicle(vehicleInput.trim());
     setPage(1);
   };
   const onResetSearch = () => {
-    setVehicle("");
+    const t = todayKST();
+    setStartInput(t);
+    setEndInput(t);
     setVehicleInput("");
+    setStartDate(t);
+    setEndDate(t);
+    setVehicle("");
     setPage(1);
+  };
+  const onForceRefresh = () => {
+    void load({ force: true });
   };
 
   return (
@@ -118,57 +137,66 @@ export default function ParkingIoHistoryPage() {
         </div>
       </div>
 
-      {/* 필터 */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 12 }}>
+      {/* 필터 — 달력 / 차량번호 모두 [검색] 버튼 눌러야 적용. 페이지 이동은 별도 (즉시 조회) */}
+      <form onSubmit={onSearch} style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 12 }}>
         <input
           type="date"
-          value={startDate}
-          max={endDate}
-          onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+          value={startInput}
+          max={endInput || today}
+          onChange={(e) => setStartInput(e.target.value)}
           style={{ height: 36, padding: "0 10px", fontSize: 13 }}
         />
         <span style={{ color: "#64748b", fontWeight: 700 }}>~</span>
         <input
           type="date"
-          value={endDate}
-          min={startDate}
+          value={endInput}
+          min={startInput}
           max={today}
-          onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+          onChange={(e) => setEndInput(e.target.value)}
           style={{ height: 36, padding: "0 10px", fontSize: 13 }}
         />
 
         <div style={{ flex: 1 }} />
 
-        <form onSubmit={onSearch} style={{ display: "flex", gap: 6 }}>
-          <input
-            value={vehicleInput}
-            onChange={(e) => setVehicleInput(e.target.value)}
-            placeholder="차량번호 일부 (예: 12가)"
-            style={{ height: 36, width: 220, padding: "0 12px", fontSize: 13 }}
-          />
+        <input
+          value={vehicleInput}
+          onChange={(e) => setVehicleInput(e.target.value)}
+          placeholder="차량번호 일부 (예: 12가)"
+          style={{ height: 36, width: 220, padding: "0 12px", fontSize: 13 }}
+        />
+        <button
+          type="submit"
+          style={{
+            height: 36, padding: "0 16px", borderRadius: 6, border: "none",
+            background: "#0b2536", color: "#fff", fontWeight: 800, fontSize: 13, cursor: "pointer",
+          }}
+        >
+          검색
+        </button>
+        <button
+          type="button"
+          onClick={onForceRefresh}
+          title="캐시 무시하고 sregist 에서 다시 가져오기"
+          style={{
+            height: 36, padding: "0 12px", borderRadius: 6, border: "1px solid #cbd5e1",
+            background: "#fff", color: "#334155", fontWeight: 800, fontSize: 13, cursor: "pointer",
+          }}
+        >
+          새로고침
+        </button>
+        {vehicle || startDate !== today || endDate !== today ? (
           <button
-            type="submit"
+            type="button"
+            onClick={onResetSearch}
             style={{
-              height: 36, padding: "0 14px", borderRadius: 6, border: "none",
-              background: "#0b2536", color: "#fff", fontWeight: 800, fontSize: 13, cursor: "pointer",
+              height: 36, padding: "0 12px", borderRadius: 6, border: "1px solid #cbd5e1",
+              background: "#fff", color: "#334155", fontWeight: 800, fontSize: 13, cursor: "pointer",
             }}
           >
-            검색
+            초기화
           </button>
-          {vehicle ? (
-            <button
-              type="button"
-              onClick={onResetSearch}
-              style={{
-                height: 36, padding: "0 12px", borderRadius: 6, border: "1px solid #cbd5e1",
-                background: "#fff", color: "#334155", fontWeight: 800, fontSize: 13, cursor: "pointer",
-              }}
-            >
-              초기화
-            </button>
-          ) : null}
-        </form>
-      </div>
+        ) : null}
+      </form>
 
       {errMsg ? (
         <div style={{ padding: "10px 12px", borderRadius: 8, background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", fontWeight: 700, fontSize: 13, marginBottom: 12 }}>
