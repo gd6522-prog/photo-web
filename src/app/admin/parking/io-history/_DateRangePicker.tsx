@@ -180,9 +180,14 @@ export default function DateRangePicker({ start, end, maxYmd, onApply }: Props) 
             borderRadius: 10,
             boxShadow: "0 16px 40px rgba(2,32,46,0.18)",
             padding: 14,
-            minWidth: 600,
+            minWidth: 720,
           }}
         >
+          {/* react-day-picker 두 달 무조건 좌우 배치 강제 (기본은 너비 부족 시 wrap) */}
+          <style>{`
+            .drp-rdp .rdp-months { display: flex; flex-wrap: nowrap; gap: 24px; }
+            .drp-rdp .rdp-month { flex: 0 0 auto; }
+          `}</style>
           {/* 상단 입력 */}
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
             <span style={{ fontSize: 12, fontWeight: 800, color: "#475569", minWidth: 56 }}>조회기간</span>
@@ -260,7 +265,7 @@ export default function DateRangePicker({ start, end, maxYmd, onApply }: Props) 
           </div>
 
           {/* 두 달 캘린더 */}
-          <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 12 }}>
+          <div className="drp-rdp" style={{ borderTop: "1px solid #e2e8f0", paddingTop: 12 }}>
             <DayPicker
               mode="range"
               selected={sel}
