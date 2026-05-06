@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import DateRangePicker from "./_DateRangePicker";
 
 type Item = {
   vNo: string;
@@ -192,21 +193,11 @@ export default function ParkingIoHistoryPage() {
 
       {/* 필터 — 달력 / 차량번호 모두 [검색] 버튼 눌러야 적용. 페이지 이동은 별도 (즉시 조회) */}
       <form onSubmit={onSearch} style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 12 }}>
-        <input
-          type="date"
-          value={startInput}
-          max={endInput || today}
-          onChange={(e) => setStartInput(e.target.value)}
-          style={{ height: 36, padding: "0 10px", fontSize: 13 }}
-        />
-        <span style={{ color: "#64748b", fontWeight: 700 }}>~</span>
-        <input
-          type="date"
-          value={endInput}
-          min={startInput}
-          max={today}
-          onChange={(e) => setEndInput(e.target.value)}
-          style={{ height: 36, padding: "0 10px", fontSize: 13 }}
+        <DateRangePicker
+          start={startInput}
+          end={endInput}
+          maxYmd={today}
+          onApply={(s, e) => { setStartInput(s); setEndInput(e); }}
         />
 
         <div style={{ flex: 1 }} />
