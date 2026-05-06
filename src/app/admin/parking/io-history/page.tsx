@@ -5,10 +5,13 @@ import { supabase } from "@/lib/supabase";
 
 type Item = {
   vNo: string;
-  vType: string; // sregist 가 인식한 분류 (등록차량/영업차량/배송차량 등)
+  vType: string; // sregist 가 인식한 분류 (등록차량/영업차량/배송차량 등) — 표시 안 함
   inTime: string;
   outTime: string; // 빈 문자열 = 미출차
   dridoType: "regular" | "visitor" | null;
+  company: string | null;
+  name: string | null;
+  phone: string | null;
   visitPurpose: string | null;
 };
 
@@ -206,62 +209,58 @@ export default function ParkingIoHistoryPage() {
 
       {/* 테이블 */}
       <div className="ha-card" style={{ overflow: "auto", borderRadius: 8 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 900 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 1000 }}>
           <thead>
             <tr style={{ background: "#f1f5f9", color: "#334155" }}>
               <th style={th}>구분</th>
+              <th style={th}>업체명</th>
               <th style={th}>차량번호</th>
+              <th style={th}>이름</th>
+              <th style={th}>연락처</th>
               <th style={th}>입차일시</th>
               <th style={th}>출차일시</th>
-              <th style={th}>방문목적</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={5} style={{ padding: "30px 12px", textAlign: "center", color: "#64748b" }}>
+                <td colSpan={7} style={{ padding: "30px 12px", textAlign: "center", color: "#64748b" }}>
                   불러오는 중...
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={5} style={{ padding: "30px 12px", textAlign: "center", color: "#64748b" }}>
+                <td colSpan={7} style={{ padding: "30px 12px", textAlign: "center", color: "#64748b" }}>
                   데이터가 없습니다.
                 </td>
               </tr>
             ) : (
               items.map((r, idx) => {
-                // 구분 배지: Drido 매칭이 있으면 정기/방문, 없으면 sregist 분류 (영업/배송 등)
-                let badgeLabel: string;
-                let badgeBg: string;
-                let badgeFg: string;
-                let badgeBd: string;
+                // 구분 배지: Drido 매칭이 있을 때만 표시. 매칭 안 된 차량은 빈칸.
+                let badge: React.ReactNode = null;
                 if (r.dridoType === "regular") {
-                  badgeLabel = "정기";
-                  badgeBg = "#ccfbf1"; badgeFg = "#115e59"; badgeBd = "#99f6e4";
+                  badge = (
+                    <span style={{ padding: "2px 8px", borderRadius: 4, background: "#ccfbf1", color: "#115e59", border: "1px solid #99f6e4", fontWeight: 800, fontSize: 11 }}>
+                      정기
+                    </span>
+                  );
                 } else if (r.dridoType === "visitor") {
-                  badgeLabel = "방문";
-                  badgeBg = "#dbeafe"; badgeFg = "#1e40af"; badgeBd = "#bfdbfe";
-                } else {
-                  badgeLabel = r.vType || "-";
-                  badgeBg = "#f1f5f9"; badgeFg = "#475569"; badgeBd = "#cbd5e1";
+                  badge = (
+                    <span style={{ padding: "2px 8px", borderRadius: 4, background: "#dbeafe", color: "#1e40af", border: "1px solid #bfdbfe", fontWeight: 800, fontSize: 11 }}>
+                      방문
+                    </span>
+                  );
                 }
                 return (
                   <tr key={`${r.vNo}-${r.inTime}-${idx}`} style={{ borderTop: "1px solid #e2e8f0" }}>
-                    <td style={td}>
-                      <span style={{ padding: "2px 8px", borderRadius: 4, background: badgeBg, color: badgeFg, border: `1px solid ${badgeBd}`, fontWeight: 800, fontSize: 11 }}>
-                        {badgeLabel}
-                      </span>
-                    </td>
-                    <td style={{ ...td, fontWeight: 800 }}>{r.vNo || "-"}</td>
-                    <td style={td}>{r.inTime || "-"}</td>
+                    <td style={td}>{badge}</td>
+                    <td style={td}>{r.company || ""}</td>
+                    <td style={{ ...td, fontWeight: 800 }}>{r.vNo || ""}</td>
+                    <td style={td}>{r.name || ""}</td>
+                    <td style={td}>{r.phone || ""}</td>
+                    <td style={td}>{r.inTime || ""}</td>
                     <td style={{ ...td, color: r.outTime ? "#0b2536" : "#94a3b8" }}>
                       {r.outTime || "(미출차)"}
-                    </td>
-                    <td style={{ ...td, maxWidth: 300, color: "#475569" }}>
-                      <div title={r.visitPurpose ?? ""} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {r.visitPurpose || "-"}
-                      </div>
                     </td>
                   </tr>
                 );

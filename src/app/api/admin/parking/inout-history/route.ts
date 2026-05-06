@@ -57,17 +57,23 @@ export async function GET(req: NextRequest) {
     const r = await sregist.searchInoutHistory({ startdate, enddate, vehicle, page });
     if (!r.success) return json(false, r.error, null, 502);
 
-    // 차량번호별 parking_requests 매칭으로 type / visit_purpose 보강.
+    // 차량번호별 parking_requests 매칭으로 type / company / name / phone / visit_purpose 보강.
     const carNumbers = Array.from(new Set(r.items.map((i) => i.vNo).filter(Boolean)));
     const matchMap = new Map<
       string,
-      { type: "regular" | "visitor"; visit_purpose: string | null; visit_date: string | null }
+      {
+        type: "regular" | "visitor";
+        company: string | null;
+        name: string | null;
+        phone: string | null;
+        visit_purpose: string | null;
+      }
     >();
 
     if (carNumbers.length) {
       const { data: rows, error: dbErr } = await guard.sbAdmin
         .from("parking_requests")
-        .select("car_number, type, visit_purpose, visit_date, created_at")
+        .select("car_number, type, company, name, phone, visit_purpose, created_at")
         .in("car_number", carNumbers)
         .order("created_at", { ascending: false });
 
@@ -75,14 +81,18 @@ export async function GET(req: NextRequest) {
         for (const row of rows as Array<{
           car_number: string;
           type: "regular" | "visitor";
+          company: string | null;
+          name: string | null;
+          phone: string | null;
           visit_purpose: string | null;
-          visit_date: string | null;
         }>) {
           if (!matchMap.has(row.car_number)) {
             matchMap.set(row.car_number, {
               type: row.type,
+              company: row.company,
+              name: row.name,
+              phone: row.phone,
               visit_purpose: row.visit_purpose,
-              visit_date: row.visit_date,
             });
           }
         }
@@ -97,6 +107,9 @@ export async function GET(req: NextRequest) {
         inTime: it.inTime,
         outTime: it.outTime,        // 빈 문자열이면 미출차
         dridoType: m?.type ?? null, // "regular" | "visitor" | null (Drido 신청 매칭)
+        company: m?.company ?? null,
+        name: m?.name ?? null,
+        phone: m?.phone ?? null,
         visitPurpose: m?.visit_purpose ?? null,
       };
     });
