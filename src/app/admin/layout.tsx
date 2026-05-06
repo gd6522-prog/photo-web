@@ -82,6 +82,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [workLogOpen, setWorkLogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [operationOpen, setOperationOpen] = useState(false);
+  const [parkingOpen, setParkingOpen] = useState(false);
 const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const guardBootstrappedRef = useRef(false);
@@ -96,6 +97,7 @@ const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const OPERATION_ITEMS = useMemo(() => getSubItems("admin_operation"), []);
   const NOTICE_ITEMS    = useMemo(() => getSubItems("admin_notice"),    []);
   const WORK_LOG_ITEMS  = useMemo(() => getSubItems("admin_work_log"),  []);
+  const PARKING_ITEMS   = useMemo(() => getSubItems("admin_parking"),   []);
   const getAccess = (menuKey: string, mainOnly?: boolean): AccessLevel => {
     if (isMainAdmin) return "full";
     if (mainOnly) return "hidden";
@@ -119,6 +121,7 @@ const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     setWorkLogOpen(false);
     setSettingsOpen(false);
     setOperationOpen(false);
+    setParkingOpen(false);
   };
 
   const redirectToLogin = (reason?: "timeout") => {
@@ -126,7 +129,7 @@ const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     window.location.replace(next);
   };
 
-  const openDropdown = (which: "photos" | "vehicle" | "notice" | "worklog" | "settings" | "operation") => {
+  const openDropdown = (which: "photos" | "vehicle" | "notice" | "worklog" | "settings" | "operation" | "parking") => {
     clearCloseTimer();
     setPhotosOpen(which === "photos");
     setVehicleOpen(which === "vehicle");
@@ -134,9 +137,10 @@ const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     setWorkLogOpen(which === "worklog");
     setSettingsOpen(which === "settings");
     setOperationOpen(which === "operation");
+    setParkingOpen(which === "parking");
   };
 
-  const closeDropdownDelayed = (which: "photos" | "vehicle" | "notice" | "worklog" | "settings" | "operation") => {
+  const closeDropdownDelayed = (which: "photos" | "vehicle" | "notice" | "worklog" | "settings" | "operation" | "parking") => {
     clearCloseTimer();
     closeTimer.current = setTimeout(() => {
       if (which === "photos") setPhotosOpen(false);
@@ -145,6 +149,7 @@ const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
       if (which === "worklog") setWorkLogOpen(false);
       if (which === "settings") setSettingsOpen(false);
       if (which === "operation") setOperationOpen(false);
+      if (which === "parking") setParkingOpen(false);
     }, 180);
   };
 
@@ -676,13 +681,49 @@ const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
                 ) : null}
 
                 {/* 주차 */}
-                <Link
-                  href="/admin/parking"
-                  className={isActive("/admin/parking") ? "nav-pill-active" : "nav-pill"}
-                  style={pillStyle(isActive("/admin/parking"))}
+                <div
+                  onMouseEnter={() => openDropdown("parking")}
+                  onMouseLeave={() => closeDropdownDelayed("parking")}
+                  style={{ position: "relative" }}
                 >
-                  주차
-                </Link>
+                  <Link
+                    href="/admin/parking"
+                    className={isActive("/admin/parking") ? "nav-pill-active" : "nav-pill"}
+                    style={pillStyle(isActive("/admin/parking"))}
+                    onMouseEnter={() => openDropdown("parking")}
+                  >
+                    주차
+                  </Link>
+
+                  {parkingOpen && (
+                    <div
+                      onMouseEnter={() => openDropdown("parking")}
+                      onMouseLeave={() => closeDropdownDelayed("parking")}
+                      style={dropdownBoxStyle}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {(() => {
+                        const visibleItems = PARKING_ITEMS.filter((it) => canShow(it.key));
+                        const bestBase = visibleItems.reduce<string | null>((best, it) => {
+                          const b = it.href.split("?")[0];
+                          if (pathname === b || pathname.startsWith(b + "/")) {
+                            if (!best || b.length > best.length) return b;
+                          }
+                          return best;
+                        }, null);
+                        return visibleItems.map((it) => {
+                          const base = it.href.split("?")[0];
+                          const active = base === bestBase;
+                          return (
+                            <Link key={it.key} href={it.href} className="nav-dropdown-item" style={dropdownItemStyle(active)}>
+                              {it.label}
+                            </Link>
+                          );
+                        });
+                      })()}
+                    </div>
+                  )}
+                </div>
 
                 {/* 설정 */}
                 {visibleSettingsItems.length > 0 ? (

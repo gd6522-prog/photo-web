@@ -22,12 +22,6 @@ function todayKST(): string {
   return `${kst.getUTCFullYear()}-${pad2(kst.getUTCMonth() + 1)}-${pad2(kst.getUTCDate())}`;
 }
 
-function addDaysYMD(ymd: string, days: number): string {
-  const d = new Date(`${ymd}T00:00:00+09:00`);
-  d.setDate(d.getDate() + days);
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-}
-
 const th: React.CSSProperties = {
   padding: "10px 8px",
   textAlign: "left",
@@ -44,7 +38,8 @@ const td: React.CSSProperties = {
 
 export default function ParkingIoHistoryPage() {
   const today = useMemo(() => todayKST(), []);
-  const [startDate, setStartDate] = useState(() => addDaysYMD(todayKST(), -6));
+  // 기본 기간: 오늘 하루만 (sregist 응답 속도 고려)
+  const [startDate, setStartDate] = useState(() => todayKST());
   const [endDate, setEndDate] = useState(() => todayKST());
   const [vehicle, setVehicle] = useState("");
   const [vehicleInput, setVehicleInput] = useState("");
