@@ -325,6 +325,61 @@ class SregistClient {
   }
 
   /**
+   * 특정 차량번호로 sregist 내 등록 여부 확인.
+   * - 부분일치 검색 후 응답 본문 setdata(...) 패턴 중 vNo 가 정확히 일치하는 항목만 채택.
+   * - 일치 항목 중 가장 만료일이 먼 것을 반환.
+   * - 네트워크/세션 에러는 에러 객체로 반환 (호출 측에서 graceful 처리)
+   */
+  async findRegisteredVehicle(carNumber: string): Promise<
+    | { ok: true; exists: false }
+    | { ok: true; exists: true; sn: string; sdate: string; edate: string; corp: string; dept: string; memo: string }
+    | { ok: false; error: string }
+  > {
+    try {
+      const { baseUrl } = getEnv();
+      if (!this.sessionCookie) await this.login();
+
+      const callOnce = async () =>
+        fetch(`${baseUrl}/api/getsearch_regist.php`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Cookie: `PHPSESSID=${this.sessionCookie}`,
+          },
+          // 부분일치 검색이므로 차량번호를 통째로 전달 → 정확히 일치만 추후 필터
+          body: new URLSearchParams({ carnum: carNumber, sn: "" }).toString(),
+        });
+
+      let res = await callOnce();
+      let text = await res.text();
+      const sessionExpired =
+        res.status === 401 || res.status === 302 || (res.status === 200 && looksLikeLoginPage(text));
+      if (sessionExpired) {
+        this.sessionCookie = null;
+        await this.login();
+        res = await callOnce();
+        text = await res.text();
+      }
+      if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+
+      const re = /setdata\("([^"]*)","([^"]*)","([^"]*)","([^"]*)","([^"]*)","([^"]*)","([^"]*)"\)/g;
+      const matches: Array<{ sn: string; vNo: string; sdate: string; edate: string; corp: string; dept: string; memo: string }> = [];
+      for (const m of text.matchAll(re)) {
+        const [, sn, vNo, sdate, edate, corp, dept, memo] = m;
+        if (vNo === carNumber) matches.push({ sn, vNo, sdate, edate, corp, dept, memo });
+      }
+      if (matches.length === 0) return { ok: true, exists: false };
+
+      // 만료일 가장 늦은 것을 대표값으로
+      matches.sort((a, b) => b.edate.localeCompare(a.edate));
+      const top = matches[0];
+      return { ok: true, exists: true, sn: top.sn, sdate: top.sdate, edate: top.edate, corp: top.corp, dept: top.dept, memo: top.memo };
+    } catch (e: unknown) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
+  /**
    * 등록된 모든 차량 목록을 수집한다.
    * sregist 의 검색 API(/api/getsearch_regist.php)는 carnum 부분일치 검색만 지원하고
    * "전체 조회" 모드가 노출돼 있지 않으므로, 차량번호에 흔히 들어가는 "00"~"99" 두 자리
