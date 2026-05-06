@@ -71,6 +71,7 @@ export async function POST(req: NextRequest) {
   const visit_date_raw = sanitizeStr(body.visit_date, 16);
   const visit_purpose_raw = sanitizeStr(body.visit_purpose, 200);
   const immediate_entry_raw = body.immediate_entry;
+  const consent_raw = body.consent;
 
   if (type !== "regular" && type !== "visitor") {
     return NextResponse.json({ ok: false, message: "신청 종류가 올바르지 않습니다." }, { status: 400 });
@@ -82,6 +83,14 @@ export async function POST(req: NextRequest) {
   }
   if (!PHONE_RE.test(phone)) {
     return NextResponse.json({ ok: false, message: "연락처 형식이 올바르지 않습니다. (예: 010-0000-0000)" }, { status: 400 });
+  }
+
+  // 개인정보 수집·이용 동의(필수, PIPA)
+  if (consent_raw !== true) {
+    return NextResponse.json(
+      { ok: false, message: "개인정보 수집·이용에 동의해 주세요." },
+      { status: 400 }
+    );
   }
 
   let visit_date: string | null = null;
@@ -167,6 +176,8 @@ export async function POST(req: NextRequest) {
       status: isVisitor ? "approved" : "pending",
       approved_at: isVisitor ? nowIso : null,
       ip,
+      consent_at: nowIso,
+      consent_ip: ip,
     })
     .select("id")
     .single();

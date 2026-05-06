@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { PARKING_CONSENT_TEXT } from "@/lib/parking-consent";
 
 type Props = { type: "regular" | "visitor" };
 
@@ -55,6 +56,8 @@ export default function RequestForm({ type }: Props) {
   const [visitDate, setVisitDate] = useState("");
   const [visitPurpose, setVisitPurpose] = useState("");
   const [immediateEntry, setImmediateEntry] = useState<boolean | null>(null);
+  const [consent, setConsent] = useState(false);
+  const [consentExpanded, setConsentExpanded] = useState(false);
 
   const [busy, setBusy] = useState(false);
   const [errMsg, setErrMsg] = useState("");
@@ -75,6 +78,7 @@ export default function RequestForm({ type }: Props) {
       if (visitDate < today) return "방문 날짜는 오늘 이후로 선택해 주세요.";
       if (immediateEntry === null) return "바로입차 여부를 선택해 주세요.";
     }
+    if (!consent) return "개인정보 수집·이용에 동의해 주세요.";
     return null;
   };
 
@@ -101,6 +105,7 @@ export default function RequestForm({ type }: Props) {
           visit_date: type === "visitor" ? visitDate : undefined,
           visit_purpose: type === "visitor" ? visitPurpose.trim() : undefined,
           immediate_entry: type === "visitor" ? immediateEntry : undefined,
+          consent,
         }),
       });
       const data = (await res.json().catch(() => ({}))) as {
@@ -327,6 +332,85 @@ export default function RequestForm({ type }: Props) {
           </>
         ) : null}
 
+        {/* 개인정보 수집·이용 동의 (PIPA 필수) */}
+        <div
+          style={{
+            border: "1px solid rgba(255,255,255,0.10)",
+            borderRadius: 12,
+            padding: 12,
+            background: "rgba(255,255,255,0.03)",
+            marginTop: 4,
+          }}
+        >
+          <label
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 10,
+              cursor: "pointer",
+              userSelect: "none",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={consent}
+              onChange={(e) => setConsent(e.target.checked)}
+              style={{
+                width: 20,
+                height: 20,
+                marginTop: 1,
+                flexShrink: 0,
+                accentColor: "#14b8a6",
+              }}
+            />
+            <span style={{ fontSize: 14, fontWeight: 700, color: "#e6eef7", lineHeight: 1.5 }}>
+              <span style={{ color: "#fb923c" }}>(필수)</span> 개인정보 수집·이용에 동의합니다.
+            </span>
+          </label>
+
+          <button
+            type="button"
+            onClick={() => setConsentExpanded((v) => !v)}
+            style={{
+              marginTop: 8,
+              marginLeft: 30,
+              background: "transparent",
+              border: "none",
+              color: "#9fb3c7",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer",
+              padding: 0,
+              textDecoration: "underline",
+            }}
+          >
+            전문 {consentExpanded ? "접기 ▲" : "보기 ▼"}
+          </button>
+
+          {consentExpanded ? (
+            <pre
+              style={{
+                marginTop: 10,
+                marginLeft: 30,
+                padding: 12,
+                background: "rgba(0,0,0,0.25)",
+                border: "1px solid rgba(255,255,255,0.07)",
+                borderRadius: 8,
+                color: "#cbd5e1",
+                fontSize: 11.5,
+                lineHeight: 1.65,
+                fontFamily: "inherit",
+                whiteSpace: "pre-wrap",
+                wordBreak: "keep-all",
+                maxHeight: 260,
+                overflowY: "auto",
+              }}
+            >
+              {PARKING_CONSENT_TEXT}
+            </pre>
+          ) : null}
+        </div>
+
         {errMsg ? (
           <div
             style={{
@@ -345,7 +429,7 @@ export default function RequestForm({ type }: Props) {
 
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy || !consent}
           style={{
             marginTop: 8,
             height: 56,
@@ -358,8 +442,8 @@ export default function RequestForm({ type }: Props) {
             color: "#ffffff",
             fontWeight: 900,
             fontSize: 18,
-            cursor: busy ? "not-allowed" : "pointer",
-            opacity: busy ? 0.6 : 1,
+            cursor: busy || !consent ? "not-allowed" : "pointer",
+            opacity: busy || !consent ? 0.5 : 1,
             boxShadow: "0 14px 30px rgba(15,118,110,0.35)",
           }}
         >
