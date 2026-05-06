@@ -72,7 +72,7 @@ const tabBtn = (active: boolean): React.CSSProperties => ({
   whiteSpace: "nowrap",
 });
 
-const actionBtn = (variant: "approve" | "reject" | "memo" | "retry"): React.CSSProperties => ({
+const actionBtn = (variant: "approve" | "reject" | "memo" | "retry" | "delete"): React.CSSProperties => ({
   height: 28,
   padding: "0 10px",
   borderRadius: 6,
@@ -88,6 +88,8 @@ const actionBtn = (variant: "approve" | "reject" | "memo" | "retry"): React.CSSP
       ? "linear-gradient(135deg,#b91c1c 0%,#ef4444 100%)"
       : variant === "retry"
       ? "linear-gradient(135deg,#b45309 0%,#f59e0b 100%)"
+      : variant === "delete"
+      ? "linear-gradient(135deg,#7f1d1d 0%,#991b1b 100%)"
       : "linear-gradient(135deg,#475569 0%,#64748b 100%)",
 });
 
@@ -279,6 +281,29 @@ export default function AdminParkingPage() {
       alert(`재등록 실패: ${(r.data?.sregistError as string) ?? "알 수 없음"}`);
     }
     await loadRows();
+  };
+
+  const onDelete = async (row: ParkingRow) => {
+    if (
+      !confirm(
+        `이 신청을 완전 삭제하시겠습니까?\n${row.company} / ${row.name} / ${row.car_number}\n\n` +
+          `Drido DB 에서 영구 삭제되며, 주차관제(sregist)에 등록돼 있다면 함께 삭제 시도합니다.\n복구할 수 없습니다.`
+      )
+    )
+      return;
+
+    const r = await callAdminApi(`/api/admin/parking/${row.id}/delete`);
+    if (!r.ok) {
+      alert(`삭제 실패: ${r.message}`);
+      return;
+    }
+    if (r.data?.sregistError) {
+      alert(
+        `Drido DB 에선 삭제됐지만 주차관제 측 삭제는 실패했습니다.\n사유: ${r.data.sregistError}\n\n` +
+          `주차관제에 차량이 남아있을 수 있으니 직접 확인해 주세요.`
+      );
+    }
+    await Promise.all([loadRows(), loadStats()]);
   };
 
   const onSubmitReject = async () => {
@@ -611,6 +636,13 @@ export default function AdminParkingPage() {
                             메모
                           </button>
                         ) : null}
+                        <button
+                          style={actionBtn("delete")}
+                          onClick={() => onDelete(r)}
+                          title="Drido DB + 주차관제 시스템에서 모두 삭제"
+                        >
+                          삭제
+                        </button>
                       </div>
                     </td>
                   </tr>
