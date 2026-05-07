@@ -101,6 +101,15 @@ export default function InventoryCheckPage() {
     return { qty, box, unit, count: rows.length };
   }, [rows]);
 
+  const todayKstStr = useMemo(() => {
+    const now = new Date();
+    const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+    const y = kst.getUTCFullYear();
+    const m = String(kst.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(kst.getUTCDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }, []);
+
   const onPrint = () => window.print();
 
   return (
@@ -179,6 +188,39 @@ export default function InventoryCheckPage() {
             <col style={{ width: 90 }} />
           </colgroup>
           <thead>
+            {/* 인쇄용 페이지 상단 헤더 — 페이지마다 반복 (thead 가 자동으로 반복됨) */}
+            <tr className="ic-print-header" style={{ display: "none" }}>
+              <th
+                colSpan={9}
+                style={{
+                  border: "1px solid #0f172a",
+                  borderBottom: "none",
+                  padding: "10px 12px",
+                  textAlign: "left",
+                  fontSize: 14,
+                  fontWeight: 800,
+                  background: "#fff",
+                  color: "#0f172a",
+                }}
+              >
+                {todayKstStr} 정기 재고실사
+              </th>
+              <th
+                colSpan={3}
+                style={{
+                  border: "1px solid #0f172a",
+                  borderBottom: "none",
+                  padding: "10px 12px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  background: "#fff",
+                  color: "#0f172a",
+                  textAlign: "left",
+                }}
+              >
+                실사자 서명:
+              </th>
+            </tr>
             <tr style={{ background: "#f1f5f9" }}>
               <th style={th}>피킹셀</th>
               <th style={th}>상품코드</th>
@@ -248,6 +290,18 @@ export default function InventoryCheckPage() {
           }
           .ic-page table {
             font-size: 10px;
+          }
+          /* thead 가 각 페이지 상단에 반복되도록 */
+          .ic-page thead {
+            display: table-header-group !important;
+          }
+          /* 인쇄 페이지 상단 헤더 (오늘날짜 + 정기 재고실사 + 실사자 서명) 노출 */
+          .ic-print-header {
+            display: table-row !important;
+          }
+          /* 행이 페이지 가운데서 잘리지 않도록 */
+          .ic-page tbody tr {
+            page-break-inside: avoid;
           }
           @page {
             size: A4 landscape;
