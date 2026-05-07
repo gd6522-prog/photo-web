@@ -109,6 +109,7 @@ const HEAVY_WARM_SLOTS = new Set<string>([
   "inventory-status",
   "product-strategy",
   "workcenter-product-master",
+  "product-master", // 매입원가 (재고조사) 도 같이 워밍
 ]);
 
 async function warmHeavyCaches(): Promise<void> {

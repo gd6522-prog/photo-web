@@ -5,10 +5,13 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 function isAuthorized(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
   const auth = req.headers.get("authorization") ?? "";
-  return auth === `Bearer ${secret}`;
+  const token = auth.startsWith("Bearer ") ? auth.slice("Bearer ".length) : "";
+  if (!token) return false;
+  if (process.env.CRON_SECRET && token === process.env.CRON_SECRET) return true;
+  // service role 키로 직접 호출 시에도 허용 (관리자 수동 워밍)
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY && token === process.env.SUPABASE_SERVICE_ROLE_KEY) return true;
+  return false;
 }
 
 /**
