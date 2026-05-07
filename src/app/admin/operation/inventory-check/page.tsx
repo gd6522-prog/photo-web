@@ -363,7 +363,7 @@ export default function InventoryCheckPage() {
             {/* 인쇄용 페이지 상단 헤더 — 페이지마다 반복 (thead 가 자동으로 반복됨) */}
             <tr className="ic-print-header" style={{ display: "none" }}>
               <th
-                colSpan={10}
+                colSpan={8}
                 style={{
                   border: "1px solid #cbd5e1",
                   padding: "10px 12px",
@@ -377,7 +377,7 @@ export default function InventoryCheckPage() {
                 {todayKstStr} 정기 재고실사
               </th>
               <th
-                colSpan={3}
+                colSpan={5}
                 style={{
                   border: "1px solid #cbd5e1",
                   padding: "10px 12px",
