@@ -61,7 +61,13 @@ export default function InventoryCheckPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const dragRef = useRef<{ active: boolean; mode: "add" | "remove" }>({ active: false, mode: "add" });
+  // 드래그 상태: anchor 부터 현재 idx 까지 범위만 mode 적용, 그 외는 initialSet 으로 되돌림
+  const dragRef = useRef<{
+    active: boolean;
+    mode: "add" | "remove";
+    anchor: number;
+    initialSet: Set<number>;
+  }>({ active: false, mode: "add", anchor: -1, initialSet: new Set() });
 
   // 드래그 종료를 위한 글로벌 mouseup 핸들러
   useEffect(() => {
@@ -90,28 +96,37 @@ export default function InventoryCheckPage() {
     });
   };
 
-  const setRowSelected = (idx: number, on: boolean) => {
-    setSelected((prev) => {
-      if (on && prev.has(idx)) return prev;
-      if (!on && !prev.has(idx)) return prev;
-      const next = new Set(prev);
-      if (on) next.add(idx);
-      else next.delete(idx);
-      return next;
-    });
-  };
-
   const handleRowMouseDown = (idx: number) => (e: React.MouseEvent) => {
     if (e.button !== 0) return;
     e.preventDefault();
-    const willAdd = !selected.has(idx);
-    dragRef.current = { active: true, mode: willAdd ? "add" : "remove" };
-    setRowSelected(idx, willAdd);
+    const initial = new Set(selected);
+    const willAdd = !initial.has(idx);
+    dragRef.current = {
+      active: true,
+      mode: willAdd ? "add" : "remove",
+      anchor: idx,
+      initialSet: initial,
+    };
+    // 시작 행 즉시 토글
+    const next = new Set(initial);
+    if (willAdd) next.add(idx);
+    else next.delete(idx);
+    setSelected(next);
   };
 
   const handleRowMouseEnter = (idx: number) => () => {
     if (!dragRef.current.active) return;
-    setRowSelected(idx, dragRef.current.mode === "add");
+    const { mode, anchor, initialSet } = dragRef.current;
+    const lo = Math.min(anchor, idx);
+    const hi = Math.max(anchor, idx);
+    // 시작점 기준 [lo..hi] 범위만 mode 적용, 그 외는 initialSet 그대로
+    // → 드래그를 되돌리면 풀렸다가 다시 잡혔다가 자연스럽게 동작
+    const next = new Set(initialSet);
+    for (let i = lo; i <= hi; i++) {
+      if (mode === "add") next.add(i);
+      else next.delete(i);
+    }
+    setSelected(next);
   };
 
   const allSelected = rows.length > 0 && selected.size === rows.length;
