@@ -104,10 +104,36 @@ const WARM_MAP: Record<WarmableSlot, () => Promise<void>> = {
   "workcenter-product-master": warmWorkcenterProductMaster,
 };
 
-/** 업로드 confirm 직후 void로 호출. 슬롯이 맵에 없으면 아무것도 안 함. */
-export function triggerCacheWarm(slotKey: string): void {
+// inventory-check / operation-checklist 결과 캐시 워밍 트리거 슬롯
+const HEAVY_WARM_SLOTS = new Set<string>([
+  "inventory-status",
+  "product-strategy",
+  "workcenter-product-master",
+]);
+
+async function warmHeavyCaches(): Promise<void> {
+  // 동적 import 로 순환참조 방지 + 번들 분리
+  const [{ buildInventoryCheckRows }, { computeChecklistCounts }] = await Promise.all([
+    import("@/lib/inventory-check-compute"),
+    import("@/lib/operation-checklist-compute"),
+  ]);
+  // 두 캐시를 병렬로 force 재빌드
+  await Promise.allSettled([
+    buildInventoryCheckRows("box_manual"),
+    computeChecklistCounts({ force: true }),
+  ]);
+}
+
+/** 업로드 confirm 직후 호출 — 가능하면 await 하여 완료 보장. 슬롯이 맵에 없으면 가벼운 워밍만 시도. */
+export async function triggerCacheWarm(slotKey: string): Promise<void> {
+  const tasks: Promise<unknown>[] = [];
   const fn = WARM_MAP[slotKey as WarmableSlot];
-  if (fn) void fn().catch(() => { /* 워밍 실패는 무시 — 다음 요청에서 폴백 */ });
+  if (fn) tasks.push(fn().catch(() => { /* 워밍 실패는 무시 */ }));
+  if (HEAVY_WARM_SLOTS.has(slotKey)) {
+    tasks.push(warmHeavyCaches().catch(() => { /* 워밍 실패는 무시 */ }));
+  }
+  if (tasks.length === 0) return;
+  await Promise.allSettled(tasks);
 }
 
 /** 업로드 upload-url 직후 해당 슬롯 캐시 무효화. */

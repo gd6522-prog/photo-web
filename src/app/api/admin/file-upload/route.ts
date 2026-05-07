@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import {
   getUploadPresignedUrl,
   getViewPresignedUrl,
@@ -252,8 +253,10 @@ export async function POST(req: NextRequest) {
       }
       const meta = { fileName, uploadedAt: new Date().toISOString(), ...(uploaderName ? { uploaderName } : {}), ...(fileSize != null ? { fileSize } : {}) };
       await putR2Object(metaKey(slotKey), JSON.stringify(meta), "application/json");
-      // 업로드 완료 즉시 캐시 워밍 (백그라운드)
-      triggerCacheWarm(slotKey);
+      // 응답 후 백그라운드로 캐시 워밍 (사용자 응답을 막지 않음)
+      after(async () => {
+        try { await triggerCacheWarm(slotKey); } catch { /* 워밍 실패는 무시 */ }
+      });
       return NextResponse.json({ ok: true });
     }
 
