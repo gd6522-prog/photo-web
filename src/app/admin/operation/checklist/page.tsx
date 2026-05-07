@@ -53,6 +53,58 @@ const ITEMS: ChecklistItem[] = [
   { key: "shipment_below_standard", label: "출고기준미달" },
 ];
 
+const NEW_ARRIVAL_KINDS: ItemKey[] = ["location_missing", "work_type_missing"];
+const NEW_ARRIVAL_STORAGE_PREFIX = "operation-checklist-new-arrival-";
+
+function getCurrentValidThursday(): string {
+  const now = new Date();
+  const day = now.getDay();
+  const daysUntilThursday = (4 - day + 7) % 7;
+  const thursday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilThursday);
+  const y = thursday.getFullYear();
+  const m = String(thursday.getMonth() + 1).padStart(2, "0");
+  const d = String(thursday.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function getNewArrivalStorageKey(): string {
+  return `${NEW_ARRIVAL_STORAGE_PREFIX}${getCurrentValidThursday()}`;
+}
+
+function loadNewArrivalMarks(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const currentKey = getNewArrivalStorageKey();
+    const stale: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const k = window.localStorage.key(i);
+      if (k && k.startsWith(NEW_ARRIVAL_STORAGE_PREFIX) && k !== currentKey) stale.push(k);
+    }
+    stale.forEach((k) => window.localStorage.removeItem(k));
+    const raw = window.localStorage.getItem(currentKey);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    if (Array.isArray(arr)) return new Set(arr.filter((x): x is string => typeof x === "string"));
+  } catch {
+    /* ignore */
+  }
+  return new Set();
+}
+
+function saveNewArrivalMarks(marks: Set<string>): void {
+  if (typeof window === "undefined") return;
+  try {
+    const key = getNewArrivalStorageKey();
+    window.localStorage.setItem(key, JSON.stringify(Array.from(marks)));
+  } catch {
+    /* ignore */
+  }
+}
+
+function makeMarkKey(kind: ItemKey, productCode: string): string {
+  return `${kind}:${productCode}`;
+}
+
 async function getAdminToken(): Promise<string> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const { data, error } = await supabase.auth.getSession();
@@ -70,6 +122,22 @@ export default function OperationChecklistPage() {
   const [expanded, setExpanded] = useState<Set<ItemKey>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [newArrivalMarks, setNewArrivalMarks] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setNewArrivalMarks(loadNewArrivalMarks());
+  }, []);
+
+  const toggleNewArrival = React.useCallback((kind: ItemKey, productCode: string) => {
+    setNewArrivalMarks((prev) => {
+      const next = new Set(prev);
+      const key = makeMarkKey(kind, productCode);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      saveNewArrivalMarks(next);
+      return next;
+    });
+  }, []);
 
   const load = React.useCallback(async () => {
     try {
@@ -146,15 +214,20 @@ export default function OperationChecklistPage() {
             {ITEMS.map((item, idx) => {
               const count = counts?.[item.key];
               const pending = item.key === "shipment_below_standard" ? false : false;
+              const itemDetails = details?.[item.key] ?? [];
+              const isNewArrivalKind = NEW_ARRIVAL_KINDS.includes(item.key);
+              const newArrivalExcluded = isNewArrivalKind
+                ? itemDetails.filter((it) => newArrivalMarks.has(makeMarkKey(item.key, it.product_code))).length
+                : 0;
+              const adjustedCount = count == null ? null : Math.max(0, count - newArrivalExcluded);
               const countDisplay = pending
                 ? "준비중"
-                : count == null
+                : adjustedCount == null
                 ? "…"
-                : count.toLocaleString();
-              const isAlert = !pending && (count ?? 0) > 0;
+                : adjustedCount.toLocaleString();
+              const isAlert = !pending && (adjustedCount ?? 0) > 0;
               const isOpen = expanded.has(item.key);
-              const clickable = isAlert && !pending;
-              const itemDetails = details?.[item.key] ?? [];
+              const clickable = (isAlert || itemDetails.length > 0) && !pending;
 
               return (
                 <React.Fragment key={item.key}>
@@ -196,7 +269,12 @@ export default function OperationChecklistPage() {
                   {isOpen && (
                     <tr>
                       <td colSpan={3} style={{ padding: 0, background: "#f8fafc", borderTop: "1px solid #e2e8f0" }}>
-                        <DetailTable kind={item.key} items={itemDetails} />
+                        <DetailTable
+                          kind={item.key}
+                          items={itemDetails}
+                          newArrivalMarks={newArrivalMarks}
+                          onToggleNewArrival={toggleNewArrival}
+                        />
                       </td>
                     </tr>
                   )}
@@ -210,8 +288,19 @@ export default function OperationChecklistPage() {
   );
 }
 
-function DetailTable({ kind, items }: { kind: ItemKey; items: DetailItem[] }) {
+function DetailTable({
+  kind,
+  items,
+  newArrivalMarks,
+  onToggleNewArrival,
+}: {
+  kind: ItemKey;
+  items: DetailItem[];
+  newArrivalMarks: Set<string>;
+  onToggleNewArrival: (kind: ItemKey, productCode: string) => void;
+}) {
   const columns = useMemo(() => detailColumns(kind), [kind]);
+  const showNewArrival = NEW_ARRIVAL_KINDS.includes(kind);
   if (items.length === 0) {
     return <div style={{ padding: "12px 16px", fontSize: 12, color: "#64748b" }}>해당 항목 없음</div>;
   }
@@ -225,27 +314,52 @@ function DetailTable({ kind, items }: { kind: ItemKey; items: DetailItem[] }) {
                 {col.label}
               </th>
             ))}
+            {showNewArrival && (
+              <th style={{ ...thStyle, fontSize: 12, padding: "6px 8px", textAlign: "center", width: 90 }}>
+                금주신상
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
-          {items.map((it, i) => (
-            <tr key={`${it.product_code}-${i}`} style={{ borderTop: "1px solid #e2e8f0", background: "#fff" }}>
-              {columns.map((col) => (
-                <td
-                  key={col.key}
-                  style={{
-                    ...tdCell,
-                    fontSize: 12,
-                    padding: "5px 8px",
-                    textAlign: col.align ?? "left",
-                    color: col.muted ? "#475569" : "#0f172a",
-                  }}
-                >
-                  {col.render(it)}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {items.map((it, i) => {
+            const markKey = makeMarkKey(kind, it.product_code);
+            const isMarked = showNewArrival && newArrivalMarks.has(markKey);
+            return (
+              <tr
+                key={`${it.product_code}-${i}`}
+                style={{
+                  borderTop: "1px solid #e2e8f0",
+                  background: isMarked ? "#fef3c7" : "#fff",
+                }}
+              >
+                {columns.map((col) => (
+                  <td
+                    key={col.key}
+                    style={{
+                      ...tdCell,
+                      fontSize: 12,
+                      padding: "5px 8px",
+                      textAlign: col.align ?? "left",
+                      color: col.muted ? "#475569" : "#0f172a",
+                    }}
+                  >
+                    {col.render(it)}
+                  </td>
+                ))}
+                {showNewArrival && (
+                  <td style={{ ...tdCell, fontSize: 12, padding: "5px 8px", textAlign: "center" }}>
+                    <input
+                      type="checkbox"
+                      checked={isMarked}
+                      onChange={() => onToggleNewArrival(kind, it.product_code)}
+                      style={{ cursor: "pointer", width: 16, height: 16 }}
+                    />
+                  </td>
+                )}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
