@@ -477,6 +477,10 @@ export default function InventoryCheckPage() {
       </div>
 
       <style jsx global>{`
+        /* 선택된 행은 배경이 연파랑이라 기본 #e2e8f0 테두리가 사라져 보임 — 더 진한 색으로 강제 */
+        .ic-page tbody tr[data-selected="1"] td {
+          border-color: #94a3b8 !important;
+        }
         @media print {
           /* admin layout 의 상단 nav (메인/사진/운영 등) 숨김 */
           .ha-admin-header,
