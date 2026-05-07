@@ -2,11 +2,13 @@ import * as XLSX from "xlsx";
 import { getR2ObjectBuffer, getR2ObjectText, listR2Keys, putR2Object } from "@/lib/r2";
 
 // ── R2 결과 캐시 (모든 인스턴스 공유) ────────────────────────────────────
-const R2_RESULT_CACHE_KEY = "file-uploads/_inventory-check-cache-v1.json";
+// v2: unit_cost (매입원가) 필드 추가
+const R2_RESULT_CACHE_KEY = "file-uploads/_inventory-check-cache-v2.json";
 type ResultCacheEntry = {
   strategy_key: string;
   workcenter_key: string;
   inventory_key: string;
+  product_master_key: string;
   rows_by_part: Record<string, InventoryCheckRow[]>;
 };
 
@@ -109,6 +111,7 @@ async function getLatestKey(prefix: string): Promise<string | null> {
 let strategyMemCache: { key: string; data: Map<string, StrategyRow> } | null = null;
 let workcenterMemCache: { key: string; data: Map<string, WorkcenterRow> } | null = null;
 let inventoryMemCache: { key: string; data: InvLot[] } | null = null;
+let productMasterMemCache: { key: string; data: Map<string, number> } | null = null;
 
 // ── 파싱: 상품별 전략관리 ──────────────────────────────────────────────
 type StrategyRow = { product_name: string; picking_cell: string };
@@ -239,6 +242,39 @@ async function getInventory(): Promise<InvLot[]> {
   return data;
 }
 
+// ── 파싱: 상품마스터 (매입원가 추출) ─────────────────────────────────────
+async function parseProductMasterByKey(key: string): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  const buf = await getR2ObjectBuffer(key);
+  if (!buf) return map;
+  const wb = XLSX.read(buf, { type: "buffer" });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  if (!ws) return map;
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" }) as string[][];
+  if (rows.length < 2) return map;
+  const headers = rows[0].map(normalizeHeader);
+  const codeIdx = findHeaderIndex(headers, ["상품코드"]);
+  const costIdx = findHeaderIndex(headers, ["매입원가", "원가", "매입가"]);
+  if (codeIdx < 0 || costIdx < 0) return map;
+  for (let i = 1; i < rows.length; i++) {
+    const code = String(rows[i][codeIdx] ?? "").trim();
+    if (!code || map.has(code)) continue;
+    const raw = String(rows[i][costIdx] ?? "").replace(/,/g, "");
+    const v = parseFloat(raw);
+    if (Number.isFinite(v)) map.set(code, v);
+  }
+  return map;
+}
+
+async function getProductMasterCost(): Promise<Map<string, number>> {
+  const key = await getLatestKey("file-uploads/product-master/");
+  if (!key) return new Map();
+  if (productMasterMemCache && productMasterMemCache.key === key) return productMasterMemCache.data;
+  const data = await parseProductMasterByKey(key);
+  productMasterMemCache = { key, data };
+  return data;
+}
+
 // ── 컴퓨테이션: 박스수량 / 낱개수량 분해 ───────────────────────────────
 function decomposeQty(qty: number, boxUnit: number, pickUnit: number): { boxCount: number; unitCount: number } {
   let remaining = qty;
@@ -267,13 +303,15 @@ export type InventoryCheckRow = {
   computed_qty: number; // 전산수량
   box_count: number; // 박스수량
   unit_count: number; // 낱개수량
+  unit_cost: number; // 매입원가 (상품마스터)
 };
 
 async function buildAllPartsRows(): Promise<Record<string, InventoryCheckRow[]>> {
-  const [strategy, workcenter, lots] = await Promise.all([
+  const [strategy, workcenter, lots, costs] = await Promise.all([
     getStrategy(),
     getWorkcenter(),
     getInventory(),
+    getProductMasterCost(),
   ]);
 
   const byPart: Record<string, InventoryCheckRow[]> = {};
@@ -297,6 +335,7 @@ async function buildAllPartsRows(): Promise<Record<string, InventoryCheckRow[]>>
       computed_qty: lot.qty,
       box_count: boxCount,
       unit_count: unitCount,
+      unit_cost: costs.get(lot.product_code) ?? 0,
     });
   }
 
@@ -314,14 +353,13 @@ async function buildAllPartsRows(): Promise<Record<string, InventoryCheckRow[]>>
 }
 
 export async function buildInventoryCheckRows(part: WorkPartKey): Promise<InventoryCheckRow[]> {
-  // 현재 사용 중인 파일 R2 key 들
-  const [stratKey, wcKey, invKey] = await Promise.all([
+  const [stratKey, wcKey, invKey, pmKey] = await Promise.all([
     getLatestKey("file-uploads/product-strategy/"),
     getLatestKey("file-uploads/workcenter-product-master/"),
     getLatestKey("file-uploads/inventory-status/"),
+    getLatestKey("file-uploads/product-master/"),
   ]);
 
-  // R2 결과 캐시 — 3개 파일 키가 모두 같으면 캐시 사용 (콜드 Lambda 도 빠름)
   if (stratKey && wcKey && invKey) {
     try {
       const cachedText = await getR2ObjectText(R2_RESULT_CACHE_KEY);
@@ -330,7 +368,8 @@ export async function buildInventoryCheckRows(part: WorkPartKey): Promise<Invent
         if (
           cached.strategy_key === stratKey &&
           cached.workcenter_key === wcKey &&
-          cached.inventory_key === invKey
+          cached.inventory_key === invKey &&
+          cached.product_master_key === (pmKey ?? "")
         ) {
           return cached.rows_by_part[part] ?? [];
         }
@@ -340,7 +379,6 @@ export async function buildInventoryCheckRows(part: WorkPartKey): Promise<Invent
     }
   }
 
-  // 캐시 미스 → 전체 재계산 후 R2 결과 캐시에 저장
   const byPart = await buildAllPartsRows();
   if (stratKey && wcKey && invKey) {
     void putR2Object(
@@ -349,6 +387,7 @@ export async function buildInventoryCheckRows(part: WorkPartKey): Promise<Invent
         strategy_key: stratKey,
         workcenter_key: wcKey,
         inventory_key: invKey,
+        product_master_key: pmKey ?? "",
         rows_by_part: byPart,
       } as ResultCacheEntry),
       "application/json"

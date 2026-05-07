@@ -13,7 +13,28 @@ type Row = {
   computed_qty: number;
   box_count: number;
   unit_count: number;
+  unit_cost: number;
 };
+
+type SavedRecord = {
+  product_code: string;
+  expiry_date: string;
+  work_part: string;
+  saved_at: string;
+  computed_qty: number;
+  box_count: number;
+  unit_count: number;
+  box_unit: number;
+  picking_unit: number;
+  unit_cost: number;
+  product_name: string;
+  picking_cell: string;
+  actual_expiry_date: string;
+  actual_box_count: number;
+  actual_unit_count: number;
+};
+
+const recordKey = (code: string, expiry: string) => `${code}|${expiry}`;
 
 type WorkPartKey =
   | "box_manual"
@@ -60,6 +81,9 @@ export default function InventoryCheckPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [savedMap, setSavedMap] = useState<Map<string, SavedRecord>>(new Map());
+  const [actuals, setActuals] = useState<Map<string, { expiry: string; box: string; unit: string }>>(new Map());
+  const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   // 드래그 상태: anchor 부터 현재 idx 까지 범위만 mode 적용, 그 외는 initialSet 으로 되돌림
   const dragRef = useRef<{
@@ -213,17 +237,38 @@ export default function InventoryCheckPage() {
       setLoading(true);
       setError("");
       const token = await getAdminToken();
-      const res = await fetch(`/api/admin/inventory-check?part=${encodeURIComponent(part)}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      });
-      const payload = (await res.json()) as { ok?: boolean; message?: string; rows?: Row[] };
-      if (!res.ok || !payload.ok) {
-        setError(payload.message || "데이터를 불러오지 못했습니다.");
+      const [rowsRes, recRes] = await Promise.all([
+        fetch(`/api/admin/inventory-check?part=${encodeURIComponent(part)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        }),
+        fetch(`/api/admin/inventory-check-records?part=${encodeURIComponent(part)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        }),
+      ]);
+      const rowsPayload = (await rowsRes.json()) as { ok?: boolean; message?: string; rows?: Row[] };
+      if (!rowsRes.ok || !rowsPayload.ok) {
+        setError(rowsPayload.message || "데이터를 불러오지 못했습니다.");
         setRows([]);
         return;
       }
-      setRows(payload.rows ?? []);
+      setRows(rowsPayload.rows ?? []);
+
+      const recPayload = (await recRes.json().catch(() => ({}))) as { ok?: boolean; records?: SavedRecord[] };
+      const map = new Map<string, SavedRecord>();
+      const actualMap = new Map<string, { expiry: string; box: string; unit: string }>();
+      for (const r of recPayload.records ?? []) {
+        const k = recordKey(r.product_code, r.expiry_date);
+        map.set(k, r);
+        actualMap.set(k, {
+          expiry: r.actual_expiry_date,
+          box: r.actual_box_count ? String(r.actual_box_count) : "",
+          unit: r.actual_unit_count ? String(r.actual_unit_count) : "",
+        });
+      }
+      setSavedMap(map);
+      setActuals(actualMap);
     } catch (e) {
       setError(e instanceof Error ? e.message : "오류가 발생했습니다.");
       setRows([]);
@@ -269,6 +314,81 @@ export default function InventoryCheckPage() {
     window.setTimeout(() => window.print(), 0);
   };
 
+  // ── 실사 입력 / 저장 / 초기화 ──────────────────────────────────────
+  const updateActual = (key: string, field: "expiry" | "box" | "unit", value: string) => {
+    setActuals((prev) => {
+      const next = new Map(prev);
+      const cur = next.get(key) ?? { expiry: "", box: "", unit: "" };
+      next.set(key, { ...cur, [field]: value });
+      return next;
+    });
+  };
+
+  const onSave = async () => {
+    if (saving) return;
+    const dirty: Array<Parameters<typeof JSON.stringify>[0]> = [];
+    for (const r of rows) {
+      const k = recordKey(r.product_code, r.expiry_date);
+      const a = actuals.get(k);
+      if (!a) continue;
+      const hasInput = (a.expiry && a.expiry.trim()) || a.box || a.unit;
+      if (!hasInput) continue;
+      const saved = savedMap.get(k);
+      const base = saved ?? r;
+      dirty.push({
+        product_code: r.product_code,
+        expiry_date: r.expiry_date,
+        product_name: base.product_name,
+        picking_cell: base.picking_cell,
+        box_unit: base.box_unit,
+        picking_unit: base.picking_unit,
+        computed_qty: base.computed_qty,
+        box_count: base.box_count,
+        unit_count: base.unit_count,
+        unit_cost: base.unit_cost,
+        actual_expiry_date: a.expiry || "",
+        actual_box_count: parseFloat(a.box) || 0,
+        actual_unit_count: parseFloat(a.unit) || 0,
+      });
+    }
+    if (dirty.length === 0) {
+      alert("실사 입력이 있는 행이 없습니다.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const token = await getAdminToken();
+      const res = await fetch("/api/admin/inventory-check-records", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ part: tab, rows: dirty }),
+      });
+      const payload = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string };
+      if (!res.ok || !payload.ok) {
+        alert(payload.message || `저장 실패 (${res.status})`);
+        return;
+      }
+      await load(tab);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onReset = async () => {
+    if (!confirm("저장된 모든 실사 기록을 초기화합니다. 월 마감 후가 아니라면 신중히 진행해 주세요. 계속할까요?")) return;
+    const token = await getAdminToken();
+    const res = await fetch("/api/admin/inventory-check-records", {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      alert((j as { message?: string }).message || "초기화 실패");
+      return;
+    }
+    await load(tab);
+  };
+
   return (
     <div className={`ic-page${printSelectedOnly ? " ic-print-selected-only" : ""}`} style={{ display: "grid", gap: 12 }}>
       <div className="ic-toolbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -281,6 +401,27 @@ export default function InventoryCheckPage() {
             style={{ ...btnStyle, opacity: loading ? 0.6 : 1 }}
           >
             {loading ? "불러오는 중…" : "새로고침"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void onSave()}
+            disabled={saving}
+            style={{
+              ...btnStyle,
+              background: "#0369a1",
+              color: "#fff",
+              borderColor: "#0369a1",
+              opacity: saving ? 0.6 : 1,
+            }}
+          >
+            {saving ? "저장 중…" : "저장"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void onReset()}
+            style={{ ...btnStyle, background: "#fff", color: "#b91c1c", borderColor: "#fecaca" }}
+          >
+            초기화
           </button>
           <button
             type="button"
@@ -348,7 +489,7 @@ export default function InventoryCheckPage() {
             <col className="ic-select-col" style={{ width: 36 }} />
             <col style={{ width: 90 }} />
             <col style={{ width: 100 }} />
-            <col style={{ width: 220 }} />
+            <col style={{ width: 200 }} />
             <col style={{ width: 60 }} />
             <col style={{ width: 60 }} />
             <col style={{ width: 90 }} />
@@ -356,14 +497,19 @@ export default function InventoryCheckPage() {
             <col style={{ width: 60 }} />
             <col style={{ width: 60 }} />
             <col style={{ width: 130 }} />
+            <col style={{ width: 80 }} />
+            <col style={{ width: 80 }} />
+            <col style={{ width: 80 }} />
             <col style={{ width: 90 }} />
-            <col style={{ width: 90 }} />
+            <col style={{ width: 80 }} />
+            <col style={{ width: 80 }} />
+            <col style={{ width: 100 }} />
           </colgroup>
           <thead>
             {/* 인쇄용 페이지 상단 헤더 — 페이지마다 반복 (thead 가 자동으로 반복됨) */}
             <tr className="ic-print-header" style={{ display: "none" }}>
               <th
-                colSpan={8}
+                colSpan={13}
                 style={{
                   border: "1px solid #cbd5e1",
                   padding: "10px 12px",
@@ -414,24 +560,48 @@ export default function InventoryCheckPage() {
               <th style={{ ...th, background: "#fef3c7" }}>실사<br />유통기한</th>
               <th style={{ ...th, background: "#fef3c7" }}>실사<br />박스</th>
               <th style={{ ...th, background: "#fef3c7" }}>실사<br />낱개</th>
+              <th style={th}>실사<br />수량</th>
+              <th style={th}>재고<br />조사일</th>
+              <th style={th}>매입<br />원가</th>
+              <th style={th}>차이<br />수량</th>
+              <th style={th}>차이<br />금액</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={13} style={{ padding: 20, textAlign: "center", color: "#94a3b8" }}>
+                <td colSpan={18} style={{ padding: 20, textAlign: "center", color: "#94a3b8" }}>
                   불러오는 중…
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={13} style={{ padding: 20, textAlign: "center", color: "#94a3b8" }}>
+                <td colSpan={18} style={{ padding: 20, textAlign: "center", color: "#94a3b8" }}>
                   데이터가 없습니다.
                 </td>
               </tr>
             ) : (
               rows.map((r, idx) => {
                 const isSel = selected.has(idx);
+                const key = recordKey(r.product_code, r.expiry_date);
+                const saved = savedMap.get(key);
+                const dispBoxUnit = saved ? saved.box_unit : r.box_unit;
+                const dispPickUnit = saved ? saved.picking_unit : r.picking_unit;
+                const dispExpiry = saved ? saved.expiry_date : r.expiry_date;
+                const dispComputedQty = saved ? saved.computed_qty : r.computed_qty;
+                const dispBoxCount = saved ? saved.box_count : r.box_count;
+                const dispUnitCount = saved ? saved.unit_count : r.unit_count;
+                const dispCost = saved ? saved.unit_cost : r.unit_cost;
+
+                const a = actuals.get(key) ?? { expiry: "", box: "", unit: "" };
+                const aBox = parseFloat(a.box) || 0;
+                const aUnit = parseFloat(a.unit) || 0;
+                const aQty = aBox * dispBoxUnit + aUnit * dispPickUnit;
+                const hasInput = (a.expiry && a.expiry.trim() !== "") || a.box !== "" || a.unit !== "";
+                const diffQty = hasInput ? aQty - dispComputedQty : 0;
+                const diffAmount = hasInput ? diffQty * dispCost : 0;
+                const savedDateStr = saved?.saved_at ? new Date(saved.saved_at).toLocaleDateString("ko-KR") : "";
+
                 return (
                   <tr
                     key={`${r.product_code}-${r.expiry_date}-${idx}`}
@@ -441,7 +611,7 @@ export default function InventoryCheckPage() {
                     onMouseEnter={handleRowMouseEnter(idx)}
                     style={{
                       borderTop: "1px solid #e2e8f0",
-                      background: isSel ? "#dbeafe" : undefined,
+                      background: isSel ? "#dbeafe" : saved ? "#f0fdf4" : undefined,
                       cursor: "pointer",
                       userSelect: "none",
                     }}
@@ -459,15 +629,47 @@ export default function InventoryCheckPage() {
                     <td style={tdC}>{formatPickingCell(r.picking_cell)}</td>
                     <td style={tdC}>{r.product_code}</td>
                     <td style={tdName} title={r.product_name || ""}>{r.product_name || "-"}</td>
-                    <td style={tdR}>{r.box_unit ? r.box_unit.toLocaleString() : "-"}</td>
-                    <td style={tdR}>{r.picking_unit ? r.picking_unit.toLocaleString() : "-"}</td>
-                    <td style={tdC}>{r.expiry_date || "-"}</td>
-                    <td style={tdR}>{r.computed_qty ? r.computed_qty.toLocaleString() : "-"}</td>
-                    <td style={tdR}>{r.box_count ? r.box_count.toLocaleString() : "-"}</td>
-                    <td style={tdR}>{r.unit_count ? r.unit_count.toLocaleString() : "-"}</td>
-                    <td style={tdC} />
-                    <td style={tdC} />
-                    <td style={tdC} />
+                    <td style={tdR}>{dispBoxUnit ? dispBoxUnit.toLocaleString() : "-"}</td>
+                    <td style={tdR}>{dispPickUnit ? dispPickUnit.toLocaleString() : "-"}</td>
+                    <td style={tdC}>{dispExpiry || "-"}</td>
+                    <td style={tdR}>{dispComputedQty ? dispComputedQty.toLocaleString() : "-"}</td>
+                    <td style={tdR}>{dispBoxCount ? dispBoxCount.toLocaleString() : "-"}</td>
+                    <td style={tdR}>{dispUnitCount ? dispUnitCount.toLocaleString() : "-"}</td>
+                    <td style={{ ...tdC, padding: 2, background: "#fffbeb" }} onMouseDown={(e) => e.stopPropagation()}>
+                      <input
+                        type="date"
+                        value={a.expiry}
+                        onChange={(e) => updateActual(key, "expiry", e.target.value)}
+                        style={inputStyle}
+                      />
+                    </td>
+                    <td style={{ ...tdR, padding: 2, background: "#fffbeb" }} onMouseDown={(e) => e.stopPropagation()}>
+                      <input
+                        type="number"
+                        min={0}
+                        value={a.box}
+                        onChange={(e) => updateActual(key, "box", e.target.value)}
+                        style={inputStyleNum}
+                      />
+                    </td>
+                    <td style={{ ...tdR, padding: 2, background: "#fffbeb" }} onMouseDown={(e) => e.stopPropagation()}>
+                      <input
+                        type="number"
+                        min={0}
+                        value={a.unit}
+                        onChange={(e) => updateActual(key, "unit", e.target.value)}
+                        style={inputStyleNum}
+                      />
+                    </td>
+                    <td style={tdR}>{hasInput && aQty ? aQty.toLocaleString() : "-"}</td>
+                    <td style={tdC}>{savedDateStr || "-"}</td>
+                    <td style={tdR}>{dispCost ? dispCost.toLocaleString() : "-"}</td>
+                    <td style={{ ...tdR, color: hasInput && diffQty < 0 ? "#b91c1c" : hasInput && diffQty > 0 ? "#0369a1" : undefined }}>
+                      {hasInput ? diffQty.toLocaleString() : "-"}
+                    </td>
+                    <td style={{ ...tdR, color: hasInput && diffAmount < 0 ? "#b91c1c" : hasInput && diffAmount > 0 ? "#0369a1" : undefined }}>
+                      {hasInput ? Math.round(diffAmount).toLocaleString() : "-"}
+                    </td>
                   </tr>
                 );
               })
@@ -572,3 +774,18 @@ const td: React.CSSProperties = {
 const tdC: React.CSSProperties = { ...td, textAlign: "center" };
 const tdR: React.CSSProperties = { ...td, textAlign: "right" };
 const tdName: React.CSSProperties = { ...td, overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 };
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  height: 26,
+  padding: "0 4px",
+  border: "1px solid #cbd5e1",
+  borderRadius: 3,
+  fontSize: 11,
+  fontFamily: "inherit",
+  outline: "none",
+  background: "#fff",
+  boxSizing: "border-box",
+};
+
+const inputStyleNum: React.CSSProperties = { ...inputStyle, textAlign: "right" };
