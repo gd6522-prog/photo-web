@@ -35,10 +35,11 @@ export const MENU_REGISTRY: MenuItem[] = [
   { key: "admin_photos_hazard",   label: "위험요인", href: "/admin/hazards",                    group: "nav", order: 23, parent: "admin_photos" },
 
   // ── 운영 하위
-  { key: "admin_operation_checklist", label: "통합체크리스트", href: "/admin/operation/checklist", group: "nav", order: 240, parent: "admin_operation" },
-  { key: "admin_operation_unit",      label: "단품별",         href: "/admin/operation",           group: "nav", order: 241, parent: "admin_operation" },
-  { key: "admin_operation_cdc",       label: "CDC",            href: "/admin/vehicles/cdc",        group: "nav", order: 242, parent: "admin_operation" },
-  { key: "admin_operation_separate",  label: "별도작업",       href: "/admin/operation/separate",  group: "nav", order: 243, parent: "admin_operation" },
+  { key: "admin_operation_checklist",       label: "통합체크리스트", href: "/admin/operation/checklist",       group: "nav", order: 240, parent: "admin_operation" },
+  { key: "admin_operation_unit",            label: "단품별",         href: "/admin/operation",                 group: "nav", order: 241, parent: "admin_operation" },
+  { key: "admin_operation_cdc",             label: "CDC",            href: "/admin/vehicles/cdc",              group: "nav", order: 242, parent: "admin_operation" },
+  { key: "admin_operation_separate",        label: "별도작업",       href: "/admin/operation/separate",        group: "nav", order: 243, parent: "admin_operation" },
+  { key: "admin_operation_inventory_check", label: "재고조사",       href: "/admin/operation/inventory-check", group: "nav", order: 244, parent: "admin_operation" },
 
   // ── 차량 하위
   { key: "admin_vehicle_cargo",    label: "물동량",   href: "/admin/vehicles",                  group: "nav", order: 251, parent: "admin_vehicle" },

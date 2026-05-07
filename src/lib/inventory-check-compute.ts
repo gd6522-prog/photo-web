@@ -1,0 +1,280 @@
+import * as XLSX from "xlsx";
+import { getR2ObjectBuffer, listR2Keys } from "@/lib/r2";
+
+// ── 작업파트별 피킹셀 prefix 매핑 ─────────────────────────────────────────
+export type WorkPartKey =
+  | "box_manual" // 박스수기 (01, 02, 03)
+  | "box_zone" // 박스존 (04, 05)
+  | "inner_zone" // 이너존 (07)
+  | "slide_zone" // 슬라존 (21~25)
+  | "light_zone" // 경량존 (40~52)
+  | "irregular_zone" // 이형존 (61)
+  | "tobacco_zone" // 담배존 (71, 72)
+  | "etc"; // 그외
+
+export const WORK_PART_LABEL: Record<WorkPartKey, string> = {
+  box_manual: "박스수기",
+  box_zone: "박스존",
+  inner_zone: "이너존",
+  slide_zone: "슬라존",
+  light_zone: "경량존",
+  irregular_zone: "이형존",
+  tobacco_zone: "담배존",
+  etc: "그외",
+};
+
+const WORK_PART_PREFIXES: Record<Exclude<WorkPartKey, "etc">, string[]> = {
+  box_manual: ["01", "02", "03"],
+  box_zone: ["04", "05"],
+  inner_zone: ["07"],
+  slide_zone: ["21", "22", "23", "24", "25"],
+  light_zone: [
+    "40", "41", "42", "43", "44", "45", "46", "47", "48", "49", "50", "51", "52",
+  ],
+  irregular_zone: ["61"],
+  tobacco_zone: ["71", "72"],
+};
+
+const ALL_KNOWN_PREFIXES = new Set<string>(
+  Object.values(WORK_PART_PREFIXES).flat()
+);
+
+export function workPartByPrefix(prefix: string): WorkPartKey {
+  for (const [key, prefixes] of Object.entries(WORK_PART_PREFIXES) as [
+    Exclude<WorkPartKey, "etc">,
+    string[]
+  ][]) {
+    if (prefixes.includes(prefix)) return key;
+  }
+  return "etc";
+}
+
+export function getCellPrefix(cell: string): string {
+  const digits = cell.replace(/\D/g, "");
+  if (!digits) return "";
+  return digits.padStart(7, "0").slice(0, 2);
+}
+
+// ── 헬퍼 ───────────────────────────────────────────────────────────────
+function normalizeHeader(value: unknown): string {
+  return String(value ?? "")
+    .normalize("NFC")
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/\*/g, "")
+    .toLowerCase();
+}
+
+function findHeaderIndex(headers: string[], labels: string[]): number {
+  for (const label of labels) {
+    const i = headers.indexOf(normalizeHeader(label));
+    if (i >= 0) return i;
+  }
+  return -1;
+}
+
+function normalizeDate(value: unknown): string {
+  const s = String(value ?? "").trim();
+  if (!s) return "";
+  const m1 = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (m1) return `${m1[1]}-${m1[2].padStart(2, "0")}-${m1[3].padStart(2, "0")}`;
+  const m2 = s.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (m2) return `${m2[1]}-${m2[2]}-${m2[3]}`;
+  const num = Number(s);
+  if (Number.isFinite(num) && num > 25569 && num < 80000) {
+    const ms = Math.round((num - 25569) * 86400 * 1000);
+    const d = new Date(ms);
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+  }
+  return s;
+}
+
+async function getLatestKey(prefix: string): Promise<string | null> {
+  const keys = await listR2Keys(prefix);
+  if (keys.length === 0) return null;
+  return [...keys].sort().reverse()[0];
+}
+
+// ── 파싱: 상품별 전략관리 ──────────────────────────────────────────────
+type StrategyRow = { product_name: string; picking_cell: string };
+
+async function parseStrategy(): Promise<Map<string, StrategyRow>> {
+  const map = new Map<string, StrategyRow>();
+  const key = await getLatestKey("file-uploads/product-strategy/");
+  if (!key) return map;
+  const buf = await getR2ObjectBuffer(key);
+  if (!buf) return map;
+  const wb = XLSX.read(buf, { type: "buffer" });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  if (!ws) return map;
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" }) as string[][];
+  if (rows.length < 2) return map;
+  const headers = rows[0].map(normalizeHeader);
+  const codeIdx = findHeaderIndex(headers, ["상품코드"]);
+  const nameIdx = findHeaderIndex(headers, ["상품명"]);
+  const cellIdx = findHeaderIndex(headers, ["피킹셀"]);
+  if (codeIdx < 0) return map;
+  for (let i = 1; i < rows.length; i++) {
+    const code = String(rows[i][codeIdx] ?? "").trim();
+    if (!code) continue;
+    map.set(code, {
+      product_name: nameIdx >= 0 ? String(rows[i][nameIdx] ?? "").trim() : "",
+      picking_cell: cellIdx >= 0 ? String(rows[i][cellIdx] ?? "").trim() : "",
+    });
+  }
+  return map;
+}
+
+// ── 파싱: 작업센터별 취급상품 마스터 ────────────────────────────────────
+type WorkcenterRow = { box_unit: number; picking_unit: number };
+
+async function parseWorkcenter(): Promise<Map<string, WorkcenterRow>> {
+  const map = new Map<string, WorkcenterRow>();
+  const key = await getLatestKey("file-uploads/workcenter-product-master/");
+  if (!key) return map;
+  const buf = await getR2ObjectBuffer(key);
+  if (!buf) return map;
+  const wb = XLSX.read(buf, { type: "buffer" });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  if (!ws) return map;
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" }) as string[][];
+  if (rows.length < 2) return map;
+  const headers = rows[0].map(normalizeHeader);
+  const codeIdx = findHeaderIndex(headers, ["상품코드"]);
+  // 박스입수 = 센터발주입수, 피킹입수 = 점포발주입수
+  const boxIdx = findHeaderIndex(headers, ["센터발주입수", "외박스입수", "발주입수"]);
+  const pickIdx = findHeaderIndex(headers, ["점포발주입수", "센터피킹입수", "피킹입수"]);
+  if (codeIdx < 0) return map;
+  for (let i = 1; i < rows.length; i++) {
+    const code = String(rows[i][codeIdx] ?? "").trim();
+    if (!code) continue;
+    if (map.has(code)) continue; // 첫 행만 사용 (중복 제거)
+    const boxRaw = boxIdx >= 0 ? String(rows[i][boxIdx] ?? "").replace(/,/g, "") : "0";
+    const pickRaw = pickIdx >= 0 ? String(rows[i][pickIdx] ?? "").replace(/,/g, "") : "0";
+    const box = parseFloat(boxRaw);
+    const pick = parseFloat(pickRaw);
+    map.set(code, {
+      box_unit: Number.isFinite(box) ? box : 0,
+      picking_unit: Number.isFinite(pick) ? pick : 0,
+    });
+  }
+  return map;
+}
+
+// ── 파싱: 재고현황 — (상품코드 + 소비기한) 별 가용수량 합산 ─────────────
+type InvLot = {
+  product_code: string;
+  expiry_date: string; // YYYY-MM-DD
+  qty: number; // 가용수량 합계
+};
+
+async function parseInventory(): Promise<InvLot[]> {
+  const result: InvLot[] = [];
+  const key = await getLatestKey("file-uploads/inventory-status/");
+  if (!key) return result;
+  const buf = await getR2ObjectBuffer(key);
+  if (!buf) return result;
+  const wb = XLSX.read(buf, { type: "buffer" });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  if (!ws) return result;
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" }) as string[][];
+  if (rows.length < 2) return result;
+  const headers = rows[0].map(normalizeHeader);
+  const codeIdx = findHeaderIndex(headers, ["상품코드"]);
+  const qtyIdx = findHeaderIndex(headers, ["가용수량", "가용재고"]);
+  const expiryIdx = findHeaderIndex(headers, ["소비기한", "유통기한"]);
+  if (codeIdx < 0 || qtyIdx < 0) return result;
+
+  const lotMap = new Map<string, InvLot>();
+  for (let i = 1; i < rows.length; i++) {
+    const code = String(rows[i][codeIdx] ?? "").trim();
+    if (!code) continue;
+    const qtyRaw = String(rows[i][qtyIdx] ?? "").replace(/,/g, "");
+    const qty = parseFloat(qtyRaw);
+    if (!Number.isFinite(qty) || qty <= 0) continue;
+    const expiry = expiryIdx >= 0 ? normalizeDate(rows[i][expiryIdx]) : "";
+    const lotKey = `${code}|${expiry}`;
+    const existing = lotMap.get(lotKey);
+    if (!existing) {
+      lotMap.set(lotKey, { product_code: code, expiry_date: expiry, qty });
+    } else {
+      existing.qty += qty;
+    }
+  }
+  return [...lotMap.values()];
+}
+
+// ── 컴퓨테이션: 박스수량 / 낱개수량 분해 ───────────────────────────────
+function decomposeQty(qty: number, boxUnit: number, pickUnit: number): { boxCount: number; unitCount: number } {
+  let remaining = qty;
+  let boxCount = 0;
+  if (boxUnit > 0) {
+    boxCount = Math.floor(remaining / boxUnit);
+    remaining = remaining - boxCount * boxUnit;
+  }
+  let unitCount = 0;
+  if (pickUnit > 0) {
+    unitCount = Math.floor(remaining / pickUnit);
+  } else {
+    unitCount = remaining; // 피킹입수가 0/누락이면 잔여 그대로
+  }
+  return { boxCount, unitCount };
+}
+
+// ── 결과 행 ───────────────────────────────────────────────────────────
+export type InventoryCheckRow = {
+  picking_cell: string;
+  product_code: string;
+  product_name: string;
+  box_unit: number;
+  picking_unit: number;
+  expiry_date: string; // 전산소비기한
+  computed_qty: number; // 전산수량
+  box_count: number; // 박스수량
+  unit_count: number; // 낱개수량
+};
+
+export async function buildInventoryCheckRows(part: WorkPartKey): Promise<InventoryCheckRow[]> {
+  const [strategy, workcenter, lots] = await Promise.all([
+    parseStrategy(),
+    parseWorkcenter(),
+    parseInventory(),
+  ]);
+
+  const rows: InventoryCheckRow[] = [];
+  for (const lot of lots) {
+    const strat = strategy.get(lot.product_code);
+    if (!strat || !strat.picking_cell) continue;
+    const prefix = getCellPrefix(strat.picking_cell);
+    const lotPart = ALL_KNOWN_PREFIXES.has(prefix) ? workPartByPrefix(prefix) : "etc";
+    if (lotPart !== part) continue;
+
+    const wc = workcenter.get(lot.product_code);
+    const boxUnit = wc?.box_unit ?? 0;
+    const pickUnit = wc?.picking_unit ?? 0;
+    const { boxCount, unitCount } = decomposeQty(lot.qty, boxUnit, pickUnit);
+
+    rows.push({
+      picking_cell: strat.picking_cell,
+      product_code: lot.product_code,
+      product_name: strat.product_name,
+      box_unit: boxUnit,
+      picking_unit: pickUnit,
+      expiry_date: lot.expiry_date,
+      computed_qty: lot.qty,
+      box_count: boxCount,
+      unit_count: unitCount,
+    });
+  }
+
+  // 피킹셀 → 상품코드 → 소비기한 순 정렬
+  rows.sort((a, b) => {
+    const cellCmp = a.picking_cell.localeCompare(b.picking_cell, "ko", { numeric: true });
+    if (cellCmp !== 0) return cellCmp;
+    const codeCmp = a.product_code.localeCompare(b.product_code);
+    if (codeCmp !== 0) return codeCmp;
+    return a.expiry_date.localeCompare(b.expiry_date);
+  });
+
+  return rows;
+}
