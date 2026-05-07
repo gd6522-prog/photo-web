@@ -508,11 +508,12 @@ export default function InventoryCheckPage() {
           .ic-page tbody tr {
             page-break-inside: avoid;
           }
-          /* '선택 인쇄' 모드일 때 선택되지 않은 행 + 선택 컬럼 숨김 */
-          .ic-print-selected-only tbody tr[data-selected="0"] {
+          /* 선택 컬럼 (체크박스) 은 인쇄에서 항상 숨김 */
+          .ic-page .ic-select-col {
             display: none !important;
           }
-          .ic-print-selected-only .ic-select-col {
+          /* '선택 인쇄' 모드일 때만 선택되지 않은 행 숨김 */
+          .ic-print-selected-only tbody tr[data-selected="0"] {
             display: none !important;
           }
           @page {
