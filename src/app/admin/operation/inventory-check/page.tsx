@@ -462,9 +462,9 @@ export default function InventoryCheckPage() {
                     <td style={tdR}>{r.box_unit ? r.box_unit.toLocaleString() : "-"}</td>
                     <td style={tdR}>{r.picking_unit ? r.picking_unit.toLocaleString() : "-"}</td>
                     <td style={tdC}>{r.expiry_date || "-"}</td>
-                    <td style={tdR}>{r.computed_qty.toLocaleString()}</td>
-                    <td style={tdR}>{r.box_count.toLocaleString()}</td>
-                    <td style={tdR}>{r.unit_count.toLocaleString()}</td>
+                    <td style={tdR}>{r.computed_qty ? r.computed_qty.toLocaleString() : "-"}</td>
+                    <td style={tdR}>{r.box_count ? r.box_count.toLocaleString() : "-"}</td>
+                    <td style={tdR}>{r.unit_count ? r.unit_count.toLocaleString() : "-"}</td>
                     <td style={tdC} />
                     <td style={tdC} />
                     <td style={tdC} />
