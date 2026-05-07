@@ -288,8 +288,7 @@ export default function InventoryCheckPage() {
               <th
                 colSpan={10}
                 style={{
-                  border: "1px solid #0f172a",
-                  borderBottom: "none",
+                  border: "1px solid #cbd5e1",
                   padding: "10px 12px",
                   textAlign: "left",
                   fontSize: 14,
@@ -303,8 +302,7 @@ export default function InventoryCheckPage() {
               <th
                 colSpan={3}
                 style={{
-                  border: "1px solid #0f172a",
-                  borderBottom: "none",
+                  border: "1px solid #cbd5e1",
                   padding: "10px 12px",
                   fontSize: 12,
                   fontWeight: 700,
