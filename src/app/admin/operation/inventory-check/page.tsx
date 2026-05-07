@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Row = {
@@ -60,6 +60,76 @@ export default function InventoryCheckPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const dragRef = useRef<{ active: boolean; mode: "add" | "remove" }>({ active: false, mode: "add" });
+
+  // 드래그 종료를 위한 글로벌 mouseup 핸들러
+  useEffect(() => {
+    const onUp = () => { dragRef.current.active = false; };
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("mouseleave", onUp);
+    return () => {
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("mouseleave", onUp);
+    };
+  }, []);
+
+  // 인쇄 끝나면 '선택 인쇄' 모드 자동 해제
+  useEffect(() => {
+    const onAfter = () => setPrintSelectedOnly(false);
+    window.addEventListener("afterprint", onAfter);
+    return () => window.removeEventListener("afterprint", onAfter);
+  }, []);
+
+  const toggleRow = (idx: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
+  const setRowSelected = (idx: number, on: boolean) => {
+    setSelected((prev) => {
+      if (on && prev.has(idx)) return prev;
+      if (!on && !prev.has(idx)) return prev;
+      const next = new Set(prev);
+      if (on) next.add(idx);
+      else next.delete(idx);
+      return next;
+    });
+  };
+
+  const handleRowMouseDown = (idx: number) => (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const willAdd = !selected.has(idx);
+    dragRef.current = { active: true, mode: willAdd ? "add" : "remove" };
+    setRowSelected(idx, willAdd);
+  };
+
+  const handleRowMouseEnter = (idx: number) => () => {
+    if (!dragRef.current.active) return;
+    setRowSelected(idx, dragRef.current.mode === "add");
+  };
+
+  const allSelected = rows.length > 0 && selected.size === rows.length;
+  const someSelected = selected.size > 0 && selected.size < rows.length;
+  const headerCheckRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (headerCheckRef.current) headerCheckRef.current.indeterminate = someSelected;
+  }, [someSelected]);
+
+  const toggleAll = () => {
+    if (allSelected) setSelected(new Set());
+    else setSelected(new Set(rows.map((_, i) => i)));
+  };
+
+  // 탭 변경하거나 데이터 새로 로드되면 선택 초기화
+  useEffect(() => {
+    setSelected(new Set());
+  }, [tab, rows]);
 
   const load = React.useCallback(async (part: WorkPartKey) => {
     try {
@@ -110,10 +180,20 @@ export default function InventoryCheckPage() {
     return `${y}-${m}-${d}`;
   }, []);
 
-  const onPrint = () => window.print();
+  const [printSelectedOnly, setPrintSelectedOnly] = useState(false);
+
+  const onPrintAll = () => {
+    setPrintSelectedOnly(false);
+    window.setTimeout(() => window.print(), 0);
+  };
+  const onPrintSelected = () => {
+    if (selected.size === 0) return;
+    setPrintSelectedOnly(true);
+    window.setTimeout(() => window.print(), 0);
+  };
 
   return (
-    <div className="ic-page" style={{ display: "grid", gap: 12 }}>
+    <div className={`ic-page${printSelectedOnly ? " ic-print-selected-only" : ""}`} style={{ display: "grid", gap: 12 }}>
       <div className="ic-toolbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: "#0f172a" }}>재고조사</h1>
         <div style={{ display: "flex", gap: 6 }}>
@@ -125,8 +205,22 @@ export default function InventoryCheckPage() {
           >
             {loading ? "불러오는 중…" : "새로고침"}
           </button>
-          <button type="button" onClick={onPrint} style={{ ...btnStyle, background: "#0f766e", color: "#fff", borderColor: "#0f766e" }}>
-            인쇄
+          <button
+            type="button"
+            onClick={onPrintSelected}
+            disabled={selected.size === 0}
+            style={{
+              ...btnStyle,
+              background: selected.size > 0 ? "#1d4ed8" : "#94a3b8",
+              color: "#fff",
+              borderColor: selected.size > 0 ? "#1d4ed8" : "#94a3b8",
+              cursor: selected.size > 0 ? "pointer" : "not-allowed",
+            }}
+          >
+            선택 인쇄 ({selected.size})
+          </button>
+          <button type="button" onClick={onPrintAll} style={{ ...btnStyle, background: "#0f766e", color: "#fff", borderColor: "#0f766e" }}>
+            전체 인쇄
           </button>
         </div>
       </div>
@@ -174,6 +268,7 @@ export default function InventoryCheckPage() {
       <div style={{ border: "1px solid #cbd5e1", background: "#fff", overflow: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
           <colgroup>
+            <col className="ic-select-col" style={{ width: 36 }} />
             <col style={{ width: 90 }} />
             <col style={{ width: 100 }} />
             <col style={{ width: 220 }} />
@@ -191,7 +286,7 @@ export default function InventoryCheckPage() {
             {/* 인쇄용 페이지 상단 헤더 — 페이지마다 반복 (thead 가 자동으로 반복됨) */}
             <tr className="ic-print-header" style={{ display: "none" }}>
               <th
-                colSpan={9}
+                colSpan={10}
                 style={{
                   border: "1px solid #0f172a",
                   borderBottom: "none",
@@ -222,6 +317,16 @@ export default function InventoryCheckPage() {
               </th>
             </tr>
             <tr style={{ background: "#f1f5f9" }}>
+              <th className="ic-select-col" style={th}>
+                <input
+                  ref={headerCheckRef}
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleAll}
+                  style={{ cursor: "pointer" }}
+                  aria-label="전체 선택"
+                />
+              </th>
               <th style={th}>피킹셀</th>
               <th style={th}>상품코드</th>
               <th style={th}>상품명</th>
@@ -239,33 +344,57 @@ export default function InventoryCheckPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={12} style={{ padding: 20, textAlign: "center", color: "#94a3b8" }}>
+                <td colSpan={13} style={{ padding: 20, textAlign: "center", color: "#94a3b8" }}>
                   불러오는 중…
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={12} style={{ padding: 20, textAlign: "center", color: "#94a3b8" }}>
+                <td colSpan={13} style={{ padding: 20, textAlign: "center", color: "#94a3b8" }}>
                   데이터가 없습니다.
                 </td>
               </tr>
             ) : (
-              rows.map((r, idx) => (
-                <tr key={`${r.product_code}-${r.expiry_date}-${idx}`} style={{ borderTop: "1px solid #e2e8f0" }}>
-                  <td style={tdC}>{formatPickingCell(r.picking_cell)}</td>
-                  <td style={tdC}>{r.product_code}</td>
-                  <td style={tdName} title={r.product_name || ""}>{r.product_name || "-"}</td>
-                  <td style={tdR}>{r.box_unit ? r.box_unit.toLocaleString() : "-"}</td>
-                  <td style={tdR}>{r.picking_unit ? r.picking_unit.toLocaleString() : "-"}</td>
-                  <td style={tdC}>{r.expiry_date || "-"}</td>
-                  <td style={tdR}>{r.computed_qty.toLocaleString()}</td>
-                  <td style={tdR}>{r.box_count.toLocaleString()}</td>
-                  <td style={tdR}>{r.unit_count.toLocaleString()}</td>
-                  <td style={tdC} />
-                  <td style={tdC} />
-                  <td style={tdC} />
-                </tr>
-              ))
+              rows.map((r, idx) => {
+                const isSel = selected.has(idx);
+                return (
+                  <tr
+                    key={`${r.product_code}-${r.expiry_date}-${idx}`}
+                    data-selected={isSel ? "1" : "0"}
+                    onMouseDown={handleRowMouseDown(idx)}
+                    onMouseEnter={handleRowMouseEnter(idx)}
+                    style={{
+                      borderTop: "1px solid #e2e8f0",
+                      background: isSel ? "#dbeafe" : undefined,
+                      cursor: "pointer",
+                      userSelect: "none",
+                    }}
+                  >
+                    <td className="ic-select-col" style={tdC}>
+                      <input
+                        type="checkbox"
+                        checked={isSel}
+                        readOnly
+                        tabIndex={-1}
+                        onClick={(e) => e.preventDefault()}
+                        style={{ pointerEvents: "none" }}
+                      />
+                    </td>
+                    <td style={tdC}>{formatPickingCell(r.picking_cell)}</td>
+                    <td style={tdC}>{r.product_code}</td>
+                    <td style={tdName} title={r.product_name || ""}>{r.product_name || "-"}</td>
+                    <td style={tdR}>{r.box_unit ? r.box_unit.toLocaleString() : "-"}</td>
+                    <td style={tdR}>{r.picking_unit ? r.picking_unit.toLocaleString() : "-"}</td>
+                    <td style={tdC}>{r.expiry_date || "-"}</td>
+                    <td style={tdR}>{r.computed_qty.toLocaleString()}</td>
+                    <td style={tdR}>{r.box_count.toLocaleString()}</td>
+                    <td style={tdR}>{r.unit_count.toLocaleString()}</td>
+                    <td style={tdC} />
+                    <td style={tdC} />
+                    <td style={tdC} />
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -303,11 +432,19 @@ export default function InventoryCheckPage() {
           .ic-page tbody tr {
             page-break-inside: avoid;
           }
+          /* '선택 인쇄' 모드일 때 선택되지 않은 행 + 선택 컬럼 숨김 */
+          .ic-print-selected-only tbody tr[data-selected="0"] {
+            display: none !important;
+          }
+          .ic-print-selected-only .ic-select-col {
+            display: none !important;
+          }
           @page {
             size: A4 landscape;
             margin: 8mm;
           }
         }
+        /* 인쇄 후 모드 자동 해제 — afterprint 이벤트로 컴포넌트가 처리하지만 안전망으로 인쇄 종료 후 클래스 효과 사라지게 */
       `}</style>
     </div>
   );
