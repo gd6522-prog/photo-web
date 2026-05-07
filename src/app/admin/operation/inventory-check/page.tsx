@@ -183,15 +183,15 @@ export default function InventoryCheckPage() {
               <th style={th}>피킹셀</th>
               <th style={th}>상품코드</th>
               <th style={th}>상품명</th>
-              <th style={th}>박스입수</th>
-              <th style={th}>피킹입수</th>
-              <th style={th}>전산소비기한</th>
-              <th style={th}>전산수량</th>
-              <th style={th}>박스수량</th>
-              <th style={th}>낱개수량</th>
-              <th style={{ ...th, background: "#fef3c7" }}>실사유통기한</th>
-              <th style={{ ...th, background: "#fef3c7" }}>실사박스</th>
-              <th style={{ ...th, background: "#fef3c7" }}>실사낱개</th>
+              <th style={th}>박스<br />입수</th>
+              <th style={th}>피킹<br />입수</th>
+              <th style={th}>전산<br />소비기한</th>
+              <th style={th}>전산<br />수량</th>
+              <th style={th}>박스<br />수량</th>
+              <th style={th}>낱개<br />수량</th>
+              <th style={{ ...th, background: "#fef3c7" }}>실사<br />유통기한</th>
+              <th style={{ ...th, background: "#fef3c7" }}>실사<br />박스</th>
+              <th style={{ ...th, background: "#fef3c7" }}>실사<br />낱개</th>
             </tr>
           </thead>
           <tbody>
@@ -231,10 +231,20 @@ export default function InventoryCheckPage() {
 
       <style jsx global>{`
         @media print {
+          /* admin layout 의 상단 nav (메인/사진/운영 등) 숨김 */
+          .ha-admin-header,
+          header,
+          nav {
+            display: none !important;
+          }
           .ic-toolbar,
           .ic-tabs,
           .ic-summary {
             display: none !important;
+          }
+          .ic-page {
+            margin: 0 !important;
+            padding: 0 !important;
           }
           .ic-page table {
             font-size: 10px;
