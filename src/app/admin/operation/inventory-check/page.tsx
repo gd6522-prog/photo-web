@@ -389,6 +389,34 @@ export default function InventoryCheckPage() {
     await load(tab);
   };
 
+  const onResetSelected = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`선택한 ${selected.size}건의 실사 기록을 초기화합니다. 계속할까요?`)) return;
+    const keys = [...selected].map((idx) => {
+      const r = rows[idx];
+      return { product_code: r.product_code, expiry_date: r.expiry_date };
+    });
+    const token = await getAdminToken();
+    const res = await fetch("/api/admin/inventory-check-records", {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ keys }),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      alert((j as { message?: string }).message || "선택 초기화 실패");
+      return;
+    }
+    // 로컬 입력값도 같이 비움
+    setActuals((prev) => {
+      const next = new Map(prev);
+      for (const k of keys) next.delete(recordKey(k.product_code, k.expiry_date));
+      return next;
+    });
+    setSelected(new Set());
+    await load(tab);
+  };
+
   return (
     <div className={`ic-page${printSelectedOnly ? " ic-print-selected-only" : ""}`} style={{ display: "grid", gap: 12 }}>
       <div className="ic-toolbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -418,10 +446,24 @@ export default function InventoryCheckPage() {
           </button>
           <button
             type="button"
+            onClick={() => void onResetSelected()}
+            disabled={selected.size === 0}
+            style={{
+              ...btnStyle,
+              background: "#fff",
+              color: selected.size > 0 ? "#b45309" : "#94a3b8",
+              borderColor: selected.size > 0 ? "#fde68a" : "#e2e8f0",
+              cursor: selected.size > 0 ? "pointer" : "not-allowed",
+            }}
+          >
+            선택 초기화 ({selected.size})
+          </button>
+          <button
+            type="button"
             onClick={() => void onReset()}
             style={{ ...btnStyle, background: "#fff", color: "#b91c1c", borderColor: "#fecaca" }}
           >
-            초기화
+            전체 초기화
           </button>
           <button
             type="button"

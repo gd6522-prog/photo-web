@@ -79,13 +79,41 @@ export async function POST(req: NextRequest) {
   }
 }
 
+type DeletePayload = { keys?: Array<{ product_code: string; expiry_date: string }> };
+
 export async function DELETE(req: NextRequest) {
   const guard = await requireAdmin(req);
   if (!guard.ok) return guard.res;
 
   const part = req.nextUrl.searchParams.get("part") ?? "";
 
+  // 본문에 keys 가 있으면 선택 삭제, 없으면 part / 전체 삭제
+  let body: DeletePayload | null = null;
   try {
+    const text = await req.text();
+    if (text && text.trim()) body = JSON.parse(text) as DeletePayload;
+  } catch {
+    body = null;
+  }
+
+  try {
+    if (body?.keys && Array.isArray(body.keys) && body.keys.length > 0) {
+      // 선택 삭제 — 병렬 처리
+      const results = await Promise.all(
+        body.keys.map((k) =>
+          guard.sbAdmin
+            .from("inventory_check_records")
+            .delete()
+            .eq("product_code", String(k.product_code))
+            .eq("expiry_date", String(k.expiry_date))
+        )
+      );
+      const errs = results.map((r) => r.error).filter(Boolean);
+      if (errs.length > 0) return json(false, errs[0]!.message, null, 500);
+      return json(true, undefined, { deleted: body.keys.length });
+    }
+
+    // 전체 삭제 (part 지정 시 그 작업파트만)
     let q = guard.sbAdmin.from("inventory_check_records").delete();
     if (part) q = q.eq("work_part", part);
     else q = q.neq("id", "00000000-0000-0000-0000-000000000000"); // 전체 삭제 보호용 더미 조건
