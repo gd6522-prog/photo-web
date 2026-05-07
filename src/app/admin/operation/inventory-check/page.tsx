@@ -495,6 +495,19 @@ export default function InventoryCheckPage() {
           }
           .ic-page table {
             font-size: 10px;
+            border-collapse: collapse !important;
+          }
+          /* 인쇄지의 표 구분선 진하게 */
+          .ic-page table th,
+          .ic-page table td {
+            border-color: #111 !important;
+            border-width: 1px !important;
+            border-style: solid !important;
+          }
+          /* 헤더 배경/색상이 흐리게 인쇄되지 않도록 강제 */
+          .ic-page table th {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           /* thead 가 각 페이지 상단에 반복되도록 */
           .ic-page thead {
