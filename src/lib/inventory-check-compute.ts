@@ -1,5 +1,14 @@
 import * as XLSX from "xlsx";
-import { getR2ObjectBuffer, listR2Keys } from "@/lib/r2";
+import { getR2ObjectBuffer, getR2ObjectText, listR2Keys, putR2Object } from "@/lib/r2";
+
+// ── R2 결과 캐시 (모든 인스턴스 공유) ────────────────────────────────────
+const R2_RESULT_CACHE_KEY = "file-uploads/_inventory-check-cache-v1.json";
+type ResultCacheEntry = {
+  strategy_key: string;
+  workcenter_key: string;
+  inventory_key: string;
+  rows_by_part: Record<string, InventoryCheckRow[]>;
+};
 
 // ── 작업파트별 피킹셀 prefix 매핑 ─────────────────────────────────────────
 export type WorkPartKey =
@@ -95,13 +104,17 @@ async function getLatestKey(prefix: string): Promise<string | null> {
   return [...keys].sort().reverse()[0];
 }
 
+// ── 인메모리 캐시: 파일 R2 key 가 같으면 재파싱 안 함 ─────────────────────
+// (Vercel 서버리스 — 동일 Lambda 인스턴스가 재사용될 때만 효과. 다른 인스턴스는 재파싱.)
+let strategyMemCache: { key: string; data: Map<string, StrategyRow> } | null = null;
+let workcenterMemCache: { key: string; data: Map<string, WorkcenterRow> } | null = null;
+let inventoryMemCache: { key: string; data: InvLot[] } | null = null;
+
 // ── 파싱: 상품별 전략관리 ──────────────────────────────────────────────
 type StrategyRow = { product_name: string; picking_cell: string };
 
-async function parseStrategy(): Promise<Map<string, StrategyRow>> {
+async function parseStrategyByKey(key: string): Promise<Map<string, StrategyRow>> {
   const map = new Map<string, StrategyRow>();
-  const key = await getLatestKey("file-uploads/product-strategy/");
-  if (!key) return map;
   const buf = await getR2ObjectBuffer(key);
   if (!buf) return map;
   const wb = XLSX.read(buf, { type: "buffer" });
@@ -125,13 +138,20 @@ async function parseStrategy(): Promise<Map<string, StrategyRow>> {
   return map;
 }
 
+async function getStrategy(): Promise<Map<string, StrategyRow>> {
+  const key = await getLatestKey("file-uploads/product-strategy/");
+  if (!key) return new Map();
+  if (strategyMemCache && strategyMemCache.key === key) return strategyMemCache.data;
+  const data = await parseStrategyByKey(key);
+  strategyMemCache = { key, data };
+  return data;
+}
+
 // ── 파싱: 작업센터별 취급상품 마스터 ────────────────────────────────────
 type WorkcenterRow = { box_unit: number; picking_unit: number };
 
-async function parseWorkcenter(): Promise<Map<string, WorkcenterRow>> {
+async function parseWorkcenterByKey(key: string): Promise<Map<string, WorkcenterRow>> {
   const map = new Map<string, WorkcenterRow>();
-  const key = await getLatestKey("file-uploads/workcenter-product-master/");
-  if (!key) return map;
   const buf = await getR2ObjectBuffer(key);
   if (!buf) return map;
   const wb = XLSX.read(buf, { type: "buffer" });
@@ -148,7 +168,7 @@ async function parseWorkcenter(): Promise<Map<string, WorkcenterRow>> {
   for (let i = 1; i < rows.length; i++) {
     const code = String(rows[i][codeIdx] ?? "").trim();
     if (!code) continue;
-    if (map.has(code)) continue; // 첫 행만 사용 (중복 제거)
+    if (map.has(code)) continue;
     const boxRaw = boxIdx >= 0 ? String(rows[i][boxIdx] ?? "").replace(/,/g, "") : "0";
     const pickRaw = pickIdx >= 0 ? String(rows[i][pickIdx] ?? "").replace(/,/g, "") : "0";
     const box = parseFloat(boxRaw);
@@ -161,6 +181,15 @@ async function parseWorkcenter(): Promise<Map<string, WorkcenterRow>> {
   return map;
 }
 
+async function getWorkcenter(): Promise<Map<string, WorkcenterRow>> {
+  const key = await getLatestKey("file-uploads/workcenter-product-master/");
+  if (!key) return new Map();
+  if (workcenterMemCache && workcenterMemCache.key === key) return workcenterMemCache.data;
+  const data = await parseWorkcenterByKey(key);
+  workcenterMemCache = { key, data };
+  return data;
+}
+
 // ── 파싱: 재고현황 — (상품코드 + 소비기한) 별 가용수량 합산 ─────────────
 type InvLot = {
   product_code: string;
@@ -168,22 +197,19 @@ type InvLot = {
   qty: number; // 가용수량 합계
 };
 
-async function parseInventory(): Promise<InvLot[]> {
-  const result: InvLot[] = [];
-  const key = await getLatestKey("file-uploads/inventory-status/");
-  if (!key) return result;
+async function parseInventoryByKey(key: string): Promise<InvLot[]> {
   const buf = await getR2ObjectBuffer(key);
-  if (!buf) return result;
+  if (!buf) return [];
   const wb = XLSX.read(buf, { type: "buffer" });
   const ws = wb.Sheets[wb.SheetNames[0]];
-  if (!ws) return result;
+  if (!ws) return [];
   const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" }) as string[][];
-  if (rows.length < 2) return result;
+  if (rows.length < 2) return [];
   const headers = rows[0].map(normalizeHeader);
   const codeIdx = findHeaderIndex(headers, ["상품코드"]);
   const qtyIdx = findHeaderIndex(headers, ["가용수량", "가용재고"]);
   const expiryIdx = findHeaderIndex(headers, ["소비기한", "유통기한"]);
-  if (codeIdx < 0 || qtyIdx < 0) return result;
+  if (codeIdx < 0 || qtyIdx < 0) return [];
 
   const lotMap = new Map<string, InvLot>();
   for (let i = 1; i < rows.length; i++) {
@@ -202,6 +228,15 @@ async function parseInventory(): Promise<InvLot[]> {
     }
   }
   return [...lotMap.values()];
+}
+
+async function getInventory(): Promise<InvLot[]> {
+  const key = await getLatestKey("file-uploads/inventory-status/");
+  if (!key) return [];
+  if (inventoryMemCache && inventoryMemCache.key === key) return inventoryMemCache.data;
+  const data = await parseInventoryByKey(key);
+  inventoryMemCache = { key, data };
+  return data;
 }
 
 // ── 컴퓨테이션: 박스수량 / 낱개수량 분해 ───────────────────────────────
@@ -234,27 +269,25 @@ export type InventoryCheckRow = {
   unit_count: number; // 낱개수량
 };
 
-export async function buildInventoryCheckRows(part: WorkPartKey): Promise<InventoryCheckRow[]> {
+async function buildAllPartsRows(): Promise<Record<string, InventoryCheckRow[]>> {
   const [strategy, workcenter, lots] = await Promise.all([
-    parseStrategy(),
-    parseWorkcenter(),
-    parseInventory(),
+    getStrategy(),
+    getWorkcenter(),
+    getInventory(),
   ]);
 
-  const rows: InventoryCheckRow[] = [];
+  const byPart: Record<string, InventoryCheckRow[]> = {};
   for (const lot of lots) {
     const strat = strategy.get(lot.product_code);
     if (!strat || !strat.picking_cell) continue;
     const prefix = getCellPrefix(strat.picking_cell);
-    const lotPart = ALL_KNOWN_PREFIXES.has(prefix) ? workPartByPrefix(prefix) : "etc";
-    if (lotPart !== part) continue;
-
+    const part = ALL_KNOWN_PREFIXES.has(prefix) ? workPartByPrefix(prefix) : "etc";
     const wc = workcenter.get(lot.product_code);
     const boxUnit = wc?.box_unit ?? 0;
     const pickUnit = wc?.picking_unit ?? 0;
     const { boxCount, unitCount } = decomposeQty(lot.qty, boxUnit, pickUnit);
-
-    rows.push({
+    if (!byPart[part]) byPart[part] = [];
+    byPart[part].push({
       picking_cell: strat.picking_cell,
       product_code: lot.product_code,
       product_name: strat.product_name,
@@ -268,13 +301,58 @@ export async function buildInventoryCheckRows(part: WorkPartKey): Promise<Invent
   }
 
   // 피킹셀 → 상품코드 → 소비기한 순 정렬
-  rows.sort((a, b) => {
-    const cellCmp = a.picking_cell.localeCompare(b.picking_cell, "ko", { numeric: true });
-    if (cellCmp !== 0) return cellCmp;
-    const codeCmp = a.product_code.localeCompare(b.product_code);
-    if (codeCmp !== 0) return codeCmp;
-    return a.expiry_date.localeCompare(b.expiry_date);
-  });
+  for (const part of Object.keys(byPart)) {
+    byPart[part].sort((a, b) => {
+      const cellCmp = a.picking_cell.localeCompare(b.picking_cell, "ko", { numeric: true });
+      if (cellCmp !== 0) return cellCmp;
+      const codeCmp = a.product_code.localeCompare(b.product_code);
+      if (codeCmp !== 0) return codeCmp;
+      return a.expiry_date.localeCompare(b.expiry_date);
+    });
+  }
+  return byPart;
+}
 
-  return rows;
+export async function buildInventoryCheckRows(part: WorkPartKey): Promise<InventoryCheckRow[]> {
+  // 현재 사용 중인 파일 R2 key 들
+  const [stratKey, wcKey, invKey] = await Promise.all([
+    getLatestKey("file-uploads/product-strategy/"),
+    getLatestKey("file-uploads/workcenter-product-master/"),
+    getLatestKey("file-uploads/inventory-status/"),
+  ]);
+
+  // R2 결과 캐시 — 3개 파일 키가 모두 같으면 캐시 사용 (콜드 Lambda 도 빠름)
+  if (stratKey && wcKey && invKey) {
+    try {
+      const cachedText = await getR2ObjectText(R2_RESULT_CACHE_KEY);
+      if (cachedText) {
+        const cached = JSON.parse(cachedText) as ResultCacheEntry;
+        if (
+          cached.strategy_key === stratKey &&
+          cached.workcenter_key === wcKey &&
+          cached.inventory_key === invKey
+        ) {
+          return cached.rows_by_part[part] ?? [];
+        }
+      }
+    } catch {
+      // 캐시 읽기 실패는 무시하고 재계산
+    }
+  }
+
+  // 캐시 미스 → 전체 재계산 후 R2 결과 캐시에 저장
+  const byPart = await buildAllPartsRows();
+  if (stratKey && wcKey && invKey) {
+    void putR2Object(
+      R2_RESULT_CACHE_KEY,
+      JSON.stringify({
+        strategy_key: stratKey,
+        workcenter_key: wcKey,
+        inventory_key: invKey,
+        rows_by_part: byPart,
+      } as ResultCacheEntry),
+      "application/json"
+    );
+  }
+  return byPart[part] ?? [];
 }
