@@ -869,6 +869,34 @@ export async function POST(req: NextRequest) {
       void putR2Object(`${R2_PREFIX}/daily/${dd}.json`, JSON.stringify(dailySnap), "application/json");
     }
 
+    // 단품별 업로드 직후 elogis-agent 에 관련 슬롯 자동 다운로드 요청 (백그라운드).
+    // 단품별 데이터를 활용하는 화면(통합체크리스트, 별도작업 등)이 최신 마스터 기준으로
+    // 동작하도록 4개 슬롯을 새로 받음. 중복 검출은 elogis_sync_log 의 active 잡 검사로 처리.
+    if (!isHistorical) {
+      const TARGET_SLOTS = ["product-inventory", "inventory-status", "cell-management", "product-strategy"];
+      void (async () => {
+        try {
+          const { data: actives } = await guard.sbAdmin
+            .from("elogis_sync_log")
+            .select("id, target_slots")
+            .in("status", ["pending", "running"]);
+          const isGlobal = (s: unknown) => !Array.isArray(s) || s.length === 0;
+          const slotsToQueue = TARGET_SLOTS.filter((slot) => {
+            return !(actives ?? []).some((j: { target_slots: unknown }) =>
+              isGlobal(j.target_slots) || (j.target_slots as string[]).includes(slot)
+            );
+          });
+          if (slotsToQueue.length > 0) {
+            await guard.sbAdmin
+              .from("elogis_sync_log")
+              .insert({ status: "pending", target_slots: slotsToQueue });
+          }
+        } catch {
+          // 트리거 실패는 업로드 자체에 영향 주지 않음
+        }
+      })();
+    }
+
     return json(true, undefined, { snapshot, matchedCount });
   } catch (e) {
     return json(false, e instanceof Error ? e.message : String(e), null, 500);
