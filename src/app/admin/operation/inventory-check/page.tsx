@@ -501,15 +501,11 @@ export default function InventoryCheckPage() {
             font-size: 10px;
             border-collapse: collapse !important;
           }
-          /* 인쇄지의 표 구분선 진하게 */
+          /* 인쇄지의 표 구분선 — 모든 셀(th/td)을 동일한 1px solid #111 로 강제.
+             border 단축속성으로 덮어써서 인라인 border 색이 남지 않게 함. */
           .ic-page table th,
           .ic-page table td {
-            border-color: #111 !important;
-            border-width: 1px !important;
-            border-style: solid !important;
-          }
-          /* 헤더 배경/색상이 흐리게 인쇄되지 않도록 강제 */
-          .ic-page table th {
+            border: 1px solid #111 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
