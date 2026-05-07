@@ -167,16 +167,16 @@ export default function InventoryCheckPage() {
           <colgroup>
             <col style={{ width: 90 }} />
             <col style={{ width: 100 }} />
-            <col />
+            <col style={{ width: 220 }} />
             <col style={{ width: 60 }} />
             <col style={{ width: 60 }} />
             <col style={{ width: 90 }} />
             <col style={{ width: 70 }} />
             <col style={{ width: 60 }} />
             <col style={{ width: 60 }} />
+            <col style={{ width: 130 }} />
             <col style={{ width: 90 }} />
-            <col style={{ width: 60 }} />
-            <col style={{ width: 60 }} />
+            <col style={{ width: 90 }} />
           </colgroup>
           <thead>
             <tr style={{ background: "#f1f5f9" }}>
@@ -212,7 +212,7 @@ export default function InventoryCheckPage() {
                 <tr key={`${r.product_code}-${r.expiry_date}-${idx}`} style={{ borderTop: "1px solid #e2e8f0" }}>
                   <td style={tdC}>{formatPickingCell(r.picking_cell)}</td>
                   <td style={tdC}>{r.product_code}</td>
-                  <td style={td}>{r.product_name || "-"}</td>
+                  <td style={tdName} title={r.product_name || ""}>{r.product_name || "-"}</td>
                   <td style={tdR}>{r.box_unit ? r.box_unit.toLocaleString() : "-"}</td>
                   <td style={tdR}>{r.picking_unit ? r.picking_unit.toLocaleString() : "-"}</td>
                   <td style={tdC}>{r.expiry_date || "-"}</td>
@@ -280,3 +280,4 @@ const td: React.CSSProperties = {
 
 const tdC: React.CSSProperties = { ...td, textAlign: "center" };
 const tdR: React.CSSProperties = { ...td, textAlign: "right" };
+const tdName: React.CSSProperties = { ...td, overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 };
