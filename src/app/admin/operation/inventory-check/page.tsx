@@ -68,15 +68,87 @@ export default function InventoryCheckPage() {
     anchor: number;
     initialSet: Set<number>;
   }>({ active: false, mode: "add", anchor: -1, initialSet: new Set() });
+  const cursorRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const scrollRafRef = useRef<number | null>(null);
 
-  // 드래그 종료를 위한 글로벌 mouseup 핸들러
+  const applyDragRange = (idx: number) => {
+    if (!dragRef.current.active) return;
+    const { mode, anchor, initialSet } = dragRef.current;
+    const lo = Math.min(anchor, idx);
+    const hi = Math.max(anchor, idx);
+    const next = new Set(initialSet);
+    for (let i = lo; i <= hi; i++) {
+      if (mode === "add") next.add(i);
+      else next.delete(i);
+    }
+    setSelected(next);
+  };
+
+  const updateFromCursor = () => {
+    const el = document.elementFromPoint(cursorRef.current.x, cursorRef.current.y);
+    if (!el) return;
+    const tr = (el as HTMLElement).closest("tr[data-row-idx]") as HTMLElement | null;
+    if (!tr) return;
+    const idx = Number(tr.dataset.rowIdx);
+    if (!Number.isFinite(idx)) return;
+    applyDragRange(idx);
+  };
+
+  const stopAutoScroll = () => {
+    if (scrollRafRef.current != null) {
+      cancelAnimationFrame(scrollRafRef.current);
+      scrollRafRef.current = null;
+    }
+  };
+
+  const startAutoScroll = () => {
+    if (scrollRafRef.current != null) return;
+    const tick = () => {
+      if (!dragRef.current.active) {
+        scrollRafRef.current = null;
+        return;
+      }
+      const y = cursorRef.current.y;
+      const vh = window.innerHeight;
+      const edge = 80;
+      let dy = 0;
+      if (y < edge) dy = -Math.ceil((edge - y) / 6 + 1); // 위로
+      else if (y > vh - edge) dy = Math.ceil((y - (vh - edge)) / 6 + 1); // 아래로
+      if (dy !== 0) {
+        window.scrollBy(0, dy);
+        updateFromCursor();
+        scrollRafRef.current = window.requestAnimationFrame(tick);
+      } else {
+        scrollRafRef.current = null;
+      }
+    };
+    scrollRafRef.current = window.requestAnimationFrame(tick);
+  };
+
+  // 글로벌 mouseup / mousemove 핸들러
   useEffect(() => {
-    const onUp = () => { dragRef.current.active = false; };
+    const onUp = () => {
+      dragRef.current.active = false;
+      stopAutoScroll();
+    };
+    const onMove = (e: MouseEvent) => {
+      cursorRef.current = { x: e.clientX, y: e.clientY };
+      if (!dragRef.current.active) return;
+      // 커서 위치의 행과 동기화 (마우스 이동 시 mouseenter 누락 방지)
+      updateFromCursor();
+      const vh = window.innerHeight;
+      const edge = 80;
+      if (e.clientY < edge || e.clientY > vh - edge) startAutoScroll();
+      else stopAutoScroll();
+    };
     window.addEventListener("mouseup", onUp);
     window.addEventListener("mouseleave", onUp);
+    window.addEventListener("mousemove", onMove);
     return () => {
       window.removeEventListener("mouseup", onUp);
       window.removeEventListener("mouseleave", onUp);
+      window.removeEventListener("mousemove", onMove);
+      stopAutoScroll();
     };
   }, []);
 
@@ -116,17 +188,7 @@ export default function InventoryCheckPage() {
 
   const handleRowMouseEnter = (idx: number) => () => {
     if (!dragRef.current.active) return;
-    const { mode, anchor, initialSet } = dragRef.current;
-    const lo = Math.min(anchor, idx);
-    const hi = Math.max(anchor, idx);
-    // 시작점 기준 [lo..hi] 범위만 mode 적용, 그 외는 initialSet 그대로
-    // → 드래그를 되돌리면 풀렸다가 다시 잡혔다가 자연스럽게 동작
-    const next = new Set(initialSet);
-    for (let i = lo; i <= hi; i++) {
-      if (mode === "add") next.add(i);
-      else next.delete(i);
-    }
-    setSelected(next);
+    applyDragRange(idx);
   };
 
   const allSelected = rows.length > 0 && selected.size === rows.length;
@@ -374,6 +436,7 @@ export default function InventoryCheckPage() {
                   <tr
                     key={`${r.product_code}-${r.expiry_date}-${idx}`}
                     data-selected={isSel ? "1" : "0"}
+                    data-row-idx={idx}
                     onMouseDown={handleRowMouseDown(idx)}
                     onMouseEnter={handleRowMouseEnter(idx)}
                     style={{
